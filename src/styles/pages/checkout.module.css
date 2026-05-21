@@ -1,0 +1,371 @@
+/* Checkout Page - Split Screen Layout */
+
+/* Background split - white left, gray right */
+.splitBg {
+  position: fixed;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media (min-width: 1024px) {
+  .splitBg {
+    display: block;
+  }
+
+  .splitBg::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: white;
+  }
+
+  .splitBg::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: #F5F5F0;
+  }
+}
+
+/* Split layout container */
+.page {
+  position: relative;
+  max-width: 1600px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  min-height: calc(100vh - 80px);
+}
+
+@media (min-width: 1024px) {
+  .page {
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .page {
+    padding-bottom: 5rem;
+  }
+}
+
+/* Form section (left) */
+.formSection {
+  padding: 2rem 1rem;
+  background: white;
+}
+
+@media (min-width: 1024px) {
+  .formSection {
+    padding: 3rem 6rem 3rem 4rem;
+  }
+}
+
+.pageTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  color: #232323;
+}
+
+/* Summary section (right) - desktop only */
+.summarySection {
+  display: none;
+  padding: 3rem 2rem 3rem 3rem;
+  background: #F5F5F0;
+}
+
+@media (min-width: 1024px) {
+  .summarySection {
+    display: block;
+    padding: 3rem 4rem 3rem 6rem;
+  }
+}
+
+/* Checkout steps indicator */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #D5D0C9;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #A9A6A3;
+}
+
+.stepActive {
+  color: #232323;
+  font-weight: 500;
+}
+
+.stepCompleted {
+  color: #8A8683;
+}
+
+.stepNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: #D5D0C9;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8A8683;
+}
+
+/* Active step number - brand primary background */
+.stepNumberActive {
+  background: #354654;
+  color: white;
+}
+
+.stepDivider {
+  flex: 1;
+  height: 1px;
+  background: #D5D0C9;
+  align-self: center;
+  max-width: 3rem;
+}
+
+/* Checkout Form */
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.formSection h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #232323;
+  margin-bottom: 1.25rem;
+  text-transform: lowercase;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.formGroup label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #232323;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.formGroup input,
+.formGroup select {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid #D5D0C9;
+  font-size: 1rem;
+  background-color: white;
+  transition: all 0.2s ease;
+  color: #232323;
+}
+
+.formGroup input:hover:not(:disabled),
+.formGroup select:hover:not(:disabled) {
+  border-color: #8A8683;
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
+  outline: none;
+  border-color: #354654;
+  background-color: white;
+}
+
+.formGroup select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.inputError {
+  border-color: #b91c1c !important;
+  background-color: #fef2f2 !important;
+}
+
+.errorText {
+  color: #b91c1c;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.checkboxGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.checkboxGroup input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: #354654;
+  cursor: pointer;
+}
+
+.checkboxGroup label {
+  font-size: 0.9375rem;
+  color: #232323;
+  cursor: pointer;
+}
+
+.continueBtn {
+  margin-top: 1.5rem;
+}
+
+/* Error Message */
+.errorMessage {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+/* Empty Cart */
+.emptyCart {
+  text-align: center;
+  padding: 3rem 2rem;
+  background-color: white;
+  border: 1px solid #D5D0C9;
+}
+
+.emptyCart p {
+  color: #8A8683;
+  margin-bottom: 1.5rem;
+}
+
+/* Payment Form */
+.paymentContainer {
+  background-color: white;
+}
+
+.paymentNotice {
+  color: #8A8683;
+  font-size: 0.875rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #F5F0E8;
+  border: 1px solid #D5D0C9;
+}
+
+.paymentForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.paymentFormRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.cardError {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.formActions {
+  display: flex;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #D5D0C9;
+  margin-top: 0.5rem;
+}
+
+.formActionsBtn {
+  flex: 1;
+  padding: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+}
+
+.formActionsPrimary {
+  background-color: #354654;
+  color: white;
+}
+
+.formActionsPrimary:hover {
+  background-color: #2a3a47;
+}
+
+.formActionsPrimary:disabled {
+  background-color: #D5D0C9;
+  cursor: not-allowed;
+}
+
+.formActionsSecondary {
+  background-color: #F5F0E8;
+  color: #232323;
+  border: 1px solid #D5D0C9;
+}
+
+.formActionsSecondary:hover {
+  background-color: #EAE4D9;
+}
+
+.securityBadges {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #D5D0C9;
+  text-align: center;
+}
+
+.securityBadges span {
+  color: #8A8683;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

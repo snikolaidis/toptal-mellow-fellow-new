@@ -1,0 +1,157 @@
+/* Mobile Filters - Bottom Sheet Style */
+.mobileFilters {
+  display: block;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  z-index: 50;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+@media (min-width: 1024px) {
+  .mobileFilters {
+    display: none;
+  }
+}
+
+/* Filter bar (collapsed state) */
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  background: white;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.filterBar:hover {
+  background: #fafafa;
+}
+
+.filterInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filterIcon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #666666;
+}
+
+.filterLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #000000;
+}
+
+.selectedCategory {
+  font-size: 0.875rem;
+  color: #666666;
+}
+
+.selectedCategory::before {
+  content: '/';
+  margin-right: 0.5rem;
+  color: #e0e0e0;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.productCount {
+  font-size: 0.75rem;
+  color: #666666;
+}
+
+.toggle svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #666666;
+  transition: transform 0.2s;
+}
+
+.expanded .toggle svg {
+  transform: rotate(180deg);
+}
+
+/* Expanded panel */
+.panel {
+  max-height: 60vh;
+  overflow-y: auto;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.panelHeader {
+  padding: 1rem 1.5rem 0.5rem;
+}
+
+.panelHeader h3 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666666;
+  margin: 0;
+}
+
+/* Category list */
+.categoryList {
+  list-style: none;
+  padding: 0.5rem 0 1.5rem;
+  margin: 0;
+}
+
+.categoryItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.categoryItem:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.categoryItem.active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.categoryItem.active .categoryName {
+  font-weight: 600;
+}
+
+.categoryName {
+  font-size: 0.9375rem;
+  color: #000000;
+}
+
+.categoryCount {
+  font-size: 0.75rem;
+  color: #666666;
+  background: #e0e0e0;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.categoryItem.active .categoryCount {
+  background: #000000;
+  color: #ffffff;
+}
