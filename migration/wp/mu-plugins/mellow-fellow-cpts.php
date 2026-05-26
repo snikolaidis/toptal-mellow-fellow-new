@@ -216,7 +216,10 @@ add_action('admin_menu', function () {
 }, 9);
 
 function mf_render_content_landing() {
-    $post_types = get_post_types(['show_in_menu' => 'mellow-fellow-content'], 'objects');
+    $all = get_post_types([], 'objects');
+    $post_types = array_filter($all, function ($pt) {
+        return isset($pt->show_in_menu) && $pt->show_in_menu === 'mellow-fellow-content';
+    });
     echo '<div class="wrap">';
     echo '<h1>Mellow Fellow Content</h1>';
     echo '<p>Reusable content blocks used by the storefront. Each section below is a CPT that holds entries shared across products and pages.</p>';
