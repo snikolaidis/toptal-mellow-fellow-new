@@ -1,0 +1,26 @@
+name: mellowfellow1 / Deploy WP mu-plugins to WP Engine
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'migration/wp/mu-plugins/**'
+      - '.github/workflows/wpe-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-mu-plugins:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Deploy mu-plugins to WP Engine
+        uses: wpengine/github-action-wpe-site-deploy@v3.2.0
+        with:
+          WPE_SSHG_KEY_PRIVATE: ${{ secrets.WPE_SSHG_KEY_PRIVATE }}
+          WPE_ENV: mellowfellow1
+          SRC_PATH: "migration/wp/mu-plugins/"
+          REMOTE_PATH: "wp-content/mu-plugins/"
+          CACHE_CLEAR: TRUE
