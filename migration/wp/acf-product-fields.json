@@ -4,11 +4,23 @@
     "title": "Product Details (Mellow Fellow)",
     "fields": [
       {
+        "key": "field_mf_tab_basics",
+        "label": "Basics",
+        "name": "",
+        "type": "tab",
+        "instructions": "",
+        "required": 0,
+        "conditional_logic": 0,
+        "wrapper": {"width": "", "class": "", "id": ""},
+        "placement": "top",
+        "endpoint": 0
+      },
+      {
         "key": "field_mf_cannabinoid",
         "label": "Cannabinoids",
         "name": "cannabinoid",
         "type": "text",
-        "instructions": "From Shopify metafield custom.cannabinoid. Comma separated if multiple.",
+        "instructions": "Comma separated if multiple.",
         "required": 0,
         "default_value": "",
         "show_in_graphql": 1
@@ -18,7 +30,7 @@
         "label": "Single Cannabinoid",
         "name": "single_cannabinoid",
         "type": "text",
-        "instructions": "From Shopify metafield custom.single_cannabinoid.",
+        "instructions": "",
         "required": 0,
         "default_value": "",
         "show_in_graphql": 1
@@ -48,7 +60,7 @@
         "label": "Blend Type",
         "name": "experience_type",
         "type": "text",
-        "instructions": "From Shopify metafield custom.experience_type.",
+        "instructions": "",
         "required": 0,
         "default_value": "",
         "show_in_graphql": 1
@@ -58,10 +70,23 @@
         "label": "Product Type",
         "name": "product_type_custom",
         "type": "text",
-        "instructions": "Custom product type. Separate from Woo product category.",
+        "instructions": "Separate from Woo product category.",
         "required": 0,
         "default_value": "",
         "show_in_graphql": 1
+      },
+
+      {
+        "key": "field_mf_tab_specs",
+        "label": "Specs",
+        "name": "",
+        "type": "tab",
+        "instructions": "",
+        "required": 0,
+        "conditional_logic": 0,
+        "wrapper": {"width": "", "class": "", "id": ""},
+        "placement": "top",
+        "endpoint": 0
       },
       {
         "key": "field_mf_size",
@@ -101,40 +126,6 @@
         "instructions": "Premium Noid, etc.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
-      },
-      {
-        "key": "field_mf_noid_title",
-        "label": "Noid or Blend Description Title",
-        "name": "noid_or_blend_description_title",
-        "type": "text",
-        "instructions": "",
-        "required": 0,
-        "default_value": "",
-        "show_in_graphql": 1
-      },
-      {
-        "key": "field_mf_what_is_noid",
-        "label": "Noid or Blend Description",
-        "name": "what_is_noid",
-        "type": "textarea",
-        "instructions": "",
-        "required": 0,
-        "default_value": "",
-        "rows": 6,
-        "show_in_graphql": 1
-      },
-      {
-        "key": "field_mf_new_noid_blend_descriptons",
-        "label": "New Noid / Blend Description (rich)",
-        "name": "new_noid_blend_descriptons",
-        "type": "wysiwyg",
-        "instructions": "",
-        "required": 0,
-        "default_value": "",
-        "tabs": "all",
-        "toolbar": "full",
-        "media_upload": 1,
         "show_in_graphql": 1
       },
       {
@@ -183,6 +174,53 @@
         "media_upload": 0,
         "show_in_graphql": 1
       },
+
+      {
+        "key": "field_mf_tab_description",
+        "label": "Description",
+        "name": "",
+        "type": "tab",
+        "instructions": "",
+        "required": 0,
+        "conditional_logic": 0,
+        "wrapper": {"width": "", "class": "", "id": ""},
+        "placement": "top",
+        "endpoint": 0
+      },
+      {
+        "key": "field_mf_noid_title",
+        "label": "Noid or Blend Description Title",
+        "name": "noid_or_blend_description_title",
+        "type": "text",
+        "instructions": "",
+        "required": 0,
+        "default_value": "",
+        "show_in_graphql": 1
+      },
+      {
+        "key": "field_mf_what_is_noid",
+        "label": "Noid or Blend Description",
+        "name": "what_is_noid",
+        "type": "textarea",
+        "instructions": "",
+        "required": 0,
+        "default_value": "",
+        "rows": 6,
+        "show_in_graphql": 1
+      },
+      {
+        "key": "field_mf_new_noid_blend_descriptons",
+        "label": "New Noid / Blend Description (rich)",
+        "name": "new_noid_blend_descriptons",
+        "type": "wysiwyg",
+        "instructions": "",
+        "required": 0,
+        "default_value": "",
+        "tabs": "all",
+        "toolbar": "full",
+        "media_upload": 1,
+        "show_in_graphql": 1
+      },
       {
         "key": "field_mf_disclaimers",
         "label": "Disclaimers",
@@ -194,12 +232,25 @@
         "rows": 6,
         "show_in_graphql": 1
       },
+
+      {
+        "key": "field_mf_tab_links",
+        "label": "Links & Media",
+        "name": "",
+        "type": "tab",
+        "instructions": "",
+        "required": 0,
+        "conditional_logic": 0,
+        "wrapper": {"width": "", "class": "", "id": ""},
+        "placement": "top",
+        "endpoint": 0
+      },
       {
         "key": "field_mf_coa_link",
         "label": "COA Link",
         "name": "coa_link",
         "type": "url",
-        "instructions": "Certificate of Analysis link. From Shopify metafield custom.coa_linkk.",
+        "instructions": "Certificate of Analysis link.",
         "required": 0,
         "default_value": "",
         "show_in_graphql": 1
@@ -224,6 +275,30 @@
         "return_format": "array",
         "preview_size": "medium",
         "show_in_graphql": 1
+      },
+      {
+        "key": "field_mf_google_custom",
+        "label": "Google Custom Product",
+        "name": "google_custom_product",
+        "type": "true_false",
+        "instructions": "From Shopify metafield mm-google-shopping.custom_product.",
+        "required": 0,
+        "default_value": 0,
+        "ui": 1,
+        "show_in_graphql": 1
+      },
+
+      {
+        "key": "field_mf_tab_references",
+        "label": "References",
+        "name": "",
+        "type": "tab",
+        "instructions": "",
+        "required": 0,
+        "conditional_logic": 0,
+        "wrapper": {"width": "", "class": "", "id": ""},
+        "placement": "top",
+        "endpoint": 0
       },
       {
         "key": "field_mf_device_faq_ref",
@@ -271,7 +346,7 @@
         "type": "post_object",
         "instructions": "Pick a Noid or Blend Description post.",
         "required": 0,
-        "post_type": ["noid_blend_description"],
+        "post_type": ["noid_description"],
         "allow_null": 1,
         "multiple": 0,
         "return_format": "object",
@@ -289,17 +364,6 @@
         "return_format": "object",
         "min": 0,
         "max": 0,
-        "show_in_graphql": 1
-      },
-      {
-        "key": "field_mf_google_custom",
-        "label": "Google Custom Product",
-        "name": "google_custom_product",
-        "type": "true_false",
-        "instructions": "From Shopify metafield mm-google-shopping.custom_product.",
-        "required": 0,
-        "default_value": 0,
-        "ui": 1,
         "show_in_graphql": 1
       }
     ],
@@ -319,7 +383,7 @@
     "instruction_placement": "label",
     "hide_on_screen": "",
     "active": true,
-    "description": "Custom product fields migrated from Shopify metafields. Schema covers all custom-namespaced metafields from the Mellow Fellow Shopify store.",
+    "description": "Custom product fields migrated from Shopify metafields, grouped into tabs.",
     "show_in_graphql": 1,
     "graphql_field_name": "productDetails",
     "map_graphql_types_from_location_rules": 0,

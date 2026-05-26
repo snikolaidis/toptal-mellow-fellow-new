@@ -46,7 +46,7 @@ add_action('init', function () {
             'graphql_plural' => 'userManualSpecs',
             'shopify_metaobject_type' => 'user_manual_device_specs',
         ],
-        'noid_blend_description' => [
+        'noid_description' => [
             'singular' => 'Noid / Blend Description',
             'plural'   => 'Noid / Blend Descriptions',
             'graphql_single' => 'noidBlendDescription',
@@ -88,7 +88,7 @@ add_action('init', function () {
             'graphql_plural' => 'mellowMatchers',
             'shopify_metaobject_type' => 'mellow_matcher_on_page_display',
         ],
-        'related_collection_set' => [
+        'related_coll_set' => [
             'singular' => 'Related Collection Set',
             'plural'   => 'Related Collection Sets',
             'graphql_single' => 'relatedCollectionSet',
@@ -102,7 +102,7 @@ add_action('init', function () {
             'graphql_plural' => 'relatedNoidsBlendsSets',
             'shopify_metaobject_type' => 'related_collections_noids_blends',
         ],
-        'main_collection_links' => [
+        'main_coll_links' => [
             'singular' => 'Main Collection Links',
             'plural'   => 'Main Collection Links Sets',
             'graphql_single' => 'mainCollectionLinks',
