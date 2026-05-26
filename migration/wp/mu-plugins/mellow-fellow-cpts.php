@@ -1,12 +1,8 @@
 <?php
 /**
  * Plugin Name: Mellow Fellow Custom Post Types
- * Description: Registers Custom Post Types that mirror Shopify metaobjects, used to hold reusable content blocks (FAQs, specs, sale banners, etc.). All CPTs are exposed via WPGraphQL.
+ * Description: Registers CPTs that mirror Shopify metaobjects. Exposed via WPGraphQL.
  * Version: 1.0.0
- * Author: Mellow Fellow Dev
- *
- * Drop this file into wp-content/mu-plugins/ on WP Engine.
- * WordPress auto-loads everything in mu-plugins, no activation needed.
  */
 
 if (!defined('ABSPATH')) {
@@ -15,7 +11,6 @@ if (!defined('ABSPATH')) {
 
 add_action('init', function () {
     $cpts = [
-        // FAQ types
         'device_faq' => [
             'singular' => 'Device FAQ',
             'plural'   => 'Device FAQs',
@@ -37,8 +32,6 @@ add_action('init', function () {
             'graphql_plural' => 'generalFaqs',
             'shopify_metaobject_type' => 'general_fa_qs',
         ],
-
-        // Device + product info
         'device_spec' => [
             'singular' => 'Device Spec',
             'plural'   => 'Device Specs',
@@ -74,8 +67,6 @@ add_action('init', function () {
             'graphql_plural' => 'coaLinkGroups',
             'shopify_metaobject_type' => 'coa_links_v_1',
         ],
-
-        // Sale / promo content
         'current_sale' => [
             'singular' => 'Current Sale',
             'plural'   => 'Current Sales',
@@ -90,8 +81,6 @@ add_action('init', function () {
             'graphql_plural' => 'holidaySales',
             'shopify_metaobject_type' => 'holiday_sale_info_and_images',
         ],
-
-        // Collection / nav helpers
         'mellow_matcher' => [
             'singular' => 'Mellow Matcher Block',
             'plural'   => 'Mellow Matcher Blocks',
@@ -134,8 +123,6 @@ add_action('init', function () {
             'graphql_plural' => 'blendGroupSets',
             'shopify_metaobject_type' => 'groups_of_blend_groups',
         ],
-
-        // Learn content
         'learn_blend_content' => [
             'singular' => 'Learn About Blends Entry',
             'plural'   => 'Learn About Blends Entries',
@@ -150,8 +137,6 @@ add_action('init', function () {
             'graphql_plural' => 'learnNoidContents',
             'shopify_metaobject_type' => 'learn_about_noids_content',
         ],
-
-        // Reviews + badges
         'review_highlight' => [
             'singular' => 'Review Highlight',
             'plural'   => 'Review Highlights',
@@ -200,8 +185,6 @@ add_action('init', function () {
             'rewrite'             => false,
         ]);
 
-        // Stash the Shopify metaobject type that this CPT corresponds to,
-        // so the migration scripts can find the right CPT by the Shopify type name.
         register_post_meta($slug, '_shopify_metaobject_type', [
             'type' => 'string',
             'single' => true,
@@ -220,18 +203,36 @@ add_action('init', function () {
     }
 });
 
-/**
- * Top-level admin menu container for all the CPTs above.
- * Keeps them grouped instead of scattered down the side menu.
- */
 add_action('admin_menu', function () {
     add_menu_page(
         'Mellow Fellow Content',
         'MF Content',
         'edit_posts',
         'mellow-fellow-content',
-        '',
+        'mf_render_content_landing',
         'dashicons-store',
         24
     );
 }, 9);
+
+function mf_render_content_landing() {
+    $post_types = get_post_types(['show_in_menu' => 'mellow-fellow-content'], 'objects');
+    echo '<div class="wrap">';
+    echo '<h1>Mellow Fellow Content</h1>';
+    echo '<p>Reusable content blocks used by the storefront. Each section below is a CPT that holds entries shared across products and pages.</p>';
+    if (!empty($post_types)) {
+        echo '<style>.mf-cpt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:20px;}.mf-cpt-card{background:#fff;border:1px solid #c3c4c7;padding:16px;border-radius:4px;}.mf-cpt-card h2{margin:0 0 8px;font-size:14px;}.mf-cpt-card a{text-decoration:none;}</style>';
+        echo '<div class="mf-cpt-grid">';
+        foreach ($post_types as $pt) {
+            $count = wp_count_posts($pt->name);
+            $total = isset($count->publish) ? (int) $count->publish : 0;
+            $url = admin_url('edit.php?post_type=' . $pt->name);
+            echo '<div class="mf-cpt-card">';
+            echo '<h2><a href="' . esc_url($url) . '">' . esc_html($pt->labels->name) . '</a></h2>';
+            echo '<p style="margin:0;color:#646970;">' . $total . ' published</p>';
+            echo '</div>';
+        }
+        echo '</div>';
+    }
+    echo '</div>';
+}
