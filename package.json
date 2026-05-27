@@ -15,6 +15,7 @@
     "@faustwp/blocks": "^3.0.0",
     "@faustwp/core": "^3.0.0",
     "better-sqlite3": "^12.5.0",
+    "bulma": "^1.0.4",
     "graphql": "^16.8.0",
     "graphql-request": "^6.1.0",
     "ioredis": "^5.10.1",
@@ -22,23 +23,22 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-select": "^5.10.2",
+    "sass": "^1.100.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.0",
     "@graphql-codegen/typescript": "^4.0.0",
     "@graphql-codegen/typescript-operations": "^4.0.0",
-    "@tailwindcss/postcss": "^4.1.18",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/uuid": "^10.0.0",
-    "autoprefixer": "^10.4.23",
+    "autoprefixer": "^10.5.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.0.0",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.18",
     "typescript": "^5.0.0"
   }
 }

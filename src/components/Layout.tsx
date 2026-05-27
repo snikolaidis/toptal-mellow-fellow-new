@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { ReactNode } from 'react';
-import Header from '@/components/Header/Header';
 import Footer from '@/components/Footer/Footer';
+import NavBar from './NavBar/NavBar';
 
 interface LayoutProps {
   children: ReactNode;
@@ -26,7 +26,7 @@ export default function Layout({
       </Head>
 
       <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-[#f5f5f0]">
-        <Header />
+        <NavBar />
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col items-center w-full">

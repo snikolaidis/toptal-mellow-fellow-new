@@ -6,6 +6,16 @@
 
 import Image from 'next/image';
 
+export const MellowFellowLogo = (className?: string) => (
+  <Image
+    src="/Black_Logo_with_Gold.png"
+    alt="Mellow Fellow"
+    width={200}
+    height={50}
+    className="mf-logo"
+  />
+);
+
 // Twenty One Logo - Main branding (black version for light backgrounds)
 export const TwentyOneLogo = ({ className = 'h-10 w-auto' }: { className?: string }) => (
   <Image

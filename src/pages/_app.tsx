@@ -1,4 +1,4 @@
-import '@/styles/globals.css';
+import '@/styles/globals.scss';
 import { FaustProvider } from '@faustwp/core';
 import type { AppProps } from 'next/app';
 import { CartProvider } from '@/context/CartContext';
