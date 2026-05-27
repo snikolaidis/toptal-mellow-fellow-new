@@ -185,20 +185,30 @@ add_action('init', function () {
             'rewrite'             => false,
         ]);
 
+        $auth = function () { return current_user_can('edit_posts'); };
         register_post_meta($slug, '_shopify_metaobject_type', [
             'type' => 'string',
             'single' => true,
             'show_in_rest' => true,
+            'auth_callback' => $auth,
         ]);
         register_post_meta($slug, '_shopify_metaobject_id', [
             'type' => 'string',
             'single' => true,
             'show_in_rest' => true,
+            'auth_callback' => $auth,
         ]);
         register_post_meta($slug, '_shopify_metaobject_handle', [
             'type' => 'string',
             'single' => true,
             'show_in_rest' => true,
+            'auth_callback' => $auth,
+        ]);
+        register_post_meta($slug, '_shopify_fields_json', [
+            'type' => 'string',
+            'single' => true,
+            'show_in_rest' => true,
+            'auth_callback' => $auth,
         ]);
     }
 });

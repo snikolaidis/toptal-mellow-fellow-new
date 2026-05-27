@@ -35,13 +35,6 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
-    collections {
-      nodes {
-        id
-        name
-        slug
-      }
-    }
   }
 `;
 
@@ -72,13 +65,6 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
       }
     }
     productCategories {
-      nodes {
-        id
-        name
-        slug
-      }
-    }
-    collections {
       nodes {
         id
         name
@@ -139,13 +125,6 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         slug
       }
     }
-    collections {
-      nodes {
-        id
-        name
-        slug
-      }
-    }
   }
 `;
 
@@ -173,13 +152,6 @@ export const GROUP_PRODUCT_FIELDS = gql`
       }
     }
     productCategories {
-      nodes {
-        id
-        name
-        slug
-      }
-    }
-    collections {
       nodes {
         id
         name
