@@ -82,11 +82,11 @@ export default function ProductCard({ product, badge }: ProductCardProps) {
 
   return (
     <>
-      <div className="group flex flex-col">
+      <div className="product-card">
         <Link href={`/product/${product.slug}`} className="block">
-          <div className="relative aspect-square w-full overflow-hidden bg-[#f5f5f0]">
+          <div className="is-relative aspect-square w-full overflow-hidden bg-[#f5f5f0]">
             {/* Inner container with padding to keep product images away from edges */}
-            <div className="absolute inset-3">
+            <div className="image is-square">
               <Image
                 src={imageUrl}
                 alt={product.image?.altText || product.name}

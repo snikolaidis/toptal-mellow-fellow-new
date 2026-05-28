@@ -9,6 +9,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.wpenginepowered.com' },
       { protocol: 'https', hostname: 'cdn.shopify.com' },
       { protocol: 'http', hostname: 'localhost' },
+      { protocol: 'http', hostname: 'mf-headless-wp.local' }
     ],
   },
   // Enable experimental features for better performance
