@@ -3,6 +3,7 @@
   $family-sans-serif: ('Source Sans 3', ui-sans-serif, system-ui, sans-serif)
 );
 
+@use 'fonts';
 @use 'components';
 
 @import 'swiper/css';
