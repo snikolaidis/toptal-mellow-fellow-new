@@ -8,7 +8,21 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate": "graphql-codegen"
+    "generate": "graphql-codegen",
+    "migrate:pull": "tsx migration/scripts/pull-from-shopify.ts",
+    "migrate:pull-images": "tsx migration/scripts/pull-images.ts",
+    "migrate:resume-bulk": "tsx migration/scripts/resume-bulk.ts",
+    "migrate:collections": "tsx migration/scripts/import-collections.ts",
+    "migrate:metaobjects": "tsx migration/scripts/import-metaobjects.ts",
+    "migrate:products": "tsx migration/scripts/import-products.ts",
+    "migrate:pages": "tsx migration/scripts/import-pages.ts",
+    "migrate:redirects": "tsx migration/scripts/import-redirects.ts",
+    "migrate:customers": "tsx migration/scripts/import-customers.ts",
+    "migrate:orders": "tsx migration/scripts/import-orders.ts",
+    "migrate:blog-articles": "tsx migration/scripts/import-blog-articles.ts",
+    "migrate:assign-categories": "tsx migration/scripts/assign-product-categories.ts",
+    "migrate:pull-collection-products": "tsx migration/scripts/pull-collection-products.ts",
+    "migrate:validate": "tsx migration/scripts/validate.ts"
   },
   "dependencies": {
     "@apollo/client": "^3.8.0",
@@ -37,9 +51,11 @@
     "@types/react-dom": "^18.2.0",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.5.0",
+    "dotenv": "^16.4.5",
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.0.0",
     "postcss": "^8.5.6",
+    "tsx": "^4.19.2",
     "typescript": "^5.0.0"
   }
 }

@@ -6,10 +6,10 @@ import {
   GROUP_PRODUCT_FIELDS,
 } from './products';
 
-// Get all collections
+// Get all collections (mapped to WooCommerce product categories)
 export const GET_COLLECTIONS = gql`
   query GetCollections {
-    collections(first: 100) {
+    productCategories(first: 100) {
       nodes {
         id
         databaseId
@@ -29,7 +29,7 @@ export const GET_COLLECTION_BY_SLUG = gql`
   ${EXTERNAL_PRODUCT_FIELDS}
   ${GROUP_PRODUCT_FIELDS}
   query GetCollectionBySlug($slug: ID!) {
-    collection(id: $slug, idType: SLUG) {
+    productCategory(id: $slug, idType: SLUG) {
       id
       databaseId
       name
@@ -60,7 +60,7 @@ export const GET_COLLECTION_BY_SLUG = gql`
 // Get all collection slugs for static paths
 export const GET_ALL_COLLECTION_SLUGS = gql`
   query GetAllCollectionSlugs {
-    collections(first: 100) {
+    productCategories(first: 100) {
       nodes {
         slug
       }
@@ -68,7 +68,7 @@ export const GET_ALL_COLLECTION_SLUGS = gql`
   }
 `;
 
-// Get products that share a collection with a given product (for "More from Collection")
+// Get products that share a category with a given product (for "More from Collection")
 export const GET_COLLECTION_PRODUCTS_BY_PRODUCT_SLUG = gql`
   ${SIMPLE_PRODUCT_FIELDS}
   ${VARIABLE_PRODUCT_FIELDS}
@@ -76,7 +76,7 @@ export const GET_COLLECTION_PRODUCTS_BY_PRODUCT_SLUG = gql`
   ${GROUP_PRODUCT_FIELDS}
   query GetCollectionProductsByProductSlug($slug: ID!) {
     product(id: $slug, idType: SLUG) {
-      collections {
+      productCategories {
         nodes {
           id
           name
