@@ -1,0 +1,141 @@
+.highlights-group {
+  .highlights-group__box {
+    background-color: #E6DABE;
+    padding: 20px 0 28px;
+    border-radius: 24px;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .highlights-group__box {
+      padding-top: 62px;
+    }
+  }
+
+  .highlights-group__header {
+    padding: 0 35px;
+    margin-bottom: 17px;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .highlights-group__header {
+      margin-bottom: 34px;
+    }
+  }
+
+  .highlights-group__title {
+    text-align: center;
+    font-family: "MrEavesXLSanNarOT";
+    font-weight: 800;
+    font-size: 48px;
+    line-height: 100%;
+    text-transform: uppercase;
+    margin-bottom: 9px;
+  }
+
+  .highlights-group__description {
+    text-align: center;
+    font-family: "MrEavesSanOT";
+    line-height: 100%;
+    font-size: 20px;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .highlights-group__title {
+      font-size: 64px;
+    }
+
+    .highlights-group__description {
+      font-size: 24px;
+    }
+  }
+
+  .highlights-group__track {
+    overflow: auto;
+    padding: 0px 29px;
+    white-space: nowrap;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-column-gap: 13px;
+  }
+
+  @media only screen and (min-width: 1200px) {
+    .highlights-group__track {
+      overflow: initial;
+    }
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .highlights-group__track {
+      grid-column-gap: 26px;
+    }
+  }
+
+  @media only screen and (min-width: 1200px) {
+    .highlights-group__item:hover img {
+      transform: scale(1.1);
+    }
+  }
+
+  .highlights-group__item {
+    width: 276px;
+    border-radius: 15px;
+    overflow: hidden;
+    position: relative;
+    justify-self: center;
+    transition: all .2s ease-out;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .highlights-group__item {
+      width: 100%;
+    }
+  }
+
+  .highlights-group__item img {
+    transition: all .2s;
+  }
+
+  @media only screen and (min-width: 1200px) {
+    .highlights-group__item:hover img {
+      transform: scale(1.1);
+    }
+  }
+
+  .highlights-group__item-title {
+    position: absolute;
+    top: 15px;
+    left: 12px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .highlights-group__big-text {
+    font-family: "MrEavesSanOT";
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .highlights-group__small-text {
+    font-family: "MrEavesSanOT";
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .highlights-group__item-title {
+      top: 28px;
+      left: 25px;
+    }
+
+    .highlights-group__big-text {
+      font-size: 24px;
+      line-height: 27px;
+    }
+
+    .highlights-group__small-text {
+      font-size: 16px;
+      line-height: 18px;
+    }
+  }
+}

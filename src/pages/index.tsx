@@ -7,6 +7,7 @@ import ProductCard from '@/components/ProductCard';
 import { Product } from '@/types/woocommerce';
 import dynamic from 'next/dynamic';
 import CollectionLinks from '@/components/CollectionLinks';
+import HighlightsGroup from '@/components/HighlightsGroup';
 
 const HeroSwiper = dynamic(() => import('../components/HeroSwiper'), {
   ssr: false,
@@ -54,8 +55,8 @@ export default function HomePage({ products }: HomePageProps) {
   return (
     <Layout title="Home" description="Mellow Fellow - Premium cannabis products for elevated experiences">
       <HeroSwiper />
-
       <CollectionLinks />
+      <HighlightsGroup />
       
       <div className="flex flex-col gap-16">
         {/* Hero Section */}
