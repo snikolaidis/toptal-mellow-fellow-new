@@ -25,18 +25,14 @@ export default function Layout({
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-[#f5f5f0]">
-        <NavBar />
+      <NavBar />
 
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col items-center w-full">
-          <div className="w-full max-w-[1920px] px-4 md:px-8 lg:px-16 xl:px-24 2xl:px-32 py-8">
-            {children}
-          </div>
-        </main>
+      {/* Main Content */}
+      <main>
+        {children}
+      </main>
 
-        <Footer />
-      </div>
+      <Footer />
     </>
   );
 }

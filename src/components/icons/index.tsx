@@ -6,7 +6,7 @@
 
 import Image from 'next/image';
 
-export const MellowFellowLogo = (className?: string) => (
+export const MellowFellowLogo = () => (
   <Image
     src="/Black_Logo_with_Gold.png"
     alt="Mellow Fellow"

@@ -5,6 +5,12 @@ import { GET_PRODUCTS } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import { Product } from '@/types/woocommerce';
+import dynamic from 'next/dynamic';
+import CollectionLinks from '@/components/CollectionLinks';
+
+const HeroSwiper = dynamic(() => import('../components/HeroSwiper'), {
+  ssr: false,
+});
 
 interface HomePageProps {
   products: Product[];
@@ -47,6 +53,10 @@ export default function HomePage({ products }: HomePageProps) {
 
   return (
     <Layout title="Home" description="Mellow Fellow - Premium cannabis products for elevated experiences">
+      <HeroSwiper />
+
+      <CollectionLinks />
+      
       <div className="flex flex-col gap-16">
         {/* Hero Section */}
         <section className="relative">

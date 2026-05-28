@@ -3,6 +3,12 @@
   $family-sans-serif: ('Source Sans 3', ui-sans-serif, system-ui, sans-serif)
 );
 
+@use 'components';
+
+@import 'swiper/css';
+@import 'swiper/css/pagination';
+@import 'swiper/css/navigation';
+
 @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
 
 :root {
@@ -70,9 +76,7 @@ h1, h2, h3, h4, h5, h6 {
 
 body {
   min-height: 100vh;
-  background-color: var(--color-surface-secondary);
   color: var(--color-text-primary);
-  transition: background-color 0.2s, color 0.2s;
 }
 
 a {
@@ -88,6 +92,7 @@ a:hover {
 img {
   max-width: 100%;
   height: auto;
+  display: block;
 }
 
 /**
@@ -833,7 +838,7 @@ img {
 }
 .navbar {
   padding: 5px 0;
-  
+
   .navbar-item {
     img.mf-logo {
       max-height: none;
