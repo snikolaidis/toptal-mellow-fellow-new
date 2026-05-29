@@ -62,7 +62,7 @@
   /* ===================
       TYPOGRAPHY - Mellow Fellow Fonts
       =================== */
-  --font-family-display: 'Libre Baskerville', Georgia, 'Times New Roman', serif;
+  --font-family-display: MrEavesXLSanNarOT, sans-serif;
   --font-family-body: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
 
   --productRadius: 24px;
@@ -92,6 +92,15 @@ img {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+.section__title {
+  font-family: "MrEavesXLSanNarOT";
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+  text-align: center;
+  margin-bottom: 20px;
 }
 
 /**
