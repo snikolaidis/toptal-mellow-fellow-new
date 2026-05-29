@@ -88,8 +88,15 @@ async function main() {
     : {};
 
   log.step('grouping bulk records by customer');
-  const customers = groupCustomers(CUSTOMERS_FILE);
+  let customers = groupCustomers(CUSTOMERS_FILE);
   log.info(`grouped ${customers.length} customers`);
+
+  const limitArg = process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1];
+  if (limitArg) {
+    const limit = parseInt(limitArg, 10);
+    customers = customers.slice(0, limit);
+    log.info(`limited to ${customers.length} customers`);
+  }
 
   let done = 0;
   let failed = 0;
