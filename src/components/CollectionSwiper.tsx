@@ -28,13 +28,30 @@ export default function CollectionSwiper({ products, title }: CollectionSwiperPr
 
         <div className="collection-swiper__products-slider">
           <Swiper
-            slidesPerView={4}
+            slidesPerView={2}
             slidesOffsetAfter={9}
             slidesOffsetBefore={9}
             modules={[Autoplay, Pagination, Navigation]}
             pagination={{ clickable: true }}
             navigation
             autoplay={{ delay: 5000, disableOnInteraction: false }}
+            breakpoints={{
+              769: {
+                slidesPerView: 2,
+                slidesOffsetAfter: 0,
+                slidesOffsetBefore: 0
+              },
+              992: {
+                slidesPerView: 3,
+                slidesOffsetAfter: 0,
+                slidesOffsetBefore: 0
+              },
+              1400: {
+                slidesPerView: 4,
+                slidesOffsetAfter: 0,
+                slidesOffsetBefore: 0
+              }
+            }}
           >
             {products.map((product) => (
               <SwiperSlide>
