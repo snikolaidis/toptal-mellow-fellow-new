@@ -11,7 +11,11 @@
         "instructions": "",
         "required": 0,
         "conditional_logic": 0,
-        "wrapper": {"width": "", "class": "", "id": ""},
+        "wrapper": {
+          "width": "",
+          "class": "",
+          "id": ""
+        },
         "placement": "top",
         "endpoint": 0
       },
@@ -23,7 +27,8 @@
         "instructions": "Comma separated if multiple.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_single_cannabinoid",
@@ -33,7 +38,8 @@
         "instructions": "",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_strain_type",
@@ -43,7 +49,8 @@
         "instructions": "Sativa, Indica, Hybrid, etc.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_strain_name",
@@ -53,7 +60,8 @@
         "instructions": "",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_experience_type",
@@ -63,7 +71,8 @@
         "instructions": "",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_product_type",
@@ -73,9 +82,9 @@
         "instructions": "Separate from Woo product category.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
-
       {
         "key": "field_mf_tab_specs",
         "label": "Specs",
@@ -84,7 +93,11 @@
         "instructions": "",
         "required": 0,
         "conditional_logic": 0,
-        "wrapper": {"width": "", "class": "", "id": ""},
+        "wrapper": {
+          "width": "",
+          "class": "",
+          "id": ""
+        },
         "placement": "top",
         "endpoint": 0
       },
@@ -96,7 +109,8 @@
         "instructions": "Device size, e.g. 2mL.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_mgs",
@@ -106,7 +120,8 @@
         "instructions": "Milligrams.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_pieces",
@@ -116,7 +131,8 @@
         "instructions": "Count per package.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_line_collection",
@@ -126,7 +142,8 @@
         "instructions": "Premium Noid, etc.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_device_specifications",
@@ -137,7 +154,8 @@
         "required": 0,
         "default_value": "",
         "rows": 6,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_directions_for_use",
@@ -148,7 +166,8 @@
         "required": 0,
         "default_value": "",
         "rows": 4,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_ingredients",
@@ -159,7 +178,8 @@
         "required": 0,
         "default_value": "",
         "rows": 6,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_serving_size",
@@ -172,9 +192,9 @@
         "tabs": "all",
         "toolbar": "full",
         "media_upload": 0,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
-
       {
         "key": "field_mf_tab_description",
         "label": "Description",
@@ -183,7 +203,11 @@
         "instructions": "",
         "required": 0,
         "conditional_logic": 0,
-        "wrapper": {"width": "", "class": "", "id": ""},
+        "wrapper": {
+          "width": "",
+          "class": "",
+          "id": ""
+        },
         "placement": "top",
         "endpoint": 0
       },
@@ -195,7 +219,8 @@
         "instructions": "",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_what_is_noid",
@@ -206,7 +231,8 @@
         "required": 0,
         "default_value": "",
         "rows": 6,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_new_noid_blend_descriptons",
@@ -219,7 +245,8 @@
         "tabs": "all",
         "toolbar": "full",
         "media_upload": 1,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_disclaimers",
@@ -230,9 +257,9 @@
         "required": 0,
         "default_value": "",
         "rows": 6,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
-
       {
         "key": "field_mf_tab_links",
         "label": "Links & Media",
@@ -241,7 +268,11 @@
         "instructions": "",
         "required": 0,
         "conditional_logic": 0,
-        "wrapper": {"width": "", "class": "", "id": ""},
+        "wrapper": {
+          "width": "",
+          "class": "",
+          "id": ""
+        },
         "placement": "top",
         "endpoint": 0
       },
@@ -253,7 +284,8 @@
         "instructions": "Certificate of Analysis link.",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_user_manual",
@@ -263,7 +295,8 @@
         "instructions": "",
         "required": 0,
         "default_value": "",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_blends_highlights",
@@ -274,7 +307,8 @@
         "required": 0,
         "return_format": "array",
         "preview_size": "medium",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_google_custom",
@@ -285,9 +319,9 @@
         "required": 0,
         "default_value": 0,
         "ui": 1,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
-
       {
         "key": "field_mf_tab_references",
         "label": "References",
@@ -296,7 +330,11 @@
         "instructions": "",
         "required": 0,
         "conditional_logic": 0,
-        "wrapper": {"width": "", "class": "", "id": ""},
+        "wrapper": {
+          "width": "",
+          "class": "",
+          "id": ""
+        },
         "placement": "top",
         "endpoint": 0
       },
@@ -307,11 +345,14 @@
         "type": "post_object",
         "instructions": "Pick a Device FAQ post.",
         "required": 0,
-        "post_type": ["device_faq"],
+        "post_type": [
+          "device_faq"
+        ],
         "allow_null": 1,
         "multiple": 0,
         "return_format": "object",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_device_faq_test",
@@ -320,11 +361,14 @@
         "type": "post_object",
         "instructions": "Pick a Device Spec post.",
         "required": 0,
-        "post_type": ["device_spec"],
+        "post_type": [
+          "device_spec"
+        ],
         "allow_null": 1,
         "multiple": 0,
         "return_format": "object",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_blend_noid_faq_ref",
@@ -333,11 +377,14 @@
         "type": "post_object",
         "instructions": "Pick a Blend or Noid FAQ post.",
         "required": 0,
-        "post_type": ["blend_noid_faq"],
+        "post_type": [
+          "blend_noid_faq"
+        ],
         "allow_null": 1,
         "multiple": 0,
         "return_format": "object",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_noid_desc_ref",
@@ -346,11 +393,14 @@
         "type": "post_object",
         "instructions": "Pick a Noid or Blend Description post.",
         "required": 0,
-        "post_type": ["noid_description"],
+        "post_type": [
+          "noid_description"
+        ],
         "allow_null": 1,
         "multiple": 0,
         "return_format": "object",
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       },
       {
         "key": "field_mf_badges",
@@ -359,12 +409,17 @@
         "type": "relationship",
         "instructions": "Pick one or more badge posts.",
         "required": 0,
-        "post_type": ["mf_badge"],
-        "filters": ["search"],
+        "post_type": [
+          "mf_badge"
+        ],
+        "filters": [
+          "search"
+        ],
         "return_format": "object",
         "min": 0,
         "max": 0,
-        "show_in_graphql": 1
+        "show_in_graphql": 1,
+        "show_in_rest": 1
       }
     ],
     "location": [
@@ -382,11 +437,14 @@
     "label_placement": "top",
     "instruction_placement": "label",
     "hide_on_screen": "",
-    "active": true,
+    "active": 1,
     "description": "Custom product fields migrated from Shopify metafields, grouped into tabs.",
     "show_in_graphql": 1,
     "graphql_field_name": "productDetails",
     "map_graphql_types_from_location_rules": 0,
-    "graphql_types": ["Product"]
+    "graphql_types": [
+      "Product"
+    ],
+    "show_in_rest": 1
   }
 ]

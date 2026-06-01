@@ -10,6 +10,7 @@ import CollectionLinks from '@/components/CollectionLinks';
 import HighlightsGroup from '@/components/HighlightsGroup';
 import CollectionSwiper from '@/components/CollectionSwiper';
 import FeaturedIn from '@/components/FeaturedIn';
+import RebuyRecommendations from '@/components/RebuyRecommendations';
 
 const HeroSwiper = dynamic(() => import('../components/HeroSwiper'), {
   ssr: false,
@@ -214,6 +215,9 @@ export default function HomePage({ products }: HomePageProps) {
             )}
           </div>
         </section>
+
+        {/* Rebuy Recommendations */}
+        <RebuyRecommendations title="Recommended for you" limit={8} gridClass="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-6" />
 
         {/* Brand Story Banner */}
         <section className="relative overflow-hidden text-white" style={{ backgroundColor: '#354654' }}>
