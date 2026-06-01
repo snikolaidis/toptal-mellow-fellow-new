@@ -200,6 +200,31 @@ img {
   color: var(--color-text-primary);
 }
 
+/* Products Grid */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .products-grid {
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .products-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .products-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 /* Alert messages - shared */
 .success-alert {
   background-color: var(--color-state-success-bg);
