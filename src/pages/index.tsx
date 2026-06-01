@@ -22,9 +22,9 @@ interface HomePageProps {
 }
 
 export default function HomePage({ products }: HomePageProps) {
-  const featuredProducts = products.slice(0, 4);
-  const newArrivals = products.slice(4, 8);
-  const awardedProducts = products.slice(8, 16);
+  const featuredProducts = products.slice(0, 8);
+  const newArrivals = products.slice(8, 16);
+  const awardedProducts = products.slice(16, 24);
 
   return (
     <Layout title="Home" description="Mellow Fellow - Premium cannabis products for elevated experiences">
