@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import CollectionLinks from '@/components/CollectionLinks';
 import HighlightsGroup from '@/components/HighlightsGroup';
 import CollectionSwiper from '@/components/CollectionSwiper';
+import FeaturedIn from '@/components/FeaturedIn';
 
 const HeroSwiper = dynamic(() => import('../components/HeroSwiper'), {
   ssr: false,
@@ -58,8 +59,47 @@ export default function HomePage({ products }: HomePageProps) {
       <HeroSwiper />
       <CollectionLinks />
       <CollectionSwiper products={ products } title="Explore What's New" />
-      <HighlightsGroup />
+
+      <HighlightsGroup 
+        title="Deals of the Day"
+        description="Get today's deals & preview upcoming deals"
+        highlights={[
+          { id: 1, small_text: 'Smokeable Bundles', big_text: 'Enjoy 30% Off', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Smokeable_Bundle.webp' },
+          { id: 2, small_text: 'Monthly Mystery Boxes', big_text: '30% Off Value', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Fam_Box.webp' },
+          { id: 3, small_text: 'Edibles Bundles', big_text: 'Stock Up & Save', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Edible_Bundle.webp' }
+        ]}
+      />
+
+      <FeaturedIn />
       <CollectionSwiper products={ products } title="Can't-Miss Bestsellers" />
+
+      <HighlightsGroup 
+        title="New Collections"
+        description="Fresh drops designed to elevate your everyday."
+        highlights={[
+          {
+            id: 1,
+            small_text: 'Delta-9 + CBD Seltzers',
+            big_text: 'Sip Mellow',
+            link: 'https://mellowfellow.fun/collections/new-arrivals',
+            image: '/images/Seltzers_3-4.webp'
+          },
+          {
+            id: 2,
+            small_text: 'THCa 3.5g Exotic Flower + One Hitter',
+            big_text: 'On-The-Go Freshness',
+            link: 'https://mellowfellow.fun/collections/new-arrivals',
+            image: '/images/Collection_Cards_THCa_One_Hitter.webp'
+          },
+          {
+            id: 3,
+            small_text: 'New Wellness Gummies',
+            big_text: 'Pure CBD, CBG and CBN',
+            link: 'https://mellowfellow.fun/collections/new-arrivals',
+            image: '/images/CBD_CBG_CBN_Edibles_3-4.webp'
+          }
+        ]}
+      />
       
       <div className="flex flex-col gap-16">
         {/* Hero Section */}

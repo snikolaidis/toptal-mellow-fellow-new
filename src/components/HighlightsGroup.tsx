@@ -1,21 +1,27 @@
-const heading = "DEALS OF THE DAY";
-const description = "Get today’s deals & preview upcoming deals";
+interface Highlight {
+  id: number;
+  small_text: string;
+  big_text: string;
+  link: string;
+  image: string;
+}
 
-const highlights = [
-  { id: 1, small_text: 'Smokeable Bundles', big_text: 'Enjoy 30% Off', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Smokeable_Bundle.webp' },
-  { id: 2, small_text: 'Monthly Mystery Boxes', big_text: '30% Off Value', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Fam_Box.webp' },
-  { id: 3, small_text: 'Edibles Bundles', big_text: 'Stock Up & Save', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Edible_Bundle.webp' }
-];
+interface HighlightGroupsProps {
+  highlights: Highlight[];
+  title: string;
+  description: string;
+}
 
-export default function HighlightsGroup() {
+export default function HighlightsGroup({ highlights, title, description }: HighlightGroupsProps) {
   return (
     <section className="section highlights-group">
       <div className="container">
         <div className="highlights-group__box">
           <div className="highlights-group__header">
-            {heading.length > 0 &&
+
+            {title.length > 0 &&
               <h3 className="highlights-group__title">
-                { heading }
+                { title }
               </h3>
             }
 
