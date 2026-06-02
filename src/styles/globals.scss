@@ -1,6 +1,7 @@
 @use 'bulma/sass' as * with (
   $primary: #e6dabe,
-  $family-sans-serif: ('Source Sans 3', ui-sans-serif, system-ui, sans-serif)
+  $family-sans-serif: ('Source Sans 3', ui-sans-serif, system-ui, sans-serif),
+  $scheme-main: #ffffff
 );
 
 @use 'fonts';
