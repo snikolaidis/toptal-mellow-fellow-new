@@ -1,9 +1,7 @@
 import { GetStaticProps } from 'next';
-import Link from 'next/link';
 import { getClient } from '@/lib/apollo-client';
 import { GET_PRODUCTS } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
-import ProductCard from '@/components/ProductCard';
 import { Product } from '@/types/woocommerce';
 import dynamic from 'next/dynamic';
 import CollectionLinks from '@/components/CollectionLinks';
@@ -12,6 +10,7 @@ import CollectionSwiper from '@/components/CollectionSwiper';
 import FeaturedIn from '@/components/FeaturedIn';
 import FeaturedCollection from '@/components/FeaturedCollection';
 import RebuyRecommendations from '@/components/RebuyRecommendations';
+import CollectionCards from '@/components/CollectionCards';
 
 const HeroSwiper = dynamic(() => import('../components/HeroSwiper'), {
   ssr: false,
@@ -74,6 +73,18 @@ export default function HomePage({ products }: HomePageProps) {
       />
 
       <FeaturedCollection products={ awardedProducts } title="Award-Winning Products" />
+
+      <CollectionCards
+        title="Premium Smokable Devices"
+        cards={[
+          { id: 1, smallText: 'Smokeable Bundles', bigText: 'Enjoy 30% Off', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Smokeable_Bundle.webp' },
+          { id: 2, smallText: 'Monthly Mystery Boxes', bigText: '30% Off Value', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Fam_Box.webp' },
+          { id: 3, smallText: 'Edibles Bundles', bigText: 'Stock Up & Save', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Edible_Bundle.webp' },
+          { id: 4, smallText: 'Smokeable Bundles', bigText: 'Enjoy 30% Off', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Smokeable_Bundle.webp' },
+          { id: 5, smallText: 'Monthly Mystery Boxes', bigText: '30% Off Value', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Fam_Box.webp' },
+          { id: 6, smallText: 'Edibles Bundles', bigText: 'Stock Up & Save', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Edible_Bundle.webp' }
+        ]}
+      />
       
       <div className="container">
         {/* Rebuy Recommendations */}

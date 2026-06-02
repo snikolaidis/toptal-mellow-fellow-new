@@ -12,9 +12,9 @@ const logos = [
   { id: 3, src: '/logos/mens-journal.avif', alt: 'Mens\'s Journal' },
   { id: 4, src: '/logos/paper-mag.webp', alt: 'Paper Mag Logo' },
   { id: 5, src: '/logos/bella-magazine.webp', alt: 'Bella Magazine' },
-  { id: 6, src: '/logos/high-times.webp', alt: '' },
-  { id: 7, src: '/logos/vapes.avif', alt: '' },
-  { id: 8, src: '/logos/FHAA.webp', alt: '' }
+  { id: 6, src: '/logos/high-times.webp', alt: 'High Times' },
+  { id: 7, src: '/logos/vapes.avif', alt: 'Vapes' },
+  { id: 8, src: '/logos/FHAA.webp', alt: 'FHAA' }
 ];
 
 export default function FeaturedIn() {

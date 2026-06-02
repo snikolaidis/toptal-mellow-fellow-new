@@ -1,0 +1,53 @@
+.collection-card {
+  border-radius: 15px;
+  overflow: hidden;
+  position: relative;
+  justify-self: center;
+  transition: all .2s ease-out;
+
+  &__image {
+    transition: all .2s;
+  }
+
+  @media only screen and (min-width: 1200px) {
+    &:hover &__image {
+      transform: scale(1.1);
+    }
+  }
+
+  &__title {
+    position: absolute;
+    top: 15px;
+    left: 12px;
+    display: flex;
+    flex-direction: column;
+
+    @media only screen and (min-width: 1024px) {
+      top: 28px;
+      left: 25px;
+    }
+  }
+
+  &__big-text {
+    font-family: "MrEavesSanOT";
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1;
+    
+    @media only screen and (min-width: 1024px) {
+      font-size: 24px;
+      line-height: 27px;
+    }
+  }
+
+  &__small-text {
+    font-family: "MrEavesSanOT";
+    font-size: 15px;
+    line-height: 1;
+
+    @media only screen and (min-width: 1024px) {
+      font-size: 16px;
+      line-height: 18px;
+    }
+  }
+}
