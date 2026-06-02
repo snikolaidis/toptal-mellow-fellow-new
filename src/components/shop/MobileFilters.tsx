@@ -3,16 +3,11 @@ import { ChevronUpIcon } from '@/components/icons';
 import { ProductCategory } from '@/types/woocommerce';
 import styles from './MobileFilters.module.css';
 
-interface CategoryCount {
-  [slug: string]: number;
-}
-
 interface MobileFiltersProps {
   categories: ProductCategory[];
   selectedCategory: string;
   onCategoryChange: (slug: string) => void;
   productCount: number;
-  categoryCounts?: CategoryCount;
   filteredCount: number;
 }
 
@@ -21,24 +16,13 @@ export default function MobileFilters({
   selectedCategory,
   onCategoryChange,
   productCount,
-  categoryCounts,
   filteredCount,
 }: MobileFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Sort categories alphabetically, filter out empty ones
   const sortedCategories = [...categories]
-    .filter((cat) => {
-      if (categoryCounts) {
-        return (categoryCounts[cat.slug] || 0) > 0;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      if (a.slug === 'uncategorized') return 1;
-      if (b.slug === 'uncategorized') return -1;
-      return a.name.localeCompare(b.name);
-    });
+    .filter((cat) => cat.slug !== 'uncategorized' && (cat.count || 0) > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const selectedCategoryName =
     selectedCategory === 'all'
@@ -67,7 +51,7 @@ export default function MobileFilters({
           <span className={styles.selectedCategory}>{selectedCategoryName}</span>
         </div>
         <div className={styles.toggle}>
-          <span className={styles.productCount}>{filteredCount} products</span>
+          <span className={styles.productCount}>{filteredCount}+ products</span>
           <ChevronUpIcon />
         </div>
       </button>
@@ -88,25 +72,19 @@ export default function MobileFilters({
                 <span className={styles.categoryCount}>{productCount}</span>
               </button>
             </li>
-            {sortedCategories.map((category) => {
-              const count = categoryCounts
-                ? categoryCounts[category.slug] || 0
-                : category.count;
-
-              return (
-                <li key={category.id}>
-                  <button
-                    onClick={() => handleCategorySelect(category.slug)}
-                    className={`${styles.categoryItem} ${selectedCategory === category.slug ? styles.active : ''}`}
-                  >
-                    <span className={styles.categoryName}>{category.name}</span>
-                    {count !== undefined && count > 0 && (
-                      <span className={styles.categoryCount}>{count}</span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
+            {sortedCategories.map((category) => (
+              <li key={category.id}>
+                <button
+                  onClick={() => handleCategorySelect(category.slug)}
+                  className={`${styles.categoryItem} ${selectedCategory === category.slug ? styles.active : ''}`}
+                >
+                  <span className={styles.categoryName}>{category.name}</span>
+                  {category.count !== undefined && category.count > 0 && (
+                    <span className={styles.categoryCount}>{category.count}</span>
+                  )}
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       )}

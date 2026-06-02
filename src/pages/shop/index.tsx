@@ -1,7 +1,8 @@
-import { GetStaticProps } from 'next';
-import { useMemo, useState } from 'react';
+import { GetServerSideProps } from 'next';
+import { useCallback, useState } from 'react';
+import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
-import { GET_PRODUCTS, GET_PRODUCT_CATEGORIES } from '@/graphql/queries/products';
+import { GET_PRODUCTS, GET_PRODUCTS_BY_CATEGORY, GET_PRODUCT_CATEGORIES } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ShopSidebar from '@/components/shop/ShopSidebar';
@@ -10,75 +11,90 @@ import Select, { SelectOption } from '@/components/ui/Select';
 import { Product, ProductCategory } from '@/types/woocommerce';
 import styles from '@/styles/pages/shop.module.css';
 
-interface ShopPageProps {
-  products: Product[];
-  categories: ProductCategory[];
-}
+const PAGE_SIZE = 24;
 
 const sortOptions: SelectOption[] = [
   { value: 'default', label: 'Featured' },
   { value: 'newest', label: 'Newest' },
   { value: 'price-low', label: 'Price: Low to High' },
   { value: 'price-high', label: 'Price: High to Low' },
-  { value: 'name', label: 'Name: A to Z' },
+  { value: 'name-asc', label: 'Name: A to Z' },
+  { value: 'name-desc', label: 'Name: Z to A' },
 ];
 
-export default function ShopPage({ products, categories }: ShopPageProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<SelectOption>(sortOptions[0]);
+interface ShopPageProps {
+  products: Product[];
+  categories: ProductCategory[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+  selectedCategory: string;
+  selectedSort: string;
+  totalCount: number;
+}
 
-  // Parse price string to number (handles "$29.00", "29.00", "$20.00 - $30.00")
-  const parsePrice = (priceStr: string | undefined): number => {
-    if (!priceStr) return 0;
-    // For price ranges like "$20.00 - $30.00", take the first price
-    const firstPrice = priceStr.split('-')[0];
-    // Remove all non-numeric characters except decimal point
-    const numericStr = firstPrice.replace(/[^0-9.]/g, '');
-    return parseFloat(numericStr) || 0;
+export default function ShopPage({
+  products: initialProducts,
+  categories,
+  hasNextPage: initialHasNext,
+  endCursor: initialCursor,
+  selectedCategory,
+  selectedSort,
+  totalCount,
+}: ShopPageProps) {
+  const router = useRouter();
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [hasNextPage, setHasNextPage] = useState(initialHasNext);
+  const [endCursor, setEndCursor] = useState<string | null>(initialCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
+
+  const selectedCategoryName =
+    selectedCategory === 'all'
+      ? 'All Products'
+      : categories.find((c) => c.slug === selectedCategory)?.name || 'Products';
+
+  const handleCategoryChange = (slug: string) => {
+    const query: Record<string, string> = {};
+    if (slug !== 'all') query.category = slug;
+    if (selectedSort !== 'default') query.sort = selectedSort;
+    router.push({ pathname: '/shop', query });
   };
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      if (selectedCategory === 'all') return true;
-      return product.productCategories?.nodes?.some(
-        (cat) => cat.slug === selectedCategory
-      );
-    });
-  }, [products, selectedCategory]);
+  const handleSortChange = (option: SelectOption | null) => {
+    if (!option) return;
+    const query: Record<string, string> = {};
+    if (selectedCategory !== 'all') query.category = selectedCategory;
+    if (option.value !== 'default') query.sort = option.value;
+    router.push({ pathname: '/shop', query });
+  };
 
-  const sortedProducts = useMemo(() => {
-    return [...filteredProducts].sort((a, b) => {
-      switch (sortBy.value) {
-        case 'price-low':
-          return parsePrice(a.price) - parsePrice(b.price);
-        case 'price-high':
-          return parsePrice(b.price) - parsePrice(a.price);
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'newest':
-          return 0;
-        default:
-          return 0;
-      }
-    });
-  }, [filteredProducts, sortBy]);
+  const loadMore = useCallback(async () => {
+    if (!hasNextPage || !endCursor || loadingMore) return;
+    setLoadingMore(true);
 
-  const selectedCategoryName = useMemo(() => {
-    if (selectedCategory === 'all') return 'All Products';
-    const category = categories.find((c) => c.slug === selectedCategory);
-    return category?.name || 'Products';
-  }, [selectedCategory, categories]);
-
-  // Calculate actual category counts from loaded products
-  const categoryCounts = useMemo(() => {
-    const counts: { [slug: string]: number } = {};
-    products.forEach((product) => {
-      product.productCategories?.nodes?.forEach((cat) => {
-        counts[cat.slug] = (counts[cat.slug] || 0) + 1;
+    try {
+      const params = new URLSearchParams({
+        after: endCursor,
+        first: String(PAGE_SIZE),
+        sort: selectedSort,
       });
-    });
-    return counts;
-  }, [products]);
+      if (selectedCategory !== 'all') params.set('category', selectedCategory);
+
+      const res = await fetch(`/api/shop/products?${params}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setProducts((prev) => [...prev, ...data.products]);
+        setHasNextPage(data.hasNextPage);
+        setEndCursor(data.endCursor);
+      }
+    } catch (err) {
+      console.error('Failed to load more products');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasNextPage, endCursor, loadingMore, selectedCategory, selectedSort]);
 
   return (
     <Layout title="Shop">
@@ -89,9 +105,8 @@ export default function ShopPage({ products, categories }: ShopPageProps) {
             <ShopSidebar
               categories={categories}
               selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-              productCount={products.length}
-              categoryCounts={categoryCounts}
+              onCategoryChange={handleCategoryChange}
+              productCount={totalCount}
             />
           </div>
 
@@ -102,7 +117,9 @@ export default function ShopPage({ products, categories }: ShopPageProps) {
               <div className={styles.headerLeft}>
                 <h1 className={styles.title}>{selectedCategoryName}</h1>
                 <span className={styles.productCount}>
-                  {sortedProducts.length} {sortedProducts.length === 1 ? 'product' : 'products'}
+                  {selectedCategory !== 'all'
+                    ? `${categories.find((c) => c.slug === selectedCategory)?.count || products.length} products`
+                    : `${totalCount} products`}
                 </span>
               </div>
 
@@ -110,8 +127,8 @@ export default function ShopPage({ products, categories }: ShopPageProps) {
                 <label className={styles.sortLabel}>Sort by</label>
                 <div className={styles.sortSelect}>
                   <Select
-                    value={sortBy}
-                    onChange={(option) => option && setSortBy(option)}
+                    value={currentSort}
+                    onChange={handleSortChange}
                     options={sortOptions}
                     instanceId="sort-select"
                   />
@@ -121,14 +138,34 @@ export default function ShopPage({ products, categories }: ShopPageProps) {
 
             {/* Products Grid */}
             <div className={styles.productsGrid}>
-              {sortedProducts.length > 0 ? (
-                sortedProducts.map((product) => (
+              {products.length > 0 ? (
+                products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))
               ) : (
                 <p className={styles.noProducts}>No products found in this category.</p>
               )}
             </div>
+
+            {/* Load More */}
+            {hasNextPage && (
+              <div className={styles.loadMore}>
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className={styles.loadMoreBtn}
+                >
+                  {loadingMore ? (
+                    <>
+                      <span className="spinner h-4 w-4" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More'
+                  )}
+                </button>
+              </div>
+            )}
           </main>
         </div>
       </div>
@@ -137,44 +174,90 @@ export default function ShopPage({ products, categories }: ShopPageProps) {
       <MobileFilters
         categories={categories}
         selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-        productCount={products.length}
-        categoryCounts={categoryCounts}
-        filteredCount={sortedProducts.length}
+        onCategoryChange={handleCategoryChange}
+        productCount={totalCount}
+        filteredCount={products.length}
       />
     </Layout>
   );
 }
 
-export const getStaticProps: GetStaticProps = async () => {
+function getSortVariables(sort: string) {
+  switch (sort) {
+    case 'newest':
+      return { orderby: [{ field: 'DATE', order: 'DESC' }] };
+    case 'price-low':
+      return { orderby: [{ field: 'PRICE', order: 'ASC' }] };
+    case 'price-high':
+      return { orderby: [{ field: 'PRICE', order: 'DESC' }] };
+    case 'name-asc':
+      return { orderby: [{ field: 'NAME', order: 'ASC' }] };
+    case 'name-desc':
+      return { orderby: [{ field: 'NAME', order: 'DESC' }] };
+    default:
+      return {};
+  }
+}
+
+export const getServerSideProps: GetServerSideProps = async ({ query, res }) => {
+  // Cache at CDN for 60s, serve stale for 5min while revalidating
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+
+  const selectedCategory = (typeof query.category === 'string' ? query.category : 'all');
+  const selectedSort = (typeof query.sort === 'string' ? query.sort : 'default');
+
   try {
     const client = getClient();
+    const sortVars = getSortVariables(selectedSort);
+
+    const productQuery = selectedCategory !== 'all'
+      ? client.query({
+          query: GET_PRODUCTS_BY_CATEGORY,
+          variables: { categorySlug: selectedCategory, first: PAGE_SIZE, ...sortVars },
+        })
+      : client.query({
+          query: GET_PRODUCTS,
+          variables: { first: PAGE_SIZE, ...sortVars },
+        });
 
     const [productsRes, categoriesRes] = await Promise.all([
-      client.query({
-        query: GET_PRODUCTS,
-        variables: { first: 100 },
-      }),
-      client.query({
-        query: GET_PRODUCT_CATEGORIES,
-      }),
+      productQuery,
+      client.query({ query: GET_PRODUCT_CATEGORIES }),
     ]);
+
+    const productNodes = productsRes.data?.products?.nodes || [];
+    const pageInfo = productsRes.data?.products?.pageInfo || {};
+    const categoryNodes = categoriesRes.data?.productCategories?.nodes || [];
+
+    // Total count: sum of all category counts, or use the found count for specific category
+    const totalCount = categoryNodes.reduce((sum: number, cat: ProductCategory) => {
+      if (cat.slug === 'uncategorized') return sum;
+      return sum + (cat.count || 0);
+    }, 0);
 
     return {
       props: {
-        products: productsRes.data?.products?.nodes || [],
-        categories: categoriesRes.data?.productCategories?.nodes || [],
+        products: productNodes,
+        categories: categoryNodes,
+        hasNextPage: pageInfo.hasNextPage || false,
+        endCursor: pageInfo.endCursor || null,
+        selectedCategory,
+        selectedSort,
+        totalCount,
       },
-      revalidate: 60,
     };
   } catch (error) {
-    console.error('Error fetching shop data:', error);
+    console.error('Error fetching shop data');
     return {
       props: {
         products: [],
         categories: [],
+        hasNextPage: false,
+        endCursor: null,
+        selectedCategory,
+        selectedSort,
+        totalCount: 0,
       },
-      revalidate: 60,
     };
   }
 };

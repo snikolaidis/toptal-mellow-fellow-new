@@ -133,6 +133,40 @@
   color: #666666;
 }
 
+/* Load More */
+.loadMore {
+  display: flex;
+  justify-content: center;
+  margin-top: 3rem;
+  padding-top: 2rem;
+}
+
+.loadMoreBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 3rem;
+  background-color: #354654;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.loadMoreBtn:hover:not(:disabled) {
+  background-color: #2a3a47;
+}
+
+.loadMoreBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Legacy styles - can be removed if not used elsewhere */
 .header {
   display: flex;
