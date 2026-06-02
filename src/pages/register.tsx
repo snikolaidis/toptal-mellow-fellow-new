@@ -29,12 +29,20 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (isReady && isAuthenticated) {
       router.push('/account');
     }
   }, [isReady, isAuthenticated, router]);
+
+  useEffect(() => {
+    fetch('/api/csrf-token')
+      .then((r) => r.json())
+      .then((data) => setCsrfToken(data.token))
+      .catch(() => {});
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -69,10 +77,17 @@ export default function RegisterPage() {
       // This prevents guest cart items from bleeding to the new user
       await fetch('/api/cart/clear-session', { method: 'POST' }).catch(() => {});
 
+      if (!csrfToken) {
+        setError('Security token not available. Please refresh the page.');
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({
           email: formData.email,

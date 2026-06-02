@@ -6,6 +6,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { gql } from '@apollo/client';
 import { getClient } from '@/lib/apollo-client';
 import { getRecommendedProducts } from '@/lib/rebuy/client';
+import { withRateLimitOnly } from '@/lib/middleware';
 import type { Product } from '@/types/woocommerce';
 
 const PRODUCTS_BY_SLUGS = gql`
@@ -75,7 +76,7 @@ function parseIds(raw: string | string[] | undefined): number[] {
     .filter((n) => Number.isFinite(n) && n > 0);
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, message: 'Method not allowed', products: [] });
   }
@@ -123,8 +124,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     return res.status(200).json({ success: true, products, count: products.length });
   } catch (err) {
-    console.error('[Rebuy API] Error:', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return res.status(500).json({ success: false, message, products: [] });
+    console.error('[Rebuy API] Request failed');
+    return res.status(500).json({ success: false, message: 'Recommendation service unavailable', products: [] });
   }
 }
+
+export default withRateLimitOnly(30, 60000)(handler);

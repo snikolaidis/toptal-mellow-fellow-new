@@ -74,7 +74,9 @@ interface AuthorizeNetResponse {
   };
 }
 
-export default async function handler(
+import { withMiddleware, withPaymentRateLimit, withIdempotency } from '@/lib/middleware';
+
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -221,14 +223,12 @@ export default async function handler(
     // API-level error
     const errorMessage =
       result.messages.message?.[0]?.text || 'Payment processing failed';
-    console.error('Authorize.net API error:', result.messages);
-
     return res.status(400).json({
       success: false,
       message: errorMessage,
     });
   } catch (error) {
-    console.error('Payment processing error:', error);
+    console.error('Payment processing error');
 
     // Don't expose internal errors to client
     return res.status(500).json({
@@ -237,3 +237,8 @@ export default async function handler(
     });
   }
 }
+
+export default withMiddleware(
+  withPaymentRateLimit(),
+  withIdempotency({ required: true })
+)(handler);

@@ -174,7 +174,8 @@ export function getWordPressGraphQLUrl(): string {
  */
 export function createWcSessionCookie(sessionToken: string): string {
   const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
-  return `wc_session_token=${encodeURIComponent(sessionToken)}; Path=/; Expires=${expiry}; SameSite=Lax`;
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return `wc_session_token=${encodeURIComponent(sessionToken)}; Path=/; HttpOnly; Expires=${expiry}; SameSite=Lax${secure}`;
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   extractWcSessionToken,
   getWordPressGraphQLUrl,
 } from '@/lib/http';
+import { withMiddleware, withPaymentRateLimit, withIdempotency } from '@/lib/middleware';
 
 /**
  * Order Creation API Route
@@ -55,7 +56,7 @@ interface OrderRequest {
   customerId?: number;
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -69,9 +70,6 @@ export default async function handler(
   if (!fullUrl) {
     return res.status(500).json({ message: 'WordPress URL not configured' });
   }
-
-  console.log('WordPress URL from env:', wordpressUrl);
-  console.log('Full GraphQL URL:', fullUrl);
 
   try {
     const body: OrderRequest = req.body;
@@ -157,14 +155,8 @@ export default async function handler(
       },
     };
 
-    console.log('Customer ID (not used in mutation):', body.customerId || 'guest');
-    console.log('Creating order at:', fullUrl);
-    console.log('Cookies received from browser:', req.headers.cookie);
-
     const cookies = req.headers.cookie || '';
     const wcSessionToken = extractWcSessionToken(cookies);
-
-    console.log('WC Session Token:', wcSessionToken ? `present (${wcSessionToken.substring(0, 20)}...)` : 'none');
 
     // Try to get auth token for authenticated users
     let authToken: string | undefined;
@@ -173,28 +165,19 @@ export default async function handler(
     const rtMatch = cookies.match(rtCookiePattern);
 
     if (rtMatch) {
-      console.log('Faust.js refresh token found, getting access token via local endpoint...');
-
       try {
-        const protocol = req.headers['x-forwarded-proto'] || 'https';
+        const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'https';
         const host = req.headers.host || 'localhost:3001';
         const tokenUrl = `${protocol}://${host}/api/faust/auth/token`;
-
-        console.log('Calling local token endpoint:', tokenUrl);
 
         const tokenResponse = await makeHttpGetRequest(tokenUrl, cookies);
 
         if (tokenResponse.data?.accessToken) {
           authToken = tokenResponse.data.accessToken;
-          console.log('Successfully obtained access token for authenticated checkout');
-        } else {
-          console.log('Could not get access token from local endpoint:', tokenResponse.data);
         }
       } catch (err) {
-        console.log('Failed to get access token:', err);
+        // Continue as guest checkout if token fetch fails
       }
-    } else {
-      console.log('No Faust.js refresh token found - guest checkout');
     }
 
     const response = await makeHttpRequest({
@@ -205,13 +188,9 @@ export default async function handler(
       authToken,
     });
 
-    console.log('Response status:', response.status);
     const result = response.data;
 
-    console.log('Checkout response:', JSON.stringify(result, null, 2));
-
     if (result.errors) {
-      console.error('GraphQL errors:', result.errors);
       return res.status(400).json({
         success: false,
         message: result.errors[0]?.message || 'Failed to create order',
@@ -239,18 +218,15 @@ export default async function handler(
       message: 'Order creation failed - no order returned',
     });
   } catch (error) {
-    console.error('Order creation error:', error);
-    if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error cause:', (error as any).cause);
-    }
+    console.error('Order creation failed');
     return res.status(500).json({
       success: false,
       message: 'An error occurred while creating your order.',
-      debug: process.env.NODE_ENV === 'development' ? {
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        url: getWordPressGraphQLUrl(),
-      } : undefined,
     });
   }
 }
+
+export default withMiddleware(
+  withPaymentRateLimit(),
+  withIdempotency({ required: true })
+)(handler);

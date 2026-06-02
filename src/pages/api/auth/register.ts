@@ -1,17 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import http from 'http';
-import https from 'https';
+import { makeHttpRequest, getWordPressGraphQLUrl } from '@/lib/http';
+import { withMiddleware, withCsrf, withRateLimit } from '@/lib/middleware';
 
 /**
  * Customer Registration API Route
  *
- * Registers a new WooCommerce customer via GraphQL
+ * Registers a new WooCommerce customer via GraphQL.
+ * Protected with CSRF validation and rate limiting (3 attempts per 15 min).
  */
-
-// HTTPS agent for self-signed certificates in development
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: process.env.NODE_ENV === 'production',
-});
 
 interface RegisterRequest {
   email: string;
@@ -20,46 +16,7 @@ interface RegisterRequest {
   lastName: string;
 }
 
-async function makeGraphQLRequest(
-  urlString: string,
-  body: string
-): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const url = new URL(urlString);
-    const isHttps = url.protocol === 'https:';
-    const lib = isHttps ? https : http;
-
-    const options: http.RequestOptions = {
-      hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      },
-      agent: isHttps ? httpsAgent : undefined,
-    };
-
-    const req = lib.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try {
-          resolve({ status: res.statusCode, data: JSON.parse(data) });
-        } catch (e) {
-          resolve({ status: res.statusCode, data });
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -67,9 +24,11 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-  const graphqlEndpoint = process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || '/graphql';
-  const url = `${wordpressUrl}${graphqlEndpoint}`;
+  const url = getWordPressGraphQLUrl();
+
+  if (!url) {
+    return res.status(500).json({ message: 'WordPress URL not configured' });
+  }
 
   try {
     const { email, password, firstName, lastName }: RegisterRequest = req.body;
@@ -77,6 +36,16 @@ export default async function handler(
     // Validate required fields
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      return res.status(400).json({ message: 'Please enter a valid email address' });
+    }
+
+    // Enforce password strength
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
     }
 
     // WooGraphQL registerCustomer mutation
@@ -100,20 +69,21 @@ export default async function handler(
         password,
         firstName: firstName || '',
         lastName: lastName || '',
-        username: email, // Use email as username
+        username: email,
       },
     };
 
-    const requestBody = JSON.stringify({ query: mutation, variables });
-    const response = await makeGraphQLRequest(url, requestBody);
+    const response = await makeHttpRequest({
+      url,
+      body: JSON.stringify({ query: mutation, variables }),
+    });
+
     const result = response.data;
 
     if (result.errors) {
-      const errorMessage = result.errors[0]?.message || 'Registration failed';
-      console.error('Registration error:', result.errors);
       return res.status(400).json({
         success: false,
-        message: errorMessage,
+        message: 'Registration failed. Please try again.',
       });
     }
 
@@ -126,13 +96,18 @@ export default async function handler(
 
     return res.status(400).json({
       success: false,
-      message: 'Registration failed - no customer returned',
+      message: 'Registration failed. Please try again.',
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('Registration failed');
     return res.status(500).json({
       success: false,
       message: 'An error occurred during registration',
     });
   }
 }
+
+export default withMiddleware(
+  withCsrf(),
+  withRateLimit({ maxAttempts: 3, windowMs: 15 * 60 * 1000 })
+)(handler);

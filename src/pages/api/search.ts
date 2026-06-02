@@ -8,6 +8,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getClient } from '@/lib/apollo-client';
 import { gql } from '@apollo/client';
+import { withRateLimitOnly } from '@/lib/middleware';
 
 // Search query - uses WPGraphQL WooCommerce search parameter
 const SEARCH_PRODUCTS = gql`
@@ -84,7 +85,7 @@ interface SearchResult {
   } | null;
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -138,7 +139,7 @@ export default async function handler(
       query: q,
     });
   } catch (error) {
-    console.error('[Search API] Error:', error);
+    console.error('[Search API] Query failed');
 
     return res.status(500).json({
       success: false,
@@ -147,3 +148,5 @@ export default async function handler(
     });
   }
 }
+
+export default withRateLimitOnly(30, 60000)(handler);
