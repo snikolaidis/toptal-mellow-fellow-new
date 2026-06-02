@@ -4,16 +4,13 @@ interface ShopSidebarProps {
   categories: ProductCategory[];
   selectedCategory: string;
   onCategoryChange: (slug: string) => void;
-  productCount?: number;
 }
 
 export default function ShopSidebar({
   categories,
   selectedCategory,
   onCategoryChange,
-  productCount,
 }: ShopSidebarProps) {
-  // Sort categories alphabetically, filter out empty and uncategorized
   const sortedCategories = [...categories]
     .filter((cat) => cat.slug !== 'uncategorized' && (cat.count || 0) > 0)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -29,9 +26,6 @@ export default function ShopSidebar({
               className={`category-item ${selectedCategory === 'all' ? 'active' : ''}`}
             >
               <span className="category-name">All Products</span>
-              {productCount !== undefined && (
-                <span className="category-count">{productCount}</span>
-              )}
             </button>
           </li>
           {sortedCategories.map((category) => (

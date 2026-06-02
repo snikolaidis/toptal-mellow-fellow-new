@@ -2,7 +2,6 @@ import { GetServerSideProps } from 'next';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
-import { gql } from '@apollo/client';
 import { GET_PRODUCTS, GET_PRODUCTS_BY_CATEGORY, GET_PRODUCT_CATEGORIES } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
@@ -30,7 +29,6 @@ interface ShopPageProps {
   endCursor: string | null;
   selectedCategory: string;
   selectedSort: string;
-  totalPublished: number;
 }
 
 export default function ShopPage({
@@ -40,7 +38,6 @@ export default function ShopPage({
   endCursor: initialCursor,
   selectedCategory,
   selectedSort,
-  totalPublished,
 }: ShopPageProps) {
   const router = useRouter();
   const [additionalProducts, setAdditionalProducts] = useState<Product[]>([]);
@@ -58,15 +55,13 @@ export default function ShopPage({
   const allProducts = [...initialProducts, ...additionalProducts];
   const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
-  const selectedCategoryName =
-    selectedCategory === 'all'
-      ? 'All Products'
-      : categories.find((c) => c.slug === selectedCategory)?.name || 'Products';
+  const selectedCategoryObj = categories.find((c) => c.slug === selectedCategory);
+  const selectedCategoryName = selectedCategory === 'all' ? 'All Products' : selectedCategoryObj?.name || 'Products';
 
-  // For "All Products" show total published; for a category use WooCommerce's count
-  const displayCount = selectedCategory !== 'all'
-    ? categories.find((c) => c.slug === selectedCategory)?.count || allProducts.length
-    : totalPublished;
+  // Per-category: use WooCommerce's count. For "All": show loaded count.
+  const displayCount = selectedCategory !== 'all' && selectedCategoryObj?.count
+    ? selectedCategoryObj.count
+    : allProducts.length;
 
   const handleCategoryChange = (slug: string) => {
     const query: Record<string, string> = {};
@@ -120,7 +115,6 @@ export default function ShopPage({
               categories={categories}
               selectedCategory={selectedCategory}
               onCategoryChange={handleCategoryChange}
-              productCount={totalPublished}
             />
           </div>
 
@@ -131,7 +125,7 @@ export default function ShopPage({
               <div className={styles.headerLeft}>
                 <h1 className={styles.title}>{selectedCategoryName}</h1>
                 <span className={styles.productCount}>
-                  {displayCount} {displayCount === 1 ? 'product' : 'products'}
+                  {hasNextPage ? `${displayCount}+` : displayCount} {displayCount === 1 ? 'product' : 'products'}
                 </span>
               </div>
 
@@ -187,7 +181,7 @@ export default function ShopPage({
         categories={categories}
         selectedCategory={selectedCategory}
         onCategoryChange={handleCategoryChange}
-        productCount={totalPublished}
+        productCount={allProducts.length}
         filteredCount={allProducts.length}
       />
     </Layout>
@@ -209,48 +203,6 @@ function getSortVariables(sort: string) {
     default:
       return {};
   }
-}
-
-/**
- * Count total published products by paginating through IDs only.
- * WPGraphQL caps `first` at 100, so we loop until hasNextPage is false.
- */
-const COUNT_PRODUCTS = gql`
-  query CountProducts($first: Int!, $after: String) {
-    products(first: $first, after: $after, where: { status: "publish" }) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      nodes {
-        __typename
-        ... on SimpleProduct { databaseId }
-        ... on VariableProduct { databaseId }
-        ... on ExternalProduct { databaseId }
-        ... on GroupProduct { databaseId }
-      }
-    }
-  }
-`;
-
-async function getTotalPublishedCount(client: ReturnType<typeof getClient>): Promise<number> {
-  let total = 0;
-  let after: string | null = null;
-  let hasNext = true;
-
-  while (hasNext) {
-    const result: any = await client.query({
-      query: COUNT_PRODUCTS,
-      variables: { first: 100, after },
-      fetchPolicy: 'network-only',
-    });
-
-    total += result.data?.products?.nodes?.length || 0;
-    hasNext = result.data?.products?.pageInfo?.hasNextPage || false;
-    after = result.data?.products?.pageInfo?.endCursor || null;
-  }
-
-  return total;
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ query, res }) => {
@@ -275,25 +227,19 @@ export const getServerSideProps: GetServerSideProps = async ({ query, res }) => 
           fetchPolicy: 'network-only',
         });
 
-    const [productsRes, categoriesRes, totalPublished] = await Promise.all([
+    const [productsRes, categoriesRes] = await Promise.all([
       productQuery,
       client.query({ query: GET_PRODUCT_CATEGORIES, fetchPolicy: 'network-only' }),
-      getTotalPublishedCount(client),
     ]);
-
-    const productNodes = productsRes.data?.products?.nodes || [];
-    const pageInfo = productsRes.data?.products?.pageInfo || {};
-    const categoryNodes = categoriesRes.data?.productCategories?.nodes || [];
 
     return {
       props: {
-        products: productNodes,
-        categories: categoryNodes,
-        hasNextPage: pageInfo.hasNextPage || false,
-        endCursor: pageInfo.endCursor || null,
+        products: productsRes.data?.products?.nodes || [],
+        categories: categoriesRes.data?.productCategories?.nodes || [],
+        hasNextPage: productsRes.data?.products?.pageInfo?.hasNextPage || false,
+        endCursor: productsRes.data?.products?.pageInfo?.endCursor || null,
         selectedCategory,
         selectedSort,
-        totalPublished,
       },
     };
   } catch (error) {
@@ -306,7 +252,6 @@ export const getServerSideProps: GetServerSideProps = async ({ query, res }) => 
         endCursor: null,
         selectedCategory,
         selectedSort,
-        totalPublished: 0,
       },
     };
   }
