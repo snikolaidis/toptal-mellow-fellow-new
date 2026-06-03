@@ -1,0 +1,21 @@
+@use "bulma/sass/utilities/mixins";
+
+nav.navbar {
+  > .container {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+
+    .navbar-menu {
+      width: 100%;
+
+      @include mixins.desktop {
+        justify-content: center;
+      }
+    }
+
+    .navbar-end {
+      display: flex;
+    }
+  }
+}

@@ -14,7 +14,7 @@ export default function Layout({
   title = 'Home',
   description = 'Premium cannabis products for elevated experiences',
 }: LayoutProps) {
-  const pageTitle = `${title} | Twenty One Cannabis`;
+  const pageTitle = `${title} | Mellow Fellow`;
 
   return (
     <>
