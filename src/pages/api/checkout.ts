@@ -211,7 +211,7 @@ async function createOrderDirectly(
         postcode: body.shipping?.postcode || body.billing.postcode,
         country: body.shipping?.country || body.billing.country,
       },
-      paymentMethod: 'bacs',
+      paymentMethod: 'authorize_net',
       isPaid: true,
       transactionId: transactionId,
       lineItems,
@@ -327,11 +327,9 @@ async function createOrderWithPayment(
         postcode: body.shipping?.postcode || body.billing.postcode,
         country: body.shipping?.country || body.billing.country,
       },
-      // Use 'bacs' as it doesn't try to process payment (we already did via Authorize.net)
-      // The Authorize.net WooCommerce gateway expects to process payment itself
-      paymentMethod: 'bacs',
-      isPaid: true, // Payment already processed via Authorize.net
-      transactionId: transactionId, // Authorize.net transaction ID
+      paymentMethod: 'authorize_net',
+      isPaid: true,
+      transactionId: transactionId,
       metaData: [
         { key: '_transaction_id', value: transactionId },
         { key: '_authorize_net_transaction_id', value: transactionId },
