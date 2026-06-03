@@ -65,6 +65,7 @@ interface CheckoutRequest {
     dataValue: string;
   };
   amount: string;
+  coupons?: string[];
   items: Array<{
     productId: number;
     name: string;
@@ -151,6 +152,140 @@ async function getAuthTokenFromRequest(req: NextApiRequest): Promise<string | un
   } catch (err) {
     console.log('[Checkout] Failed to get access token:', err);
     return undefined;
+  }
+}
+
+function parseMoney(value: string | number | undefined | null): number {
+  if (value === undefined || value === null) return NaN;
+  return parseFloat(String(value).replace(/[^0-9.]/g, ''));
+}
+
+async function applyCouponsToSession(
+  req: NextApiRequest,
+  codes: string[],
+  authToken?: string
+): Promise<void> {
+  if (!codes || codes.length === 0) return;
+
+  const graphqlUrl = getWordPressGraphQLUrl();
+  const cookies = req.headers.cookie || '';
+  const wcSessionToken = extractWcSessionToken(cookies);
+
+  const mutation = `
+    mutation ApplyCoupon($code: String!) {
+      applyCoupon(input: { code: $code }) {
+        cart { total discountTotal }
+      }
+    }
+  `;
+
+  for (const code of codes) {
+    if (!code) continue;
+    try {
+      const response = await makeHttpRequest({
+        url: graphqlUrl,
+        body: JSON.stringify({ query: mutation, variables: { code } }),
+        cookies,
+        wcSessionToken: wcSessionToken || undefined,
+        authToken,
+      });
+
+      if (response.data?.errors) {
+        const msg = response.data.errors[0]?.message || 'unknown error';
+        console.log(`[Checkout] applyCoupon "${code}": ${msg}`);
+      } else {
+        console.log(`[Checkout] Coupon "${code}" ensured on server session`);
+      }
+    } catch (err) {
+      console.error(`[Checkout] Failed to apply coupon "${code}":`, err);
+    }
+  }
+}
+
+async function getServerCartTotal(
+  req: NextApiRequest,
+  authToken?: string
+): Promise<{ total: number; discountTotal: number } | null> {
+  const graphqlUrl = getWordPressGraphQLUrl();
+  const cookies = req.headers.cookie || '';
+  const wcSessionToken = extractWcSessionToken(cookies);
+
+  const query = `
+    query CartTotals {
+      cart {
+        total
+        subtotal
+        discountTotal
+        isEmpty
+      }
+    }
+  `;
+
+  try {
+    const response = await makeHttpRequest({
+      url: graphqlUrl,
+      body: JSON.stringify({ query }),
+      cookies,
+      wcSessionToken: wcSessionToken || undefined,
+      authToken,
+    });
+
+    const cart = response.data?.data?.cart;
+    if (!cart || cart.isEmpty) {
+      console.warn('[Checkout] Server cart empty or unavailable when reading total');
+      return null;
+    }
+
+    const total = parseMoney(cart.total);
+    if (isNaN(total)) return null;
+
+    const discountTotal = parseMoney(cart.discountTotal);
+    return { total, discountTotal: isNaN(discountTotal) ? 0 : discountTotal };
+  } catch (err) {
+    console.error('[Checkout] Failed to read server cart total:', err);
+    return null;
+  }
+}
+
+async function voidPayment(transactionId: string): Promise<boolean> {
+  const apiLoginId = process.env.NEXT_PUBLIC_AUTHORIZE_API_LOGIN_ID;
+  const transactionKey = process.env.AUTHORIZE_TRANSACTION_KEY;
+  const environment = process.env.NEXT_PUBLIC_AUTHORIZE_ENVIRONMENT || 'sandbox';
+
+  if (!apiLoginId || !transactionKey) return false;
+
+  const payload = {
+    createTransactionRequest: {
+      merchantAuthentication: { name: apiLoginId, transactionKey },
+      transactionRequest: {
+        transactionType: 'voidTransaction',
+        refTransId: transactionId,
+      },
+    },
+  };
+
+  const apiUrl =
+    environment === 'production'
+      ? 'https://api.authorize.net/xml/v1/request.api'
+      : 'https://apitest.authorize.net/xml/v1/request.api';
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    const ok =
+      result.messages?.resultCode === 'Ok' &&
+      result.transactionResponse?.responseCode === '1';
+    if (!ok) {
+      console.error('[Checkout] Void failed:', JSON.stringify(result.messages));
+    }
+    return ok;
+  } catch (err) {
+    console.error('[Checkout] Void request error:', err);
+    return false;
   }
 }
 
@@ -473,6 +608,7 @@ async function updateCustomerAddresses(
  */
 async function processPayment(
   body: CheckoutRequest,
+  chargeAmount: number,
   idempotencyKey?: string
 ): Promise<PaymentResult> {
   const apiLoginId = process.env.NEXT_PUBLIC_AUTHORIZE_API_LOGIN_ID;
@@ -486,7 +622,7 @@ async function processPayment(
     );
   }
 
-  const amount = parseFloat(body.amount.replace(/[^0-9.]/g, ''));
+  const amount = chargeAmount;
   if (isNaN(amount) || amount <= 0) {
     throw new CheckoutError(
       'Invalid order amount',
@@ -648,7 +784,6 @@ async function checkoutHandler(
     // Get auth token for authenticated users
     const authToken = await getAuthTokenFromRequest(req);
 
-    // Log checkout started
     await storage.createReconciliationEntry({
       orderId: 'pending',
       amount: body.amount,
@@ -657,23 +792,35 @@ async function checkoutHandler(
       metadata: JSON.stringify({ email: body.billing.email, isAuthenticated: !!authToken }),
     });
 
-    // STEP 1: Process payment with Authorize.net FIRST
-    // This ensures we don't create orphaned orders if payment fails
-    const paymentResult = await processPayment(body, idempotencyKey);
+    await applyCouponsToSession(req, body.coupons || [], authToken);
+
+    const serverCart = await getServerCartTotal(req, authToken);
+    const browserAmount = parseMoney(body.amount);
+    const chargeAmount = serverCart ? serverCart.total : browserAmount;
+
+    if (isNaN(chargeAmount) || chargeAmount <= 0) {
+      throw new CheckoutError(
+        'Could not determine a valid amount to charge',
+        ErrorCode.VALIDATION_ERROR
+      );
+    }
+
+    console.log(
+      `[Checkout] Charge amount resolved to ${chargeAmount.toFixed(2)} ` +
+        `(source: ${serverCart ? 'server cart' : 'browser fallback'}, browser said ${browserAmount})`
+    );
+
+    const paymentResult = await processPayment(body, chargeAmount, idempotencyKey);
     transactionId = paymentResult.transactionId;
 
-    // Log payment success
     await storage.createReconciliationEntry({
       orderId: 'pending',
       transactionId,
-      amount: body.amount,
+      amount: chargeAmount.toFixed(2),
       status: 'payment_success',
       eventType: 'payment_success',
     });
 
-    // STEP 2: Create order in WooCommerce with payment already processed
-    // Order is created with isPaid=true and transactionId set
-    // Pass authToken so the order is associated with the logged-in customer
     let order: PendingOrder;
     try {
       order = await createOrderWithPayment(req, body, transactionId, authToken);
@@ -694,15 +841,49 @@ async function checkoutHandler(
     orderId = order.databaseId.toString();
     orderNumber = order.orderNumber;
 
-    // Log order created with payment
+    const orderTotal = parseMoney(order.total);
+    if (!isNaN(orderTotal) && Math.abs(orderTotal - chargeAmount) > 0.01) {
+      console.error(
+        `[Checkout] AMOUNT MISMATCH: charged ${chargeAmount.toFixed(2)} but order ` +
+          `${orderNumber} total is ${orderTotal.toFixed(2)}. Voiding transaction ${transactionId}.`
+      );
+      const voided = await voidPayment(transactionId);
+
+      await storage.createReconciliationEntry({
+        orderId,
+        orderNumber,
+        transactionId,
+        amount: chargeAmount.toFixed(2),
+        status: 'mismatch',
+        eventType: 'amount_mismatch',
+        metadata: JSON.stringify({
+          chargeAmount: chargeAmount.toFixed(2),
+          orderTotal: orderTotal.toFixed(2),
+          voided,
+          reason: 'order total did not match charged amount',
+        }),
+      });
+
+      throw new CheckoutError(
+        'Order total did not match the amount charged. The payment was reversed. Please try again or contact support.',
+        ErrorCode.PAYMENT_ORDER_MISMATCH,
+        { orderId, transactionId, chargeAmount, orderTotal, voided }
+      );
+    }
+
     await storage.createReconciliationEntry({
       orderId,
       orderNumber,
       transactionId,
-      amount: body.amount,
+      amount: chargeAmount.toFixed(2),
       status: 'payment_success',
       eventType: 'order_created',
-      metadata: JSON.stringify({ orderStatus: order.status, paymentIncluded: true }),
+      metadata: JSON.stringify({
+        orderStatus: order.status,
+        paymentIncluded: true,
+        orderTotal: orderTotal.toFixed(2),
+        discountTotal: serverCart ? serverCart.discountTotal.toFixed(2) : undefined,
+      }),
     });
 
     // STEP 3: Save customer addresses for authenticated users
