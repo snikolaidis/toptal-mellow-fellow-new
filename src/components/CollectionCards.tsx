@@ -41,8 +41,8 @@ export default function CollectionCards({ cards, title }: CollectionCardsProps) 
         }}
       >
         {cards.map((card) => (
-          <SwiperSlide>
-            <CollectionCard key={ card.id } card={ card }/>
+          <SwiperSlide key={ card.id }>
+            <CollectionCard card={ card }/>
           </SwiperSlide>
         ))}
       </Swiper>

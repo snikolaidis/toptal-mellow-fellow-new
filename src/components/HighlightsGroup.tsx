@@ -34,7 +34,7 @@ export default function HighlightsGroup({ highlights, title, description }: High
 
           <div className="highlights-group__track">
             {highlights.map((highlight) => (
-              <a href={ highlight.link } className="highlights-group__item">
+              <a key={ highlight.id } href={ highlight.link } className="highlights-group__item">
                 <img className="highlights-group__item-image" src={ highlight.image } alt="" width="800" />
                 
                 <h4 className="highlights-group__item-title">

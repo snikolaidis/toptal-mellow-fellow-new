@@ -1,10 +1,10 @@
 const links = [
-  { id: 1, title: 'New', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: 'https://mellowfellow.fun/cdn/shop/files/MF_Web_Assets_Thumbnails__New_Arrivals_543016ca-931a-43b4-a363-a383d3d78268.webp?v=1778189970&width=500' },
-  { id: 2, title: 'Best Sellers', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: 'https://mellowfellow.fun/cdn/shop/files/MF_Web_Assets_Thumbnails__New_Arrivals_543016ca-931a-43b4-a363-a383d3d78268.webp?v=1778189970&width=500' },
-  { id: 3, title: 'Terp Sauce', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: 'https://mellowfellow.fun/cdn/shop/files/MF_Web_Assets_Thumbnails__New_Arrivals_543016ca-931a-43b4-a363-a383d3d78268.webp?v=1778189970&width=500' },
-  { id: 4, title: 'Blends Edibles', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: 'https://mellowfellow.fun/cdn/shop/files/MF_Web_Assets_Thumbnails__New_Arrivals_543016ca-931a-43b4-a363-a383d3d78268.webp?v=1778189970&width=500' },
-  { id: 5, title: 'Wellness', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: 'https://mellowfellow.fun/cdn/shop/files/MF_Web_Assets_Thumbnails__New_Arrivals_543016ca-931a-43b4-a363-a383d3d78268.webp?v=1778189970&width=500' },
-  { id: 6, title: 'Live Resin', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: 'https://mellowfellow.fun/cdn/shop/files/MF_Web_Assets_Thumbnails__New_Arrivals_543016ca-931a-43b4-a363-a383d3d78268.webp?v=1778189970&width=500' }
+  { id: 1, title: 'New', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: '/images/Thumbnails__New_Arrivals.webp' },
+  { id: 2, title: 'Best Sellers', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: '/images/Thumbnails__New_Arrivals.webp' },
+  { id: 3, title: 'Terp Sauce', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: '/images/Thumbnails__New_Arrivals.webp' },
+  { id: 4, title: 'Blends Edibles', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: '/images/Thumbnails__New_Arrivals.webp' },
+  { id: 5, title: 'Wellness', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: '/images/Thumbnails__New_Arrivals.webp' },
+  { id: 6, title: 'Live Resin', href: 'https://mellowfellow.fun/collections/new-arrivals', thumbnail: '/images/Thumbnails__New_Arrivals.webp' }
 ];
 
 export default function CollectionLinks() {

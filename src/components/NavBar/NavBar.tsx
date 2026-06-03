@@ -43,15 +43,12 @@ interface MenuItem {
 }
 
 export default function Navbar() {
-  const { data, loading, error } = useQuery(GET_NAV);
+  const { data } = useQuery(GET_NAV);
 
   const { cart } = useCart();
   const { isAuthenticated, isReady } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
-
-  if (loading) return <nav className="navbar">Loading...</nav>;
-  if (error) return null;
 
   const menuItems: MenuItem[] = data?.menuItems?.nodes ?? [];
   const topLevelItems = menuItems.filter((item: MenuItem) => !item.parentId);

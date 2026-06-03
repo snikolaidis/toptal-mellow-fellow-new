@@ -54,8 +54,8 @@ export default function CollectionSwiper({ products, title }: CollectionSwiperPr
             }}
           >
             {products.map((product) => (
-              <SwiperSlide>
-                <ProductCard key={product.id} product={product} />
+              <SwiperSlide key={product.id}>
+                <ProductCard product={product} />
               </SwiperSlide>
             ))}
           </Swiper>
