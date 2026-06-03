@@ -50,12 +50,8 @@ function AccountDashboard() {
   const { data, loading, error } = useQuery(GET_CUSTOMER, { client });
 
   const handleLogout = async () => {
-    // Cart persistence is handled by the WordPress plugin (Headless Cart Persistence)
-    // It saves cart to user meta automatically via woocommerce_cart_updated hook
-
-    // Clear WC session on logout for privacy (shared computers)
-    document.cookie = 'wc_session_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
-
+    // Clear WC session server-side (HttpOnly cookies can't be cleared via JS)
+    await fetch('/api/cart/clear-session', { method: 'POST' }).catch(() => {});
     logout('/');
   };
 

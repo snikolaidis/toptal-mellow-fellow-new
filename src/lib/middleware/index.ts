@@ -61,7 +61,7 @@ export function withPaymentProtection() {
   return withMiddleware(
     withCsrf(),
     withPaymentRateLimit(),
-    withIdempotency({ required: false }) // Idempotency key optional but recommended
+    withIdempotency({ required: true })
   );
 }
 

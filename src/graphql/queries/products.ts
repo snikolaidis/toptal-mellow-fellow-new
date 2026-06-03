@@ -166,8 +166,8 @@ export const GET_PRODUCTS = gql`
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
   ${GROUP_PRODUCT_FIELDS}
-  query GetProducts($first: Int = 12, $after: String) {
-    products(first: $first, after: $after, where: { status: "publish" }) {
+  query GetProducts($first: Int = 12, $after: String, $orderby: [ProductsOrderbyInput]) {
+    products(first: $first, after: $after, where: { status: "publish", orderby: $orderby }) {
       pageInfo {
         hasNextPage
         endCursor
@@ -263,11 +263,16 @@ export const GET_PRODUCTS_BY_CATEGORY = gql`
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
   ${GROUP_PRODUCT_FIELDS}
-  query GetProductsByCategory($categorySlug: String!, $first: Int = 12) {
+  query GetProductsByCategory($categorySlug: String!, $first: Int = 12, $after: String, $orderby: [ProductsOrderbyInput]) {
     products(
       first: $first
-      where: { category: $categorySlug, status: "publish" }
+      after: $after
+      where: { category: $categorySlug, status: "publish", orderby: $orderby }
     ) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         __typename
         ... on SimpleProduct {

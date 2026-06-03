@@ -1,6 +1,7 @@
 @use 'bulma/sass' as * with (
   $primary: #e6dabe,
-  $family-sans-serif: ('Source Sans 3', ui-sans-serif, system-ui, sans-serif)
+  $family-sans-serif: ('Source Sans 3', ui-sans-serif, system-ui, sans-serif),
+  $scheme-main: #ffffff
 );
 
 @use 'fonts';
@@ -77,9 +78,22 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-family-display);
 }
 
+/* Force light mode — override Bulma v1 dark mode CSS custom properties */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bulma-scheme-main: #ffffff !important;
+    --bulma-body-background-color: #ffffff !important;
+    --bulma-text: #232323 !important;
+    --bulma-text-strong: #232323 !important;
+    --bulma-scheme-main-bis: #f5f5f5 !important;
+    --bulma-scheme-main-ter: #ededed !important;
+  }
+}
+
 body {
   min-height: 100vh;
   color: var(--color-text-primary);
+  background-color: var(--color-surface-secondary);
 }
 
 a {
