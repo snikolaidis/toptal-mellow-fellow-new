@@ -145,8 +145,8 @@ export default function ShopPage({
             {/* Products Grid */}
             <div className={styles.productsGrid}>
               {allProducts.length > 0 ? (
-                allProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                allProducts.map((product, index) => (
+                  <ProductCard key={product.id} product={product} priority={index < 12} />
                 ))
               ) : (
                 <p className={styles.noProducts}>No products found in this category.</p>

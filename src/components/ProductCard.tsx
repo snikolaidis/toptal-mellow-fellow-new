@@ -8,6 +8,7 @@ import QuickView from '@/components/shop/QuickView';
 interface ProductCardProps {
   product: Product;
   badge?: 'new' | 'sale' | 'limited';
+  priority?: boolean;
 }
 
 const PlusIcon = () => (
@@ -30,7 +31,7 @@ const EyeIcon = () => (
   </svg>
 );
 
-export default function ProductCard({ product, badge }: ProductCardProps) {
+export default function ProductCard({ product, badge, priority = false }: ProductCardProps) {
   const { addToCart } = useCart();
   const [isAdding, setIsAdding] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
@@ -93,6 +94,7 @@ export default function ProductCard({ product, badge }: ProductCardProps) {
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
                 className="object-contain object-center transition-transform duration-700 group-hover:scale-105"
+                priority={priority}
               />
             </div>
 
