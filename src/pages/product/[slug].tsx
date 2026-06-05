@@ -38,6 +38,25 @@ export default function ProductPage({
     setActiveImageIndex(0);
   }, [product?.id]);
 
+  useEffect(() => {
+    if (!product || typeof window === 'undefined') return;
+    const w = window as unknown as { klaviyo?: unknown[] };
+    w.klaviyo = w.klaviyo || [];
+    w.klaviyo.push([
+      'track',
+      'Viewed Product',
+      {
+        ProductName: product.name,
+        ProductID: product.databaseId,
+        SKU: product.sku,
+        Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
+        ImageURL: product.image?.sourceUrl,
+        URL: window.location.href,
+        Price: product.price,
+      },
+    ]);
+  }, [product?.id]);
+
   if (!product) {
     return (
       <Layout title="Product Not Found">

@@ -77,6 +77,7 @@ export type ReconciliationEventType =
   | 'payment_attempted'
   | 'payment_success'
   | 'payment_failed'
+  | 'amount_mismatch'
   | 'order_status_updated'
   | 'webhook_notification'
   | 'manual_reconciliation';

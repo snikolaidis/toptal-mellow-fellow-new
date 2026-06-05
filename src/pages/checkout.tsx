@@ -208,6 +208,7 @@ export default function CheckoutPage() {
           shipping: sameAsBilling ? undefined : finalShipping,
           paymentNonce: paymentData.opaqueData,
           amount: cart?.total,
+          coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
           items: cart?.items.map((item) => ({
             productId: item.product.databaseId,
             name: item.product.name,
