@@ -93,21 +93,6 @@ export default function ProductPage({
   return (
     <Layout title={product.name}>
       <div className={styles.page}>
-        {/* Breadcrumb */}
-        <nav className={styles.breadcrumb}>
-          <Link href="/">Home</Link>
-          <span className={styles.separator}>/</span>
-          <Link href="/shop">Shop</Link>
-          {categories.length > 0 && (
-            <>
-              <span className={styles.separator}>/</span>
-              <Link href={`/shop?category=${categories[0].slug}`}>{categories[0].name}</Link>
-            </>
-          )}
-          <span className={styles.separator}>/</span>
-          <span className={styles.current}>{product.name}</span>
-        </nav>
-
         {/* Main Product Section */}
         <div className={styles.productLayout}>
           {/* Gallery */}
@@ -160,6 +145,19 @@ export default function ProductPage({
                 {categories[0].name}
               </Link>
             )}
+
+            {/* Breadcrumb */}
+            <nav className={styles.breadcrumb}>
+              <Link href="/">Home</Link>
+              <span className={styles.separator}>/</span>
+              <Link href="/shop">Shop</Link>
+              {categories.length > 0 && (
+                <>
+                  <span className={styles.separator}>/</span>
+                  <Link href={`/shop?category=${categories[0].slug}`}>{categories[0].name}</Link>
+                </>
+              )}
+            </nav>
 
             {/* Title */}
             <h1 className={styles.title}>{product.name}</h1>
@@ -237,36 +235,38 @@ export default function ProductPage({
               </div>
             )}
 
+            {/* Quantity Selector */}
+            {isInStock && (
+              <div className={styles.quantitySelector}>
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className={styles.quantityBtn}
+                  aria-label="Decrease quantity"
+                  disabled={quantity <= 1}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                  </svg>
+                </button>
+                <span className={styles.quantityValue}>{quantity}</span>
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className={styles.quantityBtn}
+                  aria-label="Increase quantity"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
             {/* Add to Cart Section */}
             {isInStock ? (
               <div className={styles.addToCartSection}>
-                {/* Quantity Selector */}
-                <div className={styles.quantitySelector}>
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className={styles.quantityBtn}
-                    aria-label="Decrease quantity"
-                    disabled={quantity <= 1}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                    </svg>
-                  </button>
-                  <span className={styles.quantityValue}>{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className={styles.quantityBtn}
-                    aria-label="Increase quantity"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
-
                 {/* Add to Cart Button */}
                 <button
-                  className={`${styles.addToCartBtn} ${addedToCart ? styles.added : ''}`}
+                  className={`button is-black is-fullwidth ${isAdding ? 'loading' : ''}`}
                   onClick={handleAddToCart}
                   disabled={isAdding || (hasVariations && !selectedVariation)}
                 >
@@ -327,6 +327,16 @@ export default function ProductPage({
                 </div>
               )}
             </div>
+
+            {/* Full Description */}
+            {product.description && (
+              <div className={styles.descriptionSection}>
+                <div
+                  className={styles.description}
+                  dangerouslySetInnerHTML={{ __html: product.description }}
+                />
+              </div>
+            )}
           </div>
         </div>
 

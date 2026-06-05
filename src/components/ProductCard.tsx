@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Product } from '@/types/woocommerce';
 import { useCart } from '@/context/CartContext';
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import QuickView from '@/components/shop/QuickView';
 
 interface ProductCardProps {
@@ -10,23 +10,21 @@ interface ProductCardProps {
   badge?: 'new' | 'sale' | 'limited';
 }
 
-const PlusIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+const IconIndica = () => (
+  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2.51275 2.23725C2.51275 1.43745 2.68755 0.67475 3.01275 0C1.22513 0.8374 0 2.64987 0 4.75C0 7.64987 2.35013 10 5.25 10C7.35013 10 9.16263 8.7627 10 6.98725C9.3252 7.31245 8.5625 7.48725 7.76275 7.48725C4.86237 7.48725 2.51275 5.13762 2.51275 2.23725Z" fill="#162B58"/>
   </svg>
 );
 
-const LoadingSpinner = () => (
-  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+const IconHybrid = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 12C2.68594 12 0 9.31406 0 6C0 2.68594 2.68594 0 6 0C9.31406 0 12 2.68594 12 6C12 9.31406 9.31406 12 6 12ZM6 10.5C8.48438 10.5 10.5 8.48438 10.5 6C10.5 3.51562 8.48438 1.5 6 1.5V10.5Z" fill="#858F67"/>
   </svg>
 );
 
-const EyeIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+const IconSativa = () => (
+  <svg width="11" height="12" viewBox="0 0 11 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5.49948 2.90265C7.30069 2.90265 8.76125 4.28903 8.76125 5.99994C8.76125 7.71032 7.30125 9.09723 5.49948 9.09723C3.69828 9.09723 2.23771 7.71085 2.23771 5.99994C2.23771 4.28956 3.69772 2.90265 5.49948 2.90265ZM8.91543 7.87338C8.85948 7.96557 8.89294 8.08379 8.99002 8.13744L10.692 9.07076C10.7227 9.08795 10.7578 9.09628 10.7929 9.09628C10.8658 9.09628 10.9333 9.05878 10.97 8.99889C11.026 8.9067 10.9925 8.78848 10.8954 8.73483L9.1935 7.80151C9.09642 7.74838 8.97192 7.78015 8.91542 7.87234L8.91543 7.87338ZM3.60111 2.49066L3.03509 1.5589V1.55629C2.97749 1.46411 2.85408 1.43338 2.75591 1.48702C2.65882 1.54171 2.62646 1.6589 2.68296 1.75213L3.24899 2.68389C3.30493 2.77607 3.42999 2.80784 3.52707 2.75472C3.62415 2.70159 3.65761 2.58284 3.60167 2.49066L3.60111 2.49066ZM8.91543 4.1281C8.97302 4.22029 9.09643 4.25101 9.1946 4.19737L10.8965 3.26405H10.8993C10.9964 3.20936 11.0287 3.09217 10.9722 2.99895C10.9146 2.90676 10.7912 2.87603 10.693 2.92968L8.99111 3.863H8.98837C8.89129 3.91768 8.85893 4.03488 8.91543 4.1281ZM10.9854 5.99994C10.9854 5.89317 10.8943 5.80672 10.7819 5.80672H9.64873C9.53629 5.80672 9.44524 5.89317 9.44524 5.99994C9.44524 6.10671 9.53629 6.19316 9.64873 6.19316H10.7819C10.8943 6.19316 10.9854 6.10671 10.9854 5.99994ZM5.70294 2.05986V0.193224C5.70294 0.0864547 5.61189 0 5.49946 0C5.38702 0 5.29597 0.0864574 5.29597 0.193224V2.05986C5.29597 2.16663 5.38702 2.25309 5.49946 2.25309C5.61189 2.25309 5.70294 2.16663 5.70294 2.05986ZM8.31867 1.75049C8.37462 1.65727 8.33952 1.54008 8.24298 1.48643C8.1459 1.43331 8.0214 1.46664 7.9649 1.55831L7.39887 2.49007C7.34292 2.58225 7.37638 2.70048 7.47346 2.75413C7.57054 2.80725 7.69505 2.77548 7.75155 2.6833L8.31758 1.75154V1.74893L8.31867 1.75049ZM0.0277717 9.00146C0.0853631 9.09364 0.208777 9.12437 0.306953 9.07073L2.00889 8.13741C2.10597 8.08428 2.13833 7.96658 2.08348 7.8749C2.02753 7.78168 1.90358 7.74938 1.80539 7.80303L0.103461 8.73635H0.100718C0.00363616 8.79104 -0.028723 8.90823 0.0277717 9.00146ZM2.08354 4.12659C2.13949 4.03441 2.10603 3.91618 2.00895 3.86253L0.307016 2.92921C0.209934 2.87609 0.0854319 2.90786 0.0289302 3.00004C-0.0270156 3.09223 0.00644178 3.21045 0.103524 3.26411L1.80546 4.19743C1.83617 4.21461 1.87127 4.22295 1.90802 4.22295C1.98097 4.22295 2.04844 4.18545 2.08518 4.12555L2.08354 4.12659ZM7.39785 9.50932L7.96388 10.4411C8.01983 10.5333 8.14378 10.564 8.24032 10.5119C8.3385 10.4588 8.37251 10.3411 8.31601 10.2478L7.74999 9.31609C7.69404 9.2239 7.57009 9.19317 7.47354 9.24525C7.37536 9.29838 7.34136 9.41608 7.39785 9.50932ZM0.0135901 6.00003C0.0135901 6.1068 0.104639 6.19326 0.217075 6.19326H1.35024C1.46268 6.19326 1.55373 6.1068 1.55373 6.00003C1.55373 5.89327 1.46268 5.80681 1.35024 5.80681H0.217075C0.104636 5.80681 0.0135901 5.89327 0.0135901 6.00003ZM2.68135 10.2469C2.6265 10.3391 2.65886 10.4563 2.75594 10.5094C2.85302 10.5641 2.97752 10.5323 3.03512 10.4401L3.60115 9.50838C3.6571 9.41619 3.62364 9.29797 3.52656 9.24432C3.42947 9.19119 3.30497 9.22296 3.24847 9.31515L2.68244 10.2469L2.68135 10.2469ZM5.29596 9.94014V11.8068C5.29596 11.9135 5.387 12 5.49944 12C5.61188 12 5.70293 11.9135 5.70293 11.8068V9.94014C5.70293 9.83337 5.61188 9.74691 5.49944 9.74691C5.387 9.74691 5.29596 9.83337 5.29596 9.94014Z" fill="#FFBF00"/>
   </svg>
 );
 
@@ -42,6 +40,10 @@ export default function ProductCard({ product, badge }: ProductCardProps) {
 
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);
+
+  const productDetails = product.productDetails;
+
+  const strainType = productDetails?.strainType;
 
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -80,6 +82,15 @@ export default function ProductCard({ product, badge }: ProductCardProps) {
     }
   };
 
+  const getStrainTypeIcon = (strainType: string): ReactNode => {
+    switch (strainType) {
+      case 'Indica': return <IconIndica />;
+      case 'Hybrid': return <IconHybrid />;
+      case 'Sativa': return <IconSativa />;
+      default: return null;
+    }
+  };
+
   return (
     <>
       <div className="product-card">
@@ -113,67 +124,82 @@ export default function ProductCard({ product, badge }: ProductCardProps) {
                 </span>
               </div>
             )}
+          </div>
 
-            {/* Action Buttons */}
-            {isInStock && (
-              <div className="absolute bottom-4 right-4 flex flex-col gap-2 opacity-0 transition-all duration-300 group-hover:opacity-100">
-                {/* Quick View Button */}
-                <button
-                  onClick={handleQuickView}
-                  className="flex h-10 w-10 items-center justify-center bg-white text-black border border-black transition-colors hover:bg-black hover:text-white"
-                  aria-label={`Quick view ${product.name}`}
-                >
-                  <EyeIcon />
-                </button>
-
-                {/* Quick Add Button (Simple Products Only) */}
-                {isSimpleProduct && (
-                  <button
-                    onClick={handleQuickAdd}
-                    disabled={isAdding}
-                    className="flex h-10 w-10 items-center justify-center bg-white text-black border border-black transition-colors hover:bg-black hover:text-white disabled:opacity-50"
-                    aria-label={`Add ${product.name} to cart`}
-                  >
-                    {isAdding ? <LoadingSpinner /> : <PlusIcon />}
-                  </button>
-                )}
-
-                {/* View Options for Variable Products */}
-                {!isSimpleProduct && (
-                  <div className="flex h-10 items-center justify-center bg-white text-black border border-black px-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider">Options</span>
-                  </div>
-                )}
-              </div>
+          {/* Product Info */}
+          <div className="product__info">
+            {productDetails?.lineCollection && (
+              <p className="product__line-collection">
+                {productDetails.lineCollection}
+              </p>
             )}
+
+            {productDetails?.experienceType && (
+              <p className="product__blend-type">
+                {productDetails.experienceType}
+              </p>
+            )}
+
+            {productDetails?.strainName && (
+              <p className="product__strain-name">
+                {productDetails.strainName}
+              </p>
+            )}
+
+            <div className="product__strain-tags">
+              {strainType && (
+                <div className={`product__tag strain-type ${strainType.replace(' ', '-').toLowerCase()}`}>
+                  {getStrainTypeIcon(strainType)}
+                  {strainType}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-1">
+              {product.salePrice ? (
+                <>
+                  <span className="text-sm font-medium text-black">{product.salePrice}</span>
+                  <span className="text-sm text-[#999999] line-through">{product.regularPrice}</span>
+                </>
+              ) : (
+                <span className="text-sm font-medium text-black">{product.price}</span>
+              )}
+            </div>
           </div>
         </Link>
 
-        {/* Product Info */}
-        <div className="flex flex-col gap-1 pt-4">
-          {product.productCategories?.nodes && product.productCategories.nodes.length > 0 && (
-            <p className="text-[10px] text-[#666666] uppercase tracking-wider">
-              {product.productCategories.nodes[0].name}
-            </p>
-          )}
+        {/* Action Buttons */}
+        {isInStock && (
+          <div className="is-flex">
+            {/* Quick View Button 
+            <button
+              onClick={handleQuickView}
+              className="button is-small is-fullwidth"
+              aria-label={`Quick view ${product.name}`}
+            >
+              Quick view
+            </button>*/}
 
-          <Link href={`/product/${product.slug}`}>
-            <h3 className="text-sm font-medium text-black hover:text-[#666666] transition-colors line-clamp-1">
-              {product.name}
-            </h3>
-          </Link>
+            {/* Quick Add Button (Simple Products Only) */}
+            {isSimpleProduct && (
+              <button
+                onClick={handleQuickAdd}
+                disabled={isAdding}
+                className="button is-small add-to-cart is-fullwidth"
+                aria-label={`Add ${product.name} to cart`}
+              >
+                Add to cart
+              </button>
+            )}
 
-          <div className="flex items-center gap-2 mt-1">
-            {product.salePrice ? (
-              <>
-                <span className="text-sm font-medium text-black">{product.salePrice}</span>
-                <span className="text-sm text-[#999999] line-through">{product.regularPrice}</span>
-              </>
-            ) : (
-              <span className="text-sm font-medium text-black">{product.price}</span>
+            {/* View Options for Variable Products */}
+            {!isSimpleProduct && (
+              <div className="flex h-10 items-center justify-center bg-white text-black border border-black px-3">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Options</span>
+              </div>
             )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Quick View Modal */}

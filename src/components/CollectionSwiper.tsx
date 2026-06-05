@@ -34,7 +34,6 @@ export default function CollectionSwiper({ products, title }: CollectionSwiperPr
             modules={[Autoplay, Pagination, Navigation]}
             pagination={{ clickable: true }}
             navigation
-            autoplay={{ delay: 5000, disableOnInteraction: false }}
             breakpoints={{
               769: {
                 slidesPerView: 2,

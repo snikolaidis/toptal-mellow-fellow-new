@@ -1,3 +1,4 @@
+import { getClient, getBrowserClient } from '@/lib/apollo-client';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useCart } from '@/context/CartContext';
@@ -43,7 +44,8 @@ interface MenuItem {
 }
 
 export default function Navbar() {
-  const { data } = useQuery(GET_NAV);
+  const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
+  const { data } = useQuery(GET_NAV, { client });
 
   const { cart } = useCart();
   const { isAuthenticated, isReady } = useAuth();

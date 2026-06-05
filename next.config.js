@@ -3,6 +3,14 @@ const { withFaust } = require('@faustwp/core');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    return [
+      {
+        source: '/api/graphql',
+        destination: `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/graphql`,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.wpengine.com' },

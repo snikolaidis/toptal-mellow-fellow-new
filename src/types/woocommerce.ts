@@ -44,6 +44,13 @@ export interface ProductVariation {
   };
 }
 
+export interface ProductACF {
+  lineCollection?: string;
+  experienceType?: string;
+  strainName?: string;
+  strainType?: string;
+}
+
 export interface Product {
   __typename?: 'SimpleProduct' | 'VariableProduct' | 'ExternalProduct' | 'GroupProduct';
   id: string;
@@ -74,6 +81,7 @@ export interface Product {
   variations?: {
     nodes: ProductVariation[];
   };
+  productDetails?: ProductACF
 }
 
 export interface CartItem {

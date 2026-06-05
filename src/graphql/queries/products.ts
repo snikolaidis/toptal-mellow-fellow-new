@@ -35,6 +35,12 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    productDetails {
+      lineCollection
+      experienceType
+      strainName
+      strainType
+    }
   }
 `;
 

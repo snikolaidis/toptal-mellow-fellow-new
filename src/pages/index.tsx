@@ -99,7 +99,7 @@ export const getStaticProps: GetStaticProps = async () => {
     const client = getClient();
     const { data } = await client.query({
       query: GET_PRODUCTS,
-      variables: { first: 12 },
+      variables: { first: 100 },
     });
 
     return {

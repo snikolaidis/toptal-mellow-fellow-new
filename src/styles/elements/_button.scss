@@ -1,0 +1,13 @@
+.button {
+  border-radius: 50px;
+
+  &.add-to-cart {
+    background-color: #E6DABE;
+    color: #000000;
+
+    &:hover {
+      background-color: #000;
+      color: #fff;
+    }
+  }
+}
