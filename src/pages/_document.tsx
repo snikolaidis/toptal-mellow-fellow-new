@@ -1,6 +1,7 @@
 import { Html, Head, Main, NextScript } from 'next/document';
 
 const klaviyoPublicKey = process.env.NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY;
+const yotpoAppKey = process.env.NEXT_PUBLIC_YOTPO_APP_KEY;
 
 export default function Document() {
   return (
@@ -25,6 +26,13 @@ export default function Document() {
             type="text/javascript"
             async
             src={`https://static.klaviyo.com/onsite/js/${klaviyoPublicKey}/klaviyo.js`}
+          />
+        )}
+        {yotpoAppKey && (
+          <script
+            type="text/javascript"
+            async
+            src={`https://staticw2.yotpo.com/${yotpoAppKey}/widget.js`}
           />
         )}
       </Head>

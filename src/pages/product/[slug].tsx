@@ -52,6 +52,16 @@ export default function ProductPage({
     });
   }, [product?.id]);
 
+  useEffect(() => {
+    if (!product || typeof window === 'undefined') return;
+    const w = window as unknown as {
+      yotpoWidgetsContainer?: { initWidgets?: () => void };
+      yotpo?: { refreshWidgets?: () => void };
+    };
+    w.yotpoWidgetsContainer?.initWidgets?.();
+    w.yotpo?.refreshWidgets?.();
+  }, [product?.id]);
+
   if (!product) {
     return (
       <Layout title="Product Not Found">
@@ -183,6 +193,8 @@ export default function ProductPage({
 
             {/* Title */}
             <h1 className={styles.title}>{product.name}</h1>
+
+            <div className="yotpo bottomLine" data-product-id={product.databaseId} />
 
             {/* Collection Items Grid */}
             {collectionProducts.length > 1 && collectionName && (
@@ -372,6 +384,18 @@ export default function ProductPage({
             />
           </div>
         )}
+
+        <div className={styles.descriptionSection}>
+          <div
+            className="yotpo yotpo-main-widget"
+            data-product-id={product.databaseId}
+            data-name={product.name}
+            data-url={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/product/${product.slug}`}
+            data-image-url={product.image?.sourceUrl}
+            data-price={product.price?.replace(/[^0-9.]/g, '')}
+            data-currency="USD"
+          />
+        </div>
 
       </div>
     </Layout>
