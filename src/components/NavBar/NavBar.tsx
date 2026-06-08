@@ -21,11 +21,23 @@ const GET_NAV = gql`
         label
         uri
         parentId
+        connectedNode {
+          node {
+            __typename
+            uri
+          }
+        }
         childItems {
           nodes {
             id
             label
             uri
+            connectedNode {
+              node {
+                __typename
+                uri
+              }
+            }
           }
         }
       }
@@ -38,6 +50,12 @@ interface MenuItem {
   label: string;
   uri: string;
   parentId: string | null;
+  connectedNode?: {
+    node?: {
+      __typename?: string;
+      uri?: string;
+    };
+  };
   childItems?: {
     nodes: MenuItem[];
   };
@@ -54,6 +72,19 @@ export default function Navbar() {
 
   const menuItems: MenuItem[] = data?.menuItems?.nodes ?? [];
   const topLevelItems = menuItems.filter((item: MenuItem) => !item.parentId);
+
+  const getMenuItemUri = (item: MenuItem): string => {
+    const typename = item.connectedNode?.node?.__typename;
+    const uri = item.uri ?? '/';
+
+    console.log(item);
+
+    if (typename === 'ProductCategory') {
+      return uri.replace('/product-category/', '/collections/');
+    }
+
+    return uri;
+  };
 
   return (
     <>
@@ -127,12 +158,12 @@ export default function Navbar() {
               if (children.length > 0) {
                 return (
                   <div key={item.id} className="navbar-item has-dropdown is-hoverable">
-                    <Link className="navbar-link" href={item.uri}>
+                    <Link className="navbar-link" href={getMenuItemUri(item)}>
                       {item.label}
                     </Link>
                     <div className="navbar-dropdown">
                       {children.map((child: MenuItem) => (
-                        <Link key={child.id} className="navbar-item" href={child.uri}>
+                        <Link key={child.id} className="navbar-item" href={getMenuItemUri(child)}>
                           {child.label}
                         </Link>
                       ))}
@@ -142,7 +173,7 @@ export default function Navbar() {
               }
 
               return (
-                <Link key={item.id} className="navbar-item" href={item.uri}>
+                <Link key={item.id} className="navbar-item" href={getMenuItemUri(item)}>
                   {item.label}
                 </Link>
               );
