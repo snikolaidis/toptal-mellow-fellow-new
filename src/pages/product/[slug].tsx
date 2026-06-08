@@ -7,6 +7,7 @@ import { GET_PRODUCT_BY_SLUG, GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/pr
 import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
 import Layout from '@/components/Layout';
 import { useCart } from '@/context/CartContext';
+import { klaviyoTrack } from '@/lib/klaviyo';
 import { Product, Collection } from '@/types/woocommerce';
 import styles from '@/styles/pages/product.module.css';
 
@@ -40,21 +41,15 @@ export default function ProductPage({
 
   useEffect(() => {
     if (!product || typeof window === 'undefined') return;
-    const w = window as unknown as { klaviyo?: unknown[] };
-    w.klaviyo = w.klaviyo || [];
-    w.klaviyo.push([
-      'track',
-      'Viewed Product',
-      {
-        ProductName: product.name,
-        ProductID: product.databaseId,
-        SKU: product.sku,
-        Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
-        ImageURL: product.image?.sourceUrl,
-        URL: window.location.href,
-        Price: product.price,
-      },
-    ]);
+    klaviyoTrack('Viewed Product', {
+      ProductName: product.name,
+      ProductID: product.databaseId,
+      SKU: product.sku,
+      Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
+      ImageURL: product.image?.sourceUrl,
+      URL: window.location.href,
+      Price: product.price,
+    });
   }, [product?.id]);
 
   if (!product) {
@@ -80,6 +75,14 @@ export default function ProductPage({
         productId: product.databaseId,
         quantity,
         variationId,
+      });
+      klaviyoTrack('Added to Cart', {
+        ProductName: product.name,
+        ProductID: product.databaseId,
+        SKU: product.sku,
+        Quantity: quantity,
+        Price: product.price,
+        Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
       });
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2500);
