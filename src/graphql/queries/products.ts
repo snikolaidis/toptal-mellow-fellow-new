@@ -172,8 +172,55 @@ export const GET_PRODUCTS = gql`
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
   ${GROUP_PRODUCT_FIELDS}
-  query GetProducts($first: Int = 12, $after: String, $orderby: [ProductsOrderbyInput]) {
-    products(first: $first, after: $after, where: { status: "publish", orderby: $orderby }) {
+  query GetProducts(
+    $first: Int = 12
+    $after: String
+    $orderby: [ProductsOrderbyInput]
+    $mfProductType: String
+    $mfProductTypeIn: [String]
+    $strainTypeFilter: String
+    $strainTypeFilterIn: [String]
+    $blendTypeFilter: String
+    $blendTypeFilterIn: [String]
+    $cannabinoidFilter: String
+    $cannabinoidFilterIn: [String]
+    $singleCannabinoidFilter: String
+    $singleCannabinoidFilterIn: [String]
+    $sizeFilter: String
+    $sizeFilterIn: [String]
+    $mgFilter: String
+    $mgFilterIn: [String]
+    $piecesFilter: String
+    $piecesFilterIn: [String]
+    $collectionFilter: String
+    $collectionFilterIn: [String]
+    $minPrice: Float
+    $maxPrice: Float
+  ) {
+    products(first: $first, after: $after, where: {
+      status: "publish"
+      orderby: $orderby
+      mfProductType: $mfProductType
+      mfProductTypeIn: $mfProductTypeIn
+      strainTypeFilter: $strainTypeFilter
+      strainTypeFilterIn: $strainTypeFilterIn
+      blendTypeFilter: $blendTypeFilter
+      blendTypeFilterIn: $blendTypeFilterIn
+      cannabinoidFilter: $cannabinoidFilter
+      cannabinoidFilterIn: $cannabinoidFilterIn
+      singleCannabinoidFilter: $singleCannabinoidFilter
+      singleCannabinoidFilterIn: $singleCannabinoidFilterIn
+      sizeFilter: $sizeFilter
+      sizeFilterIn: $sizeFilterIn
+      mgFilter: $mgFilter
+      mgFilterIn: $mgFilterIn
+      piecesFilter: $piecesFilter
+      piecesFilterIn: $piecesFilterIn
+      collectionFilter: $collectionFilter
+      collectionFilterIn: $collectionFilterIn
+      minPrice: $minPrice
+      maxPrice: $maxPrice
+    }) {
       pageInfo {
         hasNextPage
         endCursor
@@ -261,6 +308,35 @@ export const GET_PRODUCT_CATEGORIES = gql`
         slug
         count
       }
+    }
+  }
+`;
+
+export const GET_SHOP_FILTER_TERMS = gql`
+  query GetShopFilterTerms {
+    productTypes: mfproductTypes(first: 50) {
+      nodes { name slug count }
+    }
+    strainTypes: strainTypes(first: 50) {
+      nodes { name slug count }
+    }
+    blendTypes: blendTypes(first: 80) {
+      nodes { name slug count }
+    }
+    sizes: allSize(first: 50) {
+      nodes { name slug count }
+    }
+    mgs: allMG(first: 50) {
+      nodes { name slug count }
+    }
+    pcs: pieces(first: 50) {
+      nodes { name slug count }
+    }
+    cannabinoids: cannabinoids(first: 100) {
+      nodes { name slug count }
+    }
+    singleCannabinoids: allSingleCannabinoid(first: 50) {
+      nodes { name slug count }
     }
   }
 `;

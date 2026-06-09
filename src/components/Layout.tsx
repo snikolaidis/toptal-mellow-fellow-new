@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { ReactNode } from 'react';
 import Footer from '@/components/Footer/Footer';
 import NavBar from './NavBar/NavBar';
+import CartDrawer from './CartDrawer/CartDrawer';
 
 interface LayoutProps {
   children: ReactNode;
@@ -33,6 +34,7 @@ export default function Layout({
       </main>
 
       <Footer />
+      <CartDrawer />
     </>
   );
 }

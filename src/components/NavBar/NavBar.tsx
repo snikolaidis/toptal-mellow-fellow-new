@@ -65,7 +65,7 @@ export default function Navbar() {
   const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
   const { data } = useQuery(GET_NAV, { client });
 
-  const { cart } = useCart();
+  const { cart, toggleDrawer } = useCart();
   const { isAuthenticated, isReady } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -124,10 +124,11 @@ export default function Navbar() {
               )}
 
               {/* Cart */}
-              <Link
-                href="/cart"
+              <button
+                type="button"
                 className={`${styles.iconBtn} ${styles.cartBtn}`}
-                aria-label="Cart"
+                aria-label="Toggle cart"
+                onClick={toggleDrawer}
               >
                 <CartIcon />
                 {cart && cart.itemsCount > 0 && (
@@ -135,7 +136,7 @@ export default function Navbar() {
                     {cart.itemsCount}
                   </span>
                 )}
-              </Link>
+              </button>
             </div>
 
             <a role="button"

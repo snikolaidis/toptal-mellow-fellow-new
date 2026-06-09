@@ -1,48 +1,118 @@
-import { ProductCategory } from '@/types/woocommerce';
+import { useState } from 'react';
+
+interface TaxonomyTerm {
+  name: string;
+  slug: string;
+  count: number;
+}
+
+interface FilterGroup {
+  key: string;
+  label: string;
+  terms: TaxonomyTerm[];
+}
 
 interface ShopSidebarProps {
-  categories: ProductCategory[];
-  selectedCategory: string;
-  onCategoryChange: (slug: string) => void;
+  filterGroups: FilterGroup[];
+  activeFilters: Record<string, string[]>;
+  onFilterChange: (key: string, slugs: string[]) => void;
 }
 
 export default function ShopSidebar({
-  categories,
-  selectedCategory,
-  onCategoryChange,
+  filterGroups,
+  activeFilters,
+  onFilterChange,
 }: ShopSidebarProps) {
-  const sortedCategories = [...categories]
-    .filter((cat) => cat.slug !== 'uncategorized' && (cat.count || 0) > 0)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    // Start with first filter expanded
+    const initial: Record<string, boolean> = {};
+    if (filterGroups.length > 0) initial[filterGroups[0].key] = true;
+    return initial;
+  });
+
+  const toggleGroup = (key: string) => {
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleTerm = (groupKey: string, slug: string) => {
+    const current = activeFilters[groupKey] || [];
+    const next = current.includes(slug)
+      ? current.filter((s) => s !== slug)
+      : [...current, slug];
+    onFilterChange(groupKey, next);
+  };
+
+  const hasActiveFilters = Object.values(activeFilters).some((v) => v.length > 0);
 
   return (
     <aside className="shop-sidebar">
-      <div className="sidebar-section">
-        <h3 className="sidebar-title">Categories</h3>
-        <ul className="category-list">
-          <li>
+      {hasActiveFilters && (
+        <button
+          className="shop-sidebar__clear"
+          onClick={() => {
+            for (const group of filterGroups) {
+              onFilterChange(group.key, []);
+            }
+          }}
+        >
+          Clear all filters
+        </button>
+      )}
+
+      {filterGroups.map((group) => {
+        const isExpanded = expanded[group.key] || false;
+        const activeCount = (activeFilters[group.key] || []).length;
+        const visibleTerms = group.terms.filter((t) => t.count > 0);
+
+        if (visibleTerms.length === 0) return null;
+
+        return (
+          <div key={group.key} className="shop-sidebar__group">
             <button
-              onClick={() => onCategoryChange('all')}
-              className={`category-item ${selectedCategory === 'all' ? 'active' : ''}`}
+              className="shop-sidebar__group-header"
+              onClick={() => toggleGroup(group.key)}
+              aria-expanded={isExpanded}
             >
-              <span className="category-name">All Products</span>
-            </button>
-          </li>
-          {sortedCategories.map((category) => (
-            <li key={category.id}>
-              <button
-                onClick={() => onCategoryChange(category.slug)}
-                className={`category-item ${selectedCategory === category.slug ? 'active' : ''}`}
-              >
-                <span className="category-name">{category.name}</span>
-                {category.count !== undefined && category.count > 0 && (
-                  <span className="category-count">{category.count}</span>
+              <span className="shop-sidebar__group-label">
+                {group.label}
+                {activeCount > 0 && (
+                  <span className="shop-sidebar__active-count">{activeCount}</span>
                 )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
+              </span>
+              <svg
+                className={`shop-sidebar__chevron ${isExpanded ? 'shop-sidebar__chevron--open' : ''}`}
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+
+            {isExpanded && (
+              <div className="shop-sidebar__terms">
+                {visibleTerms.map((term) => {
+                  const isActive = (activeFilters[group.key] || []).includes(term.slug);
+                  return (
+                    <label key={term.slug} className="shop-sidebar__term">
+                      <input
+                        type="checkbox"
+                        checked={isActive}
+                        onChange={() => toggleTerm(group.key, term.slug)}
+                      />
+                      <span className="shop-sidebar__term-name">{term.name}</span>
+                      <span className="shop-sidebar__term-count">{term.count}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </aside>
   );
 }
