@@ -29,6 +29,7 @@ export default function ProductPage({
   const [isAdding, setIsAdding] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const { addToCart } = useCart();
 
   // Reset state when product changes
@@ -53,14 +54,8 @@ export default function ProductPage({
   }, [product?.id]);
 
   useEffect(() => {
-    if (!product || typeof window === 'undefined') return;
-    const w = window as unknown as {
-      yotpoWidgetsContainer?: { initWidgets?: () => void };
-      yotpo?: { refreshWidgets?: () => void };
-    };
-    w.yotpoWidgetsContainer?.initWidgets?.();
-    w.yotpo?.refreshWidgets?.();
-  }, [product?.id]);
+    setMounted(true);
+  }, []);
 
   if (!product) {
     return (
@@ -194,7 +189,13 @@ export default function ProductPage({
             {/* Title */}
             <h1 className={styles.title}>{product.name}</h1>
 
-            <div className="yotpo bottomLine" data-product-id={product.databaseId} />
+            {mounted && (
+              <div
+                className="klaviyo-star-rating-widget"
+                data-id={product.shopifyId ?? product.databaseId}
+                data-product-title={product.name}
+              />
+            )}
 
             {/* Collection Items Grid */}
             {collectionProducts.length > 1 && collectionName && (
@@ -385,17 +386,11 @@ export default function ProductPage({
           </div>
         )}
 
-        <div className={styles.descriptionSection}>
-          <div
-            className="yotpo yotpo-main-widget"
-            data-product-id={product.databaseId}
-            data-name={product.name}
-            data-url={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/product/${product.slug}`}
-            data-image-url={product.image?.sourceUrl}
-            data-price={product.price?.replace(/[^0-9.]/g, '')}
-            data-currency="USD"
-          />
-        </div>
+        {mounted && (
+          <div className={styles.descriptionSection}>
+            <div id="klaviyo-reviews-all" data-id={product.shopifyId ?? product.databaseId} />
+          </div>
+        )}
 
       </div>
     </Layout>

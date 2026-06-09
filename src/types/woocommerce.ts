@@ -55,6 +55,7 @@ export interface Product {
   __typename?: 'SimpleProduct' | 'VariableProduct' | 'ExternalProduct' | 'GroupProduct';
   id: string;
   databaseId: number;
+  shopifyId?: string | null;
   name: string;
   slug: string;
   type?: 'SIMPLE' | 'VARIABLE' | 'GROUPED' | 'EXTERNAL';

@@ -205,6 +205,7 @@ export const GET_PRODUCT_BY_SLUG = gql`
   query GetProductBySlug($slug: ID!) {
     product(id: $slug, idType: SLUG) {
       __typename
+      shopifyId
       ... on SimpleProduct {
         ...SimpleProductFields
       }
