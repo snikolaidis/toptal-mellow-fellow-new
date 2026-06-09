@@ -115,15 +115,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const hasConcentrates = cartTypeSlugs.includes('concentrates');
     const hasTHCp = cartProductSlugs.some((s) => s.includes('thcp'));
 
-    function addResult(product: any): boolean {
+    const addResult = (product: any): boolean => {
       if (!product || seenIds.has(product.databaseId) || excludeSet.has(product.databaseId)) return false;
       if (excludeSlugSet.has(product.slug)) return false;
       seenIds.add(product.databaseId);
       results.push(product);
       return true;
-    }
+    };
 
-    async function fetchBySlug(slug: string): Promise<any | null> {
+    const fetchBySlug = async (slug: string): Promise<any | null> => {
       try {
         const { data } = await client.query({
           query: GET_PRODUCT_BY_SLUG,
@@ -132,9 +132,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         });
         return data?.product || null;
       } catch { return null; }
-    }
+    };
 
-    async function fetchByType(typeSlug: string, first = 4): Promise<any[]> {
+    const fetchByType = async (typeSlug: string, first = 4): Promise<any[]> => {
       try {
         const { data } = await client.query({
           query: GET_PRODUCTS_BY_TYPE,
@@ -143,7 +143,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         });
         return data?.products?.nodes || [];
       } catch { return []; }
-    }
+    };
 
     // RULE 1: Concentrates → Terp Pen
     if (hasConcentrates && !excludeSlugSet.has(TERP_PEN_SLUG)) {
