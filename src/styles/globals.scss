@@ -4,7 +4,8 @@
   $scheme-main: #ffffff,
   $button-weight: 400,
   $button-padding-horizontal: 20px,
-  $button-padding-vertical: 10px
+  $button-padding-vertical: 10px,
+  $navbar-burger-color: #000000
 );
 
 @use 'fonts';
@@ -886,13 +887,4 @@ img {
 
 .view-details-link:hover {
   color: #666666;
-}
-.navbar {
-  padding: 5px 0;
-
-  .navbar-item {
-    img.mf-logo {
-      max-height: none;
-    }
-  }
 }

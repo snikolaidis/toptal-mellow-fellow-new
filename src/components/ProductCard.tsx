@@ -42,9 +42,9 @@ export default function ProductCard({ product, badge, priority = false }: Produc
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);
 
-  const productDetails = product.productDetails;
+  // const productDetails = product.productDetails;
 
-  const strainType = productDetails?.strainType;
+  // const strainType = productDetails?.strainType;
 
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -130,31 +130,31 @@ export default function ProductCard({ product, badge, priority = false }: Produc
 
           {/* Product Info */}
           <div className="product__info">
-            {productDetails?.lineCollection && (
+            {/* {productDetails?.lineCollection && (
               <p className="product__line-collection">
                 {productDetails.lineCollection}
               </p>
-            )}
+            )} */}
 
-            {productDetails?.experienceType && (
+            {/* {productDetails?.experienceType && (
               <p className="product__blend-type">
                 {productDetails.experienceType}
               </p>
-            )}
+            )} */}
 
-            {productDetails?.strainName && (
+            {/* {productDetails?.strainName && (
               <p className="product__strain-name">
                 {productDetails.strainName}
               </p>
-            )}
+            )} */}
 
             <div className="product__strain-tags">
-              {strainType && (
+              {/* {strainType && (
                 <div className={`product__tag strain-type ${strainType.replace(' ', '-').toLowerCase()}`}>
                   {getStrainTypeIcon(strainType)}
                   {strainType}
                 </div>
-              )}
+              )} */}
             </div>
 
             <div className="flex items-center gap-2 mt-1">

@@ -81,7 +81,6 @@ export interface Product {
   variations?: {
     nodes: ProductVariation[];
   };
-  productDetails?: ProductACF
 }
 
 export interface CartItem {

@@ -90,54 +90,7 @@ export default function Navbar() {
     <>
       <nav className="navbar is-primary" role="navigation" aria-label="main navigation">
         <div className="container">
-          <div className="navbar-brand">
-            <h1>
-              <span className="is-sr-only">
-                Mellow Fellow
-              </span>
-              <a className="navbar-item" href="/">
-                <MellowFellowLogo />
-              </a>
-            </h1>
-          </div>
-
-          <div className="navbar-end">
-            <div className={styles.iconGroup}>
-              {/* Search Button */}
-              <button
-                className={styles.iconBtn}
-                onClick={() => setSearchModalOpen(true)}
-                aria-label="Search"
-              >
-                <SearchIcon />
-              </button>
-
-              {/* Account */}
-              {isReady && (
-                <Link
-                  href={isAuthenticated ? '/account' : '/login'}
-                  className={styles.iconBtn}
-                  aria-label="Account"
-                >
-                  <UserIcon />
-                </Link>
-              )}
-
-              {/* Cart */}
-              <Link
-                href="/cart"
-                className={`${styles.iconBtn} ${styles.cartBtn}`}
-                aria-label="Cart"
-              >
-                <CartIcon />
-                {cart && cart.itemsCount > 0 && (
-                  <span className={styles.cartBadge}>
-                    {cart.itemsCount}
-                  </span>
-                )}
-              </Link>
-            </div>
-
+          <div className="navbar-start">
             <a role="button"
               className={`navbar-burger ${isOpen ? 'is-active' : ''}`}
               aria-label="menu"
@@ -150,6 +103,54 @@ export default function Navbar() {
               <span aria-hidden="true"></span>
             </a>
           </div>
+          <div className="navbar-brand">
+            <h1>
+              <span className="is-sr-only">
+                Mellow Fellow
+              </span>
+              <Link className="navbar-item" href="/">
+                <MellowFellowLogo />
+              </Link>
+            </h1>
+          </div>
+
+          <div className="navbar-end">
+            <div className="navbar-controls">
+              {/* Search Button */}
+              <button
+                className='is-flex'
+                onClick={() => setSearchModalOpen(true)}
+                aria-label="Search"
+              >
+                <SearchIcon />
+              </button>
+
+              {/* Account */}
+              {isReady && (
+                <Link
+                  className='is-flex'
+                  href={isAuthenticated ? '/account' : '/login'}
+                  aria-label="Account"
+                >
+                  <UserIcon />
+                </Link>
+              )}
+
+              {/* Cart */}
+              <Link
+                href="/cart"
+                className={`is-flex ${styles.cartBtn}`}
+                aria-label="Cart"
+              >
+                <CartIcon />
+                {cart && cart.itemsCount > 0 && (
+                  <span className={styles.cartBadge}>
+                    {cart.itemsCount}
+                  </span>
+                )}
+              </Link>
+            </div>
+          </div>
 
           <div className={`navbar-menu ${isOpen ? 'is-active' : ''}`}>
             {topLevelItems.map((item: MenuItem) => {
@@ -158,12 +159,12 @@ export default function Navbar() {
               if (children.length > 0) {
                 return (
                   <div key={item.id} className="navbar-item has-dropdown is-hoverable">
-                    <Link className="navbar-link" href={getMenuItemUri(item)}>
+                    <Link className="navbar-link" href={item.uri}>
                       {item.label}
                     </Link>
                     <div className="navbar-dropdown">
                       {children.map((child: MenuItem) => (
-                        <Link key={child.id} className="navbar-item" href={getMenuItemUri(child)}>
+                        <Link key={child.id} className="navbar-item" href={child.uri}>
                           {child.label}
                         </Link>
                       ))}
@@ -173,7 +174,7 @@ export default function Navbar() {
               }
 
               return (
-                <Link key={item.id} className="navbar-item" href={getMenuItemUri(item)}>
+                <Link key={item.id} className="navbar-item" href={item.uri}>
                   {item.label}
                 </Link>
               );

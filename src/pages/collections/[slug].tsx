@@ -14,6 +14,7 @@ import styles from '@/styles/pages/collection.module.css';
 
 interface CollectionsPageProps {
   collection: Collection;
+  products: Product[];
 }
 
 const sortOptions = [
@@ -24,10 +25,8 @@ const sortOptions = [
   { value: 'price-desc', label: 'Price: High to Low' },
 ];
 
-export default function CollectionsPage({ collection }: CollectionsPageProps) {
+export default function CollectionsPage({ collection, products }: CollectionsPageProps) {
   const [sortBy, setSortBy] = useState('default');
-
-  const products = collection?.products?.nodes || [];
 
   const sortedProducts = useMemo(() => {
     const sorted = [...products];
@@ -165,16 +164,20 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const client = getClient();
     const { data } = await client.query({
       query: GET_COLLECTION_BY_SLUG,
-      variables: { slug: params?.slug },
+      variables: {
+        slug: params?.slug,
+        collectionSlug: params?.slug
+      },
     });
 
-    if (!data?.productCategory) {
+    if (!data?.collection) {
       return { notFound: true };
     }
 
     return {
       props: {
-        collection: data.productCategory,
+        collection: data.collection,
+        products: data.products.nodes
       },
       revalidate: 60,
     };

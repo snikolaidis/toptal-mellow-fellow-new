@@ -1,10 +1,27 @@
 @use "bulma/sass/utilities/mixins";
 
 nav.navbar {
+
+  img.mf-logo {
+    max-height: none;
+    width: 140px;
+  }
+
+  .navbar-controls {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+
+    svg {
+      width: 25px;
+    }
+  }
+
   > .container {
     display: flex;
-    justify-content: space-between;
     flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 5px;
 
     .navbar-menu {
       width: 100%;
@@ -14,8 +31,23 @@ nav.navbar {
       }
     }
 
+    .navbar-start,
+    .navbar-end {
+      flex-grow: 1;
+      flex-basis: 0;
+    }
+    
+    .navbar-start {
+      display: flex;
+      
+      .navbar-burger {
+        margin-inline-start: 0;
+      }
+    }
+
     .navbar-end {
       display: flex;
+      justify-content: end;
     }
   }
 }

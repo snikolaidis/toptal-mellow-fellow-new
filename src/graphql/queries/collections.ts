@@ -28,29 +28,37 @@ export const GET_COLLECTION_BY_SLUG = gql`
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
   ${GROUP_PRODUCT_FIELDS}
-  query GetCollectionBySlug($slug: ID!) {
-    productCategory(id: $slug, idType: SLUG) {
+  query GetCollectionBySlug($slug: ID!, $collectionSlug: String!) {
+    collection(id: $slug, idType: SLUG) {
       id
       databaseId
       name
       slug
       description
       count
-      products(first: 100, where: { status: "publish" }) {
-        nodes {
-          __typename
-          ... on SimpleProduct {
-            ...SimpleProductFields
-          }
-          ... on VariableProduct {
-            ...VariableProductFields
-          }
-          ... on ExternalProduct {
-            ...ExternalProductFields
-          }
-          ... on GroupProduct {
-            ...GroupProductFields
-          }
+    }
+    products(first: 100, where: {
+      taxonomyFilter: {
+        filters: [{
+          taxonomy: COLLECTION,
+          terms: [$collectionSlug],
+          operator: IN
+        }]
+      }
+    }) {
+      nodes {
+        __typename
+        ... on SimpleProduct {
+          ...SimpleProductFields
+        }
+        ... on VariableProduct {
+          ...VariableProductFields
+        }
+        ... on ExternalProduct {
+          ...ExternalProductFields
+        }
+        ... on GroupProduct {
+          ...GroupProductFields
         }
       }
     }
