@@ -15,29 +15,16 @@ import { gql, useQuery } from '@apollo/client';
 
 const GET_NAV = gql`
   query {
-    menuItems(where: { location: PRIMARY }) {
+    menuItems(where: { location: PRIMARY, parentId: 0 }, first: 100) {
       nodes {
         id
         label
         uri
-        parentId
-        connectedNode {
-          node {
-            __typename
-            uri
-          }
-        }
         childItems {
           nodes {
             id
             label
             uri
-            connectedNode {
-              node {
-                __typename
-                uri
-              }
-            }
           }
         }
       }
@@ -71,9 +58,6 @@ export default function Navbar() {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   const menuItems: MenuItem[] = data?.menuItems?.nodes ?? [];
-  const topLevelItems = menuItems.filter((item: MenuItem) => !item.parentId);
-
-  console.log(menuItems);
 
   return (
     <>
@@ -143,7 +127,7 @@ export default function Navbar() {
           </div>
 
           <div className={`navbar-menu ${isOpen ? 'is-active' : ''}`}>
-            {topLevelItems.map((item: MenuItem) => {
+            {menuItems.map((item: MenuItem) => {
               const children = item.childItems?.nodes ?? [];
 
               if (children.length > 0) {
