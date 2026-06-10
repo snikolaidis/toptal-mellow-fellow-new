@@ -15,6 +15,18 @@ export const GET_VIEWER = gql`
   }
 `;
 
+export const GET_LOYALTY_IDENTITY = gql`
+  query GetLoyaltyIdentity {
+    loyaltyIdentity {
+      authenticated
+      email
+      id
+      token
+      tags
+    }
+  }
+`;
+
 // Get customer data with billing/shipping and orders
 export const GET_CUSTOMER = gql`
   query GetCustomer {
