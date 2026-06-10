@@ -5,6 +5,17 @@ nav.navbar {
   img.mf-logo {
     max-height: none;
     width: 140px;
+
+    @include mixins.desktop {
+      width: 200px;
+      margin-bottom: 10px;
+    }
+  }
+
+  // remove the background-color on hover
+  a.navbar-item:hover,
+  .navbar-link:hover {
+    --bulma-navbar-item-background-l-delta: none;
   }
 
   .navbar-controls {
@@ -22,6 +33,10 @@ nav.navbar {
     flex-wrap: wrap;
     justify-content: space-between;
     padding: 5px;
+
+    @include mixins.desktop {
+      padding: 10px;
+    }
 
     .navbar-menu {
       width: 100%;

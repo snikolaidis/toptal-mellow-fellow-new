@@ -73,6 +73,8 @@ export default function Navbar() {
   const menuItems: MenuItem[] = data?.menuItems?.nodes ?? [];
   const topLevelItems = menuItems.filter((item: MenuItem) => !item.parentId);
 
+  console.log(menuItems);
+
   return (
     <>
       <nav className="navbar is-primary" role="navigation" aria-label="main navigation">
@@ -137,54 +139,6 @@ export default function Navbar() {
                   </span>
                 )}
               </button>
-            </div>
-          </div>
-          <div className="navbar-brand">
-            <h1>
-              <span className="is-sr-only">
-                Mellow Fellow
-              </span>
-              <Link className="navbar-item" href="/">
-                <MellowFellowLogo />
-              </Link>
-            </h1>
-          </div>
-
-          <div className="navbar-end">
-            <div className="navbar-controls">
-              {/* Search Button */}
-              <button
-                className='is-flex'
-                onClick={() => setSearchModalOpen(true)}
-                aria-label="Search"
-              >
-                <SearchIcon />
-              </button>
-
-              {/* Account */}
-              {isReady && (
-                <Link
-                  className='is-flex'
-                  href={isAuthenticated ? '/account' : '/login'}
-                  aria-label="Account"
-                >
-                  <UserIcon />
-                </Link>
-              )}
-
-              {/* Cart */}
-              <Link
-                href="/cart"
-                className={`is-flex ${styles.cartBtn}`}
-                aria-label="Cart"
-              >
-                <CartIcon />
-                {cart && cart.itemsCount > 0 && (
-                  <span className={styles.cartBadge}>
-                    {cart.itemsCount}
-                  </span>
-                )}
-              </Link>
             </div>
           </div>
 
