@@ -1,6 +1,7 @@
 import { Html, Head, Main, NextScript } from 'next/document';
 
 const klaviyoPublicKey = process.env.NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY;
+const yotpoLoyaltyLoader = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_LOADER;
 
 export default function Document() {
   return (
@@ -26,6 +27,9 @@ export default function Document() {
             async
             src={`https://static.klaviyo.com/onsite/js/${klaviyoPublicKey}/klaviyo.js`}
           />
+        )}
+        {yotpoLoyaltyLoader && (
+          <script type="text/javascript" async src={yotpoLoyaltyLoader} />
         )}
       </Head>
       <body>

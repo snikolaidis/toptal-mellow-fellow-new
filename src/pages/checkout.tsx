@@ -8,6 +8,7 @@ import OrderSummary from '@/components/checkout/OrderSummary';
 import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
 import { AddressData, PaymentData } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
+import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
 import { GET_CUSTOMER } from '@/graphql/queries/auth';
@@ -162,6 +163,24 @@ export default function CheckoutPage() {
     }
     setErrors({});
     setError(null);
+
+    const identity: Record<string, unknown> = { email: billing.email };
+    if (billing.firstName) identity.first_name = billing.firstName;
+    if (billing.lastName) identity.last_name = billing.lastName;
+    if (billing.phone) identity.phone_number = billing.phone;
+    klaviyoIdentify(identity);
+    klaviyoTrack('Started Checkout', {
+      $value: parseFloat(String(cart?.total ?? '0').replace(/[^0-9.]/g, '')) || 0,
+      ItemNames: cart?.items.map((i) => i.product.name) ?? [],
+      Items:
+        cart?.items.map((i) => ({
+          ProductID: i.product.databaseId,
+          ProductName: i.product.name,
+          Quantity: i.quantity,
+          ItemPrice: i.product.price,
+        })) ?? [],
+    });
+
     setStep('shipping');
   };
 

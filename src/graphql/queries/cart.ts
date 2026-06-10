@@ -24,6 +24,14 @@ export const CART_FIELDS = gql`
               sourceUrl
               altText
             }
+            ... on SimpleProduct {
+              mfproductTypes {
+                nodes {
+                  name
+                  slug
+                }
+              }
+            }
           }
         }
         variation {

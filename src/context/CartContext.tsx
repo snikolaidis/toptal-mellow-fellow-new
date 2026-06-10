@@ -48,6 +48,7 @@ interface CartItem {
       sourceUrl: string;
       altText: string;
     };
+    productTypes?: Array<{ name: string; slug: string }>;
   };
   variation?: {
     databaseId: number;
@@ -79,6 +80,10 @@ interface CartContextType {
   cart: Cart | null;
   isLoading: boolean;
   error: string | null;
+  isDrawerOpen: boolean;
+  openDrawer: () => void;
+  closeDrawer: () => void;
+  toggleDrawer: () => void;
   addToCart: (input: AddToCartInput) => Promise<void>;
   updateQuantity: (key: string, quantity: number) => Promise<void>;
   removeFromCart: (key: string) => Promise<void>;
@@ -110,6 +115,7 @@ function transformCartData(data: any): Cart | null {
         slug: item.product?.node?.slug,
         price: item.product?.node?.price,
         image: item.product?.node?.image,
+        productTypes: item.product?.node?.mfproductTypes?.nodes || [],
       },
       variation: item.variation?.node
         ? {
@@ -135,8 +141,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { isAuthenticated, isReady } = useAuth();
   const prevAuthState = useRef<boolean | null>(null);
+
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
+  const toggleDrawer = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
 
   /**
    * Get the appropriate Apollo client based on auth state
@@ -232,6 +243,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const transformedCart = transformCartData({ cart: data.addToCart.cart });
       if (transformedCart) {
         setCart(transformedCart);
+        setIsDrawerOpen(true);
       }
     } catch (err) {
       logError('CartContext.addToCart', err, { productId: input.productId });
@@ -420,6 +432,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cart,
         isLoading,
         error,
+        isDrawerOpen,
+        openDrawer,
+        closeDrawer,
+        toggleDrawer,
         addToCart,
         updateQuantity,
         removeFromCart,

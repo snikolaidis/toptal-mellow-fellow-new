@@ -7,6 +7,7 @@ import { GET_PRODUCT_BY_SLUG, GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/pr
 import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
 import Layout from '@/components/Layout';
 import { useCart } from '@/context/CartContext';
+import { klaviyoTrack } from '@/lib/klaviyo';
 import { Product, Collection } from '@/types/woocommerce';
 import styles from '@/styles/pages/product.module.css';
 
@@ -28,6 +29,7 @@ export default function ProductPage({
   const [isAdding, setIsAdding] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const { addToCart } = useCart();
 
   // Reset state when product changes
@@ -40,22 +42,20 @@ export default function ProductPage({
 
   useEffect(() => {
     if (!product || typeof window === 'undefined') return;
-    const w = window as unknown as { klaviyo?: unknown[] };
-    w.klaviyo = w.klaviyo || [];
-    w.klaviyo.push([
-      'track',
-      'Viewed Product',
-      {
-        ProductName: product.name,
-        ProductID: product.databaseId,
-        SKU: product.sku,
-        Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
-        ImageURL: product.image?.sourceUrl,
-        URL: window.location.href,
-        Price: product.price,
-      },
-    ]);
+    klaviyoTrack('Viewed Product', {
+      ProductName: product.name,
+      ProductID: product.databaseId,
+      SKU: product.sku,
+      Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
+      ImageURL: product.image?.sourceUrl,
+      URL: window.location.href,
+      Price: product.price,
+    });
   }, [product?.id]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (!product) {
     return (
@@ -80,6 +80,14 @@ export default function ProductPage({
         productId: product.databaseId,
         quantity,
         variationId,
+      });
+      klaviyoTrack('Added to Cart', {
+        ProductName: product.name,
+        ProductID: product.databaseId,
+        SKU: product.sku,
+        Quantity: quantity,
+        Price: product.price,
+        Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
       });
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2500);
@@ -180,6 +188,14 @@ export default function ProductPage({
 
             {/* Title */}
             <h1 className={styles.title}>{product.name}</h1>
+
+            {mounted && (
+              <div
+                className="klaviyo-star-rating-widget"
+                data-id={product.shopifyId ?? product.databaseId}
+                data-product-title={product.name}
+              />
+            )}
 
             {/* Collection Items Grid */}
             {collectionProducts.length > 1 && collectionName && (
@@ -367,6 +383,12 @@ export default function ProductPage({
               className={styles.description}
               dangerouslySetInnerHTML={{ __html: product.description }}
             />
+          </div>
+        )}
+
+        {mounted && (
+          <div className={styles.descriptionSection}>
+            <div id="klaviyo-reviews-all" data-id={product.shopifyId ?? product.databaseId} />
           </div>
         )}
 

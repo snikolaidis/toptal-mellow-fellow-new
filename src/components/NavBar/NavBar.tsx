@@ -65,26 +65,13 @@ export default function Navbar() {
   const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
   const { data } = useQuery(GET_NAV, { client });
 
-  const { cart } = useCart();
+  const { cart, toggleDrawer } = useCart();
   const { isAuthenticated, isReady } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   const menuItems: MenuItem[] = data?.menuItems?.nodes ?? [];
   const topLevelItems = menuItems.filter((item: MenuItem) => !item.parentId);
-
-  const getMenuItemUri = (item: MenuItem): string => {
-    const typename = item.connectedNode?.node?.__typename;
-    const uri = item.uri ?? '/';
-
-    console.log(item);
-
-    if (typename === 'ProductCategory') {
-      return uri.replace('/product-category/', '/collections/');
-    }
-
-    return uri;
-  };
 
   return (
     <>
@@ -102,6 +89,55 @@ export default function Navbar() {
               <span aria-hidden="true"></span>
               <span aria-hidden="true"></span>
             </a>
+          </div>
+          <div className="navbar-brand">
+            <h1>
+              <span className="is-sr-only">
+                Mellow Fellow
+              </span>
+              <Link className="navbar-item" href="/">
+                <MellowFellowLogo />
+              </Link>
+            </h1>
+          </div>
+
+          <div className="navbar-end">
+            <div className="navbar-controls">
+              {/* Search Button */}
+              <button
+                className="is-flex"
+                onClick={() => setSearchModalOpen(true)}
+                aria-label="Search"
+              >
+                <SearchIcon />
+              </button>
+
+              {/* Account */}
+              {isReady && (
+                <Link
+                  href={isAuthenticated ? '/account' : '/login'}
+                  className="is-flex"
+                  aria-label="Account"
+                >
+                  <UserIcon />
+                </Link>
+              )}
+
+              {/* Cart */}
+              <button
+                type="button"
+                className={`is-flex ${styles.cartBtn}`}
+                aria-label="Toggle cart"
+                onClick={toggleDrawer}
+              >
+                <CartIcon />
+                {cart && cart.itemsCount > 0 && (
+                  <span className={styles.cartBadge}>
+                    {cart.itemsCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
           <div className="navbar-brand">
             <h1>
