@@ -26,6 +26,14 @@ export interface Collection {
   products?: {
     nodes: Product[];
   };
+  seo?: {
+    title?: string;
+    metaDesc?: string;
+    schema?: { raw?: string };
+    opengraphTitle?: string;
+    opengraphDescription?: string;
+    opengraphImage?: { sourceUrl?: string };
+  };
 }
 
 export interface ProductVariation {
