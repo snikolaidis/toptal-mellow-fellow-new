@@ -247,6 +247,18 @@ export const GET_PRODUCT_BY_SLUG = gql`
     product(id: $slug, idType: SLUG) {
       __typename
       shopifyId
+      seo {
+        title
+        metaDesc
+        schema {
+          raw
+        }
+        opengraphTitle
+        opengraphDescription
+        opengraphImage {
+          sourceUrl
+        }
+      }
       ... on SimpleProduct {
         ...SimpleProductFields
       }

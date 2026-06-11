@@ -74,7 +74,18 @@ export default function CollectionsPage({ collection, products }: CollectionsPag
   }
 
   return (
-    <Layout title={collection.name}>
+    <Layout
+      title={collection.name}
+      description={collection.description?.replace(/<[^>]+>/g, '').slice(0, 160) || undefined}
+      seo={{
+        title: collection.seo?.title,
+        metaDesc: collection.seo?.metaDesc,
+        schema: collection.seo?.schema?.raw,
+        opengraphTitle: collection.seo?.opengraphTitle,
+        opengraphDescription: collection.seo?.opengraphDescription,
+        opengraphImage: collection.seo?.opengraphImage?.sourceUrl,
+      }}
+    >
       <div className={styles.page}>
         {/* Breadcrumb */}
         <nav className={styles.breadcrumb}>

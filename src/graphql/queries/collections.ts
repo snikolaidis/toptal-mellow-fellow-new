@@ -36,6 +36,18 @@ export const GET_COLLECTION_BY_SLUG = gql`
       slug
       description
       count
+      seo {
+        title
+        metaDesc
+        schema {
+          raw
+        }
+        opengraphTitle
+        opengraphDescription
+        opengraphImage {
+          sourceUrl
+        }
+      }
     }
     products(first: 100, where: {
       taxonomyFilter: {

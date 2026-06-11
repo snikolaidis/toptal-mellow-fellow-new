@@ -118,7 +118,17 @@ export default function ProductPage({
   const displayRegularPrice = selectedVariationData?.regularPrice || product.regularPrice;
 
   return (
-    <Layout title={product.name}>
+    <Layout
+      title={product.name}
+      seo={{
+        title: product.seo?.title,
+        metaDesc: product.seo?.metaDesc,
+        schema: product.seo?.schema?.raw,
+        opengraphTitle: product.seo?.opengraphTitle,
+        opengraphDescription: product.seo?.opengraphDescription,
+        opengraphImage: product.seo?.opengraphImage?.sourceUrl,
+      }}
+    >
       <div className={styles.page}>
         {/* Main Product Section */}
         <div className={styles.productLayout}>
