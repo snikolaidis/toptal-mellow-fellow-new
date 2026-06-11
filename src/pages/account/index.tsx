@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useAuth, getApolloAuthClient, useLogout } from '@faustwp/core';
@@ -6,6 +6,7 @@ import { useQuery } from '@apollo/client';
 import Layout from '@/components/Layout';
 import { GET_CUSTOMER } from '@/graphql/queries/auth';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
+import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 
 // Icons
 const UserIcon = () => (
@@ -49,18 +50,14 @@ function AccountDashboard() {
   const client = getApolloAuthClient();
   const { logout } = useLogout();
   const { data, loading, error } = useQuery(GET_CUSTOMER, { client });
-  const [mounted, setMounted] = useState(false);
+  const { ready, token } = useYotpoLoyalty();
   const loyaltyMyRewardsInstance = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_MY_REWARDS_INSTANCE;
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted && loyaltyMyRewardsInstance && !loading) {
+    if (ready && loyaltyMyRewardsInstance && !loading) {
       initYotpoLoyaltyWidgets(process.env.NEXT_PUBLIC_YOTPO_LOYALTY_LOADER);
     }
-  }, [mounted, loyaltyMyRewardsInstance, loading]);
+  }, [ready, token, loyaltyMyRewardsInstance, loading]);
 
   const handleLogout = async () => {
     // Clear WC session server-side (HttpOnly cookies can't be cleared via JS)
@@ -227,8 +224,9 @@ function AccountDashboard() {
         </div>
       </div>
 
-      {mounted && loyaltyMyRewardsInstance && (
+      {ready && loyaltyMyRewardsInstance && (
         <div
+          key={token ?? 'guest'}
           className="mt-8 yotpo-widget-instance"
           data-yotpo-instance-id={loyaltyMyRewardsInstance}
           suppressHydrationWarning
