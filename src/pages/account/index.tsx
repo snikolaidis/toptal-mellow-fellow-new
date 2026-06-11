@@ -7,6 +7,7 @@ import Layout from '@/components/Layout';
 import { GET_CUSTOMER } from '@/graphql/queries/auth';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
+import LoyaltyRedeem from '@/components/LoyaltyRedeem';
 
 // Icons
 const UserIcon = () => (
@@ -232,6 +233,8 @@ function AccountDashboard() {
           suppressHydrationWarning
         />
       )}
+
+      <LoyaltyRedeem />
 
       {/* Orders Section */}
       <div className="mt-8 border border-[#e0e0e0] p-6">

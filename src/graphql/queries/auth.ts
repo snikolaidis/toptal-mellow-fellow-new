@@ -27,6 +27,31 @@ export const GET_LOYALTY_IDENTITY = gql`
   }
 `;
 
+export const GET_LOYALTY_REDEMPTION = gql`
+  query GetLoyaltyRedemption {
+    loyaltyRedemption {
+      authenticated
+      pointsBalance
+      options {
+        id
+        name
+        points
+        costText
+      }
+    }
+  }
+`;
+
+export const REDEEM_LOYALTY_OPTION = gql`
+  mutation RedeemLoyaltyOption($optionId: Int!) {
+    redeemLoyaltyOption(input: { optionId: $optionId }) {
+      success
+      code
+      message
+    }
+  }
+`;
+
 // Get customer data with billing/shipping and orders
 export const GET_CUSTOMER = gql`
   query GetCustomer {
