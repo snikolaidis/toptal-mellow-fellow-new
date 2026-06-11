@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Mellow Fellow Loyalty Identity
- * Description: Exposes a secure Yotpo Loyalty customer identification token (SHA256 of email + loyalty API key) for the authenticated user via WPGraphQL. The API key is read from the YOTPO_LOYALTY_API_KEY constant, environment variable, or the yotpo_loyalty_api_key option, and never leaves the server.
+ * Description: Exposes a secure Yotpo Loyalty customer identification token for the logged-in user via WPGraphQL.
  * Version: 1.0.0
  */
 
