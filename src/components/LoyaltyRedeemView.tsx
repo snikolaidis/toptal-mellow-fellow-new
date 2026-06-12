@@ -1,5 +1,3 @@
-import styles from './LoyaltyRedeem.module.css';
-
 export interface RedemptionOption {
   id: number;
   name: string;
@@ -18,37 +16,37 @@ interface Props {
 
 export default function LoyaltyRedeemView({ points, options, code, error, busyId, onRedeem }: Props) {
   return (
-    <div className={styles.container}>
-      <h2 className={styles.heading}>How to Use Your Points</h2>
-      <div className={styles.rule}>
-        <span className={styles.dot} />
+    <div className="loyalty-redeem">
+      <h2 className="loyalty-redeem__heading">How to Use Your Points</h2>
+      <div className="loyalty-redeem__rule">
+        <span className="loyalty-redeem__dot" />
         10 points equals $1
-        <span className={styles.dot} />
+        <span className="loyalty-redeem__dot" />
       </div>
-      <p className={styles.description}>
+      <p className="loyalty-redeem__description">
         Redeeming your points is easy. Pick a reward below to get your code, then apply it at checkout.
       </p>
-      <p className={styles.balance}>You have {points} points</p>
+      <p className="loyalty-redeem__balance">You have {points} points</p>
 
       {code && (
-        <div className={styles.codeBox}>
-          <p className={styles.codeLabel}>Your reward code</p>
-          <p className={styles.codeValue}>{code}</p>
-          <p className={styles.codeHint}>Apply this code at checkout.</p>
+        <div className="loyalty-redeem__code-box">
+          <p className="loyalty-redeem__code-label">Your reward code</p>
+          <p className="loyalty-redeem__code-value">{code}</p>
+          <p className="loyalty-redeem__code-hint">Apply this code at checkout.</p>
         </div>
       )}
 
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <div className="loyalty-redeem__error">{error}</div>}
 
-      <div className={styles.grid}>
+      <div className="loyalty-redeem__grid">
         {options.map((o) => {
           const affordable = points >= o.points;
           return (
-            <div key={o.id} className={styles.card}>
-              <div className={styles.reward}>{o.name}</div>
-              <div className={styles.cost}>{o.costText || `${o.points} points`}</div>
+            <div key={o.id} className="loyalty-redeem__card">
+              <div className="loyalty-redeem__reward">{o.name}</div>
+              <div className="loyalty-redeem__cost">{o.costText || `${o.points} points`}</div>
               <button
-                className={styles.button}
+                className="loyalty-redeem__button"
                 onClick={() => onRedeem(o.id)}
                 disabled={!affordable || busyId === o.id}
                 title={affordable ? '' : "You don't have enough points to redeem"}

@@ -9,7 +9,7 @@ import { Product } from '@/types/woocommerce';
 const BONUS_POINTS_COLLECTION_SLUG = 'bonus-points-products-collection';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
-import styles from './bonus-points-products.module.css';
+import styles from '@/styles/pages/bonus-points-products.module.css';
 
 interface BonusPointsProductsPageProps {
   products: Product[];
