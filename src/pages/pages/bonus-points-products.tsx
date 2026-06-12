@@ -5,15 +5,14 @@ import FeaturedCollection from '@/components/FeaturedCollection';
 import { getClient } from '@/lib/apollo-client';
 import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
 import { Product } from '@/types/woocommerce';
-
-const BONUS_POINTS_COLLECTION_SLUG = 'bonus-points-products-collection';
-
-const WP_MEDIA_BASE = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-const BANNER_DESKTOP = `${WP_MEDIA_BASE}/wp-content/uploads/2026/06/BPP_Landing_Page_copy-scaled.webp`;
-const BANNER_MOBILE = `${WP_MEDIA_BASE}/wp-content/uploads/2026/06/BPP_Landing_Page_copy_mobile.webp`;
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 import styles from '@/styles/pages/bonus-points-products.module.css';
+
+const BONUS_POINTS_COLLECTION_SLUG = 'bonus-points-products-collection';
+const WP_MEDIA_BASE = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+const BANNER_DESKTOP = `${WP_MEDIA_BASE}/wp-content/uploads/2026/06/BPP_Landing_Page_copy-scaled.webp`;
+const BANNER_MOBILE = `${WP_MEDIA_BASE}/wp-content/uploads/2026/06/BPP_Landing_Page_copy_mobile.webp`;
 
 interface BonusPointsProductsPageProps {
   products: Product[];
@@ -22,7 +21,6 @@ interface BonusPointsProductsPageProps {
 export default function BonusPointsProductsPage({ products }: BonusPointsProductsPageProps) {
   const { ready, token } = useYotpoLoyalty();
   const [bannerError, setBannerError] = useState(false);
-  const [learnImageError, setLearnImageError] = useState(false);
   const couponsRedemption = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_COUPONS_REDEMPTION_INSTANCE;
   const vipTiers = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_VIP_TIERS_INSTANCE;
   const referralShare = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_REFERRAL_SHARE_INSTANCE;
@@ -53,33 +51,35 @@ export default function BonusPointsProductsPage({ products }: BonusPointsProduct
       <FeaturedCollection products={products} title="Shop All Products" />
 
       <div className={styles.shopAllCta}>
-        <a className={styles.button} href="/shop">
-          Shop All Products
+        <a className={styles.button} href={`/collections/${BONUS_POINTS_COLLECTION_SLUG}`}>
+          View all
         </a>
       </div>
 
-      <section className={styles.learnMore}>
-        {!learnImageError && (
-          <div className={styles.learnImage}>
-            <img
-              src="/MF_Web_2025_More_Questions.png"
-              alt="Looking to Learn More"
-              onError={() => setLearnImageError(true)}
-            />
-          </div>
-        )}
-        <div className={styles.learnContent}>
-          <h2 className={styles.learnHeading}>Looking to Learn More?</h2>
-          <p>
-            We offer a wide range of product types in a large variation of cannabinoids.{' '}
-            <a href="/shop">See all products here.</a>
-          </p>
-          <p>
-            Looking to learn more about cannabinoids and our blends? We encourage active education
-            about cannabis. <a href="/pages/learn-about-cannabinoids-1">Learn About Cannabinoids</a>
-          </p>
-          <p>Get 15% off your first purchase when you join the Mellow Fam!</p>
-        </div>
+      <section className={styles.promo}>
+        <h2 className={styles.promoHeading}>Mellow Fam Club Bonus Points Promotional Details:</h2>
+        <ul className={styles.promoList}>
+          <li>
+            <strong>Product Eligibility:</strong> All identified products with badges are eligible
+            for this promotion.
+          </li>
+          <li>
+            <strong>How to Redeem:</strong> Add any Bonus Point Product to your order and 100 points
+            will be automatically added, once for each product, to your account.
+          </li>
+          <li>
+            <strong>Promotion Combinations:</strong> Enjoy this bonus alongside our regular loyalty
+            redemptions for an even bigger reward.
+          </li>
+          <li>
+            <strong>Promotion Period:</strong> This promotion is available while supplies last and
+            may be discontinued at our discretion.
+          </li>
+        </ul>
+      </section>
+
+      <section className={styles.signup}>
+        <div className="klaviyo-form-YzKBys" suppressHydrationWarning />
       </section>
 
       <section className={styles.loyalty}>
