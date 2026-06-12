@@ -7,6 +7,10 @@ import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
 import { Product } from '@/types/woocommerce';
 
 const BONUS_POINTS_COLLECTION_SLUG = 'bonus-points-products-collection';
+
+const WP_MEDIA_BASE = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+const BANNER_DESKTOP = `${WP_MEDIA_BASE}/wp-content/uploads/2026/06/BPP_Landing_Page_copy-scaled.webp`;
+const BANNER_MOBILE = `${WP_MEDIA_BASE}/wp-content/uploads/2026/06/BPP_Landing_Page_copy_mobile.webp`;
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 import styles from '@/styles/pages/bonus-points-products.module.css';
@@ -34,10 +38,10 @@ export default function BonusPointsProductsPage({ products }: BonusPointsProduct
       <section className={styles.banner}>
         {!bannerError && (
           <picture>
-            <source media="(max-width: 749px)" srcSet="/BPP_Landing_Page_copy_mobile.webp" />
+            <source media="(max-width: 749px)" srcSet={BANNER_MOBILE} />
             <img
               className={styles.bannerImage}
-              src="/BPP_Landing_Page_copy.webp"
+              src={BANNER_DESKTOP}
               alt="Bonus Points Products"
               onError={() => setBannerError(true)}
             />
