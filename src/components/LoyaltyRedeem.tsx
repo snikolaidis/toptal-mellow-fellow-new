@@ -2,13 +2,7 @@ import { useState } from 'react';
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LOYALTY_REDEMPTION, REDEEM_LOYALTY_OPTION } from '@/graphql/queries/auth';
-
-interface RedemptionOption {
-  id: number;
-  name: string;
-  points: number;
-  costText: string;
-}
+import LoyaltyRedeemView, { RedemptionOption } from './LoyaltyRedeemView';
 
 export default function LoyaltyRedeem() {
   const { isAuthenticated, isReady } = useAuth();
@@ -17,7 +11,7 @@ export default function LoyaltyRedeem() {
     client,
     skip: !isReady || !isAuthenticated,
   });
-  const [redeem, { loading: redeeming }] = useMutation(REDEEM_LOYALTY_OPTION, { client });
+  const [redeem] = useMutation(REDEEM_LOYALTY_OPTION, { client });
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -54,45 +48,13 @@ export default function LoyaltyRedeem() {
   }
 
   return (
-    <div className="mt-8 border border-[#e0e0e0] p-6">
-      <h2 className="text-lg font-semibold text-black mb-2">Redeem your points</h2>
-      <p className="text-[#666666] mb-4">You have {points} points.</p>
-
-      {code && (
-        <div className="mb-4 p-4 bg-[#f5f5f0] border border-black">
-          <p className="text-black font-medium">Your reward code:</p>
-          <p className="text-xl font-bold tracking-wider text-black mt-1">{code}</p>
-          <p className="text-sm text-[#666666] mt-1">Apply this code at checkout.</p>
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4 p-3 bg-white border border-[#e0e0e0] text-[#999999]">{error}</div>
-      )}
-
-      <div className="space-y-3">
-        {options.map((o) => {
-          const affordable = points >= o.points;
-          return (
-            <div
-              key={o.id}
-              className="flex items-center justify-between border border-[#e0e0e0] p-4"
-            >
-              <div>
-                <p className="font-medium text-black">{o.name}</p>
-                <p className="text-sm text-[#666666]">{o.costText || `${o.points} points`}</p>
-              </div>
-              <button
-                onClick={() => handleRedeem(o.id)}
-                disabled={!affordable || redeeming || busyId === o.id}
-                className="px-4 py-2 bg-black text-white text-xs font-semibold uppercase tracking-wider transition-colors hover:bg-[#333333] disabled:bg-[#e0e0e0] disabled:text-[#999999] disabled:cursor-not-allowed"
-              >
-                {busyId === o.id ? 'Redeeming...' : affordable ? 'Redeem' : 'Not enough points'}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <LoyaltyRedeemView
+      points={points}
+      options={options}
+      code={code}
+      error={error}
+      busyId={busyId}
+      onRedeem={handleRedeem}
+    />
   );
 }
