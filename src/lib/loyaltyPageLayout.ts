@@ -1,6 +1,9 @@
 const PAGE_ROOT = '.yotpo-widget-loyalty-page';
 const WAYS_TO_EARN = '.yotpo-widget-campaign-widget';
 const REDEEM_HEADING = 'how to use your points';
+const REDEEM_BUTTON_SELECTOR = '.yotpo-action-button';
+const REDEEM_BUTTON_TEXT = 'redeem points';
+const SCROLL_BOUND_ATTR = 'data-mf-scroll-bound';
 
 export interface LoyaltyLayoutOptions {
   slotId: string;
@@ -92,6 +95,19 @@ function applyLayout(slot: HTMLElement): boolean {
   return false;
 }
 
+function wireRedeemButtons(slot: HTMLElement): void {
+  document.querySelectorAll<HTMLElement>(REDEEM_BUTTON_SELECTOR).forEach((btn) => {
+    if (slot.contains(btn)) return;
+    if (btn.getAttribute(SCROLL_BOUND_ATTR) === 'true') return;
+    if ((btn.textContent || '').trim().toLowerCase() !== REDEEM_BUTTON_TEXT) return;
+    btn.setAttribute(SCROLL_BOUND_ATTR, 'true');
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(slot.id) ?? slot;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
 export function positionLoyaltyRedeem(options: LoyaltyLayoutOptions): () => void {
   if (typeof window === 'undefined') return () => {};
 
@@ -105,6 +121,7 @@ export function positionLoyaltyRedeem(options: LoyaltyLayoutOptions): () => void
     const slot = getSlot();
     if (!slot) return;
     if (applyLayout(slot)) placed = true;
+    wireRedeemButtons(slot);
   };
 
   const interval = window.setInterval(tick, 400);
