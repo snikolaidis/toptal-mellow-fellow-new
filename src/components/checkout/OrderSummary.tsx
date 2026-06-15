@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
 import { CloseIcon } from '@/components/icons';
+import LoyaltyCheckoutRewards from '@/components/LoyaltyCheckoutRewards';
 import styles from './OrderSummary.module.css';
 
 interface CartItem {
@@ -109,6 +110,9 @@ export default function OrderSummary({ cart }: OrderSummaryProps) {
           </li>
         ))}
       </ul>
+
+      {/* Loyalty rewards redemption */}
+      <LoyaltyCheckoutRewards />
 
       {/* Coupon section */}
       <div className={styles.couponSection}>

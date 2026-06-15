@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { GetStaticProps } from 'next';
 import Layout from '@/components/Layout';
 import FeaturedCollection from '@/components/FeaturedCollection';
+import LoyaltyRedeem from '@/components/LoyaltyRedeem';
+import KlaviyoForm from '@/components/KlaviyoForm';
 import { getClient } from '@/lib/apollo-client';
 import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
 import { Product } from '@/types/woocommerce';
@@ -21,15 +23,14 @@ interface BonusPointsProductsPageProps {
 export default function BonusPointsProductsPage({ products }: BonusPointsProductsPageProps) {
   const { ready, token } = useYotpoLoyalty();
   const [bannerError, setBannerError] = useState(false);
-  const couponsRedemption = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_COUPONS_REDEMPTION_INSTANCE;
   const vipTiers = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_VIP_TIERS_INSTANCE;
   const referralShare = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_REFERRAL_SHARE_INSTANCE;
 
   useEffect(() => {
-    if (ready && (couponsRedemption || vipTiers || referralShare)) {
+    if (ready && (vipTiers || referralShare)) {
       initYotpoLoyaltyWidgets(process.env.NEXT_PUBLIC_YOTPO_LOYALTY_LOADER);
     }
-  }, [ready, token, couponsRedemption, vipTiers, referralShare]);
+  }, [ready, token, vipTiers, referralShare]);
 
   return (
     <Layout title="Bonus Points Products">
@@ -79,19 +80,12 @@ export default function BonusPointsProductsPage({ products }: BonusPointsProduct
       </section>
 
       <section className={styles.signup}>
-        <div className="klaviyo-form-YzKBys" suppressHydrationWarning />
+        <KlaviyoForm formId="YzKBys" />
       </section>
 
       <section className={styles.loyalty}>
         <h2 className={styles.loyaltyHeading}>My Loyalty Program</h2>
-        {ready && couponsRedemption && (
-          <div
-            key={`${token ?? 'guest'}-coupons`}
-            className="yotpo-widget-instance"
-            data-yotpo-instance-id={couponsRedemption}
-            suppressHydrationWarning
-          />
-        )}
+        <LoyaltyRedeem />
         {ready && vipTiers && (
           <div
             key={`${token ?? 'guest'}-vip`}

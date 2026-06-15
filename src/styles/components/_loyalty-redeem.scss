@@ -5,7 +5,7 @@
   text-align: center;
 
   &__heading {
-    font-family: var(--font-family-display);
+    font-family: var(--font-family-loyalty);
     font-size: 30px;
     font-weight: 700;
     color: var(--color-text-primary);
@@ -41,7 +41,7 @@
   }
 
   &__balance {
-    font-family: var(--font-family-display);
+    font-family: var(--font-family-loyalty);
     font-size: 16px;
     color: var(--color-text-primary);
     margin-bottom: 28px;
@@ -109,7 +109,7 @@
   }
 
   &__reward {
-    font-family: var(--font-family-display);
+    font-family: var(--font-family-loyalty);
     font-size: 20px;
     color: var(--color-text-primary);
   }

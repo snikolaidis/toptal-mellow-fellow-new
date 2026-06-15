@@ -5,8 +5,8 @@ import { useAuth, getApolloAuthClient, useLogout } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
 import Layout from '@/components/Layout';
 import { GET_CUSTOMER } from '@/graphql/queries/auth';
-import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
+import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
 
 // Icons

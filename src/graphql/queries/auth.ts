@@ -52,6 +52,35 @@ export const REDEEM_LOYALTY_OPTION = gql`
   }
 `;
 
+export const GET_LOYALTY_PROGRAM = gql`
+  query GetLoyaltyProgram {
+    loyaltyProgram {
+      authenticated
+      firstName
+      pointsBalance
+      currentTier
+      totalSpentCents
+      vipTiers {
+        name
+        rangeText
+        spendCents
+        multiplier
+        isBase
+      }
+      earnRules {
+        title
+        rewardText
+        ctaText
+      }
+      referral {
+        link
+        rewardText
+        shareText
+      }
+    }
+  }
+`;
+
 // Get customer data with billing/shipping and orders
 export const GET_CUSTOMER = gql`
   query GetCustomer {

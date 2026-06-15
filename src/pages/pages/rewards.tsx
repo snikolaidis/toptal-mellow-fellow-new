@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
 import Layout from '@/components/Layout';
+import LoyaltyRedeem from '@/components/LoyaltyRedeem';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
+import { positionLoyaltyRedeem } from '@/lib/loyaltyPageLayout';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
+
+const REDEEM_SLOT_ID = 'mf-loyalty-redeem-slot';
 
 export default function RewardsPage() {
   const { ready, token } = useYotpoLoyalty();
@@ -13,6 +17,10 @@ export default function RewardsPage() {
     }
   }, [ready, token, instance]);
 
+  useEffect(() => {
+    return positionLoyaltyRedeem({ slotId: REDEEM_SLOT_ID });
+  }, []);
+
   return (
     <Layout title="Rewards">
       {ready && instance && (
@@ -23,6 +31,10 @@ export default function RewardsPage() {
           suppressHydrationWarning
         />
       )}
+
+      <div id={REDEEM_SLOT_ID}>
+        <LoyaltyRedeem />
+      </div>
     </Layout>
   );
 }
