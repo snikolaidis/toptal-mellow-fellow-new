@@ -947,3 +947,20 @@ img {
 .view-details-link:hover {
   color: #666666;
 }
+
+:root {
+  --accessibility-widget-primary-color: #000000 !important;
+  --accessibility-widget-primary-color-darken: #1a1a1a !important;
+  --accessibility-widget-primary-color-rgb: 0, 0, 0 !important;
+}
+
+#aioa-trigger-button button {
+  width: 44px !important;
+  height: 44px !important;
+  background-color: #000000 !important;
+}
+
+#aioa-trigger-button button img {
+  width: 28px !important;
+  height: 28px !important;
+}

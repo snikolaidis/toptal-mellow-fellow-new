@@ -1,15 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Layout from '@/components/Layout';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { positionLoyaltyRedeem } from '@/lib/loyaltyPageLayout';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 
-const REDEEM_SLOT_ID = 'mf-loyalty-redeem-slot';
-
 export default function RewardsPage() {
   const { ready, token } = useYotpoLoyalty();
   const instance = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_PAGE_INSTANCE;
+  const [redeemTarget, setRedeemTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (ready && instance) {
@@ -18,7 +18,7 @@ export default function RewardsPage() {
   }, [ready, token, instance]);
 
   useEffect(() => {
-    return positionLoyaltyRedeem({ slotId: REDEEM_SLOT_ID });
+    return positionLoyaltyRedeem({ onTarget: setRedeemTarget });
   }, []);
 
   return (
@@ -32,9 +32,7 @@ export default function RewardsPage() {
         />
       )}
 
-      <div id={REDEEM_SLOT_ID}>
-        <LoyaltyRedeem />
-      </div>
+      {redeemTarget ? createPortal(<LoyaltyRedeem />, redeemTarget) : <LoyaltyRedeem />}
     </Layout>
   );
 }
