@@ -1,3 +1,4 @@
+import '@/lib/domPatch';
 import '@/styles/globals.scss';
 import { FaustProvider } from '@faustwp/core';
 import type { AppProps } from 'next/app';

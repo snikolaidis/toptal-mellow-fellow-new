@@ -6,6 +6,9 @@ import BillingForm from '@/components/checkout/BillingForm';
 import ShippingForm from '@/components/checkout/ShippingForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
+import RealIdVerification from '@/components/RealIdVerification';
+
+const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 import { AddressData, PaymentData } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
@@ -45,6 +48,7 @@ export default function CheckoutPage() {
   const { cart, clearCart } = useCart();
   const { isAuthenticated } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [realIdVerified, setRealIdVerified] = useState(!REALID_ENABLED);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<CheckoutStep>('billing');
   const [customerDataLoaded, setCustomerDataLoaded] = useState(false);
@@ -261,6 +265,19 @@ export default function CheckoutPage() {
         throw new Error(result.message || 'Checkout failed. Please try again.');
       }
 
+      if (REALID_ENABLED && typeof window !== 'undefined') {
+        const checkId = window.localStorage.getItem('real-id-check-id');
+        const orderId = result.orderDatabaseId || result.orderId;
+        if (checkId && orderId) {
+          fetch('/api/realid/real-id/v1/check/order/associate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ checkId, orderId }),
+          }).catch(() => {});
+          window.localStorage.removeItem('real-id-check-id');
+        }
+      }
+
       clearCart().catch(() => {});
 
       router.push({
@@ -360,13 +377,25 @@ export default function CheckoutPage() {
             )}
 
             {step === 'payment' && (
-              <PaymentForm
-                onSubmit={handlePayment}
-                onBack={() => setStep('shipping')}
-                isProcessing={isProcessing}
-                isLoading={csrfLoading}
-                amount={cart.total}
-              />
+              <>
+                <RealIdVerification
+                  customer={{
+                    id: customerData?.customer?.databaseId ?? null,
+                    email: billing.email,
+                    firstName: billing.firstName,
+                    lastName: billing.lastName,
+                  }}
+                  onVerifiedChange={(verified) => setRealIdVerified(verified)}
+                />
+                <PaymentForm
+                  onSubmit={handlePayment}
+                  onBack={() => setStep('shipping')}
+                  isProcessing={isProcessing}
+                  isLoading={csrfLoading}
+                  amount={cart.total}
+                  realIdBlocked={!realIdVerified}
+                />
+              </>
             )}
           </div>
         </div>
@@ -390,14 +419,16 @@ function PaymentForm({
   isProcessing,
   isLoading = false,
   amount,
+  realIdBlocked = false,
 }: {
   onSubmit: (data: PaymentData) => void;
   onBack: () => void;
   isProcessing: boolean;
   isLoading?: boolean;
   amount: string;
+  realIdBlocked?: boolean;
 }) {
-  const isDisabled = isProcessing || isLoading;
+  const isDisabled = isProcessing || isLoading || realIdBlocked;
   const [cardNumber, setCardNumber] = useState('');
   const [expMonth, setExpMonth] = useState('');
   const [expYear, setExpYear] = useState('');

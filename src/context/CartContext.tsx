@@ -35,6 +35,20 @@ import {
  * cart data for logged-in users.
  */
 
+/**
+ * WooGraphQL returns error messages with HTML entities (e.g. &quot;).
+ * Decode the common ones so messages render cleanly in the UI.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
 interface CartItem {
   key: string;
   quantity: number;
@@ -370,8 +384,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (err) {
       logError('CartContext.applyCoupon', err, { code });
-      const cartError = new CartError('Invalid coupon code', ErrorCode.CART_UPDATE_FAILED);
-      setError(getUserMessage(cartError));
+      const gqlMessage = (err as { graphQLErrors?: Array<{ message?: string }> })?.graphQLErrors?.[0]
+        ?.message;
+      const rawMessage =
+        gqlMessage ||
+        (err instanceof Error ? err.message : null) ||
+        getUserMessage(new CartError('Invalid coupon code', ErrorCode.CART_UPDATE_FAILED));
+      const message = decodeHtmlEntities(rawMessage);
+      setError(message);
       return false;
     }
   }, [getClient]);

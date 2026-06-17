@@ -35,6 +35,50 @@ function mellow_fellow_loyalty_yotpo_get($path) {
     return json_decode(wp_remote_retrieve_body($r), true);
 }
 
+function mellow_fellow_loyalty_ensure_coupon($code, $data, $optionId, $email) {
+    if (!$code || !function_exists('wc_get_coupon_id_by_code') || !class_exists('WC_Coupon')) {
+        return;
+    }
+    if (wc_get_coupon_id_by_code($code)) {
+        return;
+    }
+
+    $amount = null;
+    $type = 'fixed_cart';
+
+    $opts = mellow_fellow_loyalty_yotpo_get('redemption_options');
+    if (is_array($opts)) {
+        foreach ($opts as $o) {
+            if (isset($o['id']) && (int) $o['id'] === (int) $optionId) {
+                if (isset($o['discount_amount_cents']) && is_numeric($o['discount_amount_cents'])) {
+                    $amount = (float) $o['discount_amount_cents'] / 100;
+                    $type = 'fixed_cart';
+                } elseif (isset($o['discount_value_cents']) && is_numeric($o['discount_value_cents'])) {
+                    $amount = (float) $o['discount_value_cents'] / 100;
+                    $type = 'fixed_cart';
+                } elseif (isset($o['discount_percentage']) && is_numeric($o['discount_percentage'])) {
+                    $amount = (float) $o['discount_percentage'];
+                    $type = 'percent';
+                }
+                break;
+            }
+        }
+    }
+
+    if ($amount === null || $amount <= 0) {
+        error_log('[MF loyalty] ensure_coupon could not resolve amount for option ' . $optionId . ' code=' . $code);
+        return;
+    }
+
+    $coupon = new WC_Coupon();
+    $coupon->set_code($code);
+    $coupon->set_discount_type($type);
+    $coupon->set_amount($amount);
+    $coupon->set_usage_limit(1);
+    $coupon->update_meta_data('_yotpo_loyalty_coupon', 1);
+    $coupon->save();
+}
+
 add_action('graphql_register_types', function () {
     register_graphql_object_type('LoyaltyRedemptionOption', array(
         'fields' => array(
@@ -126,6 +170,7 @@ add_action('graphql_register_types', function () {
             $data = json_decode(wp_remote_retrieve_body($r), true);
 
             if ($status >= 200 && $status < 300 && is_array($data) && !empty($data['code'])) {
+                mellow_fellow_loyalty_ensure_coupon((string) $data['code'], $data, (int) $input['optionId'], $user->user_email);
                 return array('success' => true, 'code' => $data['code'], 'message' => null);
             }
 
