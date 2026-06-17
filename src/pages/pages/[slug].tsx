@@ -68,9 +68,12 @@ export const getStaticPaths: GetStaticPaths = async () => {
   const client = getClient();
   const { data } = await client.query({ query: GET_ALL_PAGE_SLUGS });
 
-  const paths = data?.pages?.nodes?.map(({ slug }: { slug: string }) => ({
-    params: { slug },
-  })) ?? [];
+  // Exclude slugs that have dedicated page files to avoid conflicts
+  const excludeSlugs = ['bonus-points-products', 'rewards'];
+
+  const paths = (data?.pages?.nodes ?? [])
+    .filter(({ slug }: { slug: string }) => !excludeSlugs.includes(slug))
+    .map(({ slug }: { slug: string }) => ({ params: { slug } }));
 
   return { paths, fallback: 'blocking' };
 };
