@@ -16,6 +16,12 @@ export interface ProductCategory {
   count?: number;
 }
 
+export interface CollectionFields {
+  collectionImage?: string;
+  collectionHeroDesktop?: string;
+  collectionHeroMobile?: string;
+}
+
 export interface Collection {
   id: string;
   databaseId: number;
@@ -26,6 +32,7 @@ export interface Collection {
   products?: {
     nodes: Product[];
   };
+  collectionFields?: CollectionFields;
 }
 
 export interface ProductVariation {
