@@ -1,7 +1,11 @@
+@use 'account';
+@use 'age-verification';
 @use 'collection-card';
 @use 'collection-links';
 @use 'collection-swiper';
 @use 'highlights-group';
+@use 'loyalty-checkout';
+@use 'loyalty-redeem';
 @use 'nav-bar';
 @use 'product-card';
 

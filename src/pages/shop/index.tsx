@@ -192,7 +192,25 @@ export default function ShopPage({
   }));
 
   return (
-    <Layout title="Shop">
+    <Layout
+      title="Shop"
+      description="Browse all Mellow Fellow cannabis products. Filter by product type, strain, cannabinoid, and more."
+      seo={{
+        title: 'Shop All Products | Mellow Fellow',
+        metaDesc: 'Browse all Mellow Fellow cannabis products. Filter by product type, strain, cannabinoid, and more.',
+        schema: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: 'Shop All Products',
+          description: 'Browse all Mellow Fellow cannabis products.',
+          url: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/shop`,
+          isPartOf: {
+            '@type': 'WebSite',
+            '@id': `${process.env.NEXT_PUBLIC_SITE_URL || ''}/#website`,
+          },
+        }),
+      }}
+    >
       <div className={styles.page}>
         <div className={styles.shopLayout}>
           {/* Desktop Sidebar */}

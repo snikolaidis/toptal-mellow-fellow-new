@@ -2,6 +2,10 @@ import { Html, Head, Main, NextScript } from 'next/document';
 
 const klaviyoPublicKey = process.env.NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY;
 const yotpoLoyaltyLoader = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_LOADER;
+const aioaToken = process.env.NEXT_PUBLIC_AIOA_TOKEN ?? '';
+const aioaColor = process.env.NEXT_PUBLIC_AIOA_COLOR ?? '000000';
+const aioaPosition = process.env.NEXT_PUBLIC_AIOA_POSITION ?? 'bottom_left';
+const aioaWidgetSrc = `https://www.skynettechnologies.com/accessibility/js/all-in-one-accessibility-js-widget-minify.js?colorcode=${aioaColor}&token=${aioaToken}&position=${aioaPosition}`;
 
 export default function Document() {
   return (
@@ -31,6 +35,7 @@ export default function Document() {
         {yotpoLoyaltyLoader && (
           <script type="text/javascript" async src={yotpoLoyaltyLoader} />
         )}
+        <script src={aioaWidgetSrc} async />
       </Head>
       <body>
         <Main />

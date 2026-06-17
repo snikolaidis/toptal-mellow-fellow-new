@@ -1,0 +1,78 @@
+.age-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background-color: var(--color-surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+
+  &__content {
+    text-align: center;
+    max-width: 560px;
+  }
+
+  &__heading {
+    font-family: var(--font-family-display);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 14px;
+  }
+
+  &__subtext {
+    font-family: var(--font-family-body);
+    font-size: 18px;
+    color: var(--color-text-primary);
+    margin: 0 0 34px;
+  }
+
+  &__buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  &__btn {
+    font-family: var(--font-family-body);
+    font-size: 16px;
+    line-height: 1;
+    padding: 15px 30px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: opacity 150ms ease;
+
+    &:hover {
+      opacity: 0.85;
+    }
+
+    &--filled {
+      background: var(--color-brand-primary);
+      color: var(--color-text-inverse);
+      border: 1px solid var(--color-brand-primary);
+    }
+
+    &--outline {
+      background: transparent;
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-brand-primary);
+    }
+  }
+
+  @media (max-width: 480px) {
+    &__heading {
+      font-size: 24px;
+    }
+
+    &__subtext {
+      font-size: 16px;
+    }
+
+    &__btn {
+      padding: 13px 26px;
+      font-size: 15px;
+    }
+  }
+}

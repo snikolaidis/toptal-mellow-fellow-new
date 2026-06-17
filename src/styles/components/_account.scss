@@ -1,0 +1,359 @@
+.account {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 48px 20px 80px;
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 20px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  &__title {
+    font-family: var(--font-family-display);
+    font-size: 40px;
+    font-weight: 400;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  &__welcome {
+    font-family: var(--font-family-body);
+    font-size: 15px;
+    color: var(--color-text-secondary);
+    margin: 6px 0 0;
+  }
+
+  &__signout {
+    font-family: var(--font-family-body);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 0;
+  }
+
+  &__signout:hover {
+    color: var(--color-text-secondary);
+  }
+
+  &__layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  &__section-title {
+    font-family: var(--font-family-display);
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--color-text-primary);
+    margin: 0 0 18px;
+  }
+
+  &__sidebar-title {
+    font-family: var(--font-family-body);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    margin: 0 0 12px;
+  }
+
+  &__orders {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-family-body);
+    font-size: 14px;
+  }
+
+  &__orders th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    padding: 0 16px 12px 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  &__orders td {
+    padding: 16px 16px 16px 0;
+    border-bottom: 1px solid var(--color-border-default);
+    color: var(--color-text-primary);
+    vertical-align: middle;
+  }
+
+  &__order-number {
+    font-weight: 600;
+  }
+
+  &__status {
+    display: inline-block;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--color-border-default);
+    background: var(--color-surface-secondary);
+    color: var(--color-text-secondary);
+
+    &--processing {
+      background: var(--color-brand-primary);
+      border-color: var(--color-brand-primary);
+      color: var(--color-text-inverse);
+    }
+
+    &--completed {
+      background: var(--color-surface-secondary);
+      border-color: var(--color-brand-primary);
+      color: var(--color-text-primary);
+    }
+
+    &--cancelled {
+      color: var(--color-text-muted);
+      text-decoration: line-through;
+    }
+  }
+
+  &__link {
+    font-family: var(--font-family-body);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-brand-primary);
+    text-decoration: none;
+  }
+
+  &__link:hover {
+    color: var(--color-brand-primary-hover);
+  }
+
+  &__address {
+    font-family: var(--font-family-body);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-text-primary);
+    margin: 0 0 8px;
+  }
+
+  &__address-empty {
+    font-family: var(--font-family-body);
+    font-size: 14px;
+    color: var(--color-text-muted);
+    font-style: italic;
+    margin: 0 0 8px;
+  }
+
+  &__empty {
+    font-family: var(--font-family-body);
+    text-align: center;
+    padding: 40px 0;
+    color: var(--color-text-secondary);
+  }
+
+  &__button {
+    display: inline-block;
+    font-family: var(--font-family-body);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--color-brand-primary);
+    color: var(--color-text-inverse);
+    padding: 12px 28px;
+    border-radius: 50px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: background 150ms ease;
+  }
+
+  &__button:hover {
+    background: var(--color-brand-primary-hover);
+  }
+}
+
+@media (min-width: 900px) {
+  .account__layout {
+    grid-template-columns: 1fr 320px;
+    align-items: start;
+  }
+}
+
+.account__center {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.account__back {
+  margin-top: 32px;
+}
+
+.account__orders tfoot td {
+  border-bottom: none;
+  padding-top: 18px;
+}
+
+.account-form {
+  max-width: 720px;
+}
+
+.account-form__group {
+  border: none;
+  padding: 0;
+  margin: 0 0 36px;
+}
+
+.account-form__group legend {
+  padding: 0;
+}
+
+.account-form__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.account-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.account-form__label {
+  font-family: var(--font-family-body);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.account-form__input {
+  font-family: var(--font-family-body);
+  font-size: 15px;
+  color: var(--color-text-primary);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  padding: 11px 14px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.account-form__input:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+}
+
+.account-form__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.account-form__hint {
+  font-family: var(--font-family-body);
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 10px 0 0;
+}
+
+.account-form__note {
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  color: var(--color-state-success);
+}
+
+.account-form__note--error {
+  color: var(--color-state-error);
+}
+
+.account__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (min-width: 700px) {
+  .account-form__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.account__edit {
+  margin: 0 0 28px;
+}
+
+.account__edit-link {
+  font-family: var(--font-family-body);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 150ms ease;
+}
+
+.account__edit-link:hover {
+  color: var(--color-brand-primary-hover);
+}
+
+.account__edit-sub {
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 6px 0 0;
+}
+
+.account__sidebar-heading {
+  font-family: var(--font-family-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+  margin: 0 0 12px;
+}
+
+.account__detail-name {
+  font-family: var(--font-family-body);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 14px;
+}
+
+.account__detail-line {
+  font-family: var(--font-family-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  margin: 0 0 14px;
+}
+
+.account__muted {
+  font-family: var(--font-family-body);
+  font-size: 15px;
+  color: var(--color-text-secondary);
+}
+
+.account-loyalty {
+  margin-top: 48px;
+}
+
+@media (min-width: 900px) {
+  .account__layout {
+    grid-template-columns: 2fr 1fr;
+  }
+}

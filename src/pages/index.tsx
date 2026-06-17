@@ -26,7 +26,52 @@ export default function HomePage({ products }: HomePageProps) {
   const awardedProducts = products.slice(16, 24);
 
   return (
-    <Layout title="Home" description="Mellow Fellow - Premium cannabis products for elevated experiences">
+    <Layout
+      title="Home"
+      description="Mellow Fellow - Premium cannabis products for elevated experiences. Shop disposable vapes, edibles, flower, cartridges and more."
+      seo={{
+        title: 'Mellow Fellow | Premium Cannabis Products',
+        metaDesc: 'Mellow Fellow - Premium cannabis products for elevated experiences. Shop disposable vapes, edibles, flower, cartridges and more.',
+        opengraphTitle: 'Mellow Fellow | Premium Cannabis Products',
+        opengraphDescription: 'Premium cannabis products for elevated experiences. Shop disposable vapes, edibles, flower, cartridges and more.',
+        schema: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@graph': [
+            {
+              '@type': 'Organization',
+              '@id': `${process.env.NEXT_PUBLIC_SITE_URL || ''}/#organization`,
+              name: 'Mellow Fellow',
+              url: process.env.NEXT_PUBLIC_SITE_URL || '',
+              logo: {
+                '@type': 'ImageObject',
+                url: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/Black_Logo_with_Gold.png`,
+              },
+            },
+            {
+              '@type': 'WebSite',
+              '@id': `${process.env.NEXT_PUBLIC_SITE_URL || ''}/#website`,
+              url: process.env.NEXT_PUBLIC_SITE_URL || '',
+              name: 'Mellow Fellow',
+              publisher: { '@id': `${process.env.NEXT_PUBLIC_SITE_URL || ''}/#organization` },
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/shop?search={search_term_string}`,
+                'query-input': 'required name=search_term_string',
+              },
+            },
+            {
+              '@type': 'WebPage',
+              '@id': `${process.env.NEXT_PUBLIC_SITE_URL || ''}/#webpage`,
+              url: process.env.NEXT_PUBLIC_SITE_URL || '',
+              name: 'Mellow Fellow | Premium Cannabis Products',
+              isPartOf: { '@id': `${process.env.NEXT_PUBLIC_SITE_URL || ''}/#website` },
+              about: { '@id': `${process.env.NEXT_PUBLIC_SITE_URL || ''}/#organization` },
+              description: 'Premium cannabis products for elevated experiences.',
+            },
+          ],
+        }),
+      }}
+    >
       <HeroSwiper />
       <CollectionLinks />
       <CollectionSwiper products={ newArrivals } title="Explore What's New" />

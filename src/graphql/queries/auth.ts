@@ -15,6 +15,72 @@ export const GET_VIEWER = gql`
   }
 `;
 
+export const GET_LOYALTY_IDENTITY = gql`
+  query GetLoyaltyIdentity {
+    loyaltyIdentity {
+      authenticated
+      email
+      id
+      token
+      tags
+    }
+  }
+`;
+
+export const GET_LOYALTY_REDEMPTION = gql`
+  query GetLoyaltyRedemption {
+    loyaltyRedemption {
+      authenticated
+      pointsBalance
+      options {
+        id
+        name
+        points
+        costText
+      }
+    }
+  }
+`;
+
+export const REDEEM_LOYALTY_OPTION = gql`
+  mutation RedeemLoyaltyOption($optionId: Int!) {
+    redeemLoyaltyOption(input: { optionId: $optionId }) {
+      success
+      code
+      message
+    }
+  }
+`;
+
+export const GET_LOYALTY_PROGRAM = gql`
+  query GetLoyaltyProgram {
+    loyaltyProgram {
+      authenticated
+      firstName
+      pointsBalance
+      currentTier
+      totalSpentCents
+      vipTiers {
+        name
+        rangeText
+        spendCents
+        multiplier
+        isBase
+      }
+      earnRules {
+        title
+        rewardText
+        ctaText
+      }
+      referral {
+        link
+        rewardText
+        shareText
+      }
+    }
+  }
+`;
+
 // Get customer data with billing/shipping and orders
 export const GET_CUSTOMER = gql`
   query GetCustomer {
