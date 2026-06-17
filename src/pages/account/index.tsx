@@ -7,6 +7,7 @@ import { GET_CUSTOMER } from '@/graphql/queries/auth';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
+import YotpoWidget from '@/components/YotpoWidget';
 
 interface OrderNode {
   id: string;
@@ -160,34 +161,10 @@ function AccountDashboard() {
       </div>
 
       <div className="account-loyalty">
-        {ready && myRewards && (
-          <div
-            key={`${token ?? 'guest'}-rewards`}
-            className="yotpo-widget-instance"
-            data-yotpo-instance-id={myRewards}
-            suppressHydrationWarning
-          />
-        )}
-
-        {ready && campaign && (
-          <div
-            key={`${token ?? 'guest'}-campaign`}
-            className="yotpo-widget-instance"
-            data-yotpo-instance-id={campaign}
-            suppressHydrationWarning
-          />
-        )}
-
+        {ready && myRewards && <YotpoWidget instanceId={myRewards} />}
+        {ready && campaign && <YotpoWidget instanceId={campaign} />}
         <LoyaltyRedeem />
-
-        {ready && vipTiers && (
-          <div
-            key={`${token ?? 'guest'}-vip`}
-            className="yotpo-widget-instance"
-            data-yotpo-instance-id={vipTiers}
-            suppressHydrationWarning
-          />
-        )}
+        {ready && vipTiers && <YotpoWidget instanceId={vipTiers} />}
       </div>
     </>
   );

@@ -39,6 +39,7 @@ function findNativeRedeemHeading(root: Element): Element | null {
   let best: Element | null = null;
   let bestLen = Infinity;
   root.querySelectorAll('h1, h2, h3, h4, h5, div, span, p').forEach((el) => {
+    if (el.closest(`[${PORTAL_ATTR}]`)) return;
     const text = (el.textContent || '').trim().toLowerCase();
     if (text.includes(REDEEM_HEADING) && text.length < bestLen) {
       bestLen = text.length;

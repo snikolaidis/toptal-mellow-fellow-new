@@ -9,8 +9,9 @@ const aioaWidgetSrc = `https://www.skynettechnologies.com/accessibility/js/all-i
 
 export default function Document() {
   return (
-    <Html lang="en">
+    <Html lang="en" translate="no">
       <Head>
+        <meta name="google" content="notranslate" />
         {/* Authorize.net Accept.js - loaded from their CDN for security */}
         {process.env.NEXT_PUBLIC_AUTHORIZE_ENVIRONMENT === 'production' ? (
           <script

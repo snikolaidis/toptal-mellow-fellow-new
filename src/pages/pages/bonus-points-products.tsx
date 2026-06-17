@@ -3,6 +3,7 @@ import { GetStaticProps } from 'next';
 import Layout from '@/components/Layout';
 import FeaturedCollection from '@/components/FeaturedCollection';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
+import YotpoWidget from '@/components/YotpoWidget';
 import KlaviyoForm from '@/components/KlaviyoForm';
 import { getClient } from '@/lib/apollo-client';
 import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
@@ -86,22 +87,8 @@ export default function BonusPointsProductsPage({ products }: BonusPointsProduct
       <section className={styles.loyalty}>
         <h2 className={styles.loyaltyHeading}>My Loyalty Program</h2>
         <LoyaltyRedeem />
-        {ready && vipTiers && (
-          <div
-            key={`${token ?? 'guest'}-vip`}
-            className="yotpo-widget-instance"
-            data-yotpo-instance-id={vipTiers}
-            suppressHydrationWarning
-          />
-        )}
-        {ready && referralShare && (
-          <div
-            key={`${token ?? 'guest'}-referral`}
-            className="yotpo-widget-instance"
-            data-yotpo-instance-id={referralShare}
-            suppressHydrationWarning
-          />
-        )}
+        {ready && vipTiers && <YotpoWidget instanceId={vipTiers} />}
+        {ready && referralShare && <YotpoWidget instanceId={referralShare} />}
       </section>
     </Layout>
   );

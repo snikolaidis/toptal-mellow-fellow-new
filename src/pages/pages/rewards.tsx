@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Layout from '@/components/Layout';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
+import YotpoWidget from '@/components/YotpoWidget';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { positionLoyaltyRedeem } from '@/lib/loyaltyPageLayout';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
@@ -23,14 +24,7 @@ export default function RewardsPage() {
 
   return (
     <Layout title="Rewards">
-      {ready && instance && (
-        <div
-          key={token ?? 'guest'}
-          className="yotpo-widget-instance"
-          data-yotpo-instance-id={instance}
-          suppressHydrationWarning
-        />
-      )}
+      {ready && instance && <YotpoWidget instanceId={instance} />}
 
       {redeemTarget ? createPortal(<LoyaltyRedeem />, redeemTarget) : <LoyaltyRedeem />}
     </Layout>
