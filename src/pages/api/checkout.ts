@@ -295,7 +295,10 @@ async function voidPayment(transactionId: string): Promise<boolean> {
  */
 async function createOrderDirectly(
   body: CheckoutRequest,
-  transactionId: string
+  transactionId: string,
+  cookies?: string,
+  wcSessionToken?: string,
+  authToken?: string
 ): Promise<PendingOrder> {
   const graphqlUrl = getWordPressGraphQLUrl();
 
@@ -353,7 +356,7 @@ async function createOrderDirectly(
       metaData: [
         { key: '_transaction_id', value: transactionId },
         { key: '_authorize_net_transaction_id', value: transactionId },
-        { key: '_payment_method', value: 'authorize_net' },
+        { key: '_payment_method', value: 'authnet' },
         { key: '_payment_method_title', value: 'Credit Card (Authorize.net)' },
       ],
     },
@@ -362,6 +365,9 @@ async function createOrderDirectly(
   const response = await makeHttpRequest({
     url: graphqlUrl,
     body: JSON.stringify({ query: mutation, variables }),
+    cookies,
+    wcSessionToken,
+    authToken,
   });
 
   console.log('[Checkout] Direct order response:', JSON.stringify(response.data, null, 2).substring(0, 1000));
@@ -468,7 +474,7 @@ async function createOrderWithPayment(
       metaData: [
         { key: '_transaction_id', value: transactionId },
         { key: '_authorize_net_transaction_id', value: transactionId },
-        { key: '_payment_method', value: 'authorize_net' },
+        { key: '_payment_method', value: 'authnet' },
         { key: '_payment_method_title', value: 'Credit Card (Authorize.net)' },
       ],
     },
@@ -830,7 +836,9 @@ async function checkoutHandler(
       console.log('[Checkout] Original error:', checkoutError instanceof Error ? checkoutError.message : checkoutError);
 
       try {
-        order = await createOrderDirectly(body, transactionId);
+        const fallbackCookies = req.headers.cookie || '';
+        const fallbackSession = extractWcSessionToken(fallbackCookies) || undefined;
+        order = await createOrderDirectly(body, transactionId, fallbackCookies, fallbackSession, authToken);
         console.log('[Checkout] Direct order creation succeeded!');
       } catch (directError) {
         // Both methods failed - throw the original error
