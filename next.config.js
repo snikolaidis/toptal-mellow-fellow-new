@@ -19,7 +19,9 @@ const nextConfig = {
       { protocol: 'http', hostname: 'localhost' },
       { protocol: 'http', hostname: 'mf-headless-wp.local' },
       { protocol: 'https', hostname: 'headless-e-comm.local' },
-      { protocol: 'http', hostname: 'headless-e-comm.local' }
+      { protocol: 'http', hostname: 'headless-e-comm.local' },
+      { protocol: 'https', hostname: 'mellowfellow.local' },
+      { protocol: 'http', hostname: 'mellowfellow.local' }
     ],
   },
   experimental: {
