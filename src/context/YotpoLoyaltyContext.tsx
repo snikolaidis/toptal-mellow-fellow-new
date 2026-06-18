@@ -3,7 +3,7 @@ import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
 import { GET_LOYALTY_IDENTITY } from '@/graphql/queries/auth';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
-import { setupYotpoAuthRedirect } from '@/lib/yotpoAuthRedirect';
+import { setupYotpoAuthRedirect, setupYotpoRedeemScroll } from '@/lib/yotpoAuthRedirect';
 
 interface LoyaltyIdentity {
   authenticated: boolean;
@@ -34,7 +34,12 @@ export function YotpoLoyaltyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    return setupYotpoAuthRedirect();
+    const cleanupAuth = setupYotpoAuthRedirect();
+    const cleanupRedeem = setupYotpoRedeemScroll();
+    return () => {
+      cleanupAuth();
+      cleanupRedeem();
+    };
   }, []);
 
   const { data, loading } = useQuery<{ loyaltyIdentity: LoyaltyIdentity }>(GET_LOYALTY_IDENTITY, {

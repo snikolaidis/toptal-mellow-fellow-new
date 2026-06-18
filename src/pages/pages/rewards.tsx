@@ -24,7 +24,7 @@ export default function RewardsPage() {
 
   return (
     <Layout title="Rewards">
-      {ready && instance && <YotpoWidget instanceId={instance} />}
+      {instance && <YotpoWidget instanceId={instance} />}
 
       {redeemTarget ? createPortal(<LoyaltyRedeem />, redeemTarget) : <LoyaltyRedeem />}
     </Layout>

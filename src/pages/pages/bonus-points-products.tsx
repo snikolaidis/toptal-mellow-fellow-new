@@ -87,8 +87,8 @@ export default function BonusPointsProductsPage({ products }: BonusPointsProduct
       <section className={styles.loyalty}>
         <h2 className={styles.loyaltyHeading}>My Loyalty Program</h2>
         <LoyaltyRedeem />
-        {ready && vipTiers && <YotpoWidget instanceId={vipTiers} />}
-        {ready && referralShare && <YotpoWidget instanceId={referralShare} />}
+        {vipTiers && <YotpoWidget instanceId={vipTiers} />}
+        {referralShare && <YotpoWidget instanceId={referralShare} />}
       </section>
     </Layout>
   );

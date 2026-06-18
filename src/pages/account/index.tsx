@@ -161,10 +161,10 @@ function AccountDashboard() {
       </div>
 
       <div className="account-loyalty">
-        {ready && myRewards && <YotpoWidget instanceId={myRewards} />}
-        {ready && campaign && <YotpoWidget instanceId={campaign} />}
+        {myRewards && <YotpoWidget instanceId={myRewards} />}
+        {campaign && <YotpoWidget instanceId={campaign} />}
         <LoyaltyRedeem />
-        {ready && vipTiers && <YotpoWidget instanceId={vipTiers} />}
+        {vipTiers && <YotpoWidget instanceId={vipTiers} />}
       </div>
     </>
   );
