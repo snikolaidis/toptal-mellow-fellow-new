@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
+import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 
 interface YotpoWidgetProps {
   instanceId: string;
@@ -6,6 +7,10 @@ interface YotpoWidgetProps {
 }
 
 function YotpoWidgetBase({ instanceId, className }: YotpoWidgetProps) {
+  useEffect(() => {
+    initYotpoLoyaltyWidgets(process.env.NEXT_PUBLIC_YOTPO_LOYALTY_LOADER);
+  }, [instanceId]);
+
   return (
     <div
       className={className ? `yotpo-widget-instance ${className}` : 'yotpo-widget-instance'}

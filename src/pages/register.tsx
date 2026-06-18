@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useAuth } from '@faustwp/core';
@@ -37,12 +37,16 @@ export default function RegisterPage() {
     }
   }, [isReady, isAuthenticated, router]);
 
-  useEffect(() => {
-    fetch('/api/csrf-token')
+  const fetchCsrfToken = useCallback(() => {
+    return fetch('/api/csrf-token')
       .then((r) => r.json())
       .then((data) => setCsrfToken(data.token))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchCsrfToken();
+  }, [fetchCsrfToken]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -110,6 +114,7 @@ export default function RegisterPage() {
       }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
+      fetchCsrfToken();
     } finally {
       setLoading(false);
     }
