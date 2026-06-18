@@ -8,6 +8,8 @@
 @use 'loyalty-redeem';
 @use 'nav-bar';
 @use 'product-card';
+@use 'real-id';
+@use 'store-locator';
 
 .section.featured-in {
   .swiper-wrapper {

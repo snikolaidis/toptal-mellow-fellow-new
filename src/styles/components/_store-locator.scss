@@ -1,0 +1,129 @@
+// Headless store locator: a searchable store list beside a Leaflet/OpenStreetMap map.
+
+.store-locator {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  font-family: var(--font-family-body);
+  color: var(--color-text-primary);
+
+  &__header {
+    margin-bottom: 1.25rem;
+  }
+
+  &__title {
+    font-family: var(--font-family-display);
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
+    color: var(--color-text-primary);
+  }
+
+  &__search {
+    width: 100%;
+    max-width: 480px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-family: var(--font-family-body);
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 8px;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-brand-primary);
+    }
+  }
+
+  &__body {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 1.25rem;
+    align-items: stretch;
+  }
+
+  &__list {
+    max-height: 600px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border-default);
+    border-radius: 12px;
+    background-color: var(--color-surface-primary);
+  }
+
+  &__empty {
+    padding: 1.25rem;
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+    text-align: left;
+    padding: 1rem 1.25rem;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--color-border-default);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background-color: var(--color-surface-secondary);
+    }
+
+    &--active {
+      background-color: var(--color-surface-secondary);
+      box-shadow: inset 3px 0 0 var(--color-brand-primary);
+    }
+  }
+
+  &__item-name {
+    font-family: var(--font-family-display);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__item-address {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+  }
+
+  &__item-meta {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  &__map {
+    min-height: 600px;
+    height: 100%;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--color-border-default);
+    z-index: 0;
+  }
+
+  @media (max-width: 768px) {
+    &__body {
+      grid-template-columns: 1fr;
+    }
+
+    &__map {
+      min-height: 360px;
+      order: -1;
+    }
+
+    &__list {
+      max-height: 420px;
+    }
+  }
+}

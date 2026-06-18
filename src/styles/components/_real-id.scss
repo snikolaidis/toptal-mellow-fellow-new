@@ -1,0 +1,94 @@
+// Real ID identity verification card shown in the checkout payment step.
+// Mirrors the branded verification block from the original site: an alert,
+// an "ID verification" heading, an instructions box, and a "Verify your ID"
+// button that opens the hosted verification page in a new tab.
+
+.real-id-verification {
+  margin: 1.25rem 0;
+  font-family: var(--font-family-body);
+  color: var(--color-text-primary);
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    background-color: var(--color-state-warning-bg);
+    border: 1px solid var(--color-state-warning-border);
+    color: var(--color-state-warning);
+
+    &--success {
+      background-color: var(--color-state-success-bg);
+      border-color: var(--color-state-success-border);
+      color: var(--color-state-success);
+    }
+  }
+
+  &__status-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+
+    svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+  }
+
+  &__title {
+    font-family: var(--font-family-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 1rem 0 0.75rem;
+  }
+
+  &__card {
+    border: 1px solid var(--color-border-default);
+    border-radius: 12px;
+    background-color: var(--color-surface-primary);
+    padding: 1.25rem;
+
+    p {
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      color: var(--color-text-primary);
+      margin: 0 0 0.5rem;
+
+      &:last-of-type {
+        margin-bottom: 1rem;
+      }
+    }
+  }
+
+  &__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--color-brand-primary);
+    color: var(--color-text-inverse);
+    font-family: var(--font-family-body);
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: var(--color-brand-primary-hover);
+      color: var(--color-text-inverse);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+}
