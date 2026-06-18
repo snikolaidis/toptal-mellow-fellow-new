@@ -7,7 +7,7 @@ import { GET_PRODUCTS } from '@/graphql/queries/products';
 import { Product } from '@/types/woocommerce';
 import styles from '@/styles/pages/affiliate.module.css';
 
-const AWIN_SIGNUP_URL = 'https://www.awin.com/us/advertisers';
+const AWIN_SIGNUP_URL = 'https://ui.awin.com/express-signup/en/awin/59403/726a754c-4998-4ec8-a77d-40ccd659d54e?t=CkcZSywINKh2WumvTw9RRzoTi29X6_Tgg1VjVeaDBjY';
 
 interface AffiliatePageProps {
   bestsellers: Product[];
