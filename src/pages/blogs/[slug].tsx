@@ -1,0 +1,112 @@
+import { GetStaticProps, GetStaticPaths } from 'next';
+import { getClient } from '@/lib/apollo-client';
+import {
+  GET_POST_BY_SLUG,
+  GET_ALL_POST_SLUGS,
+  GET_LATEST_POSTS,
+  GET_ALL_TAGS,
+} from '@/graphql/queries/posts';
+import Layout from '@/components/Layout';
+import BlogPostTemplate from '@/templates/blogs/BlogPost';
+import { BlogPost, BlogTag, LatestPostCard } from '@/types/blog';
+
+interface BlogPostPageProps {
+  post: BlogPost;
+  latestPosts: LatestPostCard[];
+  allTags: BlogTag[];
+}
+
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
+
+function buildArticleSchema(post: BlogPost) {
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.excerpt?.replace(/<[^>]*>/g, '') || '',
+    image: post.featuredImage?.node?.sourceUrl,
+    datePublished: post.date,
+    dateModified: post.modified || post.date,
+    author: {
+      '@type': 'Person',
+      name: post.author?.node?.name || 'Mellow Fellow',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Mellow Fellow',
+      url: SITE_URL,
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `${SITE_URL}/blogs/${post.slug}`,
+    },
+  });
+}
+
+export default function BlogPostPage({ post, latestPosts, allTags }: BlogPostPageProps) {
+  const schema = post.seo?.schema?.raw || buildArticleSchema(post);
+
+  return (
+    <Layout
+      title={post.title}
+      seo={{
+        title: post.seo?.title,
+        metaDesc: post.seo?.metaDesc,
+        schema,
+        opengraphTitle: post.seo?.opengraphTitle,
+        opengraphDescription: post.seo?.opengraphDescription,
+        opengraphImage: post.seo?.opengraphImage?.sourceUrl,
+        ogType: 'article',
+        canonical: `${SITE_URL}/blogs/${post.slug}`,
+        publishedTime: post.date,
+        modifiedTime: post.modified || post.date,
+      }}
+    >
+      <BlogPostTemplate post={post} latestPosts={latestPosts} allTags={allTags} />
+    </Layout>
+  );
+}
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  try {
+    const client = getClient();
+    const { data } = await client.query({ query: GET_ALL_POST_SLUGS });
+
+    const paths = data?.posts?.nodes?.map((post: { slug: string }) => ({
+      params: { slug: post.slug },
+    })) || [];
+
+    return { paths, fallback: 'blocking' };
+  } catch (error) {
+    console.error('Error fetching post slugs:', error);
+    return { paths: [], fallback: 'blocking' };
+  }
+};
+
+export const getStaticProps: GetStaticProps = async ({ params }) => {
+  try {
+    const client = getClient();
+
+    const [postResult, latestResult, tagsResult] = await Promise.all([
+      client.query({ query: GET_POST_BY_SLUG, variables: { slug: params?.slug } }),
+      client.query({ query: GET_LATEST_POSTS, variables: { first: 4 } }),
+      client.query({ query: GET_ALL_TAGS }),
+    ]);
+
+    if (!postResult.data?.post) {
+      return { notFound: true };
+    }
+
+    return {
+      props: {
+        post: postResult.data.post,
+        latestPosts: latestResult.data?.posts?.nodes || [],
+        allTags: tagsResult.data?.tags?.nodes || [],
+      },
+      revalidate: 60,
+    };
+  } catch (error) {
+    console.error('Error fetching post:', error);
+    return { notFound: true };
+  }
+};

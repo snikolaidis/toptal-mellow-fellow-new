@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { ReactNode } from 'react';
+import { useRouter } from 'next/router';
 import Footer from '@/components/Footer/Footer';
 import NavBar from './NavBar/NavBar';
 import CartDrawer from './CartDrawer/CartDrawer';
@@ -11,6 +12,10 @@ interface SeoData {
   opengraphTitle?: string;
   opengraphDescription?: string;
   opengraphImage?: string;
+  canonical?: string;
+  ogType?: string;
+  publishedTime?: string;
+  modifiedTime?: string;
 }
 
 interface LayoutProps {
@@ -20,14 +25,21 @@ interface LayoutProps {
   seo?: SeoData;
 }
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
+const SITE_NAME = 'Mellow Fellow';
+
 export default function Layout({
   children,
   title = 'Home',
   description = 'Premium cannabis products for elevated experiences',
   seo,
 }: LayoutProps) {
-  const pageTitle = seo?.title || `${title} | Mellow Fellow`;
+  const router = useRouter();
+  const pageTitle = seo?.title || `${title} | ${SITE_NAME}`;
   const pageDescription = seo?.metaDesc || description;
+  const canonical = seo?.canonical || `${SITE_URL}${router.asPath.split('?')[0]}`;
+  const ogType = seo?.ogType || 'website';
+  const ogImage = seo?.opengraphImage;
 
   return (
     <>
@@ -36,17 +48,30 @@ export default function Layout({
         <meta name="description" content={pageDescription} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+        <link rel="canonical" href={canonical} />
 
         {/* Open Graph */}
-        {(seo?.opengraphTitle || title) && (
-          <meta property="og:title" content={seo?.opengraphTitle || pageTitle} />
+        <meta property="og:site_name" content={SITE_NAME} />
+        <meta property="og:type" content={ogType} />
+        <meta property="og:url" content={canonical} />
+        <meta property="og:title" content={seo?.opengraphTitle || pageTitle} />
+        <meta property="og:description" content={seo?.opengraphDescription || pageDescription} />
+        {ogImage && <meta property="og:image" content={ogImage} />}
+
+        {/* Article-specific Open Graph */}
+        {seo?.publishedTime && (
+          <meta property="article:published_time" content={seo.publishedTime} />
         )}
-        {pageDescription && (
-          <meta property="og:description" content={seo?.opengraphDescription || pageDescription} />
+        {seo?.modifiedTime && (
+          <meta property="article:modified_time" content={seo.modifiedTime} />
         )}
-        {seo?.opengraphImage && (
-          <meta property="og:image" content={seo.opengraphImage} />
-        )}
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+        <meta name="twitter:site" content="@MellowFellowFam" />
+        <meta name="twitter:title" content={seo?.opengraphTitle || pageTitle} />
+        <meta name="twitter:description" content={seo?.opengraphDescription || pageDescription} />
+        {ogImage && <meta name="twitter:image" content={ogImage} />}
 
         {/* JSON-LD Structured Data */}
         {seo?.schema && (
@@ -59,7 +84,6 @@ export default function Layout({
 
       <NavBar />
 
-      {/* Main Content */}
       <main>
         {children}
       </main>
