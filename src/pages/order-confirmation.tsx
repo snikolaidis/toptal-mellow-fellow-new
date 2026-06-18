@@ -1,13 +1,49 @@
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Head from 'next/head';
 import Layout from '@/components/Layout';
+
+const AWIN_ADVERTISER_ID = process.env.NEXT_PUBLIC_AWIN_ADVERTISER_ID || '';
 
 export default function OrderConfirmationPage() {
   const router = useRouter();
   const { orderId, total } = router.query;
 
+  // Parse total for Awin (strip currency symbols)
+  const awinTotal = typeof total === 'string' ? total.replace(/[^0-9.]/g, '') : '';
+
   return (
     <Layout title="Order Confirmed">
+      {/* Awin Conversion Tracking */}
+      {AWIN_ADVERTISER_ID && orderId && awinTotal && (
+        <Head>
+          <script
+            type="text/javascript"
+            dangerouslySetInnerHTML={{
+              __html: `
+                var AWIN = AWIN || {};
+                AWIN.Tracking = AWIN.Tracking || {};
+                AWIN.Tracking.Sale = {};
+                AWIN.Tracking.Sale.amount = "${awinTotal}";
+                AWIN.Tracking.Sale.channel = "aw";
+                AWIN.Tracking.Sale.orderRef = "${orderId}";
+                AWIN.Tracking.Sale.parts = "DEFAULT:${awinTotal}";
+                AWIN.Tracking.Sale.currency = "USD";
+                AWIN.Tracking.Sale.test = "0";
+              `,
+            }}
+          />
+          <noscript>
+            <img
+              src={`https://www.awin1.com/sread.img?tt=ns&tv=2&merchant=${AWIN_ADVERTISER_ID}&amount=${awinTotal}&ch=aw&parts=DEFAULT:${awinTotal}&ref=${orderId}&cr=USD&testmode=0`}
+              width="0"
+              height="0"
+              style={{ display: 'none' }}
+            />
+          </noscript>
+        </Head>
+      )}
+
       <div className="order-confirmation">
         <div className="confirmation-icon">✓</div>
         <h1>Thank You for Your Order!</h1>

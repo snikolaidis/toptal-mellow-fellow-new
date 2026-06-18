@@ -1,5 +1,6 @@
 import { Html, Head, Main, NextScript } from 'next/document';
 
+const awinAdvertiserId = process.env.NEXT_PUBLIC_AWIN_ADVERTISER_ID ?? '';
 const klaviyoPublicKey = process.env.NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY;
 const yotpoLoyaltyLoader = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_LOADER;
 const aioaToken = process.env.NEXT_PUBLIC_AIOA_TOKEN ?? '';
@@ -37,6 +38,14 @@ export default function Document() {
           <script type="text/javascript" async src={yotpoLoyaltyLoader} />
         )}
         <script src={aioaWidgetSrc} async />
+        {/* Awin Advertiser Master Tag (Dwin) */}
+        {awinAdvertiserId && (
+          <script
+            type="text/javascript"
+            defer
+            src={`https://www.dwin1.com/${awinAdvertiserId}.js`}
+          />
+        )}
       </Head>
       <body>
         <Main />

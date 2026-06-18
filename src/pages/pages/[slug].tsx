@@ -66,7 +66,7 @@ export default function WordPressPage({ page }: PageProps) {
 
 export const getStaticPaths: GetStaticPaths = async () => {
   // Exclude slugs that have dedicated page files to avoid conflicts
-  const excludeSlugs = ['bonus-points-products', 'rewards'];
+  const excludeSlugs = ['bonus-points-products', 'rewards', 'affiliate'];
 
   try {
     const client = getClient();
