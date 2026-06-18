@@ -128,7 +128,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const { data } = await client.query({
           query: GET_PRODUCT_BY_SLUG,
           variables: { slug },
-          fetchPolicy: 'network-only',
+          fetchPolicy: 'cache-first',
         });
         return data?.product || null;
       } catch { return null; }
@@ -139,23 +139,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const { data } = await client.query({
           query: GET_PRODUCTS_BY_TYPE,
           variables: { mfProductType: typeSlug, first },
-          fetchPolicy: 'network-only',
+          fetchPolicy: 'cache-first',
         });
         return data?.products?.nodes || [];
       } catch { return []; }
     };
 
-    // RULE 1: Concentrates → Terp Pen
+    // RULE 1 & 2: Fetch specific products in parallel
+    const specificFetches: Promise<any>[] = [];
     if (hasConcentrates && !excludeSlugSet.has(TERP_PEN_SLUG)) {
-      const terpPen = await fetchBySlug(TERP_PEN_SLUG);
-      if (terpPen) addResult(terpPen);
+      specificFetches.push(fetchBySlug(TERP_PEN_SLUG).then((p) => p && addResult(p)));
     }
-
-    // RULE 2: Vape Cartridges → Airflow Battery
     if (hasCartridges && !excludeSlugSet.has(AIRFLOW_BATTERY_SLUG)) {
-      const battery = await fetchBySlug(AIRFLOW_BATTERY_SLUG);
-      if (battery) addResult(battery);
+      specificFetches.push(fetchBySlug(AIRFLOW_BATTERY_SLUG).then((p) => p && addResult(p)));
     }
+    await Promise.all(specificFetches);
 
     // RULE 3: Build cross-sell categories with exclusion rules
     const recCategories: string[] = [];
