@@ -1,0 +1,38 @@
+.prose {
+  max-width: 720px;        /* readable measure — same column as .promo */
+  margin: 0 auto;
+  padding: 3rem 20px;
+  font-family: var(--font-family-body);
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--color-text-primary);
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  font-family: var(--font-family-display);
+  color: var(--color-brand-primary);     /* slate */
+  line-height: 1.25;
+  margin: 2rem 0 1rem;
+}
+.prose h1 { font-size: 34px; }
+.prose h2 { font-size: 26px; }
+.prose h3 { font-size: 20px; }
+
+.prose p { margin: 0 0 1.25rem; }
+
+.prose a {
+  color: var(--color-brand-primary);     /* slate */
+  text-decoration: underline;
+}
+.prose a:hover { color: var(--color-brand-primary-hover); }
+
+.prose ul,
+.prose ol { margin: 0 0 1.25rem; padding-left: 1.25rem; }
+.prose li { margin: 0 0 0.5rem; line-height: 1.6; }
+
+@media (max-width: 749px) {
+  .prose { padding: 2rem 16px; }
+  .prose h1 { font-size: 28px; }
+}
