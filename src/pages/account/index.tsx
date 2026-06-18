@@ -35,7 +35,7 @@ function statusModifier(status: string): string {
 function AccountDashboard() {
   const client = getApolloAuthClient();
   const { logout } = useLogout();
-  const { data, loading, error } = useQuery(GET_CUSTOMER, { client });
+  const { data, loading, error } = useQuery(GET_CUSTOMER, { client, fetchPolicy: 'network-only' });
   const { ready, token } = useYotpoLoyalty();
 
   const myRewards = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_MY_REWARDS_INSTANCE;
