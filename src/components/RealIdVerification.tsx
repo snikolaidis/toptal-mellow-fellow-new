@@ -17,22 +17,43 @@ interface RealIdVerificationProps {
   onVerifiedChange?: (verified: boolean, checkId: string | null) => void;
 }
 
+function accountKey(customer?: RealIdCustomer): string {
+  const email = (customer?.email || '').trim().toLowerCase();
+  if (email) return email;
+  return customer?.id ? `id-${customer.id}` : 'guest';
+}
+
+const checkIdKey = (key: string) => `real-id-check-id:${key}`;
+const verifiedKey = (key: string) => `real-id-verified:${key}`;
+
 export default function RealIdVerification({ customer, onVerifiedChange }: RealIdVerificationProps) {
   const [checkId, setCheckId] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const startedRef = useRef(false);
   const onVerifiedRef = useRef(onVerifiedChange);
   onVerifiedRef.current = onVerifiedChange;
+  const keyRef = useRef(accountKey(customer));
+  keyRef.current = accountKey(customer);
 
-  // Create (or reuse) an ID check so we have a checkId for the hosted verification page.
   useEffect(() => {
-    if (!ENABLED || typeof window === 'undefined' || !WP_BASE || startedRef.current) return;
+    if (!ENABLED || typeof window === 'undefined' || !WP_BASE || !customer?.email || startedRef.current) {
+      return;
+    }
     startedRef.current = true;
+    const key = accountKey(customer);
     const proxyRoot = `${window.location.origin}/api/realid/`;
+    const returnUrl = `${window.location.origin}/checkout`;
+
+    const alreadyVerified = window.localStorage.getItem(verifiedKey(key));
+    if (alreadyVerified) {
+      setVerified(true);
+      onVerifiedRef.current?.(true, alreadyVerified);
+      return;
+    }
 
     (async () => {
       try {
-        let id = window.localStorage.getItem('real-id-check-id');
+        let id = window.localStorage.getItem(checkIdKey(key));
         if (!id) {
           const res = await fetch(`${proxyRoot}real-id/v1/checks`, {
             method: 'POST',
@@ -42,11 +63,13 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
               first_name: customer?.firstName ?? '',
               last_name: customer?.lastName ?? '',
               customer_id: customer?.id ?? null,
+              postIdVerifiedRedirectUrl: returnUrl,
+              redirect_url: returnUrl,
             }),
           });
           const data = await res.json();
           id = data?.check_id || data?.check?.id || data?.id || null;
-          if (id) window.localStorage.setItem('real-id-check-id', id);
+          if (id) window.localStorage.setItem(checkIdKey(key), id);
         }
         if (!id) {
           startedRef.current = false;
@@ -59,7 +82,6 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     })();
   }, [customer]);
 
-  // Poll the check status; unlock the Place Order button once the ID is verified.
   useEffect(() => {
     if (!ENABLED || !checkId || typeof window === 'undefined') return;
     let active = true;
@@ -73,9 +95,12 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
         const isVerified = VERIFIED_STEPS.includes(step);
         setVerified(isVerified);
         onVerifiedRef.current?.(isVerified, checkId);
-        if (isVerified) active = false;
+        if (isVerified) {
+          window.localStorage.setItem(verifiedKey(keyRef.current), checkId);
+          active = false;
+        }
       } catch {
-        /* keep polling */
+        void 0;
       }
     };
 

@@ -49,6 +49,7 @@ export default function CheckoutPage() {
   const { isAuthenticated } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [realIdVerified, setRealIdVerified] = useState(!REALID_ENABLED);
+  const [realIdCheckId, setRealIdCheckId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<CheckoutStep>('billing');
   const [customerDataLoaded, setCustomerDataLoaded] = useState(false);
@@ -265,16 +266,14 @@ export default function CheckoutPage() {
         throw new Error(result.message || 'Checkout failed. Please try again.');
       }
 
-      if (REALID_ENABLED && typeof window !== 'undefined') {
-        const checkId = window.localStorage.getItem('real-id-check-id');
+      if (REALID_ENABLED && typeof window !== 'undefined' && realIdCheckId) {
         const orderId = result.orderDatabaseId || result.orderId;
-        if (checkId && orderId) {
+        if (orderId) {
           fetch('/api/realid/real-id/v1/check/order/associate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ checkId, orderId }),
+            body: JSON.stringify({ checkId: realIdCheckId, orderId }),
           }).catch(() => {});
-          window.localStorage.removeItem('real-id-check-id');
         }
       }
 
@@ -385,7 +384,10 @@ export default function CheckoutPage() {
                     firstName: billing.firstName,
                     lastName: billing.lastName,
                   }}
-                  onVerifiedChange={(verified) => setRealIdVerified(verified)}
+                  onVerifiedChange={(verified, cid) => {
+                    setRealIdVerified(verified);
+                    if (cid) setRealIdCheckId(cid);
+                  }}
                 />
                 <PaymentForm
                   onSubmit={handlePayment}
