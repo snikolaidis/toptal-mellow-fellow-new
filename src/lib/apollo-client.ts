@@ -1,5 +1,36 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
+import { RetryLink } from '@apollo/client/link/retry';
+
+// WP Engine sits behind Cloudflare/nginx, which return 429 (rate limit) and
+// 504 (gateway timeout) when the static build hammers GraphQL with many
+// concurrent requests. Retry those transient failures with backoff so a single
+// blip does not fail the whole build.
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+const retryLink = new RetryLink({
+  delay: (count, _operation, error) => {
+    const retryAfter = Number(
+      (error as { response?: { headers?: { get?: (k: string) => string | null } } })?.response
+        ?.headers?.get?.('retry-after')
+    );
+    if (retryAfter && !Number.isNaN(retryAfter)) {
+      return Math.min(retryAfter * 1000, 30000);
+    }
+    const base = Math.min(1500 * 2 ** (count - 1), 30000);
+    return base / 2 + Math.random() * (base / 2);
+  },
+  attempts: {
+    max: 8,
+    retryIf: (error) => {
+      if (!error) return false;
+      const status = (error as { statusCode?: number }).statusCode;
+      if (typeof status === 'number') return RETRYABLE_STATUS.has(status);
+      // Generic network failure (fetch failed, ECONNRESET, socket hang up).
+      return true;
+    },
+  },
+});
 
 // Remove trailing slash from WordPress URL and ensure proper path
 const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
@@ -28,7 +59,7 @@ let client: ApolloClient<any> | null = null;
 export function getClient() {
   if (!client || typeof window === 'undefined') {
     client = new ApolloClient({
-      link: from([errorLink, httpLink]),
+      link: from([errorLink, retryLink, httpLink]),
       cache: new InMemoryCache({
         typePolicies: {
           Product: {

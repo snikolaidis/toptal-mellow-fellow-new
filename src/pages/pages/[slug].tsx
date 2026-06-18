@@ -65,32 +65,46 @@ export default function WordPressPage({ page }: PageProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const client = getClient();
-  const { data } = await client.query({ query: GET_ALL_PAGE_SLUGS });
-
   // Exclude slugs that have dedicated page files to avoid conflicts
   const excludeSlugs = ['bonus-points-products', 'rewards'];
 
-  const paths = (data?.pages?.nodes ?? [])
-    .filter(({ slug }: { slug: string }) => !excludeSlugs.includes(slug))
-    .map(({ slug }: { slug: string }) => ({ params: { slug } }));
+  try {
+    const client = getClient();
+    const { data } = await client.query({ query: GET_ALL_PAGE_SLUGS });
 
-  return { paths, fallback: 'blocking' };
+    const paths = (data?.pages?.nodes ?? [])
+      .filter(({ slug }: { slug: string }) => !excludeSlugs.includes(slug))
+      .map(({ slug }: { slug: string }) => ({ params: { slug } }));
+
+    return { paths, fallback: 'blocking' };
+  } catch (error) {
+    // WP unreachable at build time: defer every page to on-demand ISR rather
+    // than failing the build.
+    console.error('Error fetching page slugs:', error);
+    return { paths: [], fallback: 'blocking' };
+  }
 };
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
-  const client = getClient();
-  const { data } = await client.query({
-    query: GET_PAGE,
-    variables: { slug: `/${params?.slug}` },
-  });
+  try {
+    const client = getClient();
+    const { data } = await client.query({
+      query: GET_PAGE,
+      variables: { slug: `/${params?.slug}` },
+    });
 
-  if (!data?.page) {
-    return { notFound: true };
+    if (!data?.page) {
+      return { notFound: true, revalidate: 60 };
+    }
+
+    return {
+      props: { page: data.page },
+      revalidate: 60,
+    };
+  } catch (error) {
+    // Transient WP error (429/504): regenerate on-demand instead of crashing
+    // the build for this path.
+    console.error(`Error fetching page "${params?.slug}":`, error);
+    return { notFound: true, revalidate: 60 };
   }
-
-  return {
-    props: { page: data.page },
-    revalidate: 60,
-  };
 };
