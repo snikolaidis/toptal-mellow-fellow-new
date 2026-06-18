@@ -1,76 +1,34 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
 import { getClient } from '@/lib/apollo-client';
-import { gql } from '@apollo/client';
 import Layout from '@/components/Layout';
-
-const GET_PAGE = gql`
-  query GetPage($slug: ID!) {
-    page(id: $slug, idType: URI) {
-      title
-      slug
-      editorBlocks(flat: true) {
-        __typename
-        renderedHtml
-      }
-      seo {
-        title
-        metaDesc
-      }
-    }
-  }
-`;
-
-const GET_ALL_PAGE_SLUGS = gql`
-  query GetAllPageSlugs {
-    pages(first: 100) {
-      nodes { slug }
-    }
-  }
-`;
+import ContentPage from '@/components/ContentPage';
+import type { ContentPageData } from '@/types/mellow-fellow';
+import {
+  GET_CONTENT_PAGE_BY_SLUG,
+  GET_ALL_CONTENT_PAGE_SLUGS,
+} from '@/graphql/queries/pages';
 
 interface PageProps {
-  page: {
-    title: string;
-    editorBlocks: any[];
-    seo?: { title?: string; metaDesc?: string };
-  };
+  page: ContentPageData;
 }
 
 export default function WordPressPage({ page }: PageProps) {
   if (!page) return null;
 
   return (
-    <Layout
-      title={page.seo?.title ?? page.title}
-      description={page.seo?.metaDesc ?? ''}
-    >
-      {page.editorBlocks?.length ? (
-        <div className="container py-12">
-          {page.editorBlocks.map((block, index) => (
-            block.renderedHtml ? (
-              <div
-                key={index}
-                dangerouslySetInnerHTML={{ __html: block.renderedHtml }}
-              />
-            ) : null
-          ))}
-        </div>
-      ) : (
-        <div className="container py-12">
-          <h1>{page.title}</h1>
-        </div>
-      )}
+    <Layout title={page.title} seo={page.seo}>
+      <ContentPage page={page} />
     </Layout>
   );
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  // Exclude slugs that have dedicated page files to avoid conflicts
+  // Slugs that have their own dedicated page file under src/pages/pages/
   const excludeSlugs = ['bonus-points-products', 'rewards', 'affiliate'];
 
   try {
     const client = getClient();
-    const { data } = await client.query({ query: GET_ALL_PAGE_SLUGS });
+    const { data } = await client.query({ query: GET_ALL_CONTENT_PAGE_SLUGS });
 
     const paths = (data?.pages?.nodes ?? [])
       .filter(({ slug }: { slug: string }) => !excludeSlugs.includes(slug))
@@ -85,11 +43,11 @@ export const getStaticPaths: GetStaticPaths = async () => {
   }
 };
 
-export const getStaticProps: GetStaticProps = async ({ params }) => {
+export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
   try {
     const client = getClient();
     const { data } = await client.query({
-      query: GET_PAGE,
+      query: GET_CONTENT_PAGE_BY_SLUG,
       variables: { slug: `/${params?.slug}` },
     });
 
