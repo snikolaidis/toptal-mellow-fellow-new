@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { GetStaticProps, GetStaticPaths } from 'next';
 import { getClient } from '@/lib/apollo-client';
 import Layout from '@/components/Layout';
@@ -22,9 +24,21 @@ export default function WordPressPage({ page }: PageProps) {
   );
 }
 
+function dedicatedPageSlugs(): string[] {
+  try {
+    const pagesDir = path.join(process.cwd(), 'src', 'pages', 'pages');
+    return fs
+      .readdirSync(pagesDir)
+      .filter((file) => /\.(tsx|ts|jsx|js)$/.test(file))
+      .map((file) => file.replace(/\.(tsx|ts|jsx|js)$/, ''))
+      .filter((name) => name !== '[slug]' && name !== 'index');
+  } catch {
+    return ['bonus-points-products', 'rewards', 'affiliate', 'mellow-day-2026'];
+  }
+}
+
 export const getStaticPaths: GetStaticPaths = async () => {
-  // Slugs that have their own dedicated page file under src/pages/pages/
-  const excludeSlugs = ['bonus-points-products', 'rewards', 'affiliate'];
+  const excludeSlugs = dedicatedPageSlugs();
 
   try {
     const client = getClient();
