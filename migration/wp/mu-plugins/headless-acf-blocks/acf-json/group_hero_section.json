@@ -1,0 +1,59 @@
+{
+    "key": "group_hero_section",
+    "title": "Hero Section Fields",
+    "fields": [
+        {
+            "key": "field_hero_heading",
+            "label": "Heading",
+            "name": "heading",
+            "type": "text",
+            "required": 1
+        },
+        {
+            "key": "field_hero_subheading",
+            "label": "Subheading",
+            "name": "subheading",
+            "type": "textarea",
+            "rows": 2,
+            "required": 0
+        },
+        {
+            "key": "field_hero_background_image",
+            "label": "Background Image",
+            "name": "background_image",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "medium",
+            "required": 0
+        },
+        {
+            "key": "field_hero_cta_button",
+            "label": "CTA Button",
+            "name": "cta_button",
+            "type": "link",
+            "required": 0
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/hero-section"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "heroSection",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfHeroSection"
+    ]
+}
