@@ -69,6 +69,7 @@ export default function StoreLocatorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const mapElRef = useRef<HTMLDivElement | null>(null);
@@ -156,16 +157,24 @@ export default function StoreLocatorPage() {
     };
   }, [loading, error, stores]);
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    stores.forEach((s) => (s.categories || []).forEach((c) => c && set.add(c)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [stores]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return stores;
-    return stores.filter((s) =>
-      [s.name, s.city, s.state, s.address, s.country, ...(s.categories || [])]
+    return stores.filter((s) => {
+      const matchesCategory = !category || (s.categories || []).includes(category);
+      if (!matchesCategory) return false;
+      if (!q) return true;
+      return [s.name, s.city, s.state, s.address, s.country, ...(s.categories || [])]
         .join(' ')
         .toLowerCase()
-        .includes(q)
-    );
-  }, [stores, search]);
+        .includes(q);
+    });
+  }, [stores, search, category]);
 
   // Keep markers in sync with the filtered list.
   useEffect(() => {
@@ -180,6 +189,13 @@ export default function StoreLocatorPage() {
         map.removeLayer(marker);
       }
     });
+
+    const coords = filtered.map((s) => [s.lat, s.lng] as [number, number]);
+    if (coords.length === 1) {
+      map.setView(coords[0], 12, { animate: true });
+    } else if (coords.length > 1) {
+      map.fitBounds(coords, { padding: [40, 40], animate: true });
+    }
   }, [filtered]);
 
   // Tear the map down on unmount so re-navigating does not reuse a dead container.
@@ -216,6 +232,21 @@ export default function StoreLocatorPage() {
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Search stores"
           />
+          {categories.length > 0 && (
+            <select
+              className="store-locator__filter"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              aria-label="Filter by category"
+            >
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="store-locator__body">
