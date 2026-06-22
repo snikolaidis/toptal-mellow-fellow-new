@@ -105,13 +105,18 @@ function mellow_fellow_loyalty_cancel_coupon($request) {
         return new WP_REST_Response(array('error' => 'unauthorized'), 403);
     }
 
-    $code = trim((string) $request->get_param('coupon_code'));
-    if (!$code) {
+    $id = (int) $request->get_param('coupon_id');
+    if (!$id) {
+        $code = trim((string) $request->get_param('coupon_code'));
+        if ($code) {
+            $id = (int) wc_get_coupon_id_by_code($code);
+        }
+    }
+    if (!$id) {
         return new WP_REST_Response(array('error' => 'missing_fields'), 400);
     }
 
-    $id = wc_get_coupon_id_by_code($code);
-    if (!$id) {
+    if (get_post_type($id) !== 'shop_coupon') {
         return new WP_REST_Response(array('cancelled' => false, 'reason' => 'not_found'), 200);
     }
 

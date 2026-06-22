@@ -102,26 +102,50 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     const proxyRoot = `${window.location.origin}/api/realid/`;
 
     const tick = async () => {
+      if (!active) return;
       try {
-        const r = await fetch(`${proxyRoot}real-id/v1/checks/${checkId}`);
+        const r = await fetch(`${proxyRoot}real-id/v1/checks/${checkId}?_=${Date.now()}`, {
+          cache: 'no-store',
+        });
         const d = await r.json();
         const step = d?.check?.step ?? d?.step;
-        const verified = VERIFIED_STEPS.includes(step);
-        onVerifiedRef.current?.(verified, checkId);
-        if (verified) active = false;
+        const status = d?.check?.status ?? d?.status;
+        const verified = VERIFIED_STEPS.includes(step) || VERIFIED_STEPS.includes(status);
+        if (verified) {
+          onVerifiedRef.current?.(true, checkId);
+          active = false;
+        }
       } catch {
-        /* keep polling */
+        void 0;
       }
     };
 
     tick();
     const interval = window.setInterval(() => {
       if (active) tick();
-    }, 5000);
+    }, 2000);
+
+    let observer: MutationObserver | null = null;
+    const el = document.getElementById('real-id-check');
+    if (el && typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(() => {
+        if (active) tick();
+      });
+      observer.observe(el, { childList: true, subtree: true, characterData: true });
+    }
+
+    const onSdkEvent = () => {
+      if (active) tick();
+    };
+    window.addEventListener('real-id-check-passed', onSdkEvent);
+    window.addEventListener('real-id-check-loaded', onSdkEvent);
 
     return () => {
       active = false;
       window.clearInterval(interval);
+      if (observer) observer.disconnect();
+      window.removeEventListener('real-id-check-passed', onSdkEvent);
+      window.removeEventListener('real-id-check-loaded', onSdkEvent);
     };
   }, [checkId]);
 
