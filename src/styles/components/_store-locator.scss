@@ -36,6 +36,26 @@
     }
   }
 
+  &__filter {
+    display: block;
+    margin-top: 0.625rem;
+    width: 100%;
+    max-width: 480px;
+    padding: 0.625rem 1rem;
+    font-size: 0.9375rem;
+    font-family: var(--font-family-body);
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 8px;
+    cursor: pointer;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-brand-primary);
+    }
+  }
+
   &__body {
     display: grid;
     grid-template-columns: 360px 1fr;

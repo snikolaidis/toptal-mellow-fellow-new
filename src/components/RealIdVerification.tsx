@@ -9,7 +9,8 @@ export interface RealIdCustomer {
 
 const ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const WP_BASE = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-const VERIFY_BASE = 'https://verify.getverdict.com';
+const FLOW_SDK = 'https://real-id-flow.getverdict.com/assets/index.js';
+const SHOP_NAME = process.env.NEXT_PUBLIC_REALID_SHOP_NAME || WP_BASE;
 const VERIFIED_STEPS = ['completed', 'in_review', 'manually_approved'];
 
 interface RealIdVerificationProps {
@@ -17,43 +18,57 @@ interface RealIdVerificationProps {
   onVerifiedChange?: (verified: boolean, checkId: string | null) => void;
 }
 
-function accountKey(customer?: RealIdCustomer): string {
-  const email = (customer?.email || '').trim().toLowerCase();
-  if (email) return email;
-  return customer?.id ? `id-${customer.id}` : 'guest';
-}
-
-const checkIdKey = (key: string) => `real-id-check-id:${key}`;
-const verifiedKey = (key: string) => `real-id-verified:${key}`;
-
 export default function RealIdVerification({ customer, onVerifiedChange }: RealIdVerificationProps) {
   const [checkId, setCheckId] = useState<string | null>(null);
-  const [verified, setVerified] = useState(false);
   const startedRef = useRef(false);
   const onVerifiedRef = useRef(onVerifiedChange);
   onVerifiedRef.current = onVerifiedChange;
-  const keyRef = useRef(accountKey(customer));
-  keyRef.current = accountKey(customer);
 
   useEffect(() => {
-    if (!ENABLED || typeof window === 'undefined' || !WP_BASE || !customer?.email || startedRef.current) {
-      return;
-    }
+    if (!ENABLED || typeof window === 'undefined' || !WP_BASE || startedRef.current) return;
     startedRef.current = true;
-    const key = accountKey(customer);
-    const proxyRoot = `${window.location.origin}/api/realid/`;
-    const returnUrl = `${window.location.origin}/checkout`;
 
-    const alreadyVerified = window.localStorage.getItem(verifiedKey(key));
-    if (alreadyVerified) {
-      setVerified(true);
-      onVerifiedRef.current?.(true, alreadyVerified);
-      return;
-    }
+    const proxyRoot = `${window.location.origin}/api/realid/`;
+    const w = window as unknown as Record<string, unknown>;
+    w.realIdShopWpRestUrl = proxyRoot;
+    w.realIdWpNonce = '';
+    w.realIdCustomerId = customer?.id ?? null;
+    w.realIdShopName = SHOP_NAME;
+    w.realIdCurrentUser = customer
+      ? {
+          id: customer.id ?? null,
+          email: customer.email ?? '',
+          firstName: customer.firstName ?? '',
+          lastName: customer.lastName ?? '',
+        }
+      : {};
+    w.realIdApiSettings = { root: proxyRoot, nonce: '', shopName: SHOP_NAME };
+
+    const initFlow = (attempt = 0) => {
+      const realId = (window as unknown as { RealID?: { createFlow?: (o: object) => void } }).RealID;
+      if (realId?.createFlow) {
+        realId.createFlow({ target: '#real-id-check', mode: 'full' });
+      } else if (attempt < 50) {
+        window.setTimeout(() => initFlow(attempt + 1), 150);
+      }
+    };
+
+    const loadFlow = () => {
+      if (!document.getElementById('real-id-flow-sdk')) {
+        const script = document.createElement('script');
+        script.id = 'real-id-flow-sdk';
+        script.type = 'module';
+        script.src = FLOW_SDK;
+        script.onload = () => initFlow();
+        document.body.appendChild(script);
+      } else {
+        initFlow();
+      }
+    };
 
     (async () => {
       try {
-        let id = window.localStorage.getItem(checkIdKey(key));
+        let id = window.localStorage.getItem('real-id-check-id');
         if (!id) {
           const res = await fetch(`${proxyRoot}real-id/v1/checks`, {
             method: 'POST',
@@ -63,19 +78,18 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
               first_name: customer?.firstName ?? '',
               last_name: customer?.lastName ?? '',
               customer_id: customer?.id ?? null,
-              postIdVerifiedRedirectUrl: returnUrl,
-              redirect_url: returnUrl,
             }),
           });
           const data = await res.json();
-          id = data?.check_id || data?.check?.id || data?.id || null;
-          if (id) window.localStorage.setItem(checkIdKey(key), id);
+          id = data?.check_id || data?.check?.id || null;
+          if (id) window.localStorage.setItem('real-id-check-id', id);
         }
         if (!id) {
           startedRef.current = false;
           return;
         }
         setCheckId(id);
+        loadFlow();
       } catch {
         startedRef.current = false;
       }
@@ -88,15 +102,17 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     const proxyRoot = `${window.location.origin}/api/realid/`;
 
     const tick = async () => {
+      if (!active) return;
       try {
-        const r = await fetch(`${proxyRoot}real-id/v1/checks/${checkId}`);
+        const r = await fetch(`${proxyRoot}real-id/v1/checks/${checkId}?_=${Date.now()}`, {
+          cache: 'no-store',
+        });
         const d = await r.json();
         const step = d?.check?.step ?? d?.step;
-        const isVerified = VERIFIED_STEPS.includes(step);
-        setVerified(isVerified);
-        onVerifiedRef.current?.(isVerified, checkId);
-        if (isVerified) {
-          window.localStorage.setItem(verifiedKey(keyRef.current), checkId);
+        const status = d?.check?.status ?? d?.status;
+        const verified = VERIFIED_STEPS.includes(step) || VERIFIED_STEPS.includes(status);
+        if (verified) {
+          onVerifiedRef.current?.(true, checkId);
           active = false;
         }
       } catch {
@@ -107,77 +123,32 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     tick();
     const interval = window.setInterval(() => {
       if (active) tick();
-    }, 5000);
+    }, 2000);
+
+    let observer: MutationObserver | null = null;
+    const el = document.getElementById('real-id-check');
+    if (el && typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(() => {
+        if (active) tick();
+      });
+      observer.observe(el, { childList: true, subtree: true, characterData: true });
+    }
+
+    const onSdkEvent = () => {
+      if (active) tick();
+    };
+    window.addEventListener('real-id-check-passed', onSdkEvent);
+    window.addEventListener('real-id-check-loaded', onSdkEvent);
 
     return () => {
       active = false;
       window.clearInterval(interval);
+      if (observer) observer.disconnect();
+      window.removeEventListener('real-id-check-passed', onSdkEvent);
+      window.removeEventListener('real-id-check-loaded', onSdkEvent);
     };
   }, [checkId]);
 
   if (!ENABLED) return null;
-
-  if (verified) {
-    return (
-      <div className="real-id-verification real-id-verification--verified">
-        <div className="real-id-verification__status real-id-verification__status--success" role="status">
-          <span className="real-id-verification__status-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" focusable="false">
-              <path
-                fill="currentColor"
-                d="M10 0a10 10 0 100 20 10 10 0 000-20zm4.7 7.7l-5.4 5.4a1 1 0 01-1.4 0L5.3 10.5a1 1 0 011.4-1.4l1.9 1.9 4.7-4.7a1 1 0 011.4 1.4z"
-              />
-            </svg>
-          </span>
-          <span>You have been verified. You can complete your order.</span>
-        </div>
-      </div>
-    );
-  }
-
-  const verifyUrl = checkId ? `${VERIFY_BASE}/${checkId}?from=checkout-extension-ui` : null;
-
-  return (
-    <div className="real-id-verification">
-      <div className="real-id-verification__status" role="alert">
-        <span className="real-id-verification__status-icon" aria-hidden="true">
-          <svg viewBox="0 0 20 20" focusable="false">
-            <path
-              fill="currentColor"
-              d="M10 0a10 10 0 100 20 10 10 0 000-20zm1 15H9v-2h2v2zm0-4H9V5h2v6z"
-            />
-          </svg>
-        </span>
-        <span>Please verify your ID to continue</span>
-      </div>
-
-      <h3 className="real-id-verification__title">ID verification</h3>
-
-      <div className="real-id-verification__card">
-        <p>We need a quick ID verification to complete your order!</p>
-        <p>Your name must match your ID exactly to ensure verification.</p>
-        <p>Please minimize glare in your photo so that your ID can be verified.</p>
-        <p>
-          You have 3 chances to submit your ID verification before you may need to wait up to 48hrs
-          for a manual ID verification.
-        </p>
-
-        {verifyUrl ? (
-          <a
-            id="real-id-open-check-btn"
-            className="real-id-verification__button"
-            href={verifyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Verify your ID
-          </a>
-        ) : (
-          <button className="real-id-verification__button" type="button" disabled>
-            Preparing verification
-          </button>
-        )}
-      </div>
-    </div>
-  );
+  return <div id="real-id-check" className="real-id-check" />;
 }

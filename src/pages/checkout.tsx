@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import { useCart } from '@/context/CartContext';
@@ -9,6 +9,7 @@ import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
 import RealIdVerification from '@/components/RealIdVerification';
 
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
+const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 import { AddressData, PaymentData } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
@@ -54,6 +55,7 @@ export default function CheckoutPage() {
   const [step, setStep] = useState<CheckoutStep>('billing');
   const [customerDataLoaded, setCustomerDataLoaded] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const skipFirstSaveRef = useRef(true);
 
   // Address state
   const [billing, setBilling] = useState<AddressData>(emptyAddress);
@@ -92,6 +94,38 @@ export default function CheckoutPage() {
   useEffect(() => {
     fetchCsrfToken();
   }, [fetchCsrfToken]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.sessionStorage.getItem(CHECKOUT_PROGRESS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.billing) setBilling(saved.billing);
+      if (saved.shipping) setShipping(saved.shipping);
+      if (typeof saved.sameAsBilling === 'boolean') setSameAsBilling(saved.sameAsBilling);
+      if (saved.step) setStep(saved.step);
+      setCustomerDataLoaded(true);
+    } catch {
+      void 0;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (skipFirstSaveRef.current) {
+      skipFirstSaveRef.current = false;
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(
+        CHECKOUT_PROGRESS_KEY,
+        JSON.stringify({ step, billing, shipping, sameAsBilling }),
+      );
+    } catch {
+      void 0;
+    }
+  }, [step, billing, shipping, sameAsBilling]);
 
   // Pre-fill form with customer data when available
   useEffect(() => {
@@ -275,6 +309,10 @@ export default function CheckoutPage() {
             body: JSON.stringify({ checkId: realIdCheckId, orderId }),
           }).catch(() => {});
         }
+      }
+
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(CHECKOUT_PROGRESS_KEY);
       }
 
       clearCart().catch(() => {});

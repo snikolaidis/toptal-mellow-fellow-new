@@ -35,6 +35,52 @@ function mellow_fellow_loyalty_api_key() {
     return get_option('yotpo_loyalty_api_key');
 }
 
+function mellow_fellow_loyalty_term_tokens($product_id) {
+    $tokens = array();
+    foreach (array('product_cat', 'product_tag') as $taxonomy) {
+        foreach (array('slugs', 'names') as $field) {
+            $terms = wp_get_post_terms($product_id, $taxonomy, array('fields' => $field));
+            if (is_wp_error($terms)) {
+                continue;
+            }
+            foreach ($terms as $term) {
+                $token = trim(str_replace(',', ' ', (string) $term));
+                if ($token !== '') {
+                    $tokens[] = $token;
+                }
+            }
+        }
+    }
+    return array_values(array_unique($tokens));
+}
+
+function mellow_fellow_loyalty_order_items($order) {
+    $items = array();
+    foreach ($order->get_items() as $line) {
+        if (!($line instanceof WC_Order_Item_Product)) {
+            continue;
+        }
+        $product_id = $line->get_product_id();
+        if (!$product_id) {
+            continue;
+        }
+        $qty = max(1, (int) $line->get_quantity());
+        $tokens = mellow_fellow_loyalty_term_tokens($product_id);
+        $cat_slugs = wp_get_post_terms($product_id, 'product_cat', array('fields' => 'slugs'));
+        $type = (is_array($cat_slugs) && isset($cat_slugs[0])) ? $cat_slugs[0] : '';
+
+        $items[] = array(
+            'id' => (string) $product_id,
+            'name' => $line->get_name(),
+            'quantity' => (int) $line->get_quantity(),
+            'price_cents' => (int) round(((float) $line->get_total() / $qty) * 100),
+            'collections' => implode(',', $tokens),
+            'type' => $type,
+        );
+    }
+    return $items;
+}
+
 function mellow_fellow_loyalty_record_order($order_id) {
     $order = wc_get_order($order_id);
     if (!$order) {
@@ -74,6 +120,11 @@ function mellow_fellow_loyalty_record_order($order_id) {
     $coupons = $order->get_coupon_codes();
     if (!empty($coupons)) {
         $payload['coupon_code'] = implode(',', $coupons);
+    }
+
+    $items = mellow_fellow_loyalty_order_items($order);
+    if (!empty($items)) {
+        $payload['items'] = $items;
     }
 
     $url = add_query_arg(
