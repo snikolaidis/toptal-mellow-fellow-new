@@ -37,14 +37,16 @@ export const GET_LOYALTY_REDEMPTION = gql`
         name
         points
         costText
+        isVariable
+        rateCents
       }
     }
   }
 `;
 
 export const REDEEM_LOYALTY_OPTION = gql`
-  mutation RedeemLoyaltyOption($optionId: Int!) {
-    redeemLoyaltyOption(input: { optionId: $optionId }) {
+  mutation RedeemLoyaltyOption($optionId: Int!, $pointsToRedeem: Int) {
+    redeemLoyaltyOption(input: { optionId: $optionId, pointsToRedeem: $pointsToRedeem }) {
       success
       code
       message

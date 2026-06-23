@@ -44,7 +44,7 @@ function mellow_fellow_loyalty_term_tokens($product_id) {
                 continue;
             }
             foreach ($terms as $term) {
-                $token = trim(str_replace(',', ' ', (string) $term));
+                $token = strtolower(trim(str_replace(',', ' ', (string) $term)));
                 if ($token !== '') {
                     $tokens[] = $token;
                 }
