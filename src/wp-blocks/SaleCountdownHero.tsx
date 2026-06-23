@@ -24,7 +24,14 @@ import { Fragment, useEffect, useRef, useState } from 'react';
  * it will be wrong here too — this component trusts the string it's given.
  */
 
-function getTimeRemaining(targetDate) {
+interface TimeRemaining {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+}
+
+function getTimeRemaining(targetDate: Date): TimeRemaining | null {
   const diffMs = targetDate.getTime() - Date.now();
 
   if (diffMs <= 0) {
@@ -40,11 +47,38 @@ function getTimeRemaining(targetDate) {
   };
 }
 
-function pad(n) {
+function pad(n: number) {
   return String(n).padStart(2, '0');
 }
 
-export default function SaleCountdownHero(props) {
+interface SaleMediaItem {
+  altText?: string | null;
+  sourceUrl?: string | null;
+  mediaDetails?: { width?: number | null; height?: number | null } | null;
+}
+
+interface SaleButton {
+  url?: string | null;
+  title?: string | null;
+  target?: string | null;
+}
+
+interface SaleCountdownHeroProps {
+  saleCountdownHero?: {
+    saleEnd?: string | null;
+    heading?: string | null;
+    tiers?:
+      | { percentage?: number | null; spend?: number | null; label?: string | null }[]
+      | null;
+    button1?: SaleButton | null;
+    button2?: SaleButton | null;
+    mobileImage?: { node?: SaleMediaItem | null } | null;
+    tabletImage?: { node?: SaleMediaItem | null } | null;
+    desktopImage?: { node?: SaleMediaItem | null } | null;
+  } | null;
+}
+
+export default function SaleCountdownHero(props: SaleCountdownHeroProps) {
   const { saleCountdownHero } = props;
 
   const targetDate = saleCountdownHero?.saleEnd
@@ -53,14 +87,15 @@ export default function SaleCountdownHero(props) {
 
   // null = not yet determined (avoids a flash of content before first
   // client-side check); false = expired; object = time remaining.
-  const [timeRemaining, setTimeRemaining] = useState(null);
-  const timeoutRef = useRef(null);
+  const [timeRemaining, setTimeRemaining] = useState<TimeRemaining | false | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!targetDate) return;
+    const endDate = targetDate;
 
     function tick() {
-      const remaining = getTimeRemaining(targetDate);
+      const remaining = getTimeRemaining(endDate);
       setTimeRemaining(remaining ?? false);
 
       if (remaining) {
@@ -113,8 +148,8 @@ export default function SaleCountdownHero(props) {
             className="responsive-banner__image"
             src={fallbackImage.node.sourceUrl}
             alt={fallbackImage.node.altText || ''}
-            width={fallbackImage.node.mediaDetails?.width}
-            height={fallbackImage.node.mediaDetails?.height}
+            width={fallbackImage.node.mediaDetails?.width ?? undefined}
+            height={fallbackImage.node.mediaDetails?.height ?? undefined}
             loading="eager"
           />
         )}
@@ -144,7 +179,7 @@ export default function SaleCountdownHero(props) {
 
         <h1 className="heading">{heading}</h1>
 
-        {tiers?.length > 0 && (
+        {tiers && tiers.length > 0 && (
           <div className="tiers">
             {tiers.map((tier, i) => (
               <Fragment key={i}>

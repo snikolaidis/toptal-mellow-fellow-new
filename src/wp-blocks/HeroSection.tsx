@@ -8,7 +8,23 @@ import Link from 'next/link';
  * Data shape confirmed via GraphiQL against the live schema:
  * AcfHeroSection.heroSection { heading, subheading, backgroundImage { node {...} }, ctaButton {...} }
  */
-export default function HeroSection(props) {
+interface MediaItem {
+  id?: string;
+  altText?: string | null;
+  sourceUrl?: string | null;
+  mediaDetails?: { width?: number | null; height?: number | null } | null;
+}
+
+interface HeroSectionProps {
+  heroSection?: {
+    heading?: string | null;
+    subheading?: string | null;
+    backgroundImage?: { node?: MediaItem | null } | null;
+    ctaButton?: { url?: string | null; title?: string | null; target?: string | null } | null;
+  } | null;
+}
+
+export default function HeroSection(props: HeroSectionProps) {
   const { heroSection } = props;
 
   if (!heroSection) {
