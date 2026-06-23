@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/sale-countdown-hero",
+	"title": "Sale Countdown Hero",
+	"description": "Hero with a responsive background image, sale copy/tiers/buttons, and a live countdown to a fixed end-of-sale moment (interpreted in the site's configured timezone). Hides itself once the countdown expires.",
+	"category": "headless-blocks",
+	"icon": "clock",
+	"keywords": [ "sale", "countdown", "hero", "banner" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\SaleCountdownHero\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

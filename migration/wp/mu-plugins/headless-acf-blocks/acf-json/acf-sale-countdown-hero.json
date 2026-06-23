@@ -1,0 +1,132 @@
+{
+    "key": "group_sale_countdown_hero",
+    "title": "Sale Countdown Hero Fields",
+    "fields": [
+        {
+            "key": "field_sch_sale_end",
+            "label": "Sale end date \/ time",
+            "name": "sale_end",
+            "type": "date_time_picker",
+            "instructions": "Interpreted in this site's configured timezone (Settings \u2192 General \u2192 Timezone). The countdown targets this exact moment for every visitor, regardless of their own timezone. IMPORTANT FOR DEVS: verify in GraphiQL that the RFC3339 string returned for this field actually carries this site's UTC offset (e.g. \"-04:00\"), not a bare \"+00:00\" \u2014 see README.",
+            "display_format": "F j, Y g:i a",
+            "return_format": "Y-m-d H:i:s",
+            "first_day": 1,
+            "required": 1
+        },
+        {
+            "key": "field_sch_heading",
+            "label": "Heading",
+            "name": "heading",
+            "type": "text",
+            "required": 1
+        },
+        {
+            "key": "field_sch_tiers",
+            "label": "Sale Tiers",
+            "name": "tiers",
+            "type": "repeater",
+            "layout": "table",
+            "button_label": "Add Tier",
+            "min": 0,
+            "sub_fields": [
+                {
+                    "key": "field_sch_tier_percentage",
+                    "label": "Percentage",
+                    "name": "percentage",
+                    "type": "number",
+                    "instructions": "e.g. 15 for \"15%\"",
+                    "required": 1,
+                    "wrapper": { "width": "30" }
+                },
+                {
+                    "key": "field_sch_tier_spend",
+                    "label": "Spend threshold",
+                    "name": "spend",
+                    "type": "number",
+                    "instructions": "e.g. 80 for \"Spend $80\"",
+                    "required": 1,
+                    "wrapper": { "width": "30" }
+                },
+                {
+                    "key": "field_sch_tier_label",
+                    "label": "Spend label override",
+                    "name": "label",
+                    "type": "text",
+                    "instructions": "Optional. Defaults to \"Spend $X\" if left blank.",
+                    "required": 0,
+                    "wrapper": { "width": "40" }
+                }
+            ]
+        },
+        {
+            "key": "field_sch_button_1",
+            "label": "Button 1",
+            "name": "button_1",
+            "type": "link",
+            "required": 0
+        },
+        {
+            "key": "field_sch_button_2",
+            "label": "Button 2",
+            "name": "button_2",
+            "type": "link",
+            "required": 0
+        },
+        {
+            "key": "field_sch_image_tab",
+            "label": "Background Image",
+            "name": "image_tab",
+            "type": "tab",
+            "placement": "top"
+        },
+        {
+            "key": "field_sch_mobile_image",
+            "label": "Mobile image",
+            "name": "mobile_image",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "33" }
+        },
+        {
+            "key": "field_sch_tablet_image",
+            "label": "Tablet image",
+            "name": "tablet_image",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "33" }
+        },
+        {
+            "key": "field_sch_desktop_image",
+            "label": "Desktop image",
+            "name": "desktop_image",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "34" }
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/sale-countdown-hero"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "saleCountdownHero",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfSaleCountdownHero"
+    ]
+}
