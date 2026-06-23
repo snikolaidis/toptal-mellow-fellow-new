@@ -37,7 +37,7 @@ function mellow_fellow_loyalty_api_key() {
 
 function mellow_fellow_loyalty_term_tokens($product_id) {
     $tokens = array();
-    foreach (array('product_cat', 'product_tag') as $taxonomy) {
+    foreach (array('collection', 'product-type', 'product_cat', 'product_tag') as $taxonomy) {
         foreach (array('slugs', 'names') as $field) {
             $terms = wp_get_post_terms($product_id, $taxonomy, array('fields' => $field));
             if (is_wp_error($terms)) {
@@ -68,21 +68,19 @@ function mellow_fellow_loyalty_order_items($order) {
         $tokens = mellow_fellow_loyalty_term_tokens($product_id);
 
         $type = '';
-        $type_custom = get_post_meta($product_id, 'product_type_custom', true);
-        if (is_string($type_custom) && $type_custom !== '') {
-            $parts = array_filter(array_map('trim', explode(',', $type_custom)));
-            foreach ($parts as $part) {
-                $tokens[] = strtolower($part);
-            }
-            if (!empty($parts)) {
-                $type = strtolower((string) reset($parts));
-            }
+        $ptype_names = wp_get_post_terms($product_id, 'product-type', array('fields' => 'names'));
+        if (is_array($ptype_names) && isset($ptype_names[0])) {
+            $type = (string) $ptype_names[0];
         }
         if ($type === '') {
-            $cat_slugs = wp_get_post_terms($product_id, 'product_cat', array('fields' => 'slugs'));
-            $type = (is_array($cat_slugs) && isset($cat_slugs[0])) ? strtolower($cat_slugs[0]) : '';
+            $type_custom = get_post_meta($product_id, 'product_type_custom', true);
+            if (is_string($type_custom) && $type_custom !== '') {
+                $parts = array_filter(array_map('trim', explode(',', $type_custom)));
+                if (!empty($parts)) {
+                    $type = (string) reset($parts);
+                }
+            }
         }
-        $tokens = array_values(array_unique($tokens));
 
         $items[] = array(
             'id' => (string) $product_id,
