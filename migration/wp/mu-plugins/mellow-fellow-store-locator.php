@@ -17,8 +17,8 @@ if (!defined('ABSPATH')) {
  * wp_mipl_store_locator table that the plugin keeps keyed by post_id.
  */
 function mellow_fellow_store_coords($post_id) {
-    $lat = get_post_meta($post_id, 'mipl_sl_latitude', true);
-    $lng = get_post_meta($post_id, 'mipl_sl_longitude', true);
+    $lat = get_post_meta($post_id, '_mipl_sl_latitude', true);
+    $lng = get_post_meta($post_id, '_mipl_sl_longitude', true);
 
     if ($lat === '' || $lng === '') {
         global $wpdb;
@@ -56,7 +56,7 @@ function mellow_fellow_store_image($post_id) {
     if ($thumb) {
         return $thumb;
     }
-    $img = get_post_meta($post_id, 'mipl_sl_store_img', true);
+    $img = get_post_meta($post_id, '_mipl_sl_store_img', true);
     return $img ? $img : null;
 }
 
@@ -71,14 +71,15 @@ function mellow_fellow_store_to_array($post) {
         'name'       => html_entity_decode(get_the_title($post), ENT_QUOTES | ENT_HTML5),
         'lat'        => $coords['lat'],
         'lng'        => $coords['lng'],
-        'address'    => get_post_meta($post->ID, 'mipl_sl_address', true) ?: '',
-        'city'       => get_post_meta($post->ID, 'mipl_sl_city', true) ?: '',
-        'state'      => get_post_meta($post->ID, 'mipl_sl_state', true) ?: '',
-        'country'    => get_post_meta($post->ID, 'mipl_sl_country', true) ?: '',
-        'phone'      => get_post_meta($post->ID, 'mipl_sl_telephone', true) ?: '',
-        'email'      => get_post_meta($post->ID, 'mipl_sl_email', true) ?: '',
-        'website'    => get_post_meta($post->ID, 'mipl_sl_website', true) ?: '',
-        'hours'      => get_post_meta($post->ID, 'mipl_sl_opening_hours', true) ?: '',
+        'address'    => get_post_meta($post->ID, '_mipl_sl_address', true) ?: '',
+        'city'       => get_post_meta($post->ID, '_mipl_sl_city', true) ?: '',
+        'state'      => get_post_meta($post->ID, '_mipl_sl_state', true) ?: '',
+        'country'    => get_post_meta($post->ID, '_mipl_sl_country', true) ?: '',
+        'postCode'   => get_post_meta($post->ID, '_mipl_sl_post_code', true) ?: '',
+        'phone'      => get_post_meta($post->ID, '_mipl_sl_telephone', true) ?: '',
+        'email'      => get_post_meta($post->ID, '_mipl_sl_email', true) ?: '',
+        'website'    => get_post_meta($post->ID, '_mipl_sl_website', true) ?: '',
+        'hours'      => get_post_meta($post->ID, '_mipl_sl_opening_hours', true) ?: '',
         'image'      => mellow_fellow_store_image($post->ID),
         'categories' => mellow_fellow_store_categories($post->ID),
     );
