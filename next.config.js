@@ -46,6 +46,7 @@ const nextConfig = {
           "font-src 'self' data: https://fonts.gstatic.com https://*.klaviyo.com https://*.yotpo.com https://skynettechnologies.com https://*.skynettechnologies.com https://*.skynettechnologies.us https://*.getverdict.com https://*.idv.link",
           "img-src 'self' data: https://*.wpengine.com https://*.wpenginepowered.com https://cdn.shopify.com https://*.klaviyo.com https://*.yotpo.com https://*.yotpoapi.com https://skynettechnologies.com https://*.skynettechnologies.com https://*.skynettechnologies.us https://*.getverdict.com https://*.idv.link https://idv.link https://unpkg.com https://*.tile.openstreetmap.org https://*.awin1.com",
           "connect-src 'self' https://*.wpengine.com https://*.wpenginepowered.com https://js.authorize.net https://jstest.authorize.net https://api.authorize.net https://apitest.authorize.net https://*.klaviyo.com https://*.yotpo.com https://*.yotpoapi.com https://skynettechnologies.com https://*.skynettechnologies.com https://*.skynettechnologies.us https://*.getverdict.com https://*.idv.link https://idv.link https://*.awin1.com",
+          "media-src 'self' https://*.wpengine.com https://*.wpenginepowered.com",
           "frame-src 'self' https://*.yotpo.com https://*.wpengine.com https://*.wpenginepowered.com https://*.getverdict.com https://*.idv.link https://idv.link",
           "frame-ancestors 'none'",
         ].join('; '),
