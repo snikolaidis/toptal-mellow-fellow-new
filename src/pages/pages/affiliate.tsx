@@ -375,11 +375,7 @@ export const getStaticProps: GetStaticProps = async () => {
         query: GET_PRODUCTS,
         variables: { first: 3, orderby: [{ field: 'TOTAL_SALES', order: 'DESC' }] },
       }),
-      // Only query ACF data once the field group is imported in WP Admin
-      // (Custom Fields → Tools → Import → acf-affiliate-fields.json)
-      process.env.AFFILIATE_ACF_ENABLED === '1'
-        ? client.query({ query: GET_AFFILIATE_DATA }).catch(() => ({ data: null }))
-        : Promise.resolve({ data: null }),
+      client.query({ query: GET_AFFILIATE_DATA }).catch(() => ({ data: null })),
     ]);
 
     const acf = affiliateResult.data?.pageBy?.affiliatePageContent || {};
