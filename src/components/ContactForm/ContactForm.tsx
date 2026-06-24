@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { getBrowserClient } from '@/lib/apollo-client';
 import { SUBMIT_CONTACT_FORM } from '@/graphql/mutations/contact';
 
-// Form ID is per-install -> env-driven (fallback to local form 1).
-// Field IDs survive export/import, so they're safe to hardcode.
 const FORM_ID = process.env.NEXT_PUBLIC_PRESS_CONTACT_FORM_ID || '1';
 const FIELD = { name: 1, email: 3, message: 4 };
 const FIELD_BY_ID: Record<number, 'name' | 'email' | 'message'> = {
@@ -12,10 +10,6 @@ const FIELD_BY_ID: Record<number, 'name' | 'email' | 'message'> = {
   [FIELD.message]: 'message',
 };
 
-// Loose sanity check for instant feedback on obvious typos, intentionally NOT
-// full email validation (not possible via regex). The required GF Email field
-// re-validates server-side and is the source of truth, this just saves
-// a round-trip on clearly-bad input.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Status = 'idle' | 'submitting' | 'success' | 'error';
@@ -40,7 +34,6 @@ export default function ContactForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // client-side validation - Email and Message required, Name optional
     const nextErrors: Record<string, string> = {};
     if (!values.email.trim()) nextErrors.email = 'Email is required';
     else if (!EMAIL_RE.test(values.email)) nextErrors.email = 'Email is invalid';
@@ -50,17 +43,14 @@ export default function ContactForm() {
       return;
     }
 
-    // build field values - NOTE the email shape differs from the text fields.
     setErrors({});
     setStatus('submitting');
     const fieldValues = [
       { id: FIELD.name, value: values.name },
-      // GF Email field takes 'emailValues', not a plain 'value'.
       { id: FIELD.email, emailValues: { value: values.email } },
       { id: FIELD.message, value: values.message }
     ];
 
-    // submit, then route the response.
     try {
       const { data } = await getBrowserClient().mutate<SubmitGfFormResult>({
         mutation: SUBMIT_CONTACT_FORM,
