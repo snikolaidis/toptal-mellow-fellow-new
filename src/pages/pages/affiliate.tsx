@@ -6,14 +6,58 @@ import { getClient } from '@/lib/apollo-client';
 import { GET_PRODUCTS } from '@/graphql/queries/products';
 import { Product } from '@/types/woocommerce';
 import styles from '@/styles/pages/affiliate.module.css';
+import UGCGallery, { UGCItem } from '@/components/affiliate/UGCGallery';
+import { gql } from '@apollo/client';
 
 const AWIN_SIGNUP_URL = 'https://ui.awin.com/express-signup/en/awin/59403/726a754c-4998-4ec8-a77d-40ccd659d54e?t=CkcZSywINKh2WumvTw9RRzoTi29X6_Tgg1VjVeaDBjY';
 
-interface AffiliatePageProps {
-  bestsellers: Product[];
+const GET_AFFILIATE_DATA = gql`
+  query GetAffiliateData {
+    pageBy(uri: "affiliate-data") {
+      affiliatePageContent {
+        ugcGallery {
+          videoUrl { node { mediaItemUrl } }
+          videoPoster { node { sourceUrl } }
+          taggedProduct {
+            nodes {
+              ... on SimpleProduct {
+                id
+                databaseId
+                name
+                slug
+                price
+                regularPrice
+                salePrice
+                stockStatus
+                shortDescription
+                image { id sourceUrl altText }
+              }
+            }
+          }
+        }
+        affiliateHero1 { node { sourceUrl altText } }
+        affiliateHero2 { node { sourceUrl altText } }
+        affiliateHero3 { node { sourceUrl altText } }
+        affiliateCtaLifestyle { node { sourceUrl altText } }
+      }
+    }
+  }
+`;
+
+interface AffiliateImages {
+  affiliateHero1?: { sourceUrl: string; altText: string } | null;
+  affiliateHero2?: { sourceUrl: string; altText: string } | null;
+  affiliateHero3?: { sourceUrl: string; altText: string } | null;
+  affiliateCtaLifestyle?: { sourceUrl: string; altText: string } | null;
 }
 
-export default function AffiliatePage({ bestsellers }: AffiliatePageProps) {
+interface AffiliatePageProps {
+  bestsellers: Product[];
+  ugcItems: UGCItem[];
+  images: AffiliateImages;
+}
+
+export default function AffiliatePage({ bestsellers, ugcItems, images }: AffiliatePageProps) {
   return (
     <Layout
       title="Affiliate Program"
@@ -66,13 +110,22 @@ export default function AffiliatePage({ bestsellers }: AffiliatePageProps) {
             <div className={styles.heroImages}>
               <div className={styles.imageCollage}>
                 <div className={styles.collageMain}>
-                  <img src="/images/affiliate-hero-1.webp" alt="Creator sharing Mellow Fellow" />
+                  <img
+                    src={images.affiliateHero1?.sourceUrl || '/images/affiliate-hero-1.webp'}
+                    alt={images.affiliateHero1?.altText || 'Creator sharing Mellow Fellow'}
+                  />
                 </div>
                 <div className={styles.collageSecondary}>
-                  <img src="/images/affiliate-hero-2.webp" alt="Mellow Fellow lifestyle" />
+                  <img
+                    src={images.affiliateHero2?.sourceUrl || '/images/affiliate-hero-2.webp'}
+                    alt={images.affiliateHero2?.altText || 'Mellow Fellow lifestyle'}
+                  />
                 </div>
                 <div className={styles.collageTertiary}>
-                  <img src="/images/affiliate-hero-3.webp" alt="Creator content" />
+                  <img
+                    src={images.affiliateHero3?.sourceUrl || '/images/affiliate-hero-3.webp'}
+                    alt={images.affiliateHero3?.altText || 'Creator content'}
+                  />
                 </div>
                 <div className={styles.floatingBadge}>
                   <div className={styles.floatingBadgeIcon}>
@@ -192,7 +245,10 @@ export default function AffiliatePage({ bestsellers }: AffiliatePageProps) {
               </a>
             </div>
             <div className={styles.ctaBannerImage}>
-              <img src="/images/affiliate-cta-lifestyle.webp" alt="Mellow Fellow lifestyle" />
+              <img
+                src={images.affiliateCtaLifestyle?.sourceUrl || '/images/affiliate-cta-lifestyle.webp'}
+                alt={images.affiliateCtaLifestyle?.altText || 'Mellow Fellow lifestyle'}
+              />
               <div className={styles.ctaBannerImageOverlay} />
             </div>
           </div>
@@ -200,9 +256,12 @@ export default function AffiliatePage({ bestsellers }: AffiliatePageProps) {
       </section>
 
       {/* ===== SEE HOW CREATORS SHARE ===== */}
-      <section className="section">
+      <section className={`section ${styles.creatorsSection}`}>
         <div className="container">
           <div className={styles.creatorsGrid}>
+            <div className={styles.creatorsImages}>
+              <UGCGallery items={ugcItems} />
+            </div>
             <div className={styles.creatorsText}>
               <h2>See How Creators Share Mellow Fellow</h2>
               <p>
@@ -214,13 +273,6 @@ export default function AffiliatePage({ bestsellers }: AffiliatePageProps) {
               <a href={AWIN_SIGNUP_URL} target="_blank" rel="noopener noreferrer" className={styles.btnDark}>
                 Become an Affiliate!
               </a>
-            </div>
-            <div className={styles.creatorsImages}>
-              <img src="/images/affiliate-ugc-1.webp" alt="Creator content" />
-              <img src="/images/affiliate-ugc-2.webp" alt="Creator content" />
-              <img src="/images/affiliate-ugc-3.webp" alt="Creator content" />
-              <img src="/images/affiliate-ugc-4.webp" alt="Creator content" />
-              <img src="/images/affiliate-ugc-5.webp" alt="Creator content" />
             </div>
           </div>
         </div>
@@ -318,21 +370,50 @@ export default function AffiliatePage({ bestsellers }: AffiliatePageProps) {
 export const getStaticProps: GetStaticProps = async () => {
   try {
     const client = getClient();
-    const { data } = await client.query({
-      query: GET_PRODUCTS,
-      variables: { first: 3, orderby: [{ field: 'TOTAL_SALES', order: 'DESC' }] },
-    });
+    const [productsResult, affiliateResult] = await Promise.all([
+      client.query({
+        query: GET_PRODUCTS,
+        variables: { first: 3, orderby: [{ field: 'TOTAL_SALES', order: 'DESC' }] },
+      }),
+      // Only query ACF data once the field group is imported in WP Admin
+      // (Custom Fields → Tools → Import → acf-affiliate-fields.json)
+      process.env.AFFILIATE_ACF_ENABLED === '1'
+        ? client.query({ query: GET_AFFILIATE_DATA }).catch(() => ({ data: null }))
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const acf = affiliateResult.data?.pageBy?.affiliatePageContent || {};
+
+    const ugcItems: UGCItem[] = (acf.ugcGallery || [])
+      .filter((row: any) => row?.videoUrl?.node?.mediaItemUrl)
+      .map((row: any, i: number) => ({
+        id: `ugc-${i}`,
+        videoUrl: row.videoUrl.node.mediaItemUrl,
+        posterUrl: row.videoPoster?.node?.sourceUrl || null,
+        product: row.taggedProduct?.nodes?.[0] || null,
+      }));
+
+    const images: AffiliateImages = {
+      affiliateHero1: acf.affiliateHero1?.node || null,
+      affiliateHero2: acf.affiliateHero2?.node || null,
+      affiliateHero3: acf.affiliateHero3?.node || null,
+      affiliateCtaLifestyle: acf.affiliateCtaLifestyle?.node || null,
+    };
 
     return {
       props: {
-        bestsellers: data?.products?.nodes || [],
+        bestsellers: productsResult.data?.products?.nodes || [],
+        ugcItems,
+        images,
       },
-      revalidate: 60,
+      revalidate: 300,
     };
   } catch (error) {
     return {
       props: {
         bestsellers: [],
+        ugcItems: [],
+        images: {},
       },
       revalidate: 60,
     };

@@ -21,13 +21,15 @@ const retryLink = new RetryLink({
     return base / 2 + Math.random() * (base / 2);
   },
   attempts: {
-    max: 8,
+    max: 3,
     retryIf: (error) => {
       if (!error) return false;
       const status = (error as { statusCode?: number }).statusCode;
       if (typeof status === 'number') return RETRYABLE_STATUS.has(status);
-      // Generic network failure (fetch failed, ECONNRESET, socket hang up).
-      return true;
+      // Only retry on transient network errors (ECONNRESET, ETIMEDOUT), not SSL/TLS failures
+      const msg = String((error as any)?.message || '');
+      if (msg.includes('SSL') || msg.includes('certificate') || msg.includes('self-signed')) return false;
+      return false; // Don't retry generic network errors in development
     },
   },
 });
