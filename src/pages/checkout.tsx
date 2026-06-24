@@ -10,6 +10,7 @@ import RealIdVerification from '@/components/RealIdVerification';
 
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
+const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
 import { AddressData, PaymentData } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
@@ -56,6 +57,7 @@ export default function CheckoutPage() {
   const [customerDataLoaded, setCustomerDataLoaded] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const skipFirstSaveRef = useRef(true);
+  const submittingRef = useRef(false);
 
   // Address state
   const [billing, setBilling] = useState<AddressData>(emptyAddress);
@@ -246,11 +248,38 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
+
     setIsProcessing(true);
     setError(null);
 
-    const idempotencyKey = generateIdempotencyKey();
     const finalShipping = sameAsBilling ? billing : shipping;
+    const cartSignature = JSON.stringify({
+      items: cart?.items.map((i) => [i.product.databaseId, i.quantity]) ?? [],
+      total: cart?.total,
+      coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
+    });
+    let idempotencyKey = generateIdempotencyKey();
+    if (typeof window !== 'undefined') {
+      const storedIdem = window.sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_KEY);
+      if (storedIdem) {
+        try {
+          const parsed = JSON.parse(storedIdem);
+          if (parsed && parsed.sig === cartSignature && parsed.key) {
+            idempotencyKey = parsed.key;
+          }
+        } catch {
+          idempotencyKey = generateIdempotencyKey();
+        }
+      }
+      window.sessionStorage.setItem(
+        CHECKOUT_IDEMPOTENCY_KEY,
+        JSON.stringify({ key: idempotencyKey, sig: cartSignature })
+      );
+    }
 
     try {
       const response = await fetch('/api/checkout', {
@@ -286,7 +315,7 @@ export default function CheckoutPage() {
       }
 
       if (response.status === 403 && result.code === 'CSRF_INVALID') {
-        setError('Session expired. Please refresh the page and try again.');
+        setError('Your security token refreshed. Please press Pay again to complete your order.');
         fetchCsrfToken();
         return;
       }
@@ -313,6 +342,7 @@ export default function CheckoutPage() {
 
       if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem(CHECKOUT_PROGRESS_KEY);
+        window.sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
       }
 
       clearCart().catch(() => {});
@@ -329,6 +359,7 @@ export default function CheckoutPage() {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       fetchCsrfToken();
     } finally {
+      submittingRef.current = false;
       setIsProcessing(false);
     }
   };

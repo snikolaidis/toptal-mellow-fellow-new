@@ -37,14 +37,14 @@ function mellow_fellow_loyalty_api_key() {
 
 function mellow_fellow_loyalty_term_tokens($product_id) {
     $tokens = array();
-    foreach (array('product_cat', 'product_tag') as $taxonomy) {
+    foreach (array('collection', 'product-type', 'product_cat', 'product_tag') as $taxonomy) {
         foreach (array('slugs', 'names') as $field) {
             $terms = wp_get_post_terms($product_id, $taxonomy, array('fields' => $field));
             if (is_wp_error($terms)) {
                 continue;
             }
             foreach ($terms as $term) {
-                $token = trim(str_replace(',', ' ', (string) $term));
+                $token = strtolower(trim(str_replace(',', ' ', (string) $term)));
                 if ($token !== '') {
                     $tokens[] = $token;
                 }
@@ -66,8 +66,21 @@ function mellow_fellow_loyalty_order_items($order) {
         }
         $qty = max(1, (int) $line->get_quantity());
         $tokens = mellow_fellow_loyalty_term_tokens($product_id);
-        $cat_slugs = wp_get_post_terms($product_id, 'product_cat', array('fields' => 'slugs'));
-        $type = (is_array($cat_slugs) && isset($cat_slugs[0])) ? $cat_slugs[0] : '';
+
+        $type = '';
+        $ptype_names = wp_get_post_terms($product_id, 'product-type', array('fields' => 'names'));
+        if (is_array($ptype_names) && isset($ptype_names[0])) {
+            $type = (string) $ptype_names[0];
+        }
+        if ($type === '') {
+            $type_custom = get_post_meta($product_id, 'product_type_custom', true);
+            if (is_string($type_custom) && $type_custom !== '') {
+                $parts = array_filter(array_map('trim', explode(',', $type_custom)));
+                if (!empty($parts)) {
+                    $type = (string) reset($parts);
+                }
+            }
+        }
 
         $items[] = array(
             'id' => (string) $product_id,

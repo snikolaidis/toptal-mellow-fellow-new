@@ -20,12 +20,12 @@ export default function LoyaltyRedeem() {
   const points = info?.pointsBalance ?? 0;
   const options: RedemptionOption[] = info?.options ?? [];
 
-  const handleRedeem = async (optionId: number) => {
+  const handleRedeem = async (optionId: number, pointsToRedeem?: number) => {
     setError(null);
     setCode(null);
     setBusyId(optionId);
     try {
-      const res = await redeem({ variables: { optionId } });
+      const res = await redeem({ variables: { optionId, pointsToRedeem } });
       const payload = res.data?.redeemLoyaltyOption;
       if (payload?.success && payload.code) {
         setCode(payload.code);

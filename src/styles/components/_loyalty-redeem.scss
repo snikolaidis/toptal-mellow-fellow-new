@@ -120,6 +120,19 @@
     margin-bottom: 16px;
   }
 
+  &__points-input {
+    font-family: var(--font-family-body);
+    font-size: 15px;
+    color: var(--color-text-primary);
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    padding: 8px 12px;
+    width: 140px;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
   &__button {
     font-family: var(--font-family-body);
     font-size: 14px;

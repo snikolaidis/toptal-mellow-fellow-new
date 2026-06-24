@@ -10,6 +10,7 @@ interface Option {
   name: string;
   points: number;
   costText: string;
+  isVariable?: boolean;
 }
 
 const PolicyLink = () => (
@@ -54,7 +55,7 @@ export default function LoyaltyCheckoutRewards() {
   }
 
   const points: number = info.pointsBalance ?? 0;
-  const options: Option[] = info.options ?? [];
+  const options: Option[] = (info.options ?? []).filter((o: Option) => !o.isVariable);
   if (options.length === 0) {
     return null;
   }

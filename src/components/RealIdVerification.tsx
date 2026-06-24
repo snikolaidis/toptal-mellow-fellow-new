@@ -101,8 +101,25 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     let active = true;
     const proxyRoot = `${window.location.origin}/api/realid/`;
 
+    const domShowsVerified = () => {
+      const node = document.getElementById('real-id-check');
+      if (!node) return false;
+      const text = (node.textContent || '').toLowerCase();
+      return (
+        text.includes("you've been verified") ||
+        text.includes('you have been verified') ||
+        text.includes('already completed your id check') ||
+        text.includes('return to store')
+      );
+    };
+
     const tick = async () => {
       if (!active) return;
+      if (domShowsVerified()) {
+        onVerifiedRef.current?.(true, checkId);
+        active = false;
+        return;
+      }
       try {
         const r = await fetch(`${proxyRoot}real-id/v1/checks/${checkId}?_=${Date.now()}`, {
           cache: 'no-store',
