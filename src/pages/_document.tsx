@@ -1,4 +1,5 @@
-import { Html, Head, Main, NextScript } from 'next/document';
+import { Html, Head, Main, NextScript, DocumentContext } from 'next/document';
+import { getBodyClass } from '@/lib/bodyClass';
 
 const awinAdvertiserId = process.env.NEXT_PUBLIC_AWIN_ADVERTISER_ID ?? '';
 const klaviyoPublicKey = process.env.NEXT_PUBLIC_KLAVIYO_PUBLIC_KEY;
@@ -8,7 +9,7 @@ const aioaColor = process.env.NEXT_PUBLIC_AIOA_COLOR ?? '000000';
 const aioaPosition = process.env.NEXT_PUBLIC_AIOA_POSITION ?? 'bottom_left';
 const aioaWidgetSrc = `https://www.skynettechnologies.com/accessibility/js/all-in-one-accessibility-js-widget-minify.js?colorcode=${aioaColor}&token=${aioaToken}&position=${aioaPosition}`;
 
-export default function Document() {
+export default function Document({ bodyClass }: { bodyClass: string }) {
   return (
     <Html lang="en" translate="no">
       <Head>
@@ -47,10 +48,15 @@ export default function Document() {
           />
         )}
       </Head>
-      <body>
+      <body className={bodyClass}>
         <Main />
         <NextScript />
       </body>
     </Html>
   );
 }
+
+Document.getInitialProps = async (ctx: DocumentContext) => {
+  const initialProps = await ctx.defaultGetInitialProps(ctx);
+  return { ...initialProps, bodyClass: getBodyClass(ctx.asPath || ctx.pathname || '/') };
+};

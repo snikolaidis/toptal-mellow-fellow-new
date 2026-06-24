@@ -1,0 +1,84 @@
+@use '../mixins' as *;
+
+.section-header {
+  margin-bottom: var(--sectionHeaderBottom);
+}
+.section-header .breadcrumb {
+  text-align: center;
+}
+.section-header select {
+    display: inline-block;
+    vertical-align: middle;
+  }
+.section-header--flush {
+  margin-bottom: 0;
+}
+.section-header--with-link {
+  display: flex;
+  align-items: center;
+}
+.section-header--with-link select {
+    flex: 0 1 auto;
+  }
+.section-header__title {
+  margin-bottom: 0;
+}
+.section-header--with-link .section-header__title {
+    flex: 1 1 auto;
+  }
+.section-header__title a {
+    -webkit-text-decoration: underline;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+.section-header__link {
+  flex: 0 1 auto;
+  margin-top: calc(var(--gutter) / 2);
+  font-weight: var(--typeHeaderWeight);
+  -webkit-text-decoration: underline;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+.section-header--with-link .section-header__link {
+    margin-top: 0;
+  }
+.section-header--404 {
+  padding-top: 80px;
+}
+.section-header select {
+  margin: 10px 0;
+}
+.section-header p {
+  margin: 10px 0;
+}
+
+.section-header__preface {
+  color: #BC912D;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 28px;
+  text-transform: uppercase;
+
+  @include medium-up {
+    font-size: 14px;
+  }
+
+  @include large-up {
+    font-size: 15px;
+  }
+}
+
+.section-header__title {
+  font-family: "MrEavesXLSanNarOT";
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+  text-align: center;
+}
+
+@media only screen and (min-width: 1024px) {
+  .section-header__title {
+    font-size: 52px;
+  }
+}

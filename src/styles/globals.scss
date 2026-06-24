@@ -11,6 +11,8 @@
 @use 'fonts';
 @use 'components';
 @use 'elements';
+@use 'pages';
+@use 'blocks';
 
 @import 'swiper/css';
 @import 'swiper/css/pagination';
@@ -293,12 +295,12 @@ img {
 
 /* Section Headers - used across homepage and other pages */
 .section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border-default);
+  // display: flex;
+  // align-items: center;
+  // justify-content: space-between;
+  // margin-bottom: 1.5rem;
+  // padding-bottom: 1rem;
+  // border-bottom: 1px solid var(--color-border-default);
 }
 
 .section-title {

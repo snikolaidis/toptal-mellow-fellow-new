@@ -132,81 +132,87 @@ export default function SaleCountdownHero(props: SaleCountdownHeroProps) {
   const fallbackImage = mobileImage || tabletImage || desktopImage;
 
   return (
-    <div className="responsive-banner__wrapper">
-      <picture>
-        {desktopImage?.node?.sourceUrl && (
-          <source media="(width >= 1024px)" srcSet={desktopImage.node.sourceUrl} />
-        )}
-        {tabletImage?.node?.sourceUrl && (
-          <source media="(width >= 768px)" srcSet={tabletImage.node.sourceUrl} />
-        )}
-        {mobileImage?.node?.sourceUrl && (
-          <source media="(width < 768px)" srcSet={mobileImage.node.sourceUrl} />
-        )}
-        {fallbackImage?.node?.sourceUrl && (
-          <img
-            className="responsive-banner__image"
-            src={fallbackImage.node.sourceUrl}
-            alt={fallbackImage.node.altText || ''}
-            width={fallbackImage.node.mediaDetails?.width ?? undefined}
-            height={fallbackImage.node.mediaDetails?.height ?? undefined}
-            loading="eager"
-          />
-        )}
-      </picture>
+    <div className='sale-countdown-hero'>
+      <div className='responsive-banner'>
+        <div className="responsive-banner__wrapper">
+          <picture>
+            {desktopImage?.node?.sourceUrl && (
+              <source media="(width >= 1024px)" srcSet={desktopImage.node.sourceUrl} />
+            )}
+            {tabletImage?.node?.sourceUrl && (
+              <source media="(width >= 768px)" srcSet={tabletImage.node.sourceUrl} />
+            )}
+            {mobileImage?.node?.sourceUrl && (
+              <source media="(width < 768px)" srcSet={mobileImage.node.sourceUrl} />
+            )}
+            {fallbackImage?.node?.sourceUrl && (
+              <img
+                className="responsive-banner__image"
+                src={fallbackImage.node.sourceUrl}
+                alt={fallbackImage.node.altText || ''}
+                width={fallbackImage.node.mediaDetails?.width ?? undefined}
+                height={fallbackImage.node.mediaDetails?.height ?? undefined}
+                loading="eager"
+              />
+            )}
+          </picture>
 
-      <div className="extra-content">
-        {timeRemaining && (
-          <div className="countdown-timer">
-            <div className="countdown-timer__unit-wrapper days">
-              <div className="countdown-timer__unit">{pad(timeRemaining.days)}</div>
-              <div className="countdown-timer__unit-label">Day(s)</div>
-            </div>
-            <div className="countdown-timer__unit-wrapper hours">
-              <div className="countdown-timer__unit">{pad(timeRemaining.hours)}</div>
-              <div className="countdown-timer__unit-label">Hour(s)</div>
-            </div>
-            <div className="countdown-timer__unit-wrapper mins">
-              <div className="countdown-timer__unit">{pad(timeRemaining.minutes)}</div>
-              <div className="countdown-timer__unit-label">Min(s)</div>
-            </div>
-            <div className="countdown-timer__unit-wrapper secs">
-              <div className="countdown-timer__unit">{pad(timeRemaining.seconds)}</div>
-              <div className="countdown-timer__unit-label">Sec(s)</div>
-            </div>
-          </div>
-        )}
-
-        <h1 className="heading">{heading}</h1>
-
-        {tiers && tiers.length > 0 && (
-          <div className="tiers">
-            {tiers.map((tier, i) => (
-              <Fragment key={i}>
-                <div className="tier">
-                  <div className="percentage">{tier.percentage}%</div>
-                  <div className="spend">{tier.label || `Spend $${tier.spend}`}</div>
+          <div className="extra-content">
+            {timeRemaining && (
+              <div className="countdown-timer">
+                <div className="countdown-timer__unit-wrapper days">
+                  <div className="countdown-timer__unit">{pad(timeRemaining.days)}</div>
+                  <div className="countdown-timer__unit-label">Day(s)</div>
                 </div>
-                {i < tiers.length - 1 && <div className="divider" />}
-              </Fragment>
-            ))}
-          </div>
-        )}
+                <div className="countdown-timer__unit-wrapper hours">
+                  <div className="countdown-timer__unit">{pad(timeRemaining.hours)}</div>
+                  <div className="countdown-timer__unit-label">Hour(s)</div>
+                </div>
+                <div className="countdown-timer__unit-wrapper mins">
+                  <div className="countdown-timer__unit">{pad(timeRemaining.minutes)}</div>
+                  <div className="countdown-timer__unit-label">Min(s)</div>
+                </div>
+                <div className="countdown-timer__unit-wrapper secs">
+                  <div className="countdown-timer__unit">{pad(timeRemaining.seconds)}</div>
+                  <div className="countdown-timer__unit-label">Sec(s)</div>
+                </div>
+              </div>
+            )}
 
-        {(button1?.url || button2?.url) && (
-          <div className="buttons">
-            {button1?.url && (
-              <a href={button1.url} className="btn btn-1">
-                {button1.title}
-              </a>
-            )}
-            {button2?.url && (
-              <a href={button2.url} className="btn btn-2">
-                {button2.title}
-              </a>
-            )}
+            <div className='hero-content'>
+              <h1 className="heading">{heading}</h1>
+
+              {tiers && tiers.length > 0 && (
+                <div className="tiers">
+                  {tiers.map((tier, i) => (
+                    <Fragment key={i}>
+                      <div className="tier">
+                        <div className="percentage">{tier.percentage}%</div>
+                        <div className="spend">{tier.label || `Spend $${tier.spend}`}</div>
+                      </div>
+                      {i < tiers.length - 1 && <div className="divider" />}
+                    </Fragment>
+                  ))}
+                </div>
+              )}
+
+              {(button1?.url || button2?.url) && (
+                <div className="buttons">
+                  {button1?.url && (
+                    <a href={button1.url} className="btn btn-1">
+                      {button1.title}
+                    </a>
+                  )}
+                  {button2?.url && (
+                    <a href={button2.url} className="btn btn-2">
+                      {button2.title}
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

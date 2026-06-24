@@ -4,6 +4,7 @@ import { WordPressBlocksViewer } from '@faustwp/blocks';
 import { getClient } from '@/lib/apollo-client';
 import Layout from '@/components/Layout';
 import blocks from '@/wp-blocks';
+import DoublePointsDaily from '@/wp-blocks/DoublePointsDaily';
 
 const PAGE_SLUG = '/mellow-day-2026';
 
@@ -12,6 +13,7 @@ const PAGE_SLUG = '/mellow-day-2026';
 // console warning in getStaticProps below if one is missing.
 const GET_MELLOW_DAY_2026 = gql`
   ${blocks.AcfHeroSection.fragments.entry}
+  ${blocks.AcfSaleCountdownHero.fragments.entry}
   ${blocks.CoreParagraph.fragments.entry}
   query GetMellowDay2026($slug: ID!) {
     page(id: $slug, idType: URI) {
@@ -26,6 +28,7 @@ const GET_MELLOW_DAY_2026 = gql`
         id: clientId
         parentClientId
         ...${blocks.AcfHeroSection.fragments.key}
+        ...${blocks.AcfSaleCountdownHero.fragments.key}
         ...${blocks.CoreParagraph.fragments.key}
       }
     }
@@ -52,6 +55,10 @@ export default function MellowDay2026Page({ page }: MellowDay2026PageProps) {
       ) : (
         <h1>{page.title}</h1>
       )}
+
+      {/* Hardcoded for now — copied verbatim from the live Shopify page.
+          To be replaced by a real ACF block (AcfDoublePointsDaily) later. */}
+      <DoublePointsDaily />
     </Layout>
   );
 }
