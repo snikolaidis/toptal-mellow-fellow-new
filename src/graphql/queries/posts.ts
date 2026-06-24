@@ -150,6 +150,17 @@ export const GET_POST_BY_SLUG = gql`
           sourceUrl
         }
       }
+      blogPostsFields {
+        faqs {
+          nodes {
+            id
+            ... on FAQ {
+              title
+              content
+            }
+          }
+        }
+      }
     }
   }
 `;

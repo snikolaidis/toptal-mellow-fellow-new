@@ -9,6 +9,7 @@ interface SeoData {
   title?: string;
   metaDesc?: string;
   schema?: string;
+  faqSchema?: string;
   opengraphTitle?: string;
   opengraphDescription?: string;
   opengraphImage?: string;
@@ -78,6 +79,12 @@ export default function Layout({
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: seo.schema }}
+          />
+        )}
+        {seo?.faqSchema && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: seo.faqSchema }}
           />
         )}
       </Head>
