@@ -70,6 +70,12 @@ export interface LatestPostCard {
   };
 }
 
+export interface BlogFaq {
+  id: string;
+  title: string;
+  content: string;
+}
+
 export interface BlogPost extends BlogPostCard {
   content: string;
   modified: string;
@@ -77,4 +83,9 @@ export interface BlogPost extends BlogPostCard {
     nodes: BlogTag[];
   };
   seo?: BlogPostSeo;
+  blogPostsFields?: {
+    faqs?: {
+      nodes: BlogFaq[];
+    };
+  };
 }

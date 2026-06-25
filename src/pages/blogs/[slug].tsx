@@ -18,6 +18,23 @@ interface BlogPostPageProps {
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
 
+function buildFaqSchema(post: BlogPost): string | undefined {
+  const faqs = post.blogPostsFields?.faqs?.nodes;
+  if (!faqs?.length) return undefined;
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.title,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.content?.replace(/<[^>]*>/g, '').trim() || '',
+      },
+    })),
+  });
+}
+
 function buildArticleSchema(post: BlogPost) {
   return JSON.stringify({
     '@context': 'https://schema.org',
@@ -45,6 +62,7 @@ function buildArticleSchema(post: BlogPost) {
 
 export default function BlogPostPage({ post, latestPosts, allTags }: BlogPostPageProps) {
   const schema = post.seo?.schema?.raw || buildArticleSchema(post);
+  const faqSchema = buildFaqSchema(post);
 
   return (
     <Layout
@@ -53,6 +71,7 @@ export default function BlogPostPage({ post, latestPosts, allTags }: BlogPostPag
         title: post.seo?.title,
         metaDesc: post.seo?.metaDesc,
         schema,
+        faqSchema,
         opengraphTitle: post.seo?.opengraphTitle,
         opengraphDescription: post.seo?.opengraphDescription,
         opengraphImage: post.seo?.opengraphImage?.sourceUrl,
