@@ -5,6 +5,13 @@ import { getClient } from '@/lib/apollo-client';
 import Layout from '@/components/Layout';
 import blocks from '@/wp-blocks';
 import DoublePointsDaily from '@/wp-blocks/DoublePointsDaily';
+import CollectionGroup, { CollectionGroupItem } from '@/wp-blocks/CollectionGroup';
+import {
+  SIMPLE_PRODUCT_FIELDS,
+  VARIABLE_PRODUCT_FIELDS,
+  EXTERNAL_PRODUCT_FIELDS,
+  GROUP_PRODUCT_FIELDS,
+} from '@/graphql/queries/products';
 
 const PAGE_SLUG = '/mellow-day-2026';
 
@@ -35,15 +42,68 @@ const GET_MELLOW_DAY_2026 = gql`
   }
 `;
 
+// Fetches products for all three collection tabs in a single request via
+// GraphQL field aliases, matching the COLLECTION taxonomy filter pattern used
+// in src/graphql/queries/collections.ts. Capped at 16 per collection (matching
+// the Shopify grid cap from the original collection-group__divs.liquid snippet).
+const GET_MELLOW_DAY_COLLECTIONS = gql`
+  ${SIMPLE_PRODUCT_FIELDS}
+  ${VARIABLE_PRODUCT_FIELDS}
+  ${EXTERNAL_PRODUCT_FIELDS}
+  ${GROUP_PRODUCT_FIELDS}
+  query GetMellowDay2026Collections {
+    bestSellers: products(first: 16, where: {
+      taxonomyFilter: {
+        filters: [{ taxonomy: COLLECTION, terms: ["best-sellers"], operator: IN }]
+      }
+    }) {
+      nodes {
+        __typename
+        ... on SimpleProduct { ...SimpleProductFields }
+        ... on VariableProduct { ...VariableProductFields }
+        ... on ExternalProduct { ...ExternalProductFields }
+        ... on GroupProduct { ...GroupProductFields }
+      }
+    }
+    edibles: products(first: 16, where: {
+      taxonomyFilter: {
+        filters: [{ taxonomy: COLLECTION, terms: ["edibles"], operator: IN }]
+      }
+    }) {
+      nodes {
+        __typename
+        ... on SimpleProduct { ...SimpleProductFields }
+        ... on VariableProduct { ...VariableProductFields }
+        ... on ExternalProduct { ...ExternalProductFields }
+        ... on GroupProduct { ...GroupProductFields }
+      }
+    }
+    awardWinning: products(first: 16, where: {
+      taxonomyFilter: {
+        filters: [{ taxonomy: COLLECTION, terms: ["award-winning-products"], operator: IN }]
+      }
+    }) {
+      nodes {
+        __typename
+        ... on SimpleProduct { ...SimpleProductFields }
+        ... on VariableProduct { ...VariableProductFields }
+        ... on ExternalProduct { ...ExternalProductFields }
+        ... on GroupProduct { ...GroupProductFields }
+      }
+    }
+  }
+`;
+
 interface MellowDay2026PageProps {
   page: {
     title: string;
     seo?: { title?: string; metaDesc?: string };
     editorBlocks: any[];
   } | null;
+  collectionGroups: CollectionGroupItem[];
 }
 
-export default function MellowDay2026Page({ page }: MellowDay2026PageProps) {
+export default function MellowDay2026Page({ page, collectionGroups }: MellowDay2026PageProps) {
   if (!page) return null;
 
   const hasBlocks = Array.isArray(page.editorBlocks) && page.editorBlocks.length > 0;
@@ -59,6 +119,8 @@ export default function MellowDay2026Page({ page }: MellowDay2026PageProps) {
       {/* Hardcoded for now — copied verbatim from the live Shopify page.
           To be replaced by a real ACF block (AcfDoublePointsDaily) later. */}
       <DoublePointsDaily />
+
+      <CollectionGroup collections={collectionGroups} />
     </Layout>
   );
 }
@@ -66,12 +128,13 @@ export default function MellowDay2026Page({ page }: MellowDay2026PageProps) {
 export const getStaticProps: GetStaticProps<MellowDay2026PageProps> = async () => {
   try {
     const client = getClient();
-    const { data } = await client.query({
-      query: GET_MELLOW_DAY_2026,
-      variables: { slug: PAGE_SLUG },
-    });
 
-    if (!data?.page) {
+    const [wpResult, collectionResult] = await Promise.all([
+      client.query({ query: GET_MELLOW_DAY_2026, variables: { slug: PAGE_SLUG } }),
+      client.query({ query: GET_MELLOW_DAY_COLLECTIONS }),
+    ]);
+
+    if (!wpResult.data?.page) {
       return { notFound: true, revalidate: 60 };
     }
 
@@ -80,7 +143,7 @@ export const getStaticProps: GetStaticProps<MellowDay2026PageProps> = async () =
     // been added to GET_MELLOW_DAY_2026 above yet.
     if (process.env.NODE_ENV !== 'production') {
       const knownKeys = new Set(['name', '__typename', 'id', 'parentClientId']);
-      for (const block of data.page.editorBlocks ?? []) {
+      for (const block of wpResult.data.page.editorBlocks ?? []) {
         const extraKeys = Object.keys(block).filter((k) => !knownKeys.has(k));
         if (extraKeys.length === 0) {
           console.warn(
@@ -91,8 +154,15 @@ export const getStaticProps: GetStaticProps<MellowDay2026PageProps> = async () =
       }
     }
 
+    const cd = collectionResult.data;
+    const collectionGroups: CollectionGroupItem[] = [
+      { handle: 'best-sellers',           title: 'Best Sellers',  products: cd?.bestSellers?.nodes  ?? [] },
+      { handle: 'edibles',                title: 'Edibles',       products: cd?.edibles?.nodes   ?? [] },
+      { handle: 'award-winning-products', title: 'Award Winners', products: cd?.awardWinning?.nodes ?? [] },
+    ];
+
     return {
-      props: { page: data.page },
+      props: { page: wpResult.data.page, collectionGroups },
       revalidate: 60,
     };
   } catch (error) {

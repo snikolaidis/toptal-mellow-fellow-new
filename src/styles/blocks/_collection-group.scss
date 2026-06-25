@@ -1,0 +1,145 @@
+.collection-group {
+  margin-bottom: 78px;
+
+  @media only screen and (min-width: 768px) {
+    margin-bottom: 157px;
+  }
+
+  .collection-group__title {
+    text-align: center;
+    font-family: "MrEavesXLSanNarOT";
+    font-weight: 700;
+    font-size: 40px;
+    line-height: 100%;
+    margin-bottom: 19px;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .collection-group__title {
+      font-size: 52px;
+      margin-bottom: 21px;
+    }
+  }
+
+  .collection-group__block-controls {
+    overflow-x: scroll;
+    text-align: center;
+    white-space: nowrap;
+    margin-bottom: 34px;
+    scrollbar-width: none;
+  }
+
+  .collection-group_block-controls-box {
+    width: min-content;
+    margin: 0 auto;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .collection-group_block-controls-box:hover .collection-group__block-control {
+      opacity: .5;
+    }
+
+    .collection-group_block-controls-box:hover .collection-group__block-control:hover {
+      opacity: 1;
+    }
+  }
+
+  .collection-group__block-control {
+    --active-shadow: 0px 4px 4px 0px rgba(0, 0, 0, .25);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-left: calc(17px / 2);
+    margin-right: calc(17px / 2);
+    cursor: pointer;
+    transition: all .3s .1s;
+  }
+
+  .collection-group_block-controls-box.show-thumbnails .collection-group__block-control {
+    width: 214px;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .collection-group_block-controls-box.show-thumbnails .collection-group__block-control {
+      width: 200px;
+    }
+  }
+
+  .collection-group__block-control input {
+    appearance: none;
+    margin: 0 0 19px;
+    transition: all .2s;
+    cursor: pointer;
+    border: none;
+  }
+
+  .collection-group_block-controls-box.show-thumbnails .collection-group__block-control input {
+    background-position: center;
+    background-size: 214px;
+    height: 214px;
+    width: 214px;
+    border-radius: 100%;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .collection-group_block-controls-box.show-thumbnails .collection-group__block-control input {
+      height: 200px;
+      width: 200px;
+      background-size: 200px;
+    }
+
+    .collection-group__block-control input:hover {
+      background-size: 220px;
+      box-shadow: var(--active-shadow);
+    }
+
+    .collection-group__block-control:hover .block-control__title {
+      text-decoration: underline;
+    }
+  }
+
+  .collection-group_block-controls-box.show-thumbnails .collection-group__block-control input:checked {
+    border-color: #434345;
+    box-shadow: var(--active-shadow);
+  }
+
+  .collection-group__block-control:has(input:checked) .block-control__title  {
+    text-decoration: underline;
+  }
+
+  .collection-group__block-control .block-control__title {
+    font-family: "MrEavesSanOT";
+    line-height: 100%;
+    font-size: 24px;
+    white-space: normal;
+  }
+
+  .collection-group__products-slider {
+    margin-bottom: 34px;
+  }
+
+  .collection-group .grid-item__meta {
+    margin: 12px 0 0;
+  }
+
+  .collection-group .product-grid {
+    margin-bottom: 30px;
+  }
+
+  .collection-group__cta {
+    text-align: center;
+  }
+
+  .collection-group__cta a {
+    display: inline-block;
+    background-color: var(--colorScheme2Text);
+    color: #ffffff;
+    font-family: "MrEavesSanOT";
+    line-height: 100%;
+    font-weight: 700;
+    font-size: 20px;
+    padding: 8px 80px 9px;
+    border-radius: 28px;
+  }
+}
