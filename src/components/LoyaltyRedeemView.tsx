@@ -7,6 +7,8 @@ export interface RedemptionOption {
   costText: string;
   isVariable?: boolean;
   rateCents?: number;
+  isFreeProduct?: boolean;
+  productId?: number;
 }
 
 interface Props {
@@ -18,7 +20,44 @@ interface Props {
   onRedeem: (optionId: number, pointsToRedeem?: number) => void;
 }
 
+const INITIAL_FREE = 6;
+
 export default function LoyaltyRedeemView({ points, options, code, error, busyId, onRedeem }: Props) {
+  const [showAllFree, setShowAllFree] = useState(false);
+  const rewards = options.filter((o) => !o.isFreeProduct);
+  const freeProducts = options.filter((o) => o.isFreeProduct);
+  const visibleFree = showAllFree ? freeProducts : freeProducts.slice(0, INITIAL_FREE);
+
+  const renderOption = (o: RedemptionOption) => {
+    if (o.isVariable) {
+      return (
+        <VariableCard
+          key={o.id}
+          option={o}
+          balance={points}
+          busy={busyId === o.id}
+          onRedeem={onRedeem}
+        />
+      );
+    }
+    const affordable = points >= o.points;
+    return (
+      <div key={o.id} className="loyalty-redeem__card">
+        {o.isFreeProduct && <div className="loyalty-redeem__tag">Free product</div>}
+        <div className="loyalty-redeem__reward">{o.name}</div>
+        <div className="loyalty-redeem__cost">{o.costText || `${o.points} points`}</div>
+        <button
+          className="loyalty-redeem__button"
+          onClick={() => onRedeem(o.id)}
+          disabled={!affordable || busyId === o.id}
+          title={affordable ? '' : "You don't have enough points to redeem"}
+        >
+          {busyId === o.id ? 'Redeeming...' : o.isFreeProduct ? 'Get free product' : 'Redeem'}
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="loyalty-redeem">
       <h2 className="loyalty-redeem__heading">How to Use Your Points</h2>
@@ -42,36 +81,26 @@ export default function LoyaltyRedeemView({ points, options, code, error, busyId
 
       {error && <div className="loyalty-redeem__error">{error}</div>}
 
-      <div className="loyalty-redeem__grid">
-        {options.map((o) => {
-          if (o.isVariable) {
-            return (
-              <VariableCard
-                key={o.id}
-                option={o}
-                balance={points}
-                busy={busyId === o.id}
-                onRedeem={onRedeem}
-              />
-            );
-          }
-          const affordable = points >= o.points;
-          return (
-            <div key={o.id} className="loyalty-redeem__card">
-              <div className="loyalty-redeem__reward">{o.name}</div>
-              <div className="loyalty-redeem__cost">{o.costText || `${o.points} points`}</div>
-              <button
-                className="loyalty-redeem__button"
-                onClick={() => onRedeem(o.id)}
-                disabled={!affordable || busyId === o.id}
-                title={affordable ? '' : "You don't have enough points to redeem"}
-              >
-                {busyId === o.id ? 'Redeeming...' : 'Redeem'}
-              </button>
-            </div>
-          );
-        })}
-      </div>
+      {rewards.length > 0 && <div className="loyalty-redeem__grid">{rewards.map(renderOption)}</div>}
+
+      {freeProducts.length > 0 && (
+        <div className="loyalty-redeem__free">
+          <h3 className="loyalty-redeem__free-heading">Free products</h3>
+          <p className="loyalty-redeem__free-sub">
+            Redeem your points for a free product, added straight to your cart.
+          </p>
+          <div className="loyalty-redeem__grid">{visibleFree.map(renderOption)}</div>
+          {freeProducts.length > INITIAL_FREE && (
+            <button
+              type="button"
+              className="loyalty-redeem__more"
+              onClick={() => setShowAllFree((v) => !v)}
+            >
+              {showAllFree ? 'Show fewer' : `Show all ${freeProducts.length} free products`}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

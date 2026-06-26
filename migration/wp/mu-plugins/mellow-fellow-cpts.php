@@ -168,8 +168,8 @@ add_action('init', function () {
             ],
             'public'              => false,
             'publicly_queryable'  => false,
-            'show_ui'             => true,
-            'show_in_menu'        => 'mellow-fellow-content',
+            'show_ui'             => false,
+            'show_in_menu'        => false,
             'show_in_admin_bar'   => false,
             'show_in_rest'        => true,
             'rest_base'           => $slug,
@@ -213,39 +213,3 @@ add_action('init', function () {
     }
 });
 
-add_action('admin_menu', function () {
-    add_menu_page(
-        'Mellow Fellow Content',
-        'MF Content',
-        'edit_posts',
-        'mellow-fellow-content',
-        'mf_render_content_landing',
-        'dashicons-store',
-        24
-    );
-}, 9);
-
-function mf_render_content_landing() {
-    $all = get_post_types([], 'objects');
-    $post_types = array_filter($all, function ($pt) {
-        return isset($pt->show_in_menu) && $pt->show_in_menu === 'mellow-fellow-content';
-    });
-    echo '<div class="wrap">';
-    echo '<h1>Mellow Fellow Content</h1>';
-    echo '<p>Reusable content blocks used by the storefront. Each section below is a CPT that holds entries shared across products and pages.</p>';
-    if (!empty($post_types)) {
-        echo '<style>.mf-cpt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:20px;}.mf-cpt-card{background:#fff;border:1px solid #c3c4c7;padding:16px;border-radius:4px;}.mf-cpt-card h2{margin:0 0 8px;font-size:14px;}.mf-cpt-card a{text-decoration:none;}</style>';
-        echo '<div class="mf-cpt-grid">';
-        foreach ($post_types as $pt) {
-            $count = wp_count_posts($pt->name);
-            $total = isset($count->publish) ? (int) $count->publish : 0;
-            $url = admin_url('edit.php?post_type=' . $pt->name);
-            echo '<div class="mf-cpt-card">';
-            echo '<h2><a href="' . esc_url($url) . '">' . esc_html($pt->labels->name) . '</a></h2>';
-            echo '<p style="margin:0;color:#646970;">' . $total . ' published</p>';
-            echo '</div>';
-        }
-        echo '</div>';
-    }
-    echo '</div>';
-}

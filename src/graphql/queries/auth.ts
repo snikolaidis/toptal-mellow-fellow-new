@@ -39,6 +39,8 @@ export const GET_LOYALTY_REDEMPTION = gql`
         costText
         isVariable
         rateCents
+        isFreeProduct
+        productId
       }
     }
   }
@@ -50,6 +52,7 @@ export const REDEEM_LOYALTY_OPTION = gql`
       success
       code
       message
+      productId
     }
   }
 `;
