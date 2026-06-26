@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getBrowserClient } from '@/lib/apollo-client';
 import { SUBMIT_CONTACT_FORM } from '@/graphql/mutations/contact';
+import styles from '@/styles/pages/contact-form.module.css';
 
 const FORM_ID = process.env.NEXT_PUBLIC_PRESS_CONTACT_FORM_ID || '1';
 const FIELD = { name: 1, email: 3, message: 4 };
@@ -80,7 +81,7 @@ export default function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="contact-form" noValidate>
+    <form onSubmit={handleSubmit} className={styles.contactForm} noValidate>
       {status === 'error' && (
         <p className="error-text">
           Something went wrong. Please try again.
@@ -125,9 +126,11 @@ export default function ContactForm() {
 
       {errors.form && <p className="error-text">{errors.form}</p>}
 
-      <button type="submit" className="btn-primary" disabled={status === 'submitting'}>
-        {status === 'submitting' ? 'Sending...' : 'Submit'}
-      </button>
+      <div className={styles.actions}>
+        <button type="submit" className="btn-primary" disabled={status === 'submitting'}>
+          {status === 'submitting' ? 'Sending...' : 'Submit'}
+        </button>
+      </div>
     </form>
   );
 }

@@ -1,0 +1,31 @@
+/* ============================================
+   PRESS CONTACT FORM — layout only
+   Scopes the contact form's width + centering.
+   Field / label / button styling stays on the global
+   .form-group / .error-text / .btn-primary (globals.scss).
+   Do NOT restyle those here.
+   Breakpoints follow affiliate.module.css convention:
+   Mobile < 768px · Desktop >= 768px
+   ============================================ */
+
+.contactForm {
+  max-width: 600px;   /* matches the live form's 600px field column */
+  margin: 0 auto;     /* centers the form on the page */
+  padding: 2rem 1rem 3rem;
+}
+
+@media (min-width: 768px) {
+  .contactForm {
+    /* 600px max-width already constrains width on desktop,
+       so drop the side padding and give more vertical room */
+    padding: 3rem 0 4rem;
+  }
+}
+
+/* Centers the submit button without altering the global .btn-primary
+   (the button keeps its own inline-flex styling; we just center it as
+   a flex item in this row). */
+.actions {
+  display: flex;
+  justify-content: center;
+}
