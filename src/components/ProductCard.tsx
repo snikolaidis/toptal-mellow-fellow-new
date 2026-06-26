@@ -42,9 +42,17 @@ export default function ProductCard({ product, badge, priority = false }: Produc
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);
 
-  // const productDetails = product.productDetails;
-
-  // const strainType = productDetails?.strainType;
+  // Product attribute taxonomies (first assigned term of each).
+  const strainType = product.strainTypes?.nodes?.[0]?.name;
+  const strainName = product.strainNames?.nodes?.[0]?.name;
+  const blendType = product.blendTypes?.nodes?.[0]?.name;
+  const lineCollection = product.productLines?.nodes?.[0]?.name;
+  const size = product.size?.nodes?.[0]?.name;
+  const mfProductTypeRaw = product.mfproductTypes?.nodes?.[0]?.name;
+  // Taxonomy terms come uppercase (e.g. "DISPOSABLE VAPE") — title-case for display.
+  const mfProductType = mfProductTypeRaw
+    ?.toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -70,14 +78,14 @@ export default function ProductCard({ product, badge, priority = false }: Produc
   };
 
   const getBadgeClasses = () => {
-    const base = 'absolute top-4 left-4 text-[10px] font-semibold px-3 py-1.5 uppercase tracking-wider z-10';
+    const base = 'product__tag';
     switch (displayBadge) {
       case 'new':
-        return `${base} bg-black text-white`;
+        return `${base} product__tag--new`;
       case 'sale':
-        return `${base} bg-black text-white`;
+        return `${base} product__tag--sale`;
       case 'limited':
-        return `${base} bg-white text-black border border-black`;
+        return `${base} product__tag--limited`;
       default:
         return base;
     }
@@ -96,7 +104,7 @@ export default function ProductCard({ product, badge, priority = false }: Produc
     <>
       <div className="product-card">
         <Link href={`/product/${product.slug}`} className="block">
-          <div className="is-relative aspect-square w-full overflow-hidden bg-[#f5f5f0]">
+          <div className="product__media-badges">
             {/* Inner container with padding to keep product images away from edges */}
             <div className="image is-square">
               <Image
@@ -109,62 +117,74 @@ export default function ProductCard({ product, badge, priority = false }: Produc
               />
             </div>
 
-            {/* Badge */}
-            {displayBadge && (
-              <span className={getBadgeClasses()}>
-                {displayBadge === 'new' && 'New'}
-                {displayBadge === 'sale' && 'Sale'}
-                {displayBadge === 'limited' && 'Limited'}
-              </span>
-            )}
+            {/* Product type tags overlaying the image */}
+            <div className="product__tags">
+              {mfProductType && (
+                <div className="product__tag product-type">
+                  {mfProductType}
+                </div>
+              )}
 
-            {/* Out of Stock Overlay */}
-            {!isInStock && (
-              <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                <span className="bg-black text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider">
+              {/* Out of Stock Badge when out of stock, otherwise the regular Badge */}
+              {!isInStock ? (
+                <div className="product__tag product__tag--sold-out">
                   Sold Out
-                </span>
-              </div>
-            )}
+                </div>
+              ) : (
+                displayBadge && (
+                  <div className={getBadgeClasses()}>
+                    {displayBadge === 'new' && 'New'}
+                    {displayBadge === 'sale' && 'Price Drop'}
+                    {displayBadge === 'limited' && 'Limited'}
+                  </div>
+                )
+              )}
+            </div>  
           </div>
 
           {/* Product Info */}
           <div className="product__info">
-            {/* {productDetails?.lineCollection && (
+            {lineCollection && (
               <p className="product__line-collection">
-                {productDetails.lineCollection}
+                {lineCollection}
               </p>
-            )} */}
+            )}
 
-            {/* {productDetails?.experienceType && (
+            {blendType && (
               <p className="product__blend-type">
-                {productDetails.experienceType}
+                {blendType}
               </p>
-            )} */}
+            )}
 
-            {/* {productDetails?.strainName && (
+            {strainName && (
               <p className="product__strain-name">
-                {productDetails.strainName}
+                {strainName}
               </p>
-            )} */}
+            )}
 
             <div className="product__strain-tags">
-              {/* {strainType && (
+              {strainType && (
                 <div className={`product__tag strain-type ${strainType.replace(' ', '-').toLowerCase()}`}>
                   {getStrainTypeIcon(strainType)}
                   {strainType}
                 </div>
-              )} */}
+              )}
+
+              {size && (
+                <div className="product__tag product-size">
+                  {size}
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-2 mt-1">
+            <div className="product__price">
               {product.salePrice ? (
                 <>
-                  <span className="text-sm font-medium text-black">{product.salePrice}</span>
-                  <span className="text-sm text-[#999999] line-through">{product.regularPrice}</span>
+                  <span className="product__price--sale">{product.salePrice}</span>
+                  <span className="product__price--regular">{product.regularPrice}</span>
                 </>
               ) : (
-                <span className="text-sm font-medium text-black">{product.price}</span>
+                <span>{product.price}</span>
               )}
             </div>
           </div>
@@ -187,7 +207,7 @@ export default function ProductCard({ product, badge, priority = false }: Produc
               <button
                 onClick={handleQuickAdd}
                 disabled={isAdding}
-                className="button is-small add-to-cart is-fullwidth"
+                className={`button is-small add-to-cart is-fullwidth ${isAdding ? 'is-loading' : ''}`}
                 aria-label={`Add ${product.name} to cart`}
               >
                 Add to cart

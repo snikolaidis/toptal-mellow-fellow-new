@@ -35,6 +35,36 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    strainTypes {
+      nodes {
+        name
+      }
+    }
+    strainNames {
+      nodes {
+        name
+      }
+    }
+    blendTypes {
+      nodes {
+        name
+      }
+    }
+    productLines {
+      nodes {
+        name
+      }
+    }
+    size {
+      nodes {
+        name
+      }
+    }
+    mfproductTypes {
+      nodes {
+        name
+      }
+    }
   }
 `;
 
@@ -88,6 +118,36 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         }
       }
     }
+    strainTypes {
+      nodes {
+        name
+      }
+    }
+    strainNames {
+      nodes {
+        name
+      }
+    }
+    blendTypes {
+      nodes {
+        name
+      }
+    }
+    productLines {
+      nodes {
+        name
+      }
+    }
+    size {
+      nodes {
+        name
+      }
+    }
+    mfproductTypes {
+      nodes {
+        name
+      }
+    }
   }
 `;
 
@@ -125,6 +185,36 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    strainTypes {
+      nodes {
+        name
+      }
+    }
+    strainNames {
+      nodes {
+        name
+      }
+    }
+    blendTypes {
+      nodes {
+        name
+      }
+    }
+    productLines {
+      nodes {
+        name
+      }
+    }
+    size {
+      nodes {
+        name
+      }
+    }
+    mfproductTypes {
+      nodes {
+        name
+      }
+    }
   }
 `;
 
@@ -156,6 +246,36 @@ export const GROUP_PRODUCT_FIELDS = gql`
         id
         name
         slug
+      }
+    }
+    strainTypes {
+      nodes {
+        name
+      }
+    }
+    strainNames {
+      nodes {
+        name
+      }
+    }
+    blendTypes {
+      nodes {
+        name
+      }
+    }
+    productLines {
+      nodes {
+        name
+      }
+    }
+    size {
+      nodes {
+        name
+      }
+    }
+    mfproductTypes {
+      nodes {
+        name
       }
     }
   }

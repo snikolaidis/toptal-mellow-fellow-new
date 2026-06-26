@@ -60,10 +60,25 @@ export interface ProductVariation {
 }
 
 export interface ProductACF {
-  lineCollection?: string;
-  experienceType?: string;
-  strainName?: string;
-  strainType?: string;
+  // Text / textarea / wysiwyg
+  coaLink?: string | null;
+  deviceSpecifications?: string | null;
+  directionsForUse?: string | null;
+  disclaimers?: string | null;
+  ingredientsV2?: string | null;
+  servingSize?: string | null;
+  whatIsNoid?: string | null;
+  // Link field (url + title + target)
+  userManual?: { url?: string | null; title?: string | null; target?: string | null } | null;
+  // Image field
+  blendsHighlights?: { sourceUrl?: string | null; altText?: string | null } | null;
+  // Post-object references (single)
+  deviceFaqsReference?: { node?: { id?: string; title?: string } | null } | null;
+  deviceFaqTest?: { node?: { id?: string; title?: string } | null } | null;
+  blendNoidFaqsReference?: { node?: { id?: string; title?: string } | null } | null;
+  newNoidBlendDescriptionsReference?: { node?: { id?: string; title?: string } | null } | null;
+  // Relationship (multi-select posts)
+  badges?: { nodes?: Array<{ id?: string; title?: string }> } | null;
 }
 
 export interface Product {
@@ -98,6 +113,13 @@ export interface Product {
     nodes: ProductVariation[];
   };
   productDetails?: ProductACF;
+  // Product attribute taxonomies (migrated from Shopify), surfaced on cards.
+  strainTypes?: { nodes: Array<{ name: string }> };
+  strainNames?: { nodes: Array<{ name: string }> };
+  blendTypes?: { nodes: Array<{ name: string }> };
+  productLines?: { nodes: Array<{ name: string }> };
+  size?: { nodes: Array<{ name: string }> };
+  mfproductTypes?: { nodes: Array<{ name: string }> };
   seo?: {
     title?: string;
     metaDesc?: string;
