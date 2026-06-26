@@ -1,9 +1,5 @@
 <?php
-/**
- * Plugin Name: Mellow Fellow Real ID Column Guard
- * Description: The getverdict Real ID "ID verification" admin column renders through a Twig template that throws a PHP ParseError under this server's PHP/Twig build, which aborts the entire WooCommerce Orders list (only one row renders, the rest show "critical error"). This removes the plugin's broken column renderer and replaces it with a safe plain-text one.
- * Version: 1.1.0
- */
+/* Plugin Name: Mellow Fellow Real ID Column Guard */
 
 if (!defined('ABSPATH')) {
     exit;

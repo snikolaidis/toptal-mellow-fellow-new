@@ -8,13 +8,17 @@ const aioaToken = process.env.NEXT_PUBLIC_AIOA_TOKEN ?? '';
 const aioaColor = process.env.NEXT_PUBLIC_AIOA_COLOR ?? '000000';
 const aioaPosition = process.env.NEXT_PUBLIC_AIOA_POSITION ?? 'bottom_left';
 const aioaWidgetSrc = `https://www.skynettechnologies.com/accessibility/js/all-in-one-accessibility-js-widget-minify.js?colorcode=${aioaColor}&token=${aioaToken}&position=${aioaPosition}`;
+const klaviyoEnabled =
+  !!klaviyoPublicKey &&
+  (process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_KLAVIYO_DEV === 'true');
+const liveAgentUrl = process.env.NEXT_PUBLIC_LIVEAGENT_URL || 'https://alphabrands.ladesk.com';
+const liveAgentButtonId = process.env.NEXT_PUBLIC_LIVEAGENT_BUTTON_ID || 'n3lhfezy';
 
 export default function Document({ bodyClass }: { bodyClass: string }) {
   return (
     <Html lang="en" translate="no">
       <Head>
         <meta name="google" content="notranslate" />
-        {/* Authorize.net Accept.js - loaded from their CDN for security */}
         {process.env.NEXT_PUBLIC_AUTHORIZE_ENVIRONMENT === 'production' ? (
           <script
             type="text/javascript"
@@ -28,7 +32,7 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
             charSet="utf-8"
           />
         )}
-        {klaviyoPublicKey && (
+        {klaviyoEnabled && (
           <script
             type="text/javascript"
             async
@@ -39,7 +43,6 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
           <script type="text/javascript" async src={yotpoLoyaltyLoader} />
         )}
         <script src={aioaWidgetSrc} async />
-        {/* Awin Advertiser Master Tag (Dwin) */}
         {awinAdvertiserId && (
           <script
             type="text/javascript"
@@ -47,10 +50,21 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
             src={`https://www.dwin1.com/${awinAdvertiserId}.js`}
           />
         )}
+        <script
+          type="text/javascript"
+          src="https://www.bugherd.com/sidebarv2.js?apikey=bwflzgc1semyy4bqdgyjeq"
+          async
+        />
       </Head>
       <body className={bodyClass}>
         <Main />
         <NextScript />
+        <script
+          type="text/javascript"
+          dangerouslySetInnerHTML={{
+            __html: `(function(d,src,c){var t=d.scripts[d.scripts.length-1],s=d.createElement('script');s.id='la_x2s6df8d';s.defer=true;s.src=src;s.onload=s.onreadystatechange=function(){var rs=this.readyState;if(rs&&(rs!='complete')&&(rs!='loaded')){return;}c(this);};t.parentElement.insertBefore(s,t.nextSibling);})(document,'${liveAgentUrl}/scripts/track.js',function(e){LiveAgent.createButton('${liveAgentButtonId}',e);});`,
+          }}
+        />
       </body>
     </Html>
   );

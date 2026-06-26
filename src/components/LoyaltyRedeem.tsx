@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LOYALTY_REDEMPTION, REDEEM_LOYALTY_OPTION } from '@/graphql/queries/auth';
+import { useCart } from '@/context/CartContext';
 import LoyaltyRedeemView, { RedemptionOption } from './LoyaltyRedeemView';
 
 export default function LoyaltyRedeem() {
   const { isAuthenticated, isReady } = useAuth();
   const client = getApolloAuthClient();
+  const { addToCart, applyCoupon } = useCart();
   const { data, loading, refetch } = useQuery(GET_LOYALTY_REDEMPTION, {
     client,
     skip: !isReady || !isAuthenticated,
@@ -28,6 +30,10 @@ export default function LoyaltyRedeem() {
       const res = await redeem({ variables: { optionId, pointsToRedeem } });
       const payload = res.data?.redeemLoyaltyOption;
       if (payload?.success && payload.code) {
+        if (payload.productId) {
+          await addToCart({ productId: Number(payload.productId), quantity: 1 });
+          await applyCoupon(payload.code);
+        }
         setCode(payload.code);
         refetch();
       } else {

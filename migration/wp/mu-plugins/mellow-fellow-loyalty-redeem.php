@@ -35,6 +35,40 @@ function mellow_fellow_loyalty_yotpo_get($path) {
     return json_decode(wp_remote_retrieve_body($r), true);
 }
 
+function mellow_fellow_loyalty_product_id_by_name($name) {
+    global $wpdb;
+    $name = trim((string) $name);
+    if ($name === '') {
+        return 0;
+    }
+    $pid = $wpdb->get_var($wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish' AND post_title = %s LIMIT 1",
+        $name
+    ));
+    return $pid ? (int) $pid : 0;
+}
+
+function mellow_fellow_loyalty_ensure_product_coupon($code, $product_id, $email) {
+    if (!$code || !$product_id || !function_exists('wc_get_coupon_id_by_code') || !class_exists('WC_Coupon')) {
+        return;
+    }
+    if (wc_get_coupon_id_by_code($code)) {
+        return;
+    }
+    $coupon = new WC_Coupon();
+    $coupon->set_code($code);
+    $coupon->set_discount_type('percent');
+    $coupon->set_amount(100);
+    $coupon->set_product_ids(array((int) $product_id));
+    $coupon->set_usage_limit(1);
+    if ($email) {
+        $coupon->set_email_restrictions(array($email));
+    }
+    $coupon->update_meta_data('_yotpo_loyalty_coupon', 1);
+    $coupon->update_meta_data('_yotpo_free_product', 1);
+    $coupon->save();
+}
+
 function mellow_fellow_loyalty_ensure_coupon($code, $data, $optionId, $email, $pointsToRedeem = 0) {
     if (!$code || !function_exists('wc_get_coupon_id_by_code') || !class_exists('WC_Coupon')) {
         return;
@@ -93,6 +127,8 @@ add_action('graphql_register_types', function () {
             'costText' => array('type' => 'String'),
             'isVariable' => array('type' => 'Boolean'),
             'rateCents' => array('type' => 'Int'),
+            'isFreeProduct' => array('type' => 'Boolean'),
+            'productId' => array('type' => 'Int'),
         ),
     ));
 
@@ -129,6 +165,28 @@ add_action('graphql_register_types', function () {
                             'costText' => isset($o['cost_text']) ? $o['cost_text'] : '',
                             'isVariable' => ($dt === 'generic_variable'),
                             'rateCents' => $rate,
+                            'isFreeProduct' => false,
+                            'productId' => 0,
+                        );
+                    } elseif ($dt === 'product') {
+                        $name = isset($o['name']) ? (string) $o['name'] : '';
+                        $pid = mellow_fellow_loyalty_product_id_by_name($name);
+                        if (!$pid) {
+                            continue;
+                        }
+                        $product = function_exists('wc_get_product') ? wc_get_product($pid) : null;
+                        if (!$product || !$product->is_in_stock()) {
+                            continue;
+                        }
+                        $out[] = array(
+                            'id' => isset($o['id']) ? (int) $o['id'] : 0,
+                            'name' => $name,
+                            'points' => isset($o['amount']) ? (int) $o['amount'] : 0,
+                            'costText' => isset($o['cost_text']) ? $o['cost_text'] : '',
+                            'isVariable' => false,
+                            'rateCents' => 0,
+                            'isFreeProduct' => true,
+                            'productId' => $pid,
                         );
                     }
                 }
@@ -147,6 +205,7 @@ add_action('graphql_register_types', function () {
             'success' => array('type' => 'Boolean'),
             'code' => array('type' => 'String'),
             'message' => array('type' => 'String'),
+            'productId' => array('type' => 'Int'),
         ),
         'mutateAndGetPayload' => function ($input) {
             $user = wp_get_current_user();
@@ -185,12 +244,28 @@ add_action('graphql_register_types', function () {
             $data = json_decode(wp_remote_retrieve_body($r), true);
 
             if ($status >= 200 && $status < 300 && is_array($data) && !empty($data['code'])) {
-                mellow_fellow_loyalty_ensure_coupon((string) $data['code'], $data, (int) $input['optionId'], $user->user_email, $pointsToRedeem);
-                return array('success' => true, 'code' => $data['code'], 'message' => null);
+                $productId = 0;
+                $opts = mellow_fellow_loyalty_yotpo_get('redemption_options');
+                if (is_array($opts)) {
+                    foreach ($opts as $o) {
+                        if (isset($o['id']) && (int) $o['id'] === (int) $input['optionId']) {
+                            if (($o['discount_type'] ?? '') === 'product') {
+                                $productId = mellow_fellow_loyalty_product_id_by_name($o['name'] ?? '');
+                            }
+                            break;
+                        }
+                    }
+                }
+                if ($productId) {
+                    mellow_fellow_loyalty_ensure_product_coupon((string) $data['code'], $productId, $user->user_email);
+                } else {
+                    mellow_fellow_loyalty_ensure_coupon((string) $data['code'], $data, (int) $input['optionId'], $user->user_email, $pointsToRedeem);
+                }
+                return array('success' => true, 'code' => $data['code'], 'message' => null, 'productId' => $productId ?: null);
             }
 
             $msg = is_array($data) && isset($data['error']) ? $data['error'] : ('http_' . $status);
-            return array('success' => false, 'code' => null, 'message' => $msg);
+            return array('success' => false, 'code' => null, 'message' => $msg, 'productId' => null);
         },
     ));
 });
