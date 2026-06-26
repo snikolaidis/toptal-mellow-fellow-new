@@ -3,9 +3,9 @@ import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LOYALTY_REDEMPTION, REDEEM_LOYALTY_OPTION } from '@/graphql/queries/auth';
 import { useCart } from '@/context/CartContext';
-import LoyaltyRedeemView, { RedemptionOption } from './LoyaltyRedeemView';
+import LoyaltyRedeemView, { RedemptionOption, LoyaltyVariant } from './LoyaltyRedeemView';
 
-export default function LoyaltyRedeem() {
+export default function LoyaltyRedeem({ variant = 'discounts' }: { variant?: LoyaltyVariant }) {
   const { isAuthenticated, isReady } = useAuth();
   const client = getApolloAuthClient();
   const { addToCart, applyCoupon } = useCart();
@@ -20,7 +20,10 @@ export default function LoyaltyRedeem() {
 
   const info = data?.loyaltyRedemption;
   const points = info?.pointsBalance ?? 0;
-  const options: RedemptionOption[] = info?.options ?? [];
+  const allOptions: RedemptionOption[] = info?.options ?? [];
+  const options = allOptions.filter((o) =>
+    variant === 'free-products' ? o.isFreeProduct : !o.isFreeProduct,
+  );
 
   const handleRedeem = async (optionId: number, pointsToRedeem?: number) => {
     setError(null);
@@ -60,6 +63,7 @@ export default function LoyaltyRedeem() {
       code={code}
       error={error}
       busyId={busyId}
+      variant={variant}
       onRedeem={handleRedeem}
     />
   );

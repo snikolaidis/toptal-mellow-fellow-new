@@ -41,6 +41,7 @@ export const GET_LOYALTY_REDEMPTION = gql`
         rateCents
         isFreeProduct
         productId
+        imageUrl
       }
     }
   }

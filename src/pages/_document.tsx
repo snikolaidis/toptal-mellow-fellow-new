@@ -11,8 +11,6 @@ const aioaWidgetSrc = `https://www.skynettechnologies.com/accessibility/js/all-i
 const klaviyoEnabled =
   !!klaviyoPublicKey &&
   (process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_KLAVIYO_DEV === 'true');
-const liveAgentUrl = process.env.NEXT_PUBLIC_LIVEAGENT_URL || 'https://alphabrands.ladesk.com';
-const liveAgentButtonId = process.env.NEXT_PUBLIC_LIVEAGENT_BUTTON_ID || 'n3lhfezy';
 
 export default function Document({ bodyClass }: { bodyClass: string }) {
   return (
@@ -59,12 +57,6 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
       <body className={bodyClass}>
         <Main />
         <NextScript />
-        <script
-          type="text/javascript"
-          dangerouslySetInnerHTML={{
-            __html: `(function(d,src,c){var t=d.scripts[d.scripts.length-1],s=d.createElement('script');s.id='la_x2s6df8d';s.defer=true;s.src=src;s.onload=s.onreadystatechange=function(){var rs=this.readyState;if(rs&&(rs!='complete')&&(rs!='loaded')){return;}c(this);};t.parentElement.insertBefore(s,t.nextSibling);})(document,'${liveAgentUrl}/scripts/track.js',function(e){LiveAgent.createButton('${liveAgentButtonId}',e);});`,
-          }}
-        />
       </body>
     </Html>
   );

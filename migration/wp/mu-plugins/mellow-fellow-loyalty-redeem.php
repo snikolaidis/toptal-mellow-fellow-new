@@ -129,6 +129,7 @@ add_action('graphql_register_types', function () {
             'rateCents' => array('type' => 'Int'),
             'isFreeProduct' => array('type' => 'Boolean'),
             'productId' => array('type' => 'Int'),
+            'imageUrl' => array('type' => 'String'),
         ),
     ));
 
@@ -167,6 +168,7 @@ add_action('graphql_register_types', function () {
                             'rateCents' => $rate,
                             'isFreeProduct' => false,
                             'productId' => 0,
+                            'imageUrl' => '',
                         );
                     } elseif ($dt === 'product') {
                         $name = isset($o['name']) ? (string) $o['name'] : '';
@@ -187,6 +189,7 @@ add_action('graphql_register_types', function () {
                             'rateCents' => 0,
                             'isFreeProduct' => true,
                             'productId' => $pid,
+                            'imageUrl' => wp_get_attachment_image_url($product->get_image_id(), 'woocommerce_thumbnail') ?: '',
                         );
                     }
                 }
