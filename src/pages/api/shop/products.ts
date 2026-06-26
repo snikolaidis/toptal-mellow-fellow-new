@@ -2,6 +2,11 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getClient } from '@/lib/apollo-client';
 import { GET_PRODUCTS } from '@/graphql/queries/products';
 import { withRateLimitOnly } from '@/lib/middleware';
+import {
+  parseFilterParams,
+  filtersToGraphQLVars,
+  getSortVariables,
+} from '@/lib/shopFilters';
 
 /**
  * Shop Products API
@@ -9,46 +14,6 @@ import { withRateLimitOnly } from '@/lib/middleware';
  * Handles paginated product loading for the "Load More" button.
  * Supports taxonomy filtering and sorting via query params.
  */
-
-const FILTER_PARAM_MAP: Record<string, string> = {
-  productType: 'mfProductTypeIn',
-  strainType: 'strainTypeFilterIn',
-  blendType: 'blendTypeFilterIn',
-  cannabinoid: 'cannabinoidFilterIn',
-  singleCannabinoid: 'singleCannabinoidFilterIn',
-  size: 'sizeFilterIn',
-  mg: 'mgFilterIn',
-  pieces: 'piecesFilterIn',
-  collection: 'collectionFilterIn',
-};
-
-function getSortVariables(sort: string) {
-  switch (sort) {
-    case 'newest':
-      return { orderby: [{ field: 'DATE', order: 'DESC' }] };
-    case 'price-low':
-      return { orderby: [{ field: 'PRICE', order: 'ASC' }] };
-    case 'price-high':
-      return { orderby: [{ field: 'PRICE', order: 'DESC' }] };
-    case 'name-asc':
-      return { orderby: [{ field: 'NAME', order: 'ASC' }] };
-    case 'name-desc':
-      return { orderby: [{ field: 'NAME', order: 'DESC' }] };
-    default:
-      return {};
-  }
-}
-
-function parseFilters(query: Record<string, string | string[] | undefined>): Record<string, string[]> {
-  const vars: Record<string, string[]> = {};
-  for (const [paramKey, gqlKey] of Object.entries(FILTER_PARAM_MAP)) {
-    const val = query[paramKey];
-    if (typeof val === 'string' && val) {
-      vars[gqlKey] = val.split(',').map((s) => s.trim()).filter(Boolean);
-    }
-  }
-  return vars;
-}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -59,7 +24,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const firstRaw = typeof req.query.first === 'string' ? parseInt(req.query.first, 10) : 24;
   const first = Math.max(1, Math.min(100, Number.isFinite(firstRaw) ? firstRaw : 24));
   const sort = typeof req.query.sort === 'string' ? req.query.sort : 'default';
-  const filterVars = parseFilters(req.query);
+  const filterVars = filtersToGraphQLVars(parseFilterParams(req.query));
 
   try {
     const client = getClient();

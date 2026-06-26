@@ -77,6 +77,62 @@ export const GET_COLLECTION_BY_SLUG = gql`
   }
 `;
 
+// Get a single collection's meta (no products). Used by the SSR collection
+// page, which fetches products separately via GET_PRODUCTS (collectionFilterIn).
+export const GET_COLLECTION_META = gql`
+  query GetCollectionMeta($slug: ID!) {
+    collection(id: $slug, idType: SLUG) {
+      id
+      databaseId
+      name
+      slug
+      description
+      count
+      seo {
+        title
+        metaDesc
+        schema {
+          raw
+        }
+        opengraphTitle
+        opengraphDescription
+        opengraphImage {
+          sourceUrl
+        }
+      }
+    }
+  }
+`;
+
+// Lean query over a collection's products selecting only the facet taxonomy
+// connections (name + slug), used to derive collection-scoped filter terms.
+export const GET_COLLECTION_FACET_TERMS = gql`
+  query GetCollectionFacetTerms($terms: [String]) {
+    products(first: 300, where: { collectionFilterIn: $terms }) {
+      nodes {
+        __typename
+        ... on SimpleProduct { ...FacetTermFields }
+        ... on VariableProduct { ...FacetTermFields }
+        ... on ExternalProduct { ...FacetTermFields }
+        ... on GroupProduct { ...FacetTermFields }
+      }
+    }
+  }
+
+  fragment FacetTermFields on Product {
+    id
+    databaseId
+    mfproductTypes { nodes { name slug } }
+    size { nodes { name slug } }
+    strainTypes { nodes { name slug } }
+    blendTypes { nodes { name slug } }
+    cannabinoids { nodes { name slug } }
+    singleCannabinoid { nodes { name slug } }
+    mG { nodes { name slug } }
+    pieces { nodes { name slug } }
+  }
+`;
+
 // Get all collection slugs for static paths
 export const GET_ALL_COLLECTION_SLUGS = gql`
   query GetAllCollectionSlugs {

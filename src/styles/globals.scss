@@ -327,21 +327,20 @@ img {
   color: var(--color-text-primary);
 }
 
-.product-grid {
+.products-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px 16px;
-  word-break: break-word; /*prevents elements ignoring flex properties*/
 }
 
 @media only screen and (min-width: 992px) {
-  .product-grid {
+  .products-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media only screen and (min-width: 1400px) {
-  .product-grid {
+  .products-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

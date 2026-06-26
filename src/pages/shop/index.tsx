@@ -9,49 +9,19 @@ import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
+import {
+  PAGE_SIZE,
+  FILTER_GROUPS,
+  SORT_OPTIONS,
+  TaxonomyTerm,
+  parseFilterParams,
+  filtersToGraphQLVars,
+  filtersToQueryParams,
+  getSortVariables,
+} from '@/lib/shopFilters';
 import styles from '@/styles/pages/shop.module.css';
 
-const PAGE_SIZE = 24;
-
-const sortOptions: SelectOption[] = [
-  { value: 'default', label: 'Featured' },
-  { value: 'newest', label: 'Date, new to old' },
-  { value: 'price-low', label: 'Price: Low to High' },
-  { value: 'price-high', label: 'Price: High to Low' },
-  { value: 'name-asc', label: 'Name: A to Z' },
-  { value: 'name-desc', label: 'Name: Z to A' },
-];
-
-// Maps URL param keys to GraphQL variable names
-const FILTER_PARAM_MAP: Record<string, string> = {
-  productType: 'mfProductTypeIn',
-  strainType: 'strainTypeFilterIn',
-  blendType: 'blendTypeFilterIn',
-  cannabinoid: 'cannabinoidFilterIn',
-  singleCannabinoid: 'singleCannabinoidFilterIn',
-  size: 'sizeFilterIn',
-  mg: 'mgFilterIn',
-  pieces: 'piecesFilterIn',
-  collection: 'collectionFilterIn',
-};
-
-// Filter group definitions: key (URL param), label (display), dataKey (from GraphQL response)
-const FILTER_GROUPS = [
-  { key: 'productType', label: 'Product Type', dataKey: 'productTypes' },
-  { key: 'size', label: 'Size', dataKey: 'sizes' },
-  { key: 'strainType', label: 'Strain Type', dataKey: 'strainTypes' },
-  { key: 'blendType', label: 'Experience Type', dataKey: 'blendTypes' },
-  { key: 'cannabinoid', label: 'Cannabinoid', dataKey: 'cannabinoids' },
-  { key: 'singleCannabinoid', label: 'No Blend Single Cannabinoids', dataKey: 'singleCannabinoids' },
-  { key: 'mg', label: 'MG', dataKey: 'mgs' },
-  { key: 'pieces', label: 'Pieces', dataKey: 'pcs' },
-];
-
-interface TaxonomyTerm {
-  name: string;
-  slug: string;
-  count: number;
-}
+const sortOptions: SelectOption[] = SORT_OPTIONS;
 
 interface ShopPageProps {
   products: Product[];
@@ -60,54 +30,6 @@ interface ShopPageProps {
   endCursor: string | null;
   activeFilters: Record<string, string[]>;
   selectedSort: string;
-}
-
-function parseFilterParams(query: Record<string, string | string[] | undefined>): Record<string, string[]> {
-  const filters: Record<string, string[]> = {};
-  for (const key of Object.keys(FILTER_PARAM_MAP)) {
-    const val = query[key];
-    if (typeof val === 'string' && val) {
-      filters[key] = val.split(',').map((s) => s.trim()).filter(Boolean);
-    }
-  }
-  return filters;
-}
-
-function filtersToGraphQLVars(filters: Record<string, string[]>): Record<string, string[]> {
-  const vars: Record<string, string[]> = {};
-  for (const [paramKey, slugs] of Object.entries(filters)) {
-    if (slugs.length > 0) {
-      const gqlKey = FILTER_PARAM_MAP[paramKey];
-      if (gqlKey) vars[gqlKey] = slugs;
-    }
-  }
-  return vars;
-}
-
-function filtersToQueryParams(filters: Record<string, string[]>, sort: string): Record<string, string> {
-  const query: Record<string, string> = {};
-  for (const [key, slugs] of Object.entries(filters)) {
-    if (slugs.length > 0) query[key] = slugs.join(',');
-  }
-  if (sort !== 'default') query.sort = sort;
-  return query;
-}
-
-function getSortVariables(sort: string) {
-  switch (sort) {
-    case 'newest':
-      return { orderby: [{ field: 'DATE', order: 'DESC' }] };
-    case 'price-low':
-      return { orderby: [{ field: 'PRICE', order: 'ASC' }] };
-    case 'price-high':
-      return { orderby: [{ field: 'PRICE', order: 'DESC' }] };
-    case 'name-asc':
-      return { orderby: [{ field: 'NAME', order: 'ASC' }] };
-    case 'name-desc':
-      return { orderby: [{ field: 'NAME', order: 'DESC' }] };
-    default:
-      return {};
-  }
 }
 
 export default function ShopPage({
@@ -211,82 +133,84 @@ export default function ShopPage({
         }),
       }}
     >
-      <div className={styles.page}>
-        <div className={styles.shopLayout}>
-          {/* Desktop Sidebar */}
-          <div className={styles.sidebarWrapper}>
-            <ShopSidebar
-              filterGroups={filterGroups}
-              activeFilters={activeFilters}
-              onFilterChange={handleFilterChange}
-            />
-          </div>
+      <div className='container'>
+        <div className={styles.page}>
+          <div className={styles.shopLayout}>
+            {/* Desktop Sidebar */}
+            <div className={styles.sidebarWrapper}>
+              <ShopSidebar
+                filterGroups={filterGroups}
+                activeFilters={activeFilters}
+                onFilterChange={handleFilterChange}
+              />
+            </div>
 
-          {/* Main Content */}
-          <main className={styles.shopMain}>
-            {/* Header */}
-            <div className={styles.shopHeader}>
-              <div className={styles.headerLeft}>
-                <h1 className={styles.title}>{pageTitle}</h1>
-                <span className={styles.productCount}>
-                  {allProducts.length}{hasNextPage ? '+' : ''} products
-                </span>
-              </div>
+            {/* Main Content */}
+            <main className={styles.shopMain}>
+              {/* Header */}
+              <div className={styles.shopHeader}>
+                <div className={styles.headerLeft}>
+                  <h1 className={styles.title}>{pageTitle}</h1>
+                  <span className={styles.productCount}>
+                    {allProducts.length}{hasNextPage ? '+' : ''} products
+                  </span>
+                </div>
 
-              <div className={styles.headerRight}>
-                <label className={styles.sortLabel}>Sort by</label>
-                <div className={styles.sortSelect}>
-                  <Select
-                    value={currentSort}
-                    onChange={handleSortChange}
-                    options={sortOptions}
-                    instanceId="sort-select"
-                  />
+                <div className={styles.headerRight}>
+                  <label className={styles.sortLabel}>Sort by</label>
+                  <div className={styles.sortSelect}>
+                    <Select
+                      value={currentSort}
+                      onChange={handleSortChange}
+                      options={sortOptions}
+                      instanceId="sort-select"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Products Grid */}
-            <div className={styles.productsGrid}>
-              {allProducts.length > 0 ? (
-                allProducts.map((product, index) => (
-                  <ProductCard key={product.id} product={product} priority={index < 12} />
-                ))
-              ) : (
-                <p className={styles.noProducts}>No products found matching your filters.</p>
-              )}
-            </div>
-
-            {/* Load More */}
-            {hasNextPage && (
-              <div className={styles.loadMore}>
-                <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  className={styles.loadMoreBtn}
-                >
-                  {loadingMore ? (
-                    <>
-                      <span className="spinner h-4 w-4" />
-                      Loading...
-                    </>
-                  ) : (
-                    'Load More'
-                  )}
-                </button>
+              {/* Products Grid */}
+              <div className='products-grid'>
+                {allProducts.length > 0 ? (
+                  allProducts.map((product, index) => (
+                    <ProductCard key={product.id} product={product} priority={index < 12} />
+                  ))
+                ) : (
+                  <p className={styles.noProducts}>No products found matching your filters.</p>
+                )}
               </div>
-            )}
-          </main>
-        </div>
-      </div>
 
-      {/* Mobile Filters */}
-      <MobileFilters
-        filterGroups={filterGroups}
-        activeFilters={activeFilters}
-        onFilterChange={handleFilterChange}
-        productCount={allProducts.length}
-      />
+              {/* Load More */}
+              {hasNextPage && (
+                <div className={styles.loadMore}>
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className={styles.loadMoreBtn}
+                  >
+                    {loadingMore ? (
+                      <>
+                        <span className="spinner h-4 w-4" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Load More'
+                    )}
+                  </button>
+                </div>
+              )}
+            </main>
+          </div>
+        </div>
+
+        {/* Mobile Filters */}
+        <MobileFilters
+          filterGroups={filterGroups}
+          activeFilters={activeFilters}
+          onFilterChange={handleFilterChange}
+          productCount={allProducts.length}
+        />
+      </div>
     </Layout>
   );
 }
