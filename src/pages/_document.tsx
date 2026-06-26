@@ -50,6 +50,11 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
             src={`https://www.dwin1.com/${awinAdvertiserId}.js`}
           />
         )}
+        <script
+          type="text/javascript"
+          src="https://www.bugherd.com/sidebarv2.js?apikey=bwflzgc1semyy4bqdgyjeq"
+          async
+        />
       </Head>
       <body className={bodyClass}>
         <Main />
