@@ -20,6 +20,7 @@ export default function LoginPage() {
 
   const redirectUrl = (router.query.redirect as string) || '/account';
   const registeredSuccess = router.query.registered === 'true';
+  const resetSuccess = router.query.reset === 'true';
 
   useEffect(() => {
     if (isReady && isAuthenticated) {
@@ -84,6 +85,12 @@ export default function LoginPage() {
             </div>
           )}
 
+          {resetSuccess && (
+            <div className="success-alert mb-6" role="alert">
+              Your password has been reset. Please sign in.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className={styles.form}>
             {(formError || authError) && (
               <div className={styles.error} role="alert">
@@ -142,6 +149,11 @@ export default function LoginPage() {
           </form>
 
           <div className={styles.footer}>
+            <p className={styles.footerText}>
+              <Link href="/forgot-password" className={styles.footerLink}>
+                Forgot your password?
+              </Link>
+            </p>
             <p className={styles.footerText}>
               Don&apos;t have an account?{' '}
               <Link href="/register" className={styles.footerLink}>
