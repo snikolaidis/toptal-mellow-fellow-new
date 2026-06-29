@@ -995,6 +995,7 @@ img {
    =================================== */
 @media (max-width: 1023px) {
   .yotpo-floater-widget-layout {
-    bottom: 70px !important;
+    bottom: 60px !important;
+    z-index: 49 !important;
   }
 }
