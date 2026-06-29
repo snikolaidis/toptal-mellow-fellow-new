@@ -1,5 +1,8 @@
 import '@/lib/domPatch';
 import '@/styles/globals.scss';
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/autoplay';
 import { FaustProvider } from '@faustwp/core';
 import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';

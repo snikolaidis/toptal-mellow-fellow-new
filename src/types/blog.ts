@@ -70,6 +70,15 @@ export interface LatestPostCard {
   };
 }
 
+export interface SmartRelatedProduct {
+  id: string;
+  databaseId: number;
+  slug: string;
+  title: string;
+  image: string;
+  rawPrice: string;
+}
+
 export interface BlogFaq {
   id: string;
   title: string;
@@ -83,6 +92,7 @@ export interface BlogPost extends BlogPostCard {
     nodes: BlogTag[];
   };
   seo?: BlogPostSeo;
+  smartRelatedProducts?: SmartRelatedProduct[];
   blogPostsFields?: {
     faqs?: {
       nodes: BlogFaq[];

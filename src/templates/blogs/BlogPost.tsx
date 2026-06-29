@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { BlogPost, BlogTag, LatestPostCard } from '@/types/blog';
 import TableOfContents from '@/components/TableOfContents';
+import RelatedProductsCarousel from '@/components/RelatedProductsCarousel';
 import styles from '@/styles/pages/blogs.module.css';
 
 interface BlogPostProps {
@@ -136,6 +137,11 @@ export default function BlogPostTemplate({ post, latestPosts, allTags }: BlogPos
           {after && (
             <div className={styles.postContent} dangerouslySetInnerHTML={{ __html: after }} />
           )}
+
+          {/* Related Products Carousel */}
+          {post.smartRelatedProducts?.length ? (
+            <RelatedProductsCarousel products={post.smartRelatedProducts} />
+          ) : null}
 
           {/* FAQ Accordions */}
           {(() => {
