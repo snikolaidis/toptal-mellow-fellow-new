@@ -21,15 +21,17 @@ const retryLink = new RetryLink({
     return base / 2 + Math.random() * (base / 2);
   },
   attempts: {
-    max: 3,
+    max: 5,
     retryIf: (error) => {
       if (!error) return false;
       const status = (error as { statusCode?: number }).statusCode;
       if (typeof status === 'number') return RETRYABLE_STATUS.has(status);
-      // Only retry on transient network errors (ECONNRESET, ETIMEDOUT), not SSL/TLS failures
+      // Skip retries on SSL/certificate errors (local dev with self-signed certs)
       const msg = String((error as any)?.message || '');
       if (msg.includes('SSL') || msg.includes('certificate') || msg.includes('self-signed')) return false;
-      return false; // Don't retry generic network errors in development
+      // Retry generic network errors in production builds (WPEngine can be flaky)
+      if (typeof window === 'undefined') return true;
+      return false;
     },
   },
 });
