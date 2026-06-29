@@ -11,17 +11,18 @@ import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 export default function PointsForProductsPage() {
   const { isAuthenticated, isReady } = useAuth();
   const { ready, token } = useYotpoLoyalty();
-  const instance = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_PRODUCTS_INSTANCE;
+  const bannerInstance = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_BANNER_INSTANCE;
+  const redeemInstance = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_PRODUCTS_INSTANCE;
 
   useEffect(() => {
-    if (ready && instance) {
+    if (ready && (bannerInstance || redeemInstance)) {
       initYotpoLoyaltyWidgets(process.env.NEXT_PUBLIC_YOTPO_LOYALTY_LOADER);
     }
-  }, [ready, token, instance]);
+  }, [ready, token, bannerInstance, redeemInstance]);
 
   return (
     <Layout title="Points for Products">
-      <LoyaltyGreeting />
+      {bannerInstance && <YotpoWidget instanceId={bannerInstance} />}
 
       {isReady && !isAuthenticated ? (
         <div className="loyalty-redeem">
@@ -38,8 +39,9 @@ export default function PointsForProductsPage() {
         </div>
       ) : (
         <>
+          <LoyaltyGreeting />
           <FreeProductRedemption />
-          {instance && <YotpoWidget instanceId={instance} />}
+          {redeemInstance && <YotpoWidget instanceId={redeemInstance} />}
         </>
       )}
     </Layout>
