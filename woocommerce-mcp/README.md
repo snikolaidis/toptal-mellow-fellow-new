@@ -17,7 +17,7 @@ All tools are read-only.
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `WC_SITE_URL` | yes | Full https URL of the WooCommerce site, e.g. `https://mellowfellow1.wpenginepowered.com` |
+| `WC_SITE_URL` | yes | Full https URL of the WooCommerce site, e.g. `https://mellowfellow1.wpenginepowered.com`. Falls back to `NEXT_PUBLIC_WORDPRESS_URL` if `WC_SITE_URL` is not set |
 | `WC_CONSUMER_KEY` | yes | WooCommerce REST API consumer key (`ck_...`), Read permission is enough |
 | `WC_CONSUMER_SECRET` | yes | WooCommerce REST API consumer secret (`cs_...`) |
 | `MCP_BEARER_TOKEN` | yes | A long random string. FlowHunt sends it as a Bearer token to authenticate to this server |
