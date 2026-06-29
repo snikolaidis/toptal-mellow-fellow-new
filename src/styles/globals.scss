@@ -988,3 +988,14 @@ img {
   width: 28px !important;
   height: 28px !important;
 }
+
+/* ===================================
+   YOTPO REWARDS BANNER — MOBILE FIX
+   Push the floating loyalty widget above the mobile filter bar
+   =================================== */
+@media (max-width: 1023px) {
+  .yotpo-floater-widget-layout {
+    bottom: 50px !important;
+    z-index: 49 !important;
+  }
+}

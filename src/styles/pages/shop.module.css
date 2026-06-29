@@ -1,7 +1,51 @@
 /* Shop Page */
 .page {
-  max-width: 1800px;
+  max-width: 1400px;
   margin: 0 auto;
+  padding: 1.5rem 1rem 6rem;
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding: 2rem 2rem 6rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page {
+    padding-bottom: 4rem;
+  }
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #666666;
+  margin-bottom: 2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.breadcrumb a {
+  color: #666666;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.breadcrumb a:hover {
+  color: #000000;
+}
+
+.breadcrumbSeparator {
+  color: #e0e0e0;
+}
+
+.breadcrumbCurrent {
+  color: #000000;
+  font-weight: 500;
 }
 
 /* Shop Layout - Sidebar + Main */

@@ -8,6 +8,7 @@ import ProductCard from '@/components/ProductCard';
 import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
+import Link from 'next/link';
 import { Product } from '@/types/woocommerce';
 import {
   PAGE_SIZE,
@@ -135,6 +136,13 @@ export default function ShopPage({
     >
       <div className='container'>
         <div className={styles.page}>
+          {/* Breadcrumb */}
+          <nav className={styles.breadcrumb}>
+            <Link href="/">Home</Link>
+            <span className={styles.breadcrumbSeparator}>/</span>
+            <span className={styles.breadcrumbCurrent}>Shop</span>
+          </nav>
+
           <div className={styles.shopLayout}>
             {/* Desktop Sidebar */}
             <div className={styles.sidebarWrapper}>
