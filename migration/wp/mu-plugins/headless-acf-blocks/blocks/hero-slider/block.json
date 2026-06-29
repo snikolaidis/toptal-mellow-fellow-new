@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/hero-slider",
+	"title": "Hero Slider",
+	"description": "A slider of full-width hero slides. Each slide has mobile/tablet/desktop responsive images and an optional link. Rendered as a Swiper carousel on the headless frontend.",
+	"category": "headless-blocks",
+	"icon": "images-alt2",
+	"keywords": [ "hero", "slider", "carousel", "banner" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\HeroSlider\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

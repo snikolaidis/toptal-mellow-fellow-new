@@ -1,0 +1,15 @@
+.hero-slider {
+  // Slide images reuse the .responsive-banner__image / __wrapper rules.
+  .swiper-slide {
+    a,
+    .responsive-banner__wrapper {
+      display: block;
+    }
+
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+  }
+}

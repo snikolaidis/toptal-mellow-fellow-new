@@ -1,0 +1,78 @@
+{
+    "key": "group_hero_slider",
+    "title": "Hero Slider Fields",
+    "fields": [
+        {
+            "key": "field_hs_slides",
+            "label": "Slides",
+            "name": "slides",
+            "type": "repeater",
+            "instructions": "Each slide has mobile, tablet and desktop images plus an optional link. Slider behaviour (autoplay, loop, arrows, dots) is fixed by the frontend.",
+            "layout": "block",
+            "button_label": "Add Slide",
+            "min": 0,
+            "sub_fields": [
+                {
+                    "key": "field_hs_mobile_image",
+                    "label": "Mobile image",
+                    "name": "mobile_image",
+                    "type": "image",
+                    "instructions": "Shown below 768px.",
+                    "return_format": "array",
+                    "preview_size": "medium",
+                    "wrapper": { "width": "33" }
+                },
+                {
+                    "key": "field_hs_tablet_image",
+                    "label": "Tablet image",
+                    "name": "tablet_image",
+                    "type": "image",
+                    "instructions": "Shown from 768px to 1023px.",
+                    "return_format": "array",
+                    "preview_size": "medium",
+                    "wrapper": { "width": "33" }
+                },
+                {
+                    "key": "field_hs_desktop_image",
+                    "label": "Desktop image",
+                    "name": "desktop_image",
+                    "type": "image",
+                    "instructions": "Shown from 1024px up.",
+                    "return_format": "array",
+                    "preview_size": "medium",
+                    "wrapper": { "width": "34" }
+                },
+                {
+                    "key": "field_hs_link",
+                    "label": "Link",
+                    "name": "link",
+                    "type": "link",
+                    "instructions": "Optional. Makes the whole slide clickable.",
+                    "required": 0
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/hero-slider"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "heroSlider",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfHeroSlider"
+    ]
+}
