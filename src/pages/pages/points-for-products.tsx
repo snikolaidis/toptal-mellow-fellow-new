@@ -21,16 +21,6 @@ export default function PointsForProductsPage() {
 
   return (
     <Layout title="Points for Products">
-      <div className="loyalty-hero">
-        <div className="loyalty-hero__image" />
-        <div className="loyalty-hero__panel">
-          <h1 className="loyalty-hero__title">Welcome to the club</h1>
-          <p className="loyalty-hero__text">
-            You&apos;re now earning points that can be used to shop for products or save at checkout.
-          </p>
-        </div>
-      </div>
-
       <LoyaltyGreeting />
 
       {isReady && !isAuthenticated ? (
