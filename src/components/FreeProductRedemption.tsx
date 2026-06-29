@@ -36,7 +36,7 @@ function getCustomerEmail(): string {
 }
 
 export default function FreeProductRedemption() {
-  const { addToCart, applyCoupon, openDrawer } = useCart();
+  const { cart, addToCart, applyCoupon, openDrawer } = useCart();
   const [cartId, setCartId] = useState('');
 
   useEffect(() => {
@@ -94,10 +94,17 @@ export default function FreeProductRedemption() {
     return null;
   }
 
+  const hasPaidProduct = cart ? !cart.isEmpty : false;
+
   return (
     <div
       id="yotpo-loyalty-cart-data"
       data-cart-id={cartId}
+      data-cart-currency="USD"
+      data-free-product-points="0"
+      data-applied-coupon-points="0"
+      data-has-paid-product={hasPaidProduct ? 'true' : 'false'}
+      data-has-free-product="false"
       style={{ display: 'none' }}
       suppressHydrationWarning
     />
