@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { FaustTemplate } from '@faustwp/core';
 import Layout from '@/components/Layout';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
 import YotpoWidget from '@/components/YotpoWidget';
@@ -7,7 +8,9 @@ import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { positionLoyaltyRedeem } from '@/lib/loyaltyPageLayout';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 
-export default function RewardsPage() {
+// Rewards is a fully client-rendered loyalty page (Yotpo); it has no template
+// query — the seed node only selects the `page-rewards` template.
+const RewardsPage: FaustTemplate<Record<string, never>> = () => {
   const { ready, token } = useYotpoLoyalty();
   const instance = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_PAGE_INSTANCE;
   const [redeemTarget, setRedeemTarget] = useState<HTMLElement | null>(null);
@@ -29,4 +32,6 @@ export default function RewardsPage() {
       {redeemTarget ? createPortal(<LoyaltyRedeem />, redeemTarget) : <LoyaltyRedeem />}
     </Layout>
   );
-}
+};
+
+export default RewardsPage;

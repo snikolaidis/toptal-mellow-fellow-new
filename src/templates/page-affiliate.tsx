@@ -1,63 +1,62 @@
-import { GetStaticProps } from 'next';
+import { gql } from '@apollo/client';
+import { FaustTemplate } from '@faustwp/core';
 import Link from 'next/link';
 import Image from 'next/image';
 import Layout from '@/components/Layout';
-import { getClient } from '@/lib/apollo-client';
-import { GET_PRODUCTS } from '@/graphql/queries/products';
 import { Product } from '@/types/woocommerce';
 import styles from '@/styles/pages/affiliate.module.css';
 import UGCGallery, { UGCItem } from '@/components/affiliate/UGCGallery';
-import { gql } from '@apollo/client';
+import {
+  SIMPLE_PRODUCT_FIELDS,
+  VARIABLE_PRODUCT_FIELDS,
+  EXTERNAL_PRODUCT_FIELDS,
+  GROUP_PRODUCT_FIELDS,
+} from '@/graphql/queries/products';
 
 const AWIN_SIGNUP_URL = 'https://ui.awin.com/express-signup/en/awin/59403/726a754c-4998-4ec8-a77d-40ccd659d54e?t=CkcZSywINKh2WumvTw9RRzoTi29X6_Tgg1VjVeaDBjY';
 
-const GET_AFFILIATE_DATA = gql`
-  query GetAffiliateData {
-    pageBy(uri: "affiliate-data") {
-      affiliatePageContent {
-        ugcGallery {
-          videoUrl { node { mediaItemUrl } }
-          videoPoster { node { sourceUrl } }
-          taggedProduct {
-            nodes {
-              ... on SimpleProduct {
-                id
-                databaseId
-                name
-                slug
-                price
-                regularPrice
-                salePrice
-                stockStatus
-                shortDescription
-                image { id sourceUrl altText }
-              }
-            }
-          }
-        }
-        affiliateHero1 { node { sourceUrl altText } }
-        affiliateHero2 { node { sourceUrl altText } }
-        affiliateHero3 { node { sourceUrl altText } }
-        affiliateCtaLifestyle { node { sourceUrl altText } }
-      }
-    }
-  }
-`;
-
-interface AffiliateImages {
-  affiliateHero1?: { sourceUrl: string; altText: string } | null;
-  affiliateHero2?: { sourceUrl: string; altText: string } | null;
-  affiliateHero3?: { sourceUrl: string; altText: string } | null;
-  affiliateCtaLifestyle?: { sourceUrl: string; altText: string } | null;
+interface AffiliateImage {
+  sourceUrl: string;
+  altText: string;
 }
 
-interface AffiliatePageProps {
-  bestsellers: Product[];
-  ugcItems: UGCItem[];
-  images: AffiliateImages;
+interface AffiliateData {
+  products?: { nodes: Product[] };
+  pageBy?: {
+    affiliatePageContent?: {
+      ugcGallery?: Array<{
+        videoUrl?: { node?: { mediaItemUrl?: string } | null } | null;
+        videoPoster?: { node?: { sourceUrl?: string } | null } | null;
+        taggedProduct?: { nodes?: any[] } | null;
+      }> | null;
+      affiliateHero1?: { node?: AffiliateImage | null } | null;
+      affiliateHero2?: { node?: AffiliateImage | null } | null;
+      affiliateHero3?: { node?: AffiliateImage | null } | null;
+      affiliateCtaLifestyle?: { node?: AffiliateImage | null } | null;
+    } | null;
+  } | null;
 }
 
-export default function AffiliatePage({ bestsellers, ugcItems, images }: AffiliatePageProps) {
+const AffiliatePage: FaustTemplate<AffiliateData> = (props) => {
+  const bestsellers = props.data?.products?.nodes ?? [];
+  const acf = props.data?.pageBy?.affiliatePageContent ?? {};
+
+  const ugcItems: UGCItem[] = (acf.ugcGallery || [])
+    .filter((row) => row?.videoUrl?.node?.mediaItemUrl)
+    .map((row, i) => ({
+      id: `ugc-${i}`,
+      videoUrl: row.videoUrl!.node!.mediaItemUrl as string,
+      posterUrl: row.videoPoster?.node?.sourceUrl || null,
+      product: row.taggedProduct?.nodes?.[0] || null,
+    }));
+
+  const images = {
+    affiliateHero1: acf.affiliateHero1?.node || null,
+    affiliateHero2: acf.affiliateHero2?.node || null,
+    affiliateHero3: acf.affiliateHero3?.node || null,
+    affiliateCtaLifestyle: acf.affiliateCtaLifestyle?.node || null,
+  };
+
   return (
     <Layout
       title="Affiliate Program"
@@ -365,53 +364,52 @@ export default function AffiliatePage({ bestsellers, ugcItems, images }: Affilia
       </div>
     </Layout>
   );
-}
-
-export const getStaticProps: GetStaticProps = async () => {
-  try {
-    const client = getClient();
-    const [productsResult, affiliateResult] = await Promise.all([
-      client.query({
-        query: GET_PRODUCTS,
-        variables: { first: 3, orderby: [{ field: 'TOTAL_SALES', order: 'DESC' }] },
-      }),
-      client.query({ query: GET_AFFILIATE_DATA }).catch(() => ({ data: null })),
-    ]);
-
-    const acf = affiliateResult.data?.pageBy?.affiliatePageContent || {};
-
-    const ugcItems: UGCItem[] = (acf.ugcGallery || [])
-      .filter((row: any) => row?.videoUrl?.node?.mediaItemUrl)
-      .map((row: any, i: number) => ({
-        id: `ugc-${i}`,
-        videoUrl: row.videoUrl.node.mediaItemUrl,
-        posterUrl: row.videoPoster?.node?.sourceUrl || null,
-        product: row.taggedProduct?.nodes?.[0] || null,
-      }));
-
-    const images: AffiliateImages = {
-      affiliateHero1: acf.affiliateHero1?.node || null,
-      affiliateHero2: acf.affiliateHero2?.node || null,
-      affiliateHero3: acf.affiliateHero3?.node || null,
-      affiliateCtaLifestyle: acf.affiliateCtaLifestyle?.node || null,
-    };
-
-    return {
-      props: {
-        bestsellers: productsResult.data?.products?.nodes || [],
-        ugcItems,
-        images,
-      },
-      revalidate: 300,
-    };
-  } catch (error) {
-    return {
-      props: {
-        bestsellers: [],
-        ugcItems: [],
-        images: {},
-      },
-      revalidate: 60,
-    };
-  }
 };
+
+AffiliatePage.query = gql`
+  ${SIMPLE_PRODUCT_FIELDS}
+  ${VARIABLE_PRODUCT_FIELDS}
+  ${EXTERNAL_PRODUCT_FIELDS}
+  ${GROUP_PRODUCT_FIELDS}
+  query GetAffiliatePage {
+    products(first: 3, where: { orderby: [{ field: TOTAL_SALES, order: DESC }] }) {
+      nodes {
+        __typename
+        ... on SimpleProduct { ...SimpleProductFields }
+        ... on VariableProduct { ...VariableProductFields }
+        ... on ExternalProduct { ...ExternalProductFields }
+        ... on GroupProduct { ...GroupProductFields }
+      }
+    }
+    pageBy(uri: "affiliate-data") {
+      affiliatePageContent {
+        ugcGallery {
+          videoUrl { node { mediaItemUrl } }
+          videoPoster { node { sourceUrl } }
+          taggedProduct {
+            nodes {
+              ... on SimpleProduct {
+                id
+                databaseId
+                name
+                slug
+                price
+                regularPrice
+                salePrice
+                stockStatus
+                shortDescription
+                image { id sourceUrl altText }
+              }
+            }
+          }
+        }
+        affiliateHero1 { node { sourceUrl altText } }
+        affiliateHero2 { node { sourceUrl altText } }
+        affiliateHero3 { node { sourceUrl altText } }
+        affiliateCtaLifestyle { node { sourceUrl altText } }
+      }
+    }
+  }
+`;
+
+export default AffiliatePage;

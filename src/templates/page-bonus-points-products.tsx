@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { GetStaticProps } from 'next';
+import { FaustTemplate } from '@faustwp/core';
 import Layout from '@/components/Layout';
 import FeaturedCollection from '@/components/FeaturedCollection';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
 import YotpoWidget from '@/components/YotpoWidget';
 import KlaviyoForm from '@/components/KlaviyoForm';
-import { getClient } from '@/lib/apollo-client';
 import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
 import { Product } from '@/types/woocommerce';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
@@ -17,11 +16,12 @@ const WP_MEDIA_BASE = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$
 const BANNER_DESKTOP = `${WP_MEDIA_BASE}/wp-content/uploads/2026/06/BPP_Landing_Page_copy-scaled.webp`;
 const BANNER_MOBILE = `${WP_MEDIA_BASE}/wp-content/uploads/2026/06/BPP_Landing_Page_copy_mobile.webp`;
 
-interface BonusPointsProductsPageProps {
-  products: Product[];
+interface BonusPointsData {
+  products?: { nodes: Product[] };
 }
 
-export default function BonusPointsProductsPage({ products }: BonusPointsProductsPageProps) {
+const BonusPointsProductsPage: FaustTemplate<BonusPointsData> = (props) => {
+  const products = props.data?.products?.nodes ?? [];
   const { ready, token } = useYotpoLoyalty();
   const [bannerError, setBannerError] = useState(false);
   const vipTiers = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_VIP_TIERS_INSTANCE;
@@ -92,28 +92,12 @@ export default function BonusPointsProductsPage({ products }: BonusPointsProduct
       </section>
     </Layout>
   );
-}
-
-export const getStaticProps: GetStaticProps = async () => {
-  try {
-    const client = getClient();
-    const { data } = await client.query({
-      query: GET_COLLECTION_BY_SLUG,
-      variables: {
-        slug: BONUS_POINTS_COLLECTION_SLUG,
-        collectionSlug: BONUS_POINTS_COLLECTION_SLUG,
-      },
-    });
-    const products: Product[] = data?.products?.nodes || [];
-    return {
-      props: { products },
-      revalidate: 60,
-    };
-  } catch (error) {
-    console.error('Error fetching bonus points products:', error);
-    return {
-      props: { products: [] },
-      revalidate: 60,
-    };
-  }
 };
+
+BonusPointsProductsPage.query = GET_COLLECTION_BY_SLUG;
+BonusPointsProductsPage.variables = () => ({
+  slug: BONUS_POINTS_COLLECTION_SLUG,
+  collectionSlug: BONUS_POINTS_COLLECTION_SLUG,
+});
+
+export default BonusPointsProductsPage;

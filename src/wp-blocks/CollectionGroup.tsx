@@ -138,7 +138,7 @@ export default function CollectionGroup({
             </Swiper>
           </div>
         ) : (
-          <div className="product-grid">
+          <div className="products-grid">
             {active.products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
