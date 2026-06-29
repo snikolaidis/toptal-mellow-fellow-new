@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
 
 export interface RedemptionOption {
   id: number;
@@ -9,7 +13,10 @@ export interface RedemptionOption {
   rateCents?: number;
   isFreeProduct?: boolean;
   productId?: number;
+  imageUrl?: string;
 }
+
+export type LoyaltyVariant = 'discounts' | 'free-products';
 
 interface Props {
   points: number;
@@ -17,16 +24,30 @@ interface Props {
   code: string | null;
   error: string | null;
   busyId: number | null;
+  variant: LoyaltyVariant;
   onRedeem: (optionId: number, pointsToRedeem?: number) => void;
 }
 
-const INITIAL_FREE = 6;
+function groupByPoints(options: RedemptionOption[]): Array<[number, RedemptionOption[]]> {
+  const map = new Map<number, RedemptionOption[]>();
+  options.forEach((o) => {
+    const arr = map.get(o.points) || [];
+    arr.push(o);
+    map.set(o.points, arr);
+  });
+  return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
+}
 
-export default function LoyaltyRedeemView({ points, options, code, error, busyId, onRedeem }: Props) {
-  const [showAllFree, setShowAllFree] = useState(false);
-  const rewards = options.filter((o) => !o.isFreeProduct);
-  const freeProducts = options.filter((o) => o.isFreeProduct);
-  const visibleFree = showAllFree ? freeProducts : freeProducts.slice(0, INITIAL_FREE);
+export default function LoyaltyRedeemView({
+  points,
+  options,
+  code,
+  error,
+  busyId,
+  variant,
+  onRedeem,
+}: Props) {
+  const isFree = variant === 'free-products';
 
   const renderOption = (o: RedemptionOption) => {
     if (o.isVariable) {
@@ -43,16 +64,24 @@ export default function LoyaltyRedeemView({ points, options, code, error, busyId
     const affordable = points >= o.points;
     return (
       <div key={o.id} className="loyalty-redeem__card">
-        {o.isFreeProduct && <div className="loyalty-redeem__tag">Free product</div>}
+        {o.isFreeProduct && o.imageUrl && (
+          <img className="loyalty-redeem__image" src={o.imageUrl} alt={o.name} loading="lazy" />
+        )}
         <div className="loyalty-redeem__reward">{o.name}</div>
-        <div className="loyalty-redeem__cost">{o.costText || `${o.points} points`}</div>
+        {!o.isFreeProduct && (
+          <div className="loyalty-redeem__cost">{o.costText || `${o.points} points`}</div>
+        )}
         <button
-          className="loyalty-redeem__button"
+          className={
+            o.isFreeProduct
+              ? 'loyalty-redeem__button loyalty-redeem__button--outline'
+              : 'loyalty-redeem__button'
+          }
           onClick={() => onRedeem(o.id)}
           disabled={!affordable || busyId === o.id}
           title={affordable ? '' : "You don't have enough points to redeem"}
         >
-          {busyId === o.id ? 'Redeeming...' : o.isFreeProduct ? 'Get free product' : 'Redeem'}
+          {busyId === o.id ? 'Redeeming...' : o.isFreeProduct ? 'Redeem now' : 'Redeem'}
         </button>
       </div>
     );
@@ -60,14 +89,22 @@ export default function LoyaltyRedeemView({ points, options, code, error, busyId
 
   return (
     <div className="loyalty-redeem">
-      <h2 className="loyalty-redeem__heading">How to Use Your Points</h2>
-      <div className="loyalty-redeem__rule">
-        <span className="loyalty-redeem__dot" />
-        10 points equals $1
-        <span className="loyalty-redeem__dot" />
-      </div>
+      <h2 className="loyalty-redeem__heading">
+        {isFree ? 'Points for Products' : 'How to Use Your Points'}
+      </h2>
+
+      {!isFree && (
+        <div className="loyalty-redeem__rule">
+          <span className="loyalty-redeem__dot" />
+          10 points equals $1
+          <span className="loyalty-redeem__dot" />
+        </div>
+      )}
+
       <p className="loyalty-redeem__description">
-        Redeeming your points is easy. Pick a reward below to get your code, then apply it at checkout.
+        {isFree
+          ? 'Redeem your points for a free product, added straight to your cart.'
+          : 'Redeeming your points is easy. Pick a reward below to get your code, then apply it at checkout.'}
       </p>
       <p className="loyalty-redeem__balance">You have {points} points</p>
 
@@ -75,32 +112,42 @@ export default function LoyaltyRedeemView({ points, options, code, error, busyId
         <div className="loyalty-redeem__code-box">
           <p className="loyalty-redeem__code-label">Your reward code</p>
           <p className="loyalty-redeem__code-value">{code}</p>
-          <p className="loyalty-redeem__code-hint">Apply this code at checkout.</p>
+          <p className="loyalty-redeem__code-hint">
+            {isFree ? 'Added to your cart with the discount applied.' : 'Apply this code at checkout.'}
+          </p>
         </div>
       )}
 
       {error && <div className="loyalty-redeem__error">{error}</div>}
 
-      {rewards.length > 0 && <div className="loyalty-redeem__grid">{rewards.map(renderOption)}</div>}
-
-      {freeProducts.length > 0 && (
-        <div className="loyalty-redeem__free">
-          <h3 className="loyalty-redeem__free-heading">Free products</h3>
-          <p className="loyalty-redeem__free-sub">
-            Redeem your points for a free product, added straight to your cart.
-          </p>
-          <div className="loyalty-redeem__grid">{visibleFree.map(renderOption)}</div>
-          {freeProducts.length > INITIAL_FREE && (
-            <button
-              type="button"
-              className="loyalty-redeem__more"
-              onClick={() => setShowAllFree((v) => !v)}
-            >
-              {showAllFree ? 'Show fewer' : `Show all ${freeProducts.length} free products`}
-            </button>
+      {isFree
+        ? groupByPoints(options).map(([pts, opts]) => (
+            <div key={pts} className="loyalty-redeem__group">
+              <h3 className="loyalty-redeem__group-heading">Products for {pts} Points</h3>
+              {opts.length > 1 ? (
+                <Swiper
+                  modules={[Navigation]}
+                  navigation
+                  slidesPerView={1.4}
+                  spaceBetween={16}
+                  breakpoints={{
+                    640: { slidesPerView: 2 },
+                    992: { slidesPerView: 3 },
+                    1280: { slidesPerView: 4 },
+                  }}
+                >
+                  {opts.map((o) => (
+                    <SwiperSlide key={o.id}>{renderOption(o)}</SwiperSlide>
+                  ))}
+                </Swiper>
+              ) : (
+                <div className="loyalty-redeem__grid">{opts.map(renderOption)}</div>
+              )}
+            </div>
+          ))
+        : options.length > 0 && (
+            <div className="loyalty-redeem__grid">{options.map(renderOption)}</div>
           )}
-        </div>
-      )}
     </div>
   );
 }

@@ -150,6 +150,14 @@ export const GET_POST_BY_SLUG = gql`
           sourceUrl
         }
       }
+      smartRelatedProducts {
+        id
+        databaseId
+        slug
+        title
+        image
+        rawPrice
+      }
       blogPostsFields {
         faqs {
           nodes {

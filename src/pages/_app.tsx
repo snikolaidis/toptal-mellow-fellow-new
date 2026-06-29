@@ -1,6 +1,9 @@
 import '../../faust.config';
 import '@/lib/domPatch';
 import '@/styles/globals.scss';
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/autoplay';
 import { FaustProvider } from '@faustwp/core';
 import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';
@@ -9,6 +12,7 @@ import { getBodyClass } from '@/lib/bodyClass';
 import { CartProvider } from '@/context/CartContext';
 import { YotpoLoyaltyProvider } from '@/context/YotpoLoyaltyContext';
 import AgeVerification from '@/components/AgeVerification/AgeVerification';
+import LiveAgentChat from '@/components/LiveAgentChat';
 import { WordPressBlocksProvider, fromThemeJson } from "@faustwp/blocks";
 import blocks from "@/wp-blocks";
 
@@ -35,6 +39,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <CartProvider>
           <YotpoLoyaltyProvider>
             <AgeVerification />
+            <LiveAgentChat />
             <Component {...pageProps} />
           </YotpoLoyaltyProvider>
         </CartProvider>

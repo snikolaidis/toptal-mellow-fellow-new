@@ -29,7 +29,9 @@ const RewardsPage: FaustTemplate<Record<string, never>> = () => {
     <Layout title="Rewards">
       {instance && <YotpoWidget instanceId={instance} />}
 
-      {redeemTarget ? createPortal(<LoyaltyRedeem />, redeemTarget) : <LoyaltyRedeem />}
+      {redeemTarget
+        ? createPortal(<LoyaltyRedeem variant="discounts" />, redeemTarget)
+        : <LoyaltyRedeem variant="discounts" />}
     </Layout>
   );
 };

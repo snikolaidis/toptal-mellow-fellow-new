@@ -473,6 +473,77 @@
   text-shadow: 0 0 0.6px #2a2a2a, 0 0 0.6px #2a2a2a;
 }
 
+.relatedProductsSection {
+  margin-bottom: 1rem;
+}
+
+.relatedSwiper {
+  padding-bottom: 2.5rem !important;
+}
+
+.relatedSwiper :global(.swiper-pagination-bullet) {
+  background: #000;
+  opacity: 0.25;
+}
+
+.relatedSwiper :global(.swiper-pagination-bullet-active) {
+  opacity: 1;
+}
+
+.relatedSlide {
+  height: auto;
+}
+
+.relatedCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  gap: 0;
+}
+
+.relatedImageWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+}
+
+.relatedImage {
+  object-fit: contain;
+}
+
+.relatedInfo {
+  padding: 1rem 0.5rem 0;
+  text-align: center;
+  width: 100%;
+}
+
+.relatedTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #000;
+  line-height: 1.3;
+  margin: 0 0 0.5rem;
+}
+
+.relatedPrice {
+  font-size: 0.9375rem;
+  color: #000;
+  margin: 0 0 1rem;
+}
+
+.relatedBtn {
+  display: inline-block;
+  background: #000;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.625rem 2rem;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
 .faqSection {
   margin-bottom: 3.5rem;
 }
