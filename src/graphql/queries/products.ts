@@ -38,31 +38,61 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
     strainTypes {
       nodes {
         name
+        slug
       }
     }
     strainNames {
       nodes {
         name
+        slug
       }
     }
     blendTypes {
       nodes {
         name
+        slug
       }
     }
     productLines {
       nodes {
         name
+        slug
       }
     }
     size {
       nodes {
         name
+        slug
       }
     }
     mfproductTypes {
       nodes {
         name
+        slug
+      }
+    }
+    cannabinoids {
+      nodes {
+        name
+        slug
+      }
+    }
+    singleCannabinoid {
+      nodes {
+        name
+        slug
+      }
+    }
+    mG {
+      nodes {
+        name
+        slug
+      }
+    }
+    pieces {
+      nodes {
+        name
+        slug
       }
     }
   }
@@ -121,31 +151,61 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
     strainTypes {
       nodes {
         name
+        slug
       }
     }
     strainNames {
       nodes {
         name
+        slug
       }
     }
     blendTypes {
       nodes {
         name
+        slug
       }
     }
     productLines {
       nodes {
         name
+        slug
       }
     }
     size {
       nodes {
         name
+        slug
       }
     }
     mfproductTypes {
       nodes {
         name
+        slug
+      }
+    }
+    cannabinoids {
+      nodes {
+        name
+        slug
+      }
+    }
+    singleCannabinoid {
+      nodes {
+        name
+        slug
+      }
+    }
+    mG {
+      nodes {
+        name
+        slug
+      }
+    }
+    pieces {
+      nodes {
+        name
+        slug
       }
     }
   }
@@ -188,31 +248,61 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
     strainTypes {
       nodes {
         name
+        slug
       }
     }
     strainNames {
       nodes {
         name
+        slug
       }
     }
     blendTypes {
       nodes {
         name
+        slug
       }
     }
     productLines {
       nodes {
         name
+        slug
       }
     }
     size {
       nodes {
         name
+        slug
       }
     }
     mfproductTypes {
       nodes {
         name
+        slug
+      }
+    }
+    cannabinoids {
+      nodes {
+        name
+        slug
+      }
+    }
+    singleCannabinoid {
+      nodes {
+        name
+        slug
+      }
+    }
+    mG {
+      nodes {
+        name
+        slug
+      }
+    }
+    pieces {
+      nodes {
+        name
+        slug
       }
     }
   }
@@ -251,31 +341,61 @@ export const GROUP_PRODUCT_FIELDS = gql`
     strainTypes {
       nodes {
         name
+        slug
       }
     }
     strainNames {
       nodes {
         name
+        slug
       }
     }
     blendTypes {
       nodes {
         name
+        slug
       }
     }
     productLines {
       nodes {
         name
+        slug
       }
     }
     size {
       nodes {
         name
+        slug
       }
     }
     mfproductTypes {
       nodes {
         name
+        slug
+      }
+    }
+    cannabinoids {
+      nodes {
+        name
+        slug
+      }
+    }
+    singleCannabinoid {
+      nodes {
+        name
+        slug
+      }
+    }
+    mG {
+      nodes {
+        name
+        slug
+      }
+    }
+    pieces {
+      nodes {
+        name
+        slug
       }
     }
   }
@@ -465,6 +585,58 @@ export const GET_SHOP_FILTER_TERMS = gql`
     }
     singleCannabinoids: allSingleCannabinoid(first: 50) {
       nodes { name slug count }
+    }
+  }
+`;
+
+// Lean facet query — fetches 100 products with ONLY taxonomy data (no images,
+// prices, descriptions). Used by shop, collections, and search to derive
+// scoped sidebar filter counts without the weight of full product fragments.
+export const GET_FACETS = gql`
+  fragment FacetOnlyFields on Product {
+    databaseId
+    mfproductTypes { nodes { name slug } }
+    size { nodes { name slug } }
+    strainTypes { nodes { name slug } }
+    blendTypes { nodes { name slug } }
+    cannabinoids { nodes { name slug } }
+    singleCannabinoid { nodes { name slug } }
+    mG { nodes { name slug } }
+    pieces { nodes { name slug } }
+  }
+  query GetFacets(
+    $first: Int = 100
+    $search: String
+    $mfProductTypeIn: [String]
+    $strainTypeFilterIn: [String]
+    $blendTypeFilterIn: [String]
+    $cannabinoidFilterIn: [String]
+    $singleCannabinoidFilterIn: [String]
+    $sizeFilterIn: [String]
+    $mgFilterIn: [String]
+    $piecesFilterIn: [String]
+    $collectionFilterIn: [String]
+  ) {
+    products(first: $first, where: {
+      status: "publish"
+      search: $search
+      mfProductTypeIn: $mfProductTypeIn
+      strainTypeFilterIn: $strainTypeFilterIn
+      blendTypeFilterIn: $blendTypeFilterIn
+      cannabinoidFilterIn: $cannabinoidFilterIn
+      singleCannabinoidFilterIn: $singleCannabinoidFilterIn
+      sizeFilterIn: $sizeFilterIn
+      mgFilterIn: $mgFilterIn
+      piecesFilterIn: $piecesFilterIn
+      collectionFilterIn: $collectionFilterIn
+    }) {
+      nodes {
+        __typename
+        ... on SimpleProduct { ...FacetOnlyFields }
+        ... on VariableProduct { ...FacetOnlyFields }
+        ... on ExternalProduct { ...FacetOnlyFields }
+        ... on GroupProduct { ...FacetOnlyFields }
+      }
     }
   }
 `;
