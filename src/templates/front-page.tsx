@@ -1,6 +1,13 @@
-import dynamic from 'next/dynamic';
+import { gql } from '@apollo/client';
 import { FaustTemplate } from '@faustwp/core';
-import { GET_PRODUCTS } from '@/graphql/queries/products';
+import { WordPressBlocksViewer } from '@faustwp/blocks';
+import blocks from '@/wp-blocks';
+import {
+  SIMPLE_PRODUCT_FIELDS,
+  VARIABLE_PRODUCT_FIELDS,
+  EXTERNAL_PRODUCT_FIELDS,
+  GROUP_PRODUCT_FIELDS,
+} from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import CollectionLinks from '@/components/CollectionLinks';
 import HighlightsGroup from '@/components/HighlightsGroup';
@@ -11,16 +18,14 @@ import RebuyRecommendations from '@/components/RebuyRecommendations';
 import CollectionCards from '@/components/CollectionCards';
 import { Product } from '@/types/woocommerce';
 
-const HeroSwiper = dynamic(() => import('@/components/HeroSwiper'), {
-  ssr: false,
-});
-
 interface FrontPageData {
+  page?: { editorBlocks?: any[] } | null;
   products?: { nodes: Product[] };
 }
 
 const FrontPage: FaustTemplate<FrontPageData> = (props) => {
   const products = props.data?.products?.nodes ?? [];
+  const heroBlocks = props.data?.page?.editorBlocks ?? [];
 
   const featuredProducts = products.slice(0, 8);
   const newArrivals = products.slice(8, 16);
@@ -73,7 +78,8 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
         }),
       }}
     >
-      <HeroSwiper />
+      {/* Backend-managed hero slider from the Homepage page's blocks. */}
+      {heroBlocks.length > 0 && <WordPressBlocksViewer blocks={heroBlocks} />}
       <CollectionLinks />
       <CollectionSwiper products={newArrivals} title="Explore What's New" />
 
@@ -140,7 +146,37 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
   );
 };
 
-FrontPage.query = GET_PRODUCTS;
-FrontPage.variables = () => ({ first: 100 });
+// Combined document: the front page's editor blocks (only the hero-slider
+// fragment is spread — that's the one block this template renders) plus the
+// products that feed the hardcoded homepage sections.
+FrontPage.query = gql`
+  ${blocks.AcfHeroSlider.fragments.entry}
+  ${SIMPLE_PRODUCT_FIELDS}
+  ${VARIABLE_PRODUCT_FIELDS}
+  ${EXTERNAL_PRODUCT_FIELDS}
+  ${GROUP_PRODUCT_FIELDS}
+  query FrontPage($id: ID!, $first: Int = 100) {
+    page(id: $id, idType: DATABASE_ID) {
+      editorBlocks(flat: false) {
+        name
+        __typename
+        id: clientId
+        parentClientId
+        ...${blocks.AcfHeroSlider.fragments.key}
+      }
+    }
+    products(first: $first, where: { status: "publish" }) {
+      nodes {
+        __typename
+        ... on SimpleProduct { ...SimpleProductFields }
+        ... on VariableProduct { ...VariableProductFields }
+        ... on ExternalProduct { ...ExternalProductFields }
+        ... on GroupProduct { ...GroupProductFields }
+      }
+    }
+  }
+`;
+
+FrontPage.variables = (seedNode) => ({ id: seedNode.databaseId, first: 100 });
 
 export default FrontPage;
