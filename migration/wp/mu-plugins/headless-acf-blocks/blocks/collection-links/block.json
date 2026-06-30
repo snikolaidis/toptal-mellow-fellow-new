@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/collection-links",
+	"title": "Collection Links",
+	"description": "A horizontal row of collection links. Pick collections (ordered); each link uses the collection's thumbnail image, name (or an optional override), and URL. Rendered on the headless frontend.",
+	"category": "headless-blocks",
+	"icon": "grid-view",
+	"keywords": [ "collection", "links", "categories", "navigation" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\CollectionLinks\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

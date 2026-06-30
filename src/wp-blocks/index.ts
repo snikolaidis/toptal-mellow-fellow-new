@@ -1,6 +1,7 @@
 import { CoreBlocks } from '@faustwp/blocks';
 import HeroSection from './HeroSection';
 import HeroSlider from './HeroSlider';
+import CollectionLinks from './CollectionLinks';
 import SaleCountdownHero from './SaleCountdownHero';
 import DoublePointsDaily from './DoublePointsDaily';
 import CollectionGroup from './CollectionGroup';
@@ -12,6 +13,8 @@ export default {
   // Ready, but inert until the `acf/hero-slider` block is deployed to WP (the
   // `AcfHeroSlider` type must exist before the front-page template can query it).
   AcfHeroSlider: HeroSlider,
+  // Ready, but inert until the `acf/collection-links` block is deployed to WP.
+  AcfCollectionLinks: CollectionLinks,
   AcfSaleCountdownHero: SaleCountdownHero,
   // Hardcoded for now — inert until a matching WP/ACF block __typename exists.
   // Currently rendered via a direct import on the mellow-day-2026 page.
