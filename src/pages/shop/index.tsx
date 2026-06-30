@@ -1,8 +1,7 @@
-import { GetServerSideProps } from 'next';
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import { GetStaticProps } from 'next';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
-import { GET_PRODUCTS, GET_SHOP_FILTER_TERMS } from '@/graphql/queries/products';
+import { gql } from '@apollo/client';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ShopSidebar from '@/components/shop/ShopSidebar';
@@ -11,108 +10,201 @@ import Select, { SelectOption } from '@/components/ui/Select';
 import Link from 'next/link';
 import { Product } from '@/types/woocommerce';
 import {
-  PAGE_SIZE,
-  FILTER_GROUPS,
   SORT_OPTIONS,
-  TaxonomyTerm,
-  parseFilterParams,
-  filtersToGraphQLVars,
-  filtersToQueryParams,
-  getSortVariables,
+  FILTER_GROUPS,
+  FilterGroup,
+  ActiveFilters,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/shop.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
+const PAGE_SIZE = 24;
 
-interface ShopPageProps {
-  products: Product[];
-  filterTerms: Record<string, TaxonomyTerm[]>;
-  hasNextPage: boolean;
-  endCursor: string | null;
-  activeFilters: Record<string, string[]>;
-  selectedSort: string;
+// Minimal query: card display fields only. NO taxonomy connections — those
+// come from the taxonomy-map REST API (single SQL, 0.6s for 544 products).
+const GET_ALL_SHOP_PRODUCTS = gql`
+  query GetAllShopProducts($first: Int = 200, $after: String) {
+    products(first: $first, after: $after, where: { status: "publish" }) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        __typename
+        ... on SimpleProduct {
+          id databaseId name slug
+          price regularPrice salePrice stockStatus
+          image { sourceUrl altText }
+        }
+        ... on VariableProduct {
+          id databaseId name slug
+          price regularPrice salePrice stockStatus
+          image { sourceUrl altText }
+        }
+      }
+    }
+  }
+`;
+
+function parsePrice(price?: string): number {
+  if (!price) return 0;
+  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
 }
 
-export default function ShopPage({
-  products: initialProducts,
-  filterTerms,
-  hasNextPage: initialHasNext,
-  endCursor: initialCursor,
-  activeFilters: initialFilters,
-  selectedSort,
-}: ShopPageProps) {
-  const router = useRouter();
-  const [additionalProducts, setAdditionalProducts] = useState<Product[]>([]);
-  const [hasNextPage, setHasNextPage] = useState(initialHasNext);
-  const [endCursor, setEndCursor] = useState<string | null>(initialCursor);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [activeFilters, setActiveFilters] = useState(initialFilters);
+function sortProducts(products: Product[], sort: string): Product[] {
+  const sorted = [...products];
+  switch (sort) {
+    case 'price-low':
+      return sorted.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
+    case 'price-high':
+      return sorted.sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
+    case 'name-asc':
+      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    case 'name-desc':
+      return sorted.sort((a, b) => b.name.localeCompare(a.name));
+    default:
+      return sorted;
+  }
+}
 
-  // Sync filters from props when URL changes
+interface TaxonomyMap {
+  terms: Record<string, Array<{ name: string; slug: string; count: number; productIds: number[] }>>;
+  productIndex: Record<number, Record<string, string[]>>;
+}
+
+interface ShopPageProps {
+  allProducts: Product[];
+}
+
+export default function ShopPage({ allProducts }: ShopPageProps) {
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
+  const [selectedSort, setSelectedSort] = useState('default');
+  const [page, setPage] = useState(1);
+  const [taxMap, setTaxMap] = useState<TaxonomyMap | null>(null);
+
+  // Fetch the taxonomy map once on mount — single SQL query, 0.6s, cached 2 min
   useEffect(() => {
-    setActiveFilters(initialFilters);
-    setAdditionalProducts([]);
-    setHasNextPage(initialHasNext);
-    setEndCursor(initialCursor);
-  }, [JSON.stringify(initialFilters), selectedSort, initialHasNext, initialCursor]);
+    fetch('/api/shop/taxonomy-map')
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setTaxMap(d); })
+      .catch(() => {});
+  }, []);
 
-  const allProducts = [...initialProducts, ...additionalProducts];
-  const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
+  // Enrich products with taxonomy names from the map (for ProductCard display)
+  const enrichedProducts = useMemo(() => {
+    if (!taxMap) return allProducts;
+    return allProducts.map((p) => {
+      const idx = taxMap.productIndex[p.databaseId];
+      if (!idx) return p;
+      const enriched = { ...p } as any;
+      // Map filterKey → product field name that ProductCard reads
+      const fieldMap: Record<string, string> = {
+        productType: 'mfproductTypes',
+        size: 'size',
+        strainType: 'strainTypes',
+        blendType: 'blendTypes',
+      };
+      for (const [filterKey, fieldName] of Object.entries(fieldMap)) {
+        const slugs = idx[filterKey];
+        if (slugs?.length) {
+          // Find the term name from the terms data
+          const termData = taxMap.terms[filterKey] || [];
+          enriched[fieldName] = {
+            nodes: slugs.map((slug: string) => {
+              const term = termData.find((t: any) => t.slug === slug);
+              return { name: term?.name || slug };
+            }),
+          };
+        }
+      }
+      return enriched as Product;
+    });
+  }, [allProducts, taxMap]);
 
+  // Filter products using the taxonomy index — O(P) per filter change
+  const filteredProducts = useMemo(() => {
+    let result = enrichedProducts;
+
+    if (taxMap && Object.keys(activeFilters).length > 0) {
+      result = result.filter((p) => {
+        const idx = taxMap.productIndex[p.databaseId];
+        if (!idx) return false;
+        for (const [key, slugs] of Object.entries(activeFilters)) {
+          if (slugs.length === 0) continue;
+          const productSlugs = idx[key] || [];
+          if (!slugs.some((s) => productSlugs.includes(s))) return false;
+        }
+        return true;
+      });
+    }
+
+    return sortProducts(result, selectedSort);
+  }, [enrichedProducts, activeFilters, selectedSort, taxMap]);
+
+  // Derive filter groups — when filters active, narrow to filtered results
+  const filterGroups: FilterGroup[] = useMemo(() => {
+    if (!taxMap) return [];
+
+    return FILTER_GROUPS.map((fg) => {
+      const termsData = taxMap.terms[fg.key] || [];
+      const hasActiveFilters = Object.keys(activeFilters).length > 0;
+
+      if (!hasActiveFilters) {
+        // No filters: show all terms with global counts
+        return {
+          key: fg.key,
+          label: fg.label,
+          terms: termsData.map((t) => ({ name: t.name, slug: t.slug, count: t.count })),
+        };
+      }
+
+      // Filters active: only show terms that appear in filtered results
+      const filteredIds = new Set(filteredProducts.map((p) => p.databaseId));
+      return {
+        key: fg.key,
+        label: fg.label,
+        terms: termsData
+          .map((t) => {
+            const matchCount = t.productIds.filter((id) => filteredIds.has(id)).length;
+            return { name: t.name, slug: t.slug, count: matchCount };
+          })
+          .filter((t) => t.count > 0),
+      };
+    });
+  }, [taxMap, activeFilters, filteredProducts]);
+
+  const startIdx = (page - 1) * PAGE_SIZE;
+  const pageProducts = filteredProducts.slice(startIdx, startIdx + PAGE_SIZE);
+  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
+  const hasMore = page < totalPages;
+  const hasPrev = page > 1;
   const totalActive = Object.values(activeFilters).reduce((sum, v) => sum + v.length, 0);
   const pageTitle = totalActive > 0 ? 'Filtered Products' : 'All Products';
+  const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
-  const handleFilterChange = (key: string, slugs: string[]) => {
-    const newFilters = { ...activeFilters, [key]: slugs };
-    // Remove empty filters
-    const cleaned: Record<string, string[]> = {};
-    for (const [k, v] of Object.entries(newFilters)) {
-      if (v.length > 0) cleaned[k] = v;
-    }
-    router.push({ pathname: '/shop', query: filtersToQueryParams(cleaned, selectedSort) });
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSortChange = (option: SelectOption | null) => {
-    if (!option) return;
-    router.push({ pathname: '/shop', query: filtersToQueryParams(activeFilters, option.value) });
-  };
-
-  const loadMore = useCallback(async () => {
-    if (!hasNextPage || !endCursor || loadingMore) return;
-    setLoadingMore(true);
-
-    try {
-      const params = new URLSearchParams({
-        after: endCursor,
-        first: String(PAGE_SIZE),
-        sort: selectedSort,
-      });
-      // Pass active filters to the load-more API
-      for (const [key, slugs] of Object.entries(activeFilters)) {
-        if (slugs.length > 0) params.set(key, slugs.join(','));
+  const handleFilterChange = useCallback((key: string, slugs: string[]) => {
+    setActiveFilters((prev) => {
+      const next = { ...prev, [key]: slugs };
+      for (const k of Object.keys(next)) {
+        if (next[k].length === 0) delete next[k];
       }
+      return next;
+    });
+    setPage(1);
+  }, []);
 
-      const res = await fetch(`/api/shop/products?${params}`);
-      const data = await res.json();
-
-      if (data.success) {
-        setAdditionalProducts((prev) => [...prev, ...data.products]);
-        setHasNextPage(data.hasNextPage);
-        setEndCursor(data.endCursor);
-      }
-    } catch (err) {
-      console.error('Failed to load more products');
-    } finally {
-      setLoadingMore(false);
+  const handleSortChange = useCallback((option: SelectOption | null) => {
+    if (option) {
+      setSelectedSort(option.value);
+      setPage(1);
     }
-  }, [hasNextPage, endCursor, loadingMore, selectedSort, activeFilters]);
+  }, []);
 
-  // Build filter groups for sidebar
-  const filterGroups = FILTER_GROUPS.map((fg) => ({
-    key: fg.key,
-    label: fg.label,
-    terms: filterTerms[fg.dataKey] || [],
-  }));
+  const goToPage = (p: number) => {
+    setPage(p);
+    scrollToTop();
+  };
 
   return (
     <Layout
@@ -136,7 +228,6 @@ export default function ShopPage({
     >
       <div className='container'>
         <div className={styles.page}>
-          {/* Breadcrumb */}
           <nav className={styles.breadcrumb}>
             <Link href="/">Home</Link>
             <span className={styles.breadcrumbSeparator}>/</span>
@@ -144,7 +235,6 @@ export default function ShopPage({
           </nav>
 
           <div className={styles.shopLayout}>
-            {/* Desktop Sidebar */}
             <div className={styles.sidebarWrapper}>
               <ShopSidebar
                 filterGroups={filterGroups}
@@ -153,17 +243,14 @@ export default function ShopPage({
               />
             </div>
 
-            {/* Main Content */}
             <main className={styles.shopMain}>
-              {/* Header */}
               <div className={styles.shopHeader}>
                 <div className={styles.headerLeft}>
                   <h1 className={styles.title}>{pageTitle}</h1>
                   <span className={styles.productCount}>
-                    {allProducts.length}{hasNextPage ? '+' : ''} products
+                    {filteredProducts.length} products
                   </span>
                 </div>
-
                 <div className={styles.headerRight}>
                   <label className={styles.sortLabel}>Sort by</label>
                   <div className={styles.sortSelect}>
@@ -177,10 +264,9 @@ export default function ShopPage({
                 </div>
               </div>
 
-              {/* Products Grid */}
               <div className='products-grid'>
-                {allProducts.length > 0 ? (
-                  allProducts.map((product, index) => (
+                {pageProducts.length > 0 ? (
+                  pageProducts.map((product, index) => (
                     <ProductCard key={product.id} product={product} priority={index < 12} />
                   ))
                 ) : (
@@ -188,91 +274,68 @@ export default function ShopPage({
                 )}
               </div>
 
-              {/* Load More */}
-              {hasNextPage && (
-                <div className={styles.loadMore}>
-                  <button
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    className={styles.loadMoreBtn}
-                  >
-                    {loadingMore ? (
-                      <>
-                        <span className="spinner h-4 w-4" />
-                        Loading...
-                      </>
-                    ) : (
-                      'Load More'
-                    )}
-                  </button>
+              {totalPages > 1 && (
+                <div className={styles.pagination}>
+                  {hasPrev ? (
+                    <button onClick={() => goToPage(page - 1)} className={styles.pageBtn}>
+                      &larr; Previous
+                    </button>
+                  ) : <span />}
+                  <span className={styles.pageNum}>Page {page} of {totalPages}</span>
+                  {hasMore ? (
+                    <button onClick={() => goToPage(page + 1)} className={styles.pageBtn}>
+                      Next &rarr;
+                    </button>
+                  ) : <span />}
                 </div>
               )}
             </main>
           </div>
         </div>
 
-        {/* Mobile Filters */}
         <MobileFilters
           filterGroups={filterGroups}
           activeFilters={activeFilters}
           onFilterChange={handleFilterChange}
-          productCount={allProducts.length}
+          productCount={filteredProducts.length}
         />
       </div>
     </Layout>
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async ({ query, res }) => {
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
-
-  const selectedSort = typeof query.sort === 'string' ? query.sort : 'default';
-  const activeFilters = parseFilterParams(query as Record<string, string>);
-  const filterVars = filtersToGraphQLVars(activeFilters);
-  const sortVars = getSortVariables(selectedSort);
-
+export const getStaticProps: GetStaticProps = async () => {
   try {
     const client = getClient();
 
-    const [productsRes, filterTermsRes] = await Promise.all([
-      client.query({
-        query: GET_PRODUCTS,
-        variables: { first: PAGE_SIZE, ...sortVars, ...filterVars },
-        fetchPolicy: 'network-only',
-      }),
-      client.query({
-        query: GET_SHOP_FILTER_TERMS,
-        fetchPolicy: 'network-only',
-      }),
-    ]);
+    // Fetch in batches of 200 to stay within PHP memory limits.
+    // Each batch runs sequentially using cursor pagination.
+    let allProducts: Product[] = [];
+    let after: string | null = null;
+    let hasMore = true;
 
-    const filterTerms: Record<string, TaxonomyTerm[]> = {};
-    const termsData = filterTermsRes.data || {};
-    for (const key of Object.keys(termsData)) {
-      filterTerms[key] = (termsData[key]?.nodes || []).filter((t: TaxonomyTerm) => t.count > 0);
+    while (hasMore) {
+      const { data }: { data: any } = await client.query({
+        query: GET_ALL_SHOP_PRODUCTS,
+        variables: { first: 200, ...(after ? { after } : {}) },
+        fetchPolicy: 'no-cache',
+      });
+
+      const nodes = data?.products?.nodes || [];
+      allProducts = [...allProducts, ...nodes];
+      after = data?.products?.pageInfo?.endCursor || null;
+      hasMore = data?.products?.pageInfo?.hasNextPage || false;
     }
 
     return {
-      props: {
-        products: productsRes.data?.products?.nodes || [],
-        filterTerms,
-        hasNextPage: productsRes.data?.products?.pageInfo?.hasNextPage || false,
-        endCursor: productsRes.data?.products?.pageInfo?.endCursor || null,
-        activeFilters,
-        selectedSort,
-      },
+      props: { allProducts },
+      revalidate: 120,
     };
   } catch (error) {
-    console.error('Error fetching shop data');
+    console.error('Error fetching shop data:', error);
     return {
-      props: {
-        products: [],
-        filterTerms: {},
-        hasNextPage: false,
-        endCursor: null,
-        activeFilters,
-        selectedSort,
-      },
+      props: { allProducts: [] },
+      revalidate: 60,
     };
   }
 };
