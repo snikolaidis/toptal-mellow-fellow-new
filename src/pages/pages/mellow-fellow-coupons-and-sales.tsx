@@ -9,7 +9,7 @@ import { GET_CONTENT_PAGE_BY_SLUG } from '@/graphql/queries/pages';
 import type { ContentPageData } from '@/types/mellow-fellow';
 
 const DEALS_FORM_ID = process.env.NEXT_PUBLIC_KLAVIYO_DEALS_FORM_ID;
-
+ 
 const GET_DEALS_CARD_GRID = gql`
   query GetDealsCardGrid {
     pageBy(uri: "mellow-fellow-coupons-and-sales") {
