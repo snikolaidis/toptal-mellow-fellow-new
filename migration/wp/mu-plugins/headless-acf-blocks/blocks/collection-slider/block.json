@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/collection-slider",
+	"title": "Collection Slider",
+	"description": "A product carousel for a selected collection, with an optional title and a configurable number of products. Rendered as a Swiper slider on the headless frontend.",
+	"category": "headless-blocks",
+	"icon": "slides",
+	"keywords": [ "collection", "slider", "carousel", "products" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\CollectionSlider\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}
