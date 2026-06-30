@@ -289,6 +289,7 @@ export const GET_PRODUCTS = gql`
   query GetProducts(
     $first: Int = 12
     $after: String
+    $search: String
     $orderby: [ProductsOrderbyInput]
     $mfProductType: String
     $mfProductTypeIn: [String]
@@ -313,6 +314,7 @@ export const GET_PRODUCTS = gql`
   ) {
     products(first: $first, after: $after, where: {
       status: "publish"
+      search: $search
       orderby: $orderby
       mfProductType: $mfProductType
       mfProductTypeIn: $mfProductTypeIn

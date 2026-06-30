@@ -10,48 +10,32 @@ import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
-import {
-  SIMPLE_PRODUCT_FIELDS,
-  VARIABLE_PRODUCT_FIELDS,
-  EXTERNAL_PRODUCT_FIELDS,
-  GROUP_PRODUCT_FIELDS,
-  GET_SHOP_FILTER_TERMS,
-} from '@/graphql/queries/products';
+import { GET_PRODUCTS } from '@/graphql/queries/products';
 import {
   PAGE_SIZE,
   FILTER_GROUPS,
   SORT_OPTIONS,
+  FilterGroup,
   TaxonomyTerm,
   ActiveFilters,
   parseFilterParams,
   filtersToGraphQLVars,
   getSortVariables,
+  deriveFilterGroups,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/search.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 
-const SEARCH_PRODUCTS_FULL = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
-  query SearchProductsFull($search: String!, $first: Int = 24, $after: String, $orderby: [ProductsOrderbyInput]) {
-    products(
-      first: $first
-      after: $after
-      where: { search: $search, status: "publish", orderby: $orderby }
-    ) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
+// Facet-only query: fetches up to 200 search results with just taxonomy data
+// so we can derive search-scoped filter terms (not the whole catalog).
+const SEARCH_FACET_TERMS = gql`
+  query SearchFacetTerms($search: String!) {
+    products(first: 200, where: { search: $search, status: "publish" }) {
       nodes {
         __typename
-        ... on SimpleProduct { ...SimpleProductFields }
-        ... on VariableProduct { ...VariableProductFields }
-        ... on ExternalProduct { ...ExternalProductFields }
-        ... on GroupProduct { ...GroupProductFields }
+        ... on SimpleProduct { id databaseId mfproductTypes { nodes { name slug } } size { nodes { name slug } } strainTypes { nodes { name slug } } blendTypes { nodes { name slug } } cannabinoids { nodes { name slug } } singleCannabinoid { nodes { name slug } } mG { nodes { name slug } } pieces { nodes { name slug } } }
+        ... on VariableProduct { id databaseId mfproductTypes { nodes { name slug } } size { nodes { name slug } } strainTypes { nodes { name slug } } blendTypes { nodes { name slug } } cannabinoids { nodes { name slug } } singleCannabinoid { nodes { name slug } } mG { nodes { name slug } } pieces { nodes { name slug } } }
       }
     }
   }
@@ -76,7 +60,7 @@ function boostTitleMatches(products: Product[], query: string): Product[] {
 interface SearchPageProps {
   query: string;
   products: Product[];
-  filterTerms: Record<string, TaxonomyTerm[]>;
+  filterGroups: FilterGroup[];
   hasNextPage: boolean;
   endCursor: string | null;
   activeFilters: ActiveFilters;
@@ -86,7 +70,7 @@ interface SearchPageProps {
 export default function SearchPage({
   query,
   products: initialProducts,
-  filterTerms,
+  filterGroups,
   hasNextPage: initialHasNext,
   endCursor: initialCursor,
   activeFilters: initialFilters,
@@ -108,12 +92,6 @@ export default function SearchPage({
 
   const allProducts = [...initialProducts, ...additionalProducts];
   const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
-
-  const filterGroups = FILTER_GROUPS.map((fg) => ({
-    key: fg.key,
-    label: fg.label,
-    terms: filterTerms[fg.dataKey] || [],
-  }));
 
   const buildQuery = (filters: ActiveFilters, sort: string) => {
     const q: Record<string, string> = { q: query };
@@ -287,7 +265,7 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
       props: {
         query: '',
         products: [],
-        filterTerms: {},
+        filterGroups: [],
         hasNextPage: false,
         endCursor: null,
         activeFilters: {},
@@ -299,24 +277,22 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
   try {
     const client = getClient();
 
-    const [searchRes, filterTermsRes] = await Promise.all([
+    const [searchRes, facetRes] = await Promise.all([
       client.query({
-        query: SEARCH_PRODUCTS_FULL,
-        variables: { search: query, first: PAGE_SIZE, ...sortVars, ...filterVars },
+        query: GET_PRODUCTS,
+        variables: { first: PAGE_SIZE, search: query, ...sortVars, ...filterVars },
         fetchPolicy: 'network-only',
       }),
       client.query({
-        query: GET_SHOP_FILTER_TERMS,
-        fetchPolicy: 'network-only',
+        query: SEARCH_FACET_TERMS,
+        variables: { search: query },
+        fetchPolicy: 'no-cache',
       }),
     ]);
 
-    const filterTerms: Record<string, TaxonomyTerm[]> = {};
-    const termData = filterTermsRes.data || {};
-    for (const fg of FILTER_GROUPS) {
-      filterTerms[fg.dataKey] = (termData[fg.dataKey]?.nodes || [])
-        .filter((t: TaxonomyTerm) => t.count > 0);
-    }
+    // Derive filter groups scoped to this search's results
+    const facetNodes = facetRes.data?.products?.nodes || [];
+    const filterGroups = deriveFilterGroups(facetNodes);
 
     // Boost title matches when using default sort
     let products = searchRes.data?.products?.nodes || [];
@@ -328,7 +304,7 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
       props: {
         query,
         products,
-        filterTerms,
+        filterGroups,
         hasNextPage: searchRes.data?.products?.pageInfo?.hasNextPage || false,
         endCursor: searchRes.data?.products?.pageInfo?.endCursor || null,
         activeFilters,
@@ -341,7 +317,7 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
       props: {
         query,
         products: [],
-        filterTerms: {},
+        filterGroups: [],
         hasNextPage: false,
         endCursor: null,
         activeFilters: {},
