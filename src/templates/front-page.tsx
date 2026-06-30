@@ -9,7 +9,6 @@ import {
   GROUP_PRODUCT_FIELDS,
 } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
-import CollectionLinks from '@/components/CollectionLinks';
 import HighlightsGroup from '@/components/HighlightsGroup';
 import CollectionSwiper from '@/components/CollectionSwiper';
 import FeaturedIn from '@/components/FeaturedIn';
@@ -25,7 +24,7 @@ interface FrontPageData {
 
 const FrontPage: FaustTemplate<FrontPageData> = (props) => {
   const products = props.data?.products?.nodes ?? [];
-  const heroBlocks = props.data?.page?.editorBlocks ?? [];
+  const pageBlocks = props.data?.page?.editorBlocks ?? [];
 
   const featuredProducts = products.slice(0, 8);
   const newArrivals = products.slice(8, 16);
@@ -78,9 +77,8 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
         }),
       }}
     >
-      {/* Backend-managed hero slider from the Homepage page's blocks. */}
-      {heroBlocks.length > 0 && <WordPressBlocksViewer blocks={heroBlocks} />}
-      <CollectionLinks />
+      {/* Backend-managed homepage blocks (hero slider + collection links). */}
+      {pageBlocks.length > 0 && <WordPressBlocksViewer blocks={pageBlocks} />}
       <CollectionSwiper products={newArrivals} title="Explore What's New" />
 
       <HighlightsGroup
@@ -151,6 +149,7 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
 // products that feed the hardcoded homepage sections.
 FrontPage.query = gql`
   ${blocks.AcfHeroSlider.fragments.entry}
+  ${blocks.AcfCollectionLinks.fragments.entry}
   ${SIMPLE_PRODUCT_FIELDS}
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
@@ -163,6 +162,7 @@ FrontPage.query = gql`
         id: clientId
         parentClientId
         ...${blocks.AcfHeroSlider.fragments.key}
+        ...${blocks.AcfCollectionLinks.fragments.key}
       }
     }
     products(first: $first, where: { status: "publish" }) {
