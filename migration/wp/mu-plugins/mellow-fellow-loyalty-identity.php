@@ -43,7 +43,12 @@ add_action('graphql_register_types', function () {
             }
             $email = $user->user_email;
 
-            $token = $api_key ? hash('sha256', $email . $api_key) : null;
+            $token = null;
+            if ($api_key) {
+                $parts = array($email, $api_key);
+                sort($parts, SORT_STRING);
+                $token = hash('sha256', implode('', $parts));
+            }
 
             return [
                 'authenticated' => true,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { CloseIcon, SearchIcon } from '@/components/icons';
 import styles from './SearchModal/SearchModal.module.css';
 
@@ -23,12 +24,20 @@ interface SearchModalProps {
 }
 
 export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  const goToSearchPage = () => {
+    if (query.trim().length >= 2) {
+      onClose();
+      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+    }
+  };
 
   // Focus input when modal opens
   useEffect(() => {
@@ -131,7 +140,10 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
           <CloseIcon />
         </button>
 
-        <div className={styles.inputWrapper}>
+        <form
+          className={styles.inputWrapper}
+          onSubmit={(e) => { e.preventDefault(); goToSearchPage(); }}
+        >
           <div className={styles.inputIcon}>
             <SearchIcon />
           </div>
@@ -144,7 +156,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             className={styles.input}
             autoComplete="off"
           />
-        </div>
+        </form>
 
         <div className={styles.results}>
           {loading && (
@@ -194,6 +206,16 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                   </div>
                 </Link>
               ))}
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}`}
+                className={styles.viewAll}
+                onClick={onClose}
+              >
+                View all results for &ldquo;{query}&rdquo;
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Link>
             </div>
           )}
 
@@ -205,7 +227,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
         </div>
 
         <div className={styles.footer}>
-          <span>Press ESC to close</span>
+          <span>Press Enter to see all results &middot; ESC to close</span>
         </div>
       </div>
     </div>
