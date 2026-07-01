@@ -324,7 +324,7 @@ async function getForcedSubscriptionScheme(
     const nodes = res.data?.data?.products?.nodes || [];
     for (const n of nodes) {
       const schemes = n?.subscriptionSchemes;
-      if (n?.forceSubscription && Array.isArray(schemes) && schemes.length) {
+      if (Array.isArray(schemes) && schemes.length) {
         return { period: String(schemes[0].period || 'month'), interval: Number(schemes[0].interval || 1) };
       }
     }
