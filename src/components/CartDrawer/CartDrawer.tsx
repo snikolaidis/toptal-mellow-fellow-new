@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useCart } from '@/context/CartContext';
+import { useCart, groupCartItems } from '@/context/CartContext';
 import { MellowFellowLogo, CloseIcon } from '@/components/icons';
 import type { Product } from '@/types/woocommerce';
 import styles from './CartDrawer.module.css';
@@ -17,15 +17,43 @@ export default function CartDrawer() {
   const {
     cart,
     isDrawerOpen,
+    isMutating,
     closeDrawer,
     updateQuantity,
     removeFromCart,
+    removeBundleGroup,
+    addBundleToCart,
     addToCart,
+    bundleNames,
+    bundleDiscounts,
   } = useCart();
+
+  const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
   const [recsLoading, setRecsLoading] = useState(false);
   const [addingProductId, setAddingProductId] = useState<number | null>(null);
+  // removingKey  → the cart item key being deleted (triggers fade + spinner)
+  // updatingKey  → the cart item key having its quantity changed (locks buttons only, no fade)
+  // removingGroupKey → composite key of the bundle group being deleted (triggers fade + spinner)
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
+  const [updatingKey, setUpdatingKey] = useState<string | null>(null);
+  const [removingGroupKey, setRemovingGroupKey] = useState<string | null>(null);
+
+  const handleUpdateQuantity = useCallback(async (key: string, qty: number) => {
+    setUpdatingKey(key);
+    try { await updateQuantity(key, qty); } finally { setUpdatingKey(null); }
+  }, [updateQuantity]);
+
+  const handleRemoveFromCart = useCallback(async (key: string) => {
+    setRemovingKey(key);
+    try { await removeFromCart(key); } finally { setRemovingKey(null); }
+  }, [removeFromCart]);
+
+  const handleRemoveBundleGroup = useCallback(async (groupKey: string, keys: string[]) => {
+    setRemovingGroupKey(groupKey);
+    try { await removeBundleGroup(keys); } finally { setRemovingGroupKey(null); }
+  }, [removeBundleGroup]);
 
   // Lock body scroll when open
   useEffect(() => {
@@ -168,6 +196,9 @@ export default function CartDrawer() {
           </div>
         </div>
 
+        {/* Mutating indicator — thin bar that appears during any cart operation */}
+        {isMutating && <div className={styles.mutatingBar} />}
+
         {/* Scrollable content */}
         <div className={styles.content}>
           {!cart || cart.items.length === 0 ? (
@@ -181,72 +212,225 @@ export default function CartDrawer() {
             <>
               {/* Cart items */}
               <ul className={styles.itemsList}>
-                {cart.items.map((item) => (
-                  <li key={item.key} className={styles.cartItem}>
-                    <div className={styles.itemImage}>
-                      {item.product.image ? (
-                        <Image
-                          src={item.product.image.sourceUrl}
-                          alt={item.product.image.altText || item.product.name}
-                          width={80}
-                          height={80}
-                          style={{ objectFit: 'contain' }}
-                        />
-                      ) : (
-                        <div className={styles.itemImagePlaceholder} />
-                      )}
-                    </div>
-                    <div className={styles.itemDetails}>
-                      <div className={styles.itemHeader}>
-                        <Link
-                          href={`/product/${item.product.slug}`}
-                          className={styles.itemName}
-                          onClick={closeDrawer}
-                        >
-                          {item.product.name}
-                        </Link>
+                {/* Bundle groups */}
+                {bundles.map((group) => {
+                  const discount = bundleDiscounts[group.bundleId] ?? 0;
+                  const allItems = group.instances.flatMap((inst) => inst.items);
+                  const originalTotal = allItems.reduce(
+                    (sum, i) => sum + parsePrice(i.total), 0
+                  );
+                  const discountedTotal = discount > 0
+                    ? originalTotal * (1 - discount / 100)
+                    : originalTotal;
+
+                  const isRemoving = removingGroupKey === group.mergeKey;
+                  return (
+                    <li key={group.mergeKey} className={`${styles.bundleGroup} ${isRemoving ? styles.bundleGroupPending : ''}`}>
+                      <div className={styles.bundleGroupHeader}>
+                        <span className={styles.bundleGroupName}>{group.bundleName}</span>
                         <button
-                          className={styles.itemRemove}
-                          onClick={() => removeFromCart(item.key)}
-                          aria-label={`Remove ${item.product.name}`}
+                          className={styles.bundleDeleteBtn}
+                          disabled={isRemoving}
+                          onClick={() =>
+                            handleRemoveBundleGroup(group.mergeKey, allItems.map((i) => i.key))
+                          }
+                          aria-label={`Remove all ${group.bundleName}`}
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                          {isRemoving ? (
+                            <svg className={styles.spinner} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                              <path d="M12 2a10 10 0 0 1 10 10" />
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
                         </button>
                       </div>
-                      {item.variation && (
-                        <p className={styles.itemVariation}>{item.variation.name}</p>
-                      )}
-                      <div className={styles.itemFooter}>
+                      {group.representativeItems
+                        .reduce<{ item: typeof group.representativeItems[0]; qty: number; totalAmount: number }[]>(
+                          (acc, item) => {
+                            const existing = acc.find(
+                              (r) => r.item.product.databaseId === item.product.databaseId
+                            );
+                            const lineTotal = parsePrice(item.total);
+                            if (existing) {
+                              existing.qty += item.quantity;
+                              existing.totalAmount += lineTotal;
+                            } else {
+                              acc.push({ item, qty: item.quantity, totalAmount: lineTotal });
+                            }
+                            return acc;
+                          },
+                          []
+                        )
+                        .map(({ item, qty, totalAmount }) => {
+                          const itemDiscounted = discount > 0
+                            ? totalAmount * (1 - discount / 100)
+                            : totalAmount;
+                          return (
+                            <div key={item.product.databaseId} className={styles.bundleItem}>
+                              <div className={styles.itemImage}>
+                                {item.product.image ? (
+                                  <Image
+                                    src={item.product.image.sourceUrl}
+                                    alt={item.product.image.altText || item.product.name}
+                                    width={60}
+                                    height={60}
+                                    style={{ objectFit: 'contain' }}
+                                  />
+                                ) : (
+                                  <div className={styles.itemImagePlaceholder} />
+                                )}
+                              </div>
+                              <div className={styles.itemDetails}>
+                                <div className={styles.itemHeader}>
+                                  <Link
+                                    href={`/product/${item.product.slug}`}
+                                    className={styles.itemName}
+                                    onClick={closeDrawer}
+                                  >
+                                    {item.product.name}
+                                  </Link>
+                                  <span className={styles.bundleItemQty}>×{qty}</span>
+                                </div>
+                                <div className={styles.bundleItemPrices}>
+                                  {discount > 0 && (
+                                    <span className={styles.bundleOriginalPrice}>
+                                      ${totalAmount.toFixed(2)}
+                                    </span>
+                                  )}
+                                  <span className={styles.itemPrice}>${itemDiscounted.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      <div className={styles.bundleFooter}>
                         <div className={styles.quantityControls}>
                           <button
                             className={styles.qtyBtn}
+                            disabled={isRemoving}
                             onClick={() =>
-                              updateQuantity(item.key, item.quantity - 1)
+                              handleRemoveBundleGroup(
+                                group.mergeKey,
+                                group.instances[group.instances.length - 1].items.map((i) => i.key)
+                              )
                             }
-                            aria-label="Decrease quantity"
+                            aria-label={`Remove one ${group.bundleName}`}
                           >
                             &minus;
                           </button>
-                          <span className={styles.qtyValue}>
-                            {item.quantity}
-                          </span>
+                          <span className={styles.qtyValue}>{group.quantity}</span>
                           <button
                             className={styles.qtyBtn}
                             onClick={() =>
-                              updateQuantity(item.key, item.quantity + 1)
+                              addBundleToCart(
+                                group.bundleId,
+                                group.representativeItems.flatMap((i) =>
+                                  Array(i.quantity).fill(i.product.databaseId)
+                                ),
+                                group.bundleName,
+                                discount
+                              )
                             }
-                            aria-label="Increase quantity"
+                            aria-label={`Add another ${group.bundleName}`}
                           >
                             +
                           </button>
                         </div>
-                        <span className={styles.itemPrice}>{item.total}</span>
+                        <div className={styles.bundleTotalPrices}>
+                          {discount > 0 && (
+                            <span className={styles.bundleOriginalTotal}>
+                              ${originalTotal.toFixed(2)}
+                            </span>
+                          )}
+                          <span className={styles.bundleDiscountedTotal}>
+                            ${discountedTotal.toFixed(2)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
+
+                {/* Standalone items */}
+                {standalone.map((item) => {
+                  const isItemRemoving = removingKey === item.key;
+                  const isItemUpdating = updatingKey === item.key;
+                  const isLocked = isItemRemoving || isItemUpdating;
+                  return (
+                    <li key={item.key} className={`${styles.cartItem} ${isItemRemoving ? styles.cartItemPending : ''}`}>
+                      <div className={styles.itemImage}>
+                        {item.product.image ? (
+                          <Image
+                            src={item.product.image.sourceUrl}
+                            alt={item.product.image.altText || item.product.name}
+                            width={80}
+                            height={80}
+                            style={{ objectFit: 'contain' }}
+                          />
+                        ) : (
+                          <div className={styles.itemImagePlaceholder} />
+                        )}
+                      </div>
+                      <div className={styles.itemDetails}>
+                        <div className={styles.itemHeader}>
+                          <Link
+                            href={`/product/${item.product.slug}`}
+                            className={styles.itemName}
+                            onClick={closeDrawer}
+                          >
+                            {item.product.name}
+                          </Link>
+                          <button
+                            className={styles.itemRemove}
+                            onClick={() => handleRemoveFromCart(item.key)}
+                            disabled={isLocked}
+                            aria-label={`Remove ${item.product.name}`}
+                          >
+                            {isItemRemoving ? (
+                              <svg className={styles.spinner} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                                <path d="M12 2a10 10 0 0 1 10 10" />
+                              </svg>
+                            ) : (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                        {item.variation && (
+                          <p className={styles.itemVariation}>{item.variation.name}</p>
+                        )}
+                        <div className={styles.itemFooter}>
+                          <div className={styles.quantityControls}>
+                            <button
+                              className={styles.qtyBtn}
+                              onClick={() => handleUpdateQuantity(item.key, item.quantity - 1)}
+                              disabled={isLocked}
+                              aria-label="Decrease quantity"
+                            >
+                              &minus;
+                            </button>
+                            <span className={styles.qtyValue}>{item.quantity}</span>
+                            <button
+                              className={styles.qtyBtn}
+                              onClick={() => handleUpdateQuantity(item.key, item.quantity + 1)}
+                              disabled={isLocked}
+                              aria-label="Increase quantity"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span className={styles.itemPrice}>{item.total}</span>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
 
               {/* Recommendations */}
@@ -312,10 +496,36 @@ export default function CartDrawer() {
         {/* Footer */}
         {cart && cart.items.length > 0 && (
           <div className={styles.footer}>
-            <div className={styles.subtotalRow}>
-              <span className={styles.subtotalLabel}>SUBTOTAL</span>
-              <span className={styles.subtotalValue}>{cart.subtotal}</span>
-            </div>
+            {(() => {
+              const totalBundleDiscount = bundles.reduce((sum, group) => {
+                const discount = bundleDiscounts[group.bundleId] ?? 0;
+                if (!discount) return sum;
+                const original = group.instances
+                  .flatMap((inst) => inst.items)
+                  .reduce((s, i) => s + parsePrice(i.total), 0);
+                return sum + original * (discount / 100);
+              }, 0);
+              const effectiveSubtotal = parsePrice(cart.subtotal) - totalBundleDiscount;
+
+              return (
+                <>
+                  {totalBundleDiscount > 0 && (
+                    <div className={styles.subtotalRow}>
+                      <span className={styles.discountLabel}>Bundle Discount</span>
+                      <span className={styles.discountValue}>
+                        -${totalBundleDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className={styles.subtotalRow}>
+                    <span className={styles.subtotalLabel}>SUBTOTAL</span>
+                    <span className={styles.subtotalValue}>
+                      ${effectiveSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
             <p className={styles.shippingNote}>
               Shipping calculated at checkout
             </p>

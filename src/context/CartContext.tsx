@@ -12,6 +12,7 @@ import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
 import {
   GET_CART,
   ADD_TO_CART,
+  ADD_BUNDLE_TO_CART,
   UPDATE_CART_ITEM_QUANTITY,
   REMOVE_FROM_CART,
   CLEAR_CART,
@@ -53,6 +54,9 @@ interface CartItem {
   key: string;
   quantity: number;
   total: string;
+  bbBundleId?: number;
+  bbGroupKey?: string;
+  bbLocked?: boolean;
   product: {
     databaseId: number;
     name: string;
@@ -90,17 +94,80 @@ interface AddToCartInput {
   variationId?: number;
 }
 
+export interface BundleGroupInstance {
+  groupKey: string;
+  items: CartItem[];
+}
+
+export interface BundleGroup {
+  mergeKey: string;
+  bundleId: number;
+  bundleName: string;
+  quantity: number;
+  representativeItems: CartItem[];
+  instances: BundleGroupInstance[];
+}
+
+export function groupCartItems(
+  items: CartItem[],
+  bundleNames: Record<number, string>
+): { bundles: BundleGroup[]; standalone: CartItem[] } {
+  const byGroupKey: Record<string, { bundleId: number; items: CartItem[] }> = {};
+  const standalone: CartItem[] = [];
+
+  for (const item of items) {
+    if (item.bbGroupKey && item.bbBundleId != null) {
+      if (!byGroupKey[item.bbGroupKey]) {
+        byGroupKey[item.bbGroupKey] = { bundleId: item.bbBundleId, items: [] };
+      }
+      byGroupKey[item.bbGroupKey].items.push(item);
+    } else {
+      standalone.push(item);
+    }
+  }
+
+  // Merge instances only when they share the same bundleId AND the same product set.
+  // Different product selections from the same bundle builder appear as separate groups.
+  const byProductSet: Record<string, BundleGroup> = {};
+  for (const [groupKey, { bundleId, items: groupItems }] of Object.entries(byGroupKey)) {
+    const productFingerprint = groupItems
+      .map((i) => i.product.databaseId)
+      .sort((a, b) => a - b)
+      .join(',');
+    const mergeKey = `${bundleId}:${productFingerprint}`;
+    if (!byProductSet[mergeKey]) {
+      byProductSet[mergeKey] = {
+        mergeKey,
+        bundleId,
+        bundleName: bundleNames[bundleId] || 'Bundle',
+        quantity: 0,
+        representativeItems: groupItems,
+        instances: [],
+      };
+    }
+    byProductSet[mergeKey].instances.push({ groupKey, items: groupItems });
+    byProductSet[mergeKey].quantity++;
+  }
+
+  return { bundles: Object.values(byProductSet), standalone };
+}
+
 interface CartContextType {
   cart: Cart | null;
   isLoading: boolean;
+  isMutating: boolean;
   error: string | null;
   isDrawerOpen: boolean;
+  bundleNames: Record<number, string>;
+  bundleDiscounts: Record<number, number>;
   openDrawer: () => void;
   closeDrawer: () => void;
   toggleDrawer: () => void;
   addToCart: (input: AddToCartInput) => Promise<void>;
+  addBundleToCart: (bundleId: number, productIds: number[], bundleName: string, discountPercent?: number) => Promise<void>;
   updateQuantity: (key: string, quantity: number) => Promise<void>;
   removeFromCart: (key: string) => Promise<void>;
+  removeBundleGroup: (keys: string[]) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
   applyCoupon: (code: string) => Promise<boolean>;
@@ -123,6 +190,9 @@ function transformCartData(data: any): Cart | null {
       key: item.key,
       quantity: item.quantity,
       total: item.total,
+      bbBundleId: item.bbBundleId ?? undefined,
+      bbGroupKey: item.bbGroupKey ?? undefined,
+      bbLocked: item.bbLocked ?? undefined,
       product: {
         databaseId: item.product?.node?.databaseId,
         name: item.product?.node?.name,
@@ -151,11 +221,42 @@ function transformCartData(data: any): Cart | null {
   };
 }
 
+function enrichCartItems(
+  cart: Cart,
+  map: Record<string, { groupKey: string; bundleId: number }>
+): Cart {
+  const items = cart.items.map((item) => {
+    if (item.bbGroupKey || !map[item.key]) return item;
+    const { groupKey, bundleId } = map[item.key];
+    return { ...item, bbGroupKey: groupKey, bbBundleId: bundleId };
+  });
+  return { ...cart, items };
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // Always-current ref for optimistic rollback
+  const cartRef = useRef<Cart | null>(null);
+  cartRef.current = cart;
+  const [bundleNames, setBundleNames] = useState<Record<number, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(sessionStorage.getItem('bundleNames') || '{}'); } catch { return {}; }
+  });
+  const [bundleDiscounts, setBundleDiscounts] = useState<Record<number, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(sessionStorage.getItem('bundleDiscounts') || '{}'); } catch { return {}; }
+  });
+  const [bundleItemMap, setBundleItemMap] = useState<Record<string, { groupKey: string; bundleId: number }>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(sessionStorage.getItem('bundleItemMap') || '{}'); } catch { return {}; }
+  });
+  // Always-current ref so callbacks don't go stale
+  const bundleItemMapRef = useRef(bundleItemMap);
+  bundleItemMapRef.current = bundleItemMap;
   const { isAuthenticated, isReady } = useAuth();
   const prevAuthState = useRef<boolean | null>(null);
 
@@ -194,7 +295,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
 
       const transformedCart = transformCartData(data);
-      setCart(transformedCart);
+      if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
     } catch (err) {
       logError('CartContext.fetchCart', err);
       const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
@@ -243,6 +344,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const addToCart = useCallback(async (input: AddToCartInput) => {
     setError(null);
+    setIsMutating(true);
     try {
       const client = getClient();
       const { data } = await client.mutate({
@@ -256,7 +358,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       const transformedCart = transformCartData({ cart: data.addToCart.cart });
       if (transformedCart) {
-        setCart(transformedCart);
+        setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
         setIsDrawerOpen(true);
       }
     } catch (err) {
@@ -264,28 +366,133 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const cartError = new CartError('Failed to add item to cart', ErrorCode.CART_ADD_FAILED);
       setError(getUserMessage(cartError));
       throw cartError;
+    } finally {
+      setIsMutating(false);
     }
   }, [getClient]);
+
+  const addBundleToCart = useCallback(
+    async (bundleId: number, productIds: number[], bundleName: string, discountPercent = 0) => {
+      setError(null);
+      setIsMutating(true);
+      try {
+        const client = getClient();
+        const { data } = await client.mutate({
+          mutation: ADD_BUNDLE_TO_CART,
+          variables: { bundleId, productIds },
+        });
+        if (!data?.addBundleToCart?.success) {
+          throw new Error(data?.addBundleToCart?.message || 'Bundle add failed');
+        }
+        // Persist the bundle name and discount so cart UI can label and price the group
+        setBundleNames((prev) => {
+          const next = { ...prev, [bundleId]: bundleName };
+          try { sessionStorage.setItem('bundleNames', JSON.stringify(next)); } catch {}
+          return next;
+        });
+        if (discountPercent > 0) {
+          setBundleDiscounts((prev) => {
+            const next = { ...prev, [bundleId]: discountPercent };
+            try { sessionStorage.setItem('bundleDiscounts', JSON.stringify(next)); } catch {}
+            return next;
+          });
+        }
+        // Build fallback map: itemKey → { groupKey, bundleId } for when plugin doesn't set bbGroupKey
+        const { groupKey, addedItemKeys } = data.addBundleToCart;
+        if (groupKey && Array.isArray(addedItemKeys) && addedItemKeys.length > 0) {
+          const additions: Record<string, { groupKey: string; bundleId: number }> = {};
+          for (const itemKey of addedItemKeys) {
+            additions[itemKey] = { groupKey, bundleId };
+          }
+          const nextMap = { ...bundleItemMapRef.current, ...additions };
+          bundleItemMapRef.current = nextMap;
+          setBundleItemMap(nextMap);
+          try { sessionStorage.setItem('bundleItemMap', JSON.stringify(nextMap)); } catch {}
+        }
+        // Refetch cart since the payload doesn't return cart data
+        const { data: cartData } = await client.query({
+          query: GET_CART,
+          fetchPolicy: 'network-only',
+        });
+        const transformedCart = transformCartData(cartData);
+        if (transformedCart) {
+          setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
+          setIsDrawerOpen(true);
+        }
+      } catch (err) {
+        logError('CartContext.addBundleToCart', err, { bundleId });
+        // Preserve the original plugin message (e.g. "Please add at least 4 items") when available.
+        const pluginMessage = err instanceof Error ? err.message : null;
+        const cartError = new CartError(
+          pluginMessage || 'Failed to add bundle to cart',
+          ErrorCode.CART_ADD_FAILED
+        );
+        setError(pluginMessage || getUserMessage(cartError));
+        throw cartError;
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [getClient]
+  );
+
+  const removeBundleGroup = useCallback(
+    async (keys: string[]) => {
+      setError(null);
+      setIsMutating(true);
+      try {
+        const client = getClient();
+        const { data } = await client.mutate({
+          mutation: REMOVE_FROM_CART,
+          variables: { keys },
+        });
+        const transformedCart = transformCartData({ cart: data.removeItemsFromCart.cart });
+        if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
+      } catch (err) {
+        logError('CartContext.removeBundleGroup', err);
+        const cartError = new CartError('Failed to remove bundle', ErrorCode.CART_REMOVE_FAILED);
+        setError(getUserMessage(cartError));
+        throw cartError;
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [getClient]
+  );
 
   /**
    * Update item quantity
    */
   const updateQuantity = useCallback(async (key: string, quantity: number) => {
     setError(null);
+    const snapshot = cartRef.current;
+
+    // Optimistic update — apply change immediately before server responds
+    setCart((prev) => {
+      if (!prev) return prev;
+      if (quantity <= 0) {
+        return enrichCartItems(
+          { ...prev, items: prev.items.filter((i) => i.key !== key) },
+          bundleItemMapRef.current
+        );
+      }
+      return enrichCartItems(
+        { ...prev, items: prev.items.map((i) => i.key === key ? { ...i, quantity } : i) },
+        bundleItemMapRef.current
+      );
+    });
+
+    setIsMutating(true);
     try {
       const client = getClient();
 
-      // If quantity is 0, remove the item
       if (quantity <= 0) {
         const { data } = await client.mutate({
           mutation: REMOVE_FROM_CART,
           variables: { keys: [key] },
         });
-
         const transformedCart = transformCartData({ cart: data.removeItemsFromCart.cart });
-        if (transformedCart) {
-          setCart(transformedCart);
-        }
+        if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
         return;
       }
 
@@ -293,16 +500,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
         mutation: UPDATE_CART_ITEM_QUANTITY,
         variables: { key, quantity },
       });
-
       const transformedCart = transformCartData({ cart: data.updateItemQuantities.cart });
-      if (transformedCart) {
-        setCart(transformedCart);
-      }
+      if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
     } catch (err) {
+      setCart(snapshot); // rollback
       logError('CartContext.updateQuantity', err, { key, quantity });
       const cartError = new CartError('Failed to update cart', ErrorCode.CART_UPDATE_FAILED);
       setError(getUserMessage(cartError));
       throw cartError;
+    } finally {
+      setIsMutating(false);
     }
   }, [getClient]);
 
@@ -311,22 +518,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const removeFromCart = useCallback(async (key: string) => {
     setError(null);
+    setIsMutating(true);
     try {
       const client = getClient();
       const { data } = await client.mutate({
         mutation: REMOVE_FROM_CART,
         variables: { keys: [key] },
       });
-
       const transformedCart = transformCartData({ cart: data.removeItemsFromCart.cart });
-      if (transformedCart) {
-        setCart(transformedCart);
-      }
+      if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
     } catch (err) {
       logError('CartContext.removeFromCart', err, { key });
       const cartError = new CartError('Failed to remove item', ErrorCode.CART_REMOVE_FAILED);
       setError(getUserMessage(cartError));
       throw cartError;
+    } finally {
+      setIsMutating(false);
     }
   }, [getClient]);
 
@@ -335,6 +542,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const clearCart = useCallback(async () => {
     setError(null);
+    setIsMutating(true);
     try {
       const client = getClient();
       const { data } = await client.mutate({
@@ -343,7 +551,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       const transformedCart = transformCartData({ cart: data.emptyCart.cart });
       if (transformedCart) {
-        setCart(transformedCart);
+        setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
       }
     } catch (err) {
       logError('CartContext.clearCart', err);
@@ -360,6 +568,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         availableShippingMethods: [],
         chosenShippingMethods: [],
       });
+    } finally {
+      setIsMutating(false);
     }
   }, [getClient]);
 
@@ -368,7 +578,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const applyCoupon = useCallback(async (code: string): Promise<boolean> => {
     setError(null);
-
+    setIsMutating(true);
     try {
       const client = getClient();
       const { data } = await client.mutate({
@@ -378,7 +588,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       const transformedCart = transformCartData({ cart: data.applyCoupon.cart });
       if (transformedCart) {
-        setCart(transformedCart);
+        setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
       }
 
       return true;
@@ -393,6 +603,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const message = decodeHtmlEntities(rawMessage);
       setError(message);
       return false;
+    } finally {
+      setIsMutating(false);
     }
   }, [getClient]);
 
@@ -401,7 +613,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const removeCoupon = useCallback(async (code: string) => {
     setError(null);
-
+    setIsMutating(true);
     try {
       const client = getClient();
       const { data } = await client.mutate({
@@ -411,13 +623,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       const transformedCart = transformCartData({ cart: data.removeCoupons.cart });
       if (transformedCart) {
-        setCart(transformedCart);
+        setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
       }
     } catch (err) {
       logError('CartContext.removeCoupon', err, { code });
       const cartError = new CartError('Failed to remove coupon', ErrorCode.CART_UPDATE_FAILED);
       setError(getUserMessage(cartError));
       throw cartError;
+    } finally {
+      setIsMutating(false);
     }
   }, [getClient]);
 
@@ -426,7 +640,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const updateShippingMethod = useCallback(async (methodId: string) => {
     setError(null);
-
+    setIsMutating(true);
     try {
       const client = getClient();
       const { data } = await client.mutate({
@@ -436,13 +650,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       const transformedCart = transformCartData({ cart: data.updateShippingMethod.cart });
       if (transformedCart) {
-        setCart(transformedCart);
+        setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
       }
     } catch (err) {
       logError('CartContext.updateShippingMethod', err, { methodId });
       const cartError = new CartError('Failed to update shipping', ErrorCode.CART_UPDATE_FAILED);
       setError(getUserMessage(cartError));
       throw cartError;
+    } finally {
+      setIsMutating(false);
     }
   }, [getClient]);
 
@@ -451,14 +667,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       value={{
         cart,
         isLoading,
+        isMutating,
         error,
         isDrawerOpen,
+        bundleNames,
+        bundleDiscounts,
         openDrawer,
         closeDrawer,
         toggleDrawer,
         addToCart,
+        addBundleToCart,
         updateQuantity,
         removeFromCart,
+        removeBundleGroup,
         clearCart,
         refreshCart,
         applyCoupon,

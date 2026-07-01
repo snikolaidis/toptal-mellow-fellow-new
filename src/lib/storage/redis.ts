@@ -39,6 +39,12 @@ export class RedisStorage implements IStorage {
       },
     });
 
+    // Prevent unhandled 'error' events from crashing the Node process during
+    // background reconnection attempts.
+    this.client.on('error', (err: Error) => {
+      console.error('[Redis] Connection error:', err.message);
+    });
+
     // Verify connection
     await this.client.ping();
   }

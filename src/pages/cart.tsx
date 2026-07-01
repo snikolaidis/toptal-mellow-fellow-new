@@ -1,11 +1,13 @@
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Layout from '@/components/Layout';
-import { useCart } from '@/context/CartContext';
+import { useCart, groupCartItems } from '@/context/CartContext';
 import styles from '@/styles/pages/cart.module.css';
 
 export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, isLoading } = useCart();
+  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, bundleNames, bundleDiscounts } = useCart();
+  const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
 
   if (isLoading) {
     return (
@@ -52,7 +54,98 @@ export default function CartPage() {
                 </tr>
               </thead>
               <tbody>
-                {cart.items.map((item) => (
+                {/* Bundle groups */}
+                {bundles.map((group) => {
+                  const discount = bundleDiscounts[group.bundleId] ?? 0;
+                  const originalTotal = group.instances
+                    .flatMap((inst) => inst.items)
+                    .reduce((sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0);
+                  const discountedTotal = discount > 0 ? originalTotal * (1 - discount / 100) : originalTotal;
+                  const bundleTotal = discountedTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+                  return (
+                    <React.Fragment key={group.bundleId}>
+                      <tr className={styles.bundleHeaderRow}>
+                        <td className={styles.bundleHeaderCell}>{group.bundleName}</td>
+                        <td></td>
+                        <td>
+                          <div className={styles.quantitySelector}>
+                            <button
+                              className={styles.quantityBtn}
+                              onClick={() =>
+                                removeBundleGroup(
+                                  group.instances[group.instances.length - 1].items.map((i) => i.key)
+                                )
+                              }
+                              aria-label={`Remove one ${group.bundleName}`}
+                            >
+                              −
+                            </button>
+                            <input
+                              className={styles.quantityInput}
+                              type="text"
+                              value={group.quantity}
+                              readOnly
+                              aria-label="Bundle quantity"
+                            />
+                            <button
+                              className={styles.quantityBtn}
+                              onClick={() =>
+                                addBundleToCart(
+                                  group.bundleId,
+                                  group.representativeItems.flatMap((i) =>
+                                    Array(i.quantity).fill(i.product.databaseId)
+                                  ),
+                                  group.bundleName
+                                )
+                              }
+                              aria-label={`Add another ${group.bundleName}`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          {discount > 0 && (
+                            <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
+                              {originalTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                            </span>
+                          )}
+                          {bundleTotal}
+                        </td>
+                        <td></td>
+                      </tr>
+                      {group.representativeItems.map((item) => (
+                        <tr key={item.key} className={styles.bundleItemRow}>
+                          <td>
+                            <div className={styles.productCell}>
+                              {item.product.image && (
+                                <Image
+                                  src={item.product.image.sourceUrl}
+                                  alt={item.product.image.altText || item.product.name}
+                                  width={60}
+                                  height={60}
+                                  style={{ objectFit: 'contain' }}
+                                />
+                              )}
+                              <div className={styles.productInfo}>
+                                <Link href={`/product/${item.product.slug}`}>
+                                  {item.product.name}
+                                </Link>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{item.product.price}</td>
+                          <td style={{ color: '#8A8683', fontSize: '0.875rem' }}>×{item.quantity}</td>
+                          <td>{item.total}</td>
+                          <td></td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* Standalone items */}
+                {standalone.map((item) => (
                   <tr key={item.key}>
                     <td>
                       <div className={styles.productCell}>
