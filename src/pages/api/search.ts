@@ -9,6 +9,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getClient } from '@/lib/apollo-client';
 import { gql } from '@apollo/client';
 import { withRateLimitOnly } from '@/lib/middleware';
+import { cachedQuery } from '@/lib/cache';
 
 // Search query - uses WPGraphQL WooCommerce search parameter
 const SEARCH_PRODUCTS = gql`
@@ -120,15 +121,10 @@ async function handler(
 
   try {
     const client = getClient();
-    const { data, errors } = await client.query({
+    const { data } = await cachedQuery(client, {
       query: SEARCH_PRODUCTS,
       variables: { search: q, first, after: after || null },
-      fetchPolicy: 'network-only',
-    });
-
-    if (errors && errors.length > 0) {
-      console.error('[Search API] GraphQL errors:', errors);
-    }
+    }, { ttl: 300 });
 
     const products: SearchResult[] = (data?.products?.nodes || []).map((product: any) => ({
       id: product.id,
