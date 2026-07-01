@@ -344,12 +344,6 @@ export default function ProductPage({
 
             {/* Product Meta */}
             <div className={styles.meta}>
-              {product.sku && (
-                <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>SKU</span>
-                  <span className={styles.metaValue}>{product.sku}</span>
-                </div>
-              )}
               {categories.length > 0 && (
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>Category</span>

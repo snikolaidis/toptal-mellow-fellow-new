@@ -33,6 +33,16 @@ export const FILTER_GROUPS = [
   { key: 'pieces', label: 'Pieces', dataKey: 'pcs' },
 ];
 
+export const EXCLUDED_TERM_SLUGS: Record<string, string[]> = {
+  productType: ['donation'],
+};
+
+export function isHiddenTerm(groupKey: string, term: { name: string; slug: string }): boolean {
+  const slugs = EXCLUDED_TERM_SLUGS[groupKey];
+  if (!slugs) return false;
+  return slugs.includes(term.slug) || slugs.includes(term.name.toLowerCase());
+}
+
 // Maps each filter group key to the matching product taxonomy connection field,
 // used to derive collection-scoped facet terms from a product set.
 export const FACET_PRODUCT_CONNECTION: Record<string, string> = {
@@ -139,7 +149,7 @@ export function deriveFilterGroups(
     for (const node of nodes) {
       const terms = node?.[connection]?.nodes || [];
       for (const t of terms) {
-        if (!t?.slug) continue;
+        if (!t?.slug || isHiddenTerm(fg.key, t)) continue;
         const existing = counts.get(t.slug);
         if (existing) existing.count += 1;
         else counts.set(t.slug, { name: t.name, slug: t.slug, count: 1 });

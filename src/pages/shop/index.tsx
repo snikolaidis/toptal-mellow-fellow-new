@@ -14,6 +14,7 @@ import {
   FILTER_GROUPS,
   FilterGroup,
   ActiveFilters,
+  isHiddenTerm,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/shop.module.css';
 
@@ -143,7 +144,7 @@ export default function ShopPage({ allProducts }: ShopPageProps) {
     if (!taxMap) return [];
 
     return FILTER_GROUPS.map((fg) => {
-      const termsData = taxMap.terms[fg.key] || [];
+      const termsData = (taxMap.terms[fg.key] || []).filter((t) => !isHiddenTerm(fg.key, t));
       const hasActiveFilters = Object.keys(activeFilters).length > 0;
 
       if (!hasActiveFilters) {
