@@ -301,6 +301,39 @@ async function voidPayment(transactionId: string): Promise<boolean> {
   }
 }
 
+async function getForcedSubscriptionScheme(
+  items: Array<{ productId: number }>,
+  authToken?: string
+): Promise<{ period: string; interval: number } | null> {
+  try {
+    const ids = (items || []).map((i) => i.productId).filter(Boolean);
+    if (!ids.length) return null;
+    const query = `query MFSubs($ids: [Int]) {
+      products(first: 100, where: { include: $ids }) {
+        nodes {
+          ... on SimpleProduct { forceSubscription subscriptionSchemes { period interval } }
+          ... on VariableProduct { forceSubscription subscriptionSchemes { period interval } }
+        }
+      }
+    }`;
+    const res = await makeHttpRequest({
+      url: getWordPressGraphQLUrl(),
+      body: JSON.stringify({ query, variables: { ids } }),
+      authToken,
+    });
+    const nodes = res.data?.data?.products?.nodes || [];
+    for (const n of nodes) {
+      const schemes = n?.subscriptionSchemes;
+      if (n?.forceSubscription && Array.isArray(schemes) && schemes.length) {
+        return { period: String(schemes[0].period || 'month'), interval: Number(schemes[0].interval || 1) };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fallback: Create order directly without cart session
  * Used when the session-based checkout fails (e.g., session expired)
@@ -931,7 +964,9 @@ async function checkoutHandler(
 
     // STEP 4: Create CIM profile for authenticated users who opted to save their card.
     // Non-blocking — checkout succeeds even if CIM fails.
-    if (authToken && body.saveCard && !body.savedCard && transactionId) {
+    const subscriptionScheme = await getForcedSubscriptionScheme(body.items, authToken);
+
+    if (authToken && body.saveCard && !body.savedCard && transactionId && !subscriptionScheme) {
       (async () => {
         try {
           // Get WordPress user ID from the viewer query
@@ -989,6 +1024,54 @@ async function checkoutHandler(
           console.error('[CIM] Profile creation failed (non-blocking):', err);
         }
       })();
+    }
+
+    if (subscriptionScheme && authToken && transactionId) {
+      try {
+        let customerProfileId = body.savedCard?.customerProfileId || '';
+        let paymentProfileId = body.savedCard?.paymentProfileId || '';
+        if (!customerProfileId || !paymentProfileId) {
+          const viewerRes = await makeHttpRequest({
+            url: getWordPressGraphQLUrl(),
+            body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
+            authToken,
+          });
+          const wpUserId = viewerRes.data?.data?.viewer?.databaseId;
+          if (wpUserId) {
+            const profile = await createProfileFromTransaction(
+              transactionId,
+              String(wpUserId),
+              body.billing.email
+            );
+            customerProfileId = profile.customerProfileId;
+            paymentProfileId = profile.paymentProfileId;
+          }
+        }
+        if (customerProfileId && paymentProfileId) {
+          const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+          const faustSecret = process.env.FAUST_SECRET_KEY;
+          const subRes = await fetch(`${wpBaseUrl}/wp-json/mf/v1/create-subscription`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${faustSecret}` },
+            body: JSON.stringify({
+              orderId: order.databaseId,
+              period: subscriptionScheme.period,
+              interval: subscriptionScheme.interval,
+              customerProfileId,
+              paymentProfileId,
+            }),
+          });
+          if (!subRes.ok) {
+            console.error(`[Subscription] create-subscription failed (${subRes.status}): ${await subRes.text()}`);
+          } else {
+            console.log(`[Subscription] Created for order ${order.databaseId}`);
+          }
+        } else {
+          console.error('[Subscription] No CIM profile available; subscription not created.');
+        }
+      } catch (err) {
+        console.error('[Subscription] handling failed:', err);
+      }
     }
 
     // Success response
