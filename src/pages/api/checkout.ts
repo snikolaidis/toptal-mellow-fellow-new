@@ -32,6 +32,11 @@ import {
   getWordPressGraphQLUrl,
 } from '@/lib/http';
 import { CheckoutError, ErrorCode, logError } from '@/lib/errors';
+import {
+  createProfileFromTransaction,
+  chargeProfile,
+  getSavedCards,
+} from '@/lib/authorize-net-cim';
 
 // ============================================================================
 // Types
@@ -60,10 +65,15 @@ interface CheckoutRequest {
     postcode: string;
     country: string;
   };
-  paymentNonce: {
+  paymentNonce?: {
     dataDescriptor: string;
     dataValue: string;
   };
+  savedCard?: {
+    customerProfileId: string;
+    paymentProfileId: string;
+  };
+  saveCard?: boolean;
   amount: string;
   coupons?: string[];
   items: Array<{
@@ -107,7 +117,9 @@ function validateCheckoutRequest(body: CheckoutRequest): string | null {
   if (!body.billing.address1 || !body.billing.city || !body.billing.state || !body.billing.postcode) {
     return 'Complete billing address is required';
   }
-  if (!body.paymentNonce?.dataDescriptor || !body.paymentNonce?.dataValue) {
+  const hasNonce = body.paymentNonce?.dataDescriptor && body.paymentNonce?.dataValue;
+  const hasSavedCard = body.savedCard?.customerProfileId && body.savedCard?.paymentProfileId;
+  if (!hasNonce && !hasSavedCard) {
     return 'Payment information is required';
   }
   if (!body.amount) {
@@ -636,6 +648,24 @@ async function processPayment(
     );
   }
 
+  // Saved card: use CIM charge (no opaqueData needed)
+  if (body.savedCard) {
+    console.log('[Checkout] Charging saved card...');
+    const refId = (idempotencyKey || `cim_${Date.now()}`).substring(0, 20);
+    const result = await chargeProfile(
+      body.savedCard.customerProfileId,
+      body.savedCard.paymentProfileId,
+      amount.toFixed(2),
+      refId
+    );
+    return result;
+  }
+
+  // New card: use opaqueData from Accept.js
+  if (!body.paymentNonce) {
+    throw new CheckoutError('Payment information is required', ErrorCode.VALIDATION_ERROR);
+  }
+
   // Build line items (Authorize.net limits to 30)
   const lineItems = body.items?.slice(0, 30).map((item, index) => ({
     itemId: (index + 1).toString(),
@@ -895,9 +925,62 @@ async function checkoutHandler(
     });
 
     // STEP 3: Save customer addresses for authenticated users
-    // This ensures both billing and shipping are saved to the customer's account
     if (authToken) {
       await updateCustomerAddresses(req, body, authToken);
+    }
+
+    // STEP 4: Create CIM profile for authenticated users who opted to save their card.
+    // Non-blocking — checkout succeeds even if CIM fails.
+    if (authToken && body.saveCard && !body.savedCard && transactionId) {
+      (async () => {
+        try {
+          // Get WordPress user ID from the viewer query
+          const wpUrl = getWordPressGraphQLUrl();
+          const viewerRes = await makeHttpRequest({
+            url: wpUrl,
+            body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
+            authToken,
+          });
+          const wpUserId = viewerRes.data?.data?.viewer?.databaseId;
+
+          if (wpUserId) {
+            const profile = await createProfileFromTransaction(
+              transactionId,
+              String(wpUserId),
+              body.billing.email
+            );
+
+            if (profile.customerProfileId && profile.paymentProfileId) {
+              // Get card details from the profile
+              const cards = await getSavedCards(profile.customerProfileId);
+              const newCard = cards.find((c) => c.paymentProfileId === profile.paymentProfileId);
+
+              // Save to WordPress user meta
+              const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+              const faustSecret = process.env.FAUST_SECRET_KEY;
+              await fetch(`${wpBaseUrl}/wp-json/mf/v1/payment-profiles`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${faustSecret}`,
+                },
+                body: JSON.stringify({
+                  userId: wpUserId,
+                  customerProfileId: profile.customerProfileId,
+                  paymentProfileId: profile.paymentProfileId,
+                  last4: newCard?.last4 || '',
+                  cardType: newCard?.cardType || '',
+                  expDate: newCard?.expDate || '',
+                }),
+              });
+
+              console.log(`[CIM] Profile saved for user ${wpUserId}: ${profile.customerProfileId}`);
+            }
+          }
+        } catch (err) {
+          console.error('[CIM] Profile creation failed (non-blocking):', err);
+        }
+      })();
     }
 
     // Success response
