@@ -44,11 +44,17 @@ function mf_cim_verify_request( $request ) {
         return true;
     }
 
-    // Check for Faust secret key
+    // Check for Faust secret key or custom API key
     $auth = $request->get_header( 'Authorization' );
-    if ( $auth ) {
-        $secret = defined( 'FAUSTWP_SECRET_KEY' ) ? FAUSTWP_SECRET_KEY : get_option( 'faustwp_secret_key' );
-        if ( $secret && $auth === 'Bearer ' . $secret ) {
+    if ( $auth && strpos( $auth, 'Bearer ' ) === 0 ) {
+        $provided = substr( $auth, 7 );
+        // Check against Faust secret key (stored in options by FaustWP plugin)
+        $faust_secret = get_option( 'faustwp_secret_key', '' );
+        if ( $faust_secret && hash_equals( $faust_secret, $provided ) ) {
+            return true;
+        }
+        // Also check the constant if defined
+        if ( defined( 'FAUSTWP_SECRET_KEY' ) && hash_equals( FAUSTWP_SECRET_KEY, $provided ) ) {
             return true;
         }
     }

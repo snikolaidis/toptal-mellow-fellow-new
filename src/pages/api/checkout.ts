@@ -942,6 +942,7 @@ async function checkoutHandler(
             authToken,
           });
           const wpUserId = viewerRes.data?.data?.viewer?.databaseId;
+          console.log(`[CIM] Viewer query result: userId=${wpUserId}, status=${viewerRes.status}`);
 
           if (wpUserId) {
             const profile = await createProfileFromTransaction(
@@ -958,7 +959,9 @@ async function checkoutHandler(
               // Save to WordPress user meta
               const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
               const faustSecret = process.env.FAUST_SECRET_KEY;
-              await fetch(`${wpBaseUrl}/wp-json/mf/v1/payment-profiles`, {
+              console.log(`[CIM] Saving profile to WP for user ${wpUserId}...`);
+
+              const saveRes = await fetch(`${wpBaseUrl}/wp-json/mf/v1/payment-profiles`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -974,7 +977,12 @@ async function checkoutHandler(
                 }),
               });
 
-              console.log(`[CIM] Profile saved for user ${wpUserId}: ${profile.customerProfileId}`);
+              if (!saveRes.ok) {
+                const errBody = await saveRes.text();
+                console.error(`[CIM] WP save failed (${saveRes.status}): ${errBody}`);
+              } else {
+                console.log(`[CIM] Profile saved for user ${wpUserId}: ${profile.customerProfileId}`);
+              }
             }
           }
         } catch (err) {
