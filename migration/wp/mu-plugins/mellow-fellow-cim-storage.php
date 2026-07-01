@@ -44,7 +44,7 @@ function mf_cim_verify_request( $request ) {
         return true;
     }
 
-    // Check for Faust secret key or custom API key
+    // Check for Faust secret key
     $auth = $request->get_header( 'Authorization' );
     if ( $auth && strpos( $auth, 'Bearer ' ) === 0 ) {
         $provided = substr( $auth, 7 );
@@ -55,6 +55,15 @@ function mf_cim_verify_request( $request ) {
         }
         // Also check the constant if defined
         if ( defined( 'FAUSTWP_SECRET_KEY' ) && hash_equals( FAUSTWP_SECRET_KEY, $provided ) ) {
+            return true;
+        }
+    }
+
+    // Also check X-FaustWP-Secret header (used by Faust.js internals)
+    $faust_header = $request->get_header( 'X-FaustWP-Secret' );
+    if ( $faust_header ) {
+        $faust_secret = get_option( 'faustwp_secret_key', '' );
+        if ( $faust_secret && hash_equals( $faust_secret, $faust_header ) ) {
             return true;
         }
     }
