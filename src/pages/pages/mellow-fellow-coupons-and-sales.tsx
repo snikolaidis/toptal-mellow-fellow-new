@@ -4,6 +4,7 @@ import Layout from '@/components/Layout';
 import ContentPage from '@/components/ContentPage';
 import KlaviyoForm from '@/components/KlaviyoForm';
 import DealsCardGrid, { DealCard } from '@/components/deals/DealsCardGrid';
+import DealsHero, { DealsHeroProps } from '@/components/deals/DealsHero';
 import { getClient } from '@/lib/apollo-client';
 import { GET_CONTENT_PAGE_BY_SLUG } from '@/graphql/queries/pages';
 import type { ContentPageData } from '@/types/mellow-fellow';
@@ -14,6 +15,9 @@ const GET_DEALS_CARD_GRID = gql`
   query GetDealsCardGrid {
     pageBy(uri: "mellow-fellow-coupons-and-sales") {
       dealsPageCtas {
+        heroEyebrow
+        heroHeading
+        heroSubtitle
         dealCtas {
           label
           heading
@@ -40,12 +44,15 @@ const GET_DEALS_CARD_GRID = gql`
 interface DealsPageProps {
   page: ContentPageData | null;
   cards: DealCard[];
+  hero: DealsHeroProps;
 }
 
-export default function DealsPage({ page, cards }: DealsPageProps) {
+export default function DealsPage({ page, cards, hero }: DealsPageProps) {
   return (
     <Layout title={page?.title ?? 'Deals'} seo={page?.seo}>
       {page && <ContentPage page={page} />}
+
+      <DealsHero eyebrow={hero.eyebrow} heading={hero.heading} subtitle={hero.subtitle} />
 
       <DealsCardGrid cards={cards} />
 
@@ -65,7 +72,8 @@ export const getStaticProps: GetStaticProps<DealsPageProps> = async () => {
       client.query({ query: GET_DEALS_CARD_GRID }).catch(() => ({ data: null })),
     ]);
 
-    const rows = ctasResult.data?.pageBy?.dealsPageCtas?.dealCtas || [];
+    const group = ctasResult.data?.pageBy?.dealsPageCtas;
+    const rows = group?.dealCtas || [];
     const cards: DealCard[] = rows
       .filter((row: any) => row?.visible)
       .filter((row: any) => row?.collectionTarget?.nodes?.[0]?.slug)
@@ -83,15 +91,25 @@ export const getStaticProps: GetStaticProps<DealsPageProps> = async () => {
         };
       });
 
+    const hero: DealsHeroProps = {
+      eyebrow: group?.heroEyebrow ?? null,
+      heading: group?.heroHeading ?? null,
+      subtitle: group?.heroSubtitle ?? null,
+    };
+
     return {
       props: {
         page: pageResult.data?.page ?? null,
         cards,
+        hero,
       },
       revalidate: 60,
     };
   } catch (error) {
     console.error('Error fetching mellow-fellow-coupons-and-sales page:', error);
-    return { props: { page: null, cards: [] }, revalidate: 60 };
+    return {
+      props: { page: null, cards: [], hero: { eyebrow: null, heading: null, subtitle: null } },
+      revalidate: 60,
+    };
   }
 };
