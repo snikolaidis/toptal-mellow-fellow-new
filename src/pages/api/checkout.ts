@@ -966,6 +966,7 @@ async function checkoutHandler(
                 headers: {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${faustSecret}`,
+                  'X-FaustWP-Secret': faustSecret || '',
                 },
                 body: JSON.stringify({
                   userId: wpUserId,
