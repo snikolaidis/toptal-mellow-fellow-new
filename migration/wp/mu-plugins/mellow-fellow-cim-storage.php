@@ -44,36 +44,24 @@ function mf_cim_verify_request( $request ) {
         return true;
     }
 
-    // Check for Faust secret key
-    $faust_secret = get_option( 'faustwp_secret_key', '' );
+    // Get Faust secret key — stored inside faustwp_settings array, not as its own option
+    $settings = get_option( 'faustwp_settings', [] );
+    $faust_secret = is_array( $settings ) ? ( $settings['secret_key'] ?? '' ) : '';
 
-    // Try Authorization: Bearer header
+    // Check Authorization: Bearer header
     $auth = $request->get_header( 'Authorization' );
     if ( $auth && strpos( $auth, 'Bearer ' ) === 0 ) {
         $provided = trim( substr( $auth, 7 ) );
         if ( $faust_secret && hash_equals( $faust_secret, $provided ) ) {
             return true;
         }
-        if ( defined( 'FAUSTWP_SECRET_KEY' ) && hash_equals( FAUSTWP_SECRET_KEY, $provided ) ) {
-            return true;
-        }
     }
 
-    // Try X-FaustWP-Secret header
+    // Check X-FaustWP-Secret header
     $faust_header = $request->get_header( 'X-FaustWP-Secret' );
-    if ( $faust_header ) {
-        $faust_header = trim( $faust_header );
-        if ( $faust_secret && hash_equals( $faust_secret, $faust_header ) ) {
-            return true;
-        }
+    if ( $faust_header && $faust_secret && hash_equals( $faust_secret, trim( $faust_header ) ) ) {
+        return true;
     }
-
-    // Log for debugging (remove after fix confirmed)
-    error_log( '[MF CIM Auth] FAILED - provided_len=' . strlen( $provided ?? '' )
-        . ' secret_len=' . strlen( $faust_secret )
-        . ' provided_start=' . substr( $provided ?? '', 0, 8 )
-        . ' secret_start=' . substr( $faust_secret, 0, 8 )
-    );
 
     return new WP_Error( 'rest_forbidden', 'Unauthorized', [ 'status' => 401 ] );
 }
