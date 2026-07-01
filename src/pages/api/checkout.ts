@@ -957,14 +957,33 @@ async function checkoutHandler(
       }),
     });
 
-    // STEP 3: Save customer addresses for authenticated users
+    // STEP 3: Save customer addresses (non-blocking — don't delay the success response)
     if (authToken) {
-      await updateCustomerAddresses(req, body, authToken);
+      updateCustomerAddresses(req, body, authToken).catch((err) =>
+        console.error('[Checkout] Address save failed (non-blocking):', err)
+      );
     }
 
-    // STEP 4: Create CIM profile for authenticated users who opted to save their card.
-    // Non-blocking — checkout succeeds even if CIM fails.
-    const subscriptionScheme = await getForcedSubscriptionScheme(body.items, authToken);
+    // Send success response IMMEDIATELY — customer sees confirmation now.
+    // All post-checkout work (CIM, subscriptions) happens after response is sent.
+    const successResponse = {
+      success: true,
+      orderId: orderNumber || orderId,
+      orderDatabaseId: order.databaseId,
+      transactionId,
+    };
+
+    if (trackingKey) {
+      await completeIdempotency(trackingKey, successResponse, orderId, transactionId);
+    }
+
+    console.log(`[Checkout] Checkout complete: Order ${orderNumber}, Transaction ${transactionId}`);
+    res.status(200).json(successResponse);
+
+    // === POST-RESPONSE WORK (customer already has their confirmation) ===
+
+    // STEP 4: Create CIM profile + handle subscriptions in the background
+    const subscriptionScheme = await getForcedSubscriptionScheme(body.items, authToken).catch(() => null);
 
     if (authToken && body.saveCard && !body.savedCard && transactionId && !subscriptionScheme) {
       (async () => {
@@ -1074,22 +1093,6 @@ async function checkoutHandler(
         console.error('[Subscription] handling failed:', err);
       }
     }
-
-    // Success response
-    const successResponse = {
-      success: true,
-      orderId: orderNumber || orderId,
-      orderDatabaseId: order.databaseId,
-      transactionId,
-    };
-
-    // Complete idempotency tracking
-    if (trackingKey) {
-      await completeIdempotency(trackingKey, successResponse, orderId, transactionId);
-    }
-
-    console.log(`[Checkout] Checkout complete: Order ${orderNumber}, Transaction ${transactionId}`);
-    res.status(200).json(successResponse);
 
   } catch (error) {
     logError('checkout.handler', error, { orderId, orderNumber, transactionId });
