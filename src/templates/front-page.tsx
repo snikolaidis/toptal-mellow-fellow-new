@@ -152,7 +152,7 @@ FrontPage.query = gql`
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
   ${GROUP_PRODUCT_FIELDS}
-  query FrontPage($id: ID!, $first: Int = 100) {
+  query FrontPage($id: ID!, $first: Int = 24) {
     page(id: $id, idType: DATABASE_ID) {
       editorBlocks(flat: false) {
         name
@@ -176,6 +176,6 @@ FrontPage.query = gql`
   }
 `;
 
-FrontPage.variables = (seedNode) => ({ id: seedNode.databaseId, first: 100 });
+FrontPage.variables = (seedNode) => ({ id: seedNode.databaseId, first: 24 });
 
 export default FrontPage;
