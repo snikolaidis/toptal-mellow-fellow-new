@@ -40,6 +40,19 @@ function mf_map_address($addr) {
     if (!is_array($addr)) {
         return array();
     }
+    return array(
+        'first_name' => isset($addr['firstName']) ? sanitize_text_field($addr['firstName']) : '',
+        'last_name' => isset($addr['lastName']) ? sanitize_text_field($addr['lastName']) : '',
+        'address_1' => isset($addr['address1']) ? sanitize_text_field($addr['address1']) : '',
+        'address_2' => isset($addr['address2']) ? sanitize_text_field($addr['address2']) : '',
+        'city' => isset($addr['city']) ? sanitize_text_field($addr['city']) : '',
+        'state' => isset($addr['state']) ? sanitize_text_field($addr['state']) : '',
+        'postcode' => isset($addr['postcode']) ? sanitize_text_field($addr['postcode']) : '',
+        'country' => isset($addr['country']) ? sanitize_text_field($addr['country']) : 'US',
+        'email' => isset($addr['email']) ? sanitize_email($addr['email']) : '',
+        'phone' => isset($addr['phone']) ? sanitize_text_field($addr['phone']) : '',
+    );
+}
 
 function mf_build_subscription($order, $period, $interval, $customer_profile_id, $payment_profile_id) {
     if (!function_exists('wcs_create_subscription')) {
