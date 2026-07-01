@@ -1,7 +1,6 @@
 import { GetStaticProps } from 'next';
 import { gql } from '@apollo/client';
 import Layout from '@/components/Layout';
-import ContentPage from '@/components/ContentPage';
 import KlaviyoForm from '@/components/KlaviyoForm';
 import DealsCardGrid, { DealCard } from '@/components/deals/DealsCardGrid';
 import DealsHero, { DealsHeroProps } from '@/components/deals/DealsHero';
@@ -50,8 +49,6 @@ interface DealsPageProps {
 export default function DealsPage({ page, cards, hero }: DealsPageProps) {
   return (
     <Layout title={page?.title ?? 'Deals'} seo={page?.seo}>
-      {page && <ContentPage page={page} />}
-
       <DealsHero eyebrow={hero.eyebrow} heading={hero.heading} subtitle={hero.subtitle} />
 
       <DealsCardGrid cards={cards} />
