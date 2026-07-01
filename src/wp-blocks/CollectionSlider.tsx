@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { gql, useQuery } from '@apollo/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination, Navigation } from 'swiper/modules';
 import 'swiper/css';
@@ -6,21 +6,13 @@ import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import { Product } from '@/types/woocommerce';
 import ProductCard from '@/components/ProductCard';
-
-/**
- * Backend-managed product carousel (ACF block `acf/collection-slider`). Replaces
- * the hardcoded CollectionSwiper: the editor picks a collection, an optional
- * title, and how many products to show. Slider behavior matches the old
- * component (responsive 2/3/4 per view).
- *
- * NOTE: the fragment references the shared product fragments (`...SimpleProductFields`
- * etc.) rather than redefining them — the consuming query (the front-page
- * template) must include those fragment definitions, which it already does.
- */
+import { getClient, getBrowserClient } from '@/lib/apollo-client';
+import { GET_COLLECTION_SLIDER_PRODUCTS } from '@/graphql/queries/collections';
 
 interface CollectionNode {
+  databaseId?: number | null;
   name?: string | null;
-  products?: { nodes?: Product[] | null } | null;
+  slug?: string | null;
 }
 
 interface CollectionSliderProps {
@@ -37,12 +29,20 @@ interface CollectionSliderProps {
 export default function CollectionSlider(props: CollectionSliderProps) {
   const data = props.collectionSlider;
   const collection = data?.collection?.nodes?.[0] ?? data?.collection?.node ?? null;
+  const count = Math.max(1, Math.floor(data?.productCount || 8));
+  
+  const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
+  const { data: productsData } = useQuery(GET_COLLECTION_SLIDER_PRODUCTS, {
+    client,
+    variables: { collectionSlug: collection?.slug, first: count },
+    skip: !collection?.slug,
+  });
+
   if (!collection) {
     return null;
   }
 
-  const count = Math.max(1, Math.floor(data?.productCount || 8));
-  const products = (collection.products?.nodes ?? []).slice(0, count);
+  const products = ((productsData?.products?.nodes as Product[] | undefined) ?? []).slice(0, count);
   if (products.length === 0) {
     return null;
   }
@@ -105,16 +105,9 @@ CollectionSlider.fragments = {
           nodes {
             __typename
             ... on Collection {
+              databaseId
               name
-              products(first: 24) {
-                nodes {
-                  __typename
-                  ... on SimpleProduct { ...SimpleProductFields }
-                  ... on VariableProduct { ...VariableProductFields }
-                  ... on ExternalProduct { ...ExternalProductFields }
-                  ... on GroupProduct { ...GroupProductFields }
-                }
-              }
+              slug
             }
           }
         }

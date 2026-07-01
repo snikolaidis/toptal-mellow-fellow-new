@@ -77,6 +77,42 @@ export const GET_COLLECTION_BY_SLUG = gql`
   }
 `;
 
+// Get a collection's products by slug for the CollectionSlider block
+export const GET_COLLECTION_SLIDER_PRODUCTS = gql`
+  ${SIMPLE_PRODUCT_FIELDS}
+  ${VARIABLE_PRODUCT_FIELDS}
+  ${EXTERNAL_PRODUCT_FIELDS}
+  ${GROUP_PRODUCT_FIELDS}
+  query GetCollectionSliderProducts($collectionSlug: String!, $first: Int = 24) {
+    products(first: $first, where: {
+      status: "publish",
+      taxonomyFilter: {
+        filters: [{
+          taxonomy: COLLECTION,
+          terms: [$collectionSlug],
+          operator: IN
+        }]
+      }
+    }) {
+      nodes {
+        __typename
+        ... on SimpleProduct {
+          ...SimpleProductFields
+        }
+        ... on VariableProduct {
+          ...VariableProductFields
+        }
+        ... on ExternalProduct {
+          ...ExternalProductFields
+        }
+        ... on GroupProduct {
+          ...GroupProductFields
+        }
+      }
+    }
+  }
+`;
+
 // Get a single collection's meta (no products). Used by the SSR collection
 // page, which fetches products separately via GET_PRODUCTS (collectionFilterIn).
 export const GET_COLLECTION_META = gql`
