@@ -334,6 +334,67 @@ async function getForcedSubscriptionScheme(
   }
 }
 
+async function createSubscriptionOrder(
+  body: CheckoutRequest,
+  transactionId: string,
+  scheme: { period: string; interval: number },
+  authToken?: string
+): Promise<PendingOrder> {
+  if (!authToken) {
+    throw new CheckoutError('Subscriptions require a logged-in customer.', ErrorCode.VALIDATION_ERROR);
+  }
+  const viewerRes = await makeHttpRequest({
+    url: getWordPressGraphQLUrl(),
+    body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
+    authToken,
+  });
+  const wpUserId = viewerRes.data?.data?.viewer?.databaseId;
+  if (!wpUserId) {
+    throw new CheckoutError('Could not identify the customer for the subscription.', ErrorCode.VALIDATION_ERROR);
+  }
+
+  let customerProfileId = body.savedCard?.customerProfileId || '';
+  let paymentProfileId = body.savedCard?.paymentProfileId || '';
+  if (!customerProfileId || !paymentProfileId) {
+    const profile = await createProfileFromTransaction(transactionId, String(wpUserId), body.billing.email);
+    customerProfileId = profile.customerProfileId;
+    paymentProfileId = profile.paymentProfileId;
+  }
+  if (!customerProfileId || !paymentProfileId) {
+    throw new CheckoutError('Could not save the card for recurring billing.', ErrorCode.VALIDATION_ERROR);
+  }
+
+  const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+  const faustSecret = process.env.FAUST_SECRET_KEY;
+  const res = await fetch(`${wpBaseUrl}/wp-json/mf/v1/create-subscription-order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${faustSecret}` },
+    body: JSON.stringify({
+      wpUserId,
+      billing: body.billing,
+      shipping: body.shipping || body.billing,
+      items: body.items,
+      transactionId,
+      period: scheme.period,
+      interval: scheme.interval,
+      customerProfileId,
+      paymentProfileId,
+    }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!data?.orderId) {
+    const msg = data?.message || `subscription order failed (${res.status})`;
+    throw new CheckoutError(`Subscription order creation failed: ${msg}`, ErrorCode.VALIDATION_ERROR);
+  }
+  return {
+    id: String(data.orderId),
+    databaseId: Number(data.orderId),
+    orderNumber: String(data.orderNumber || data.orderId),
+    status: 'processing',
+    total: String(data.total || body.amount),
+  };
+}
+
 /**
  * Fallback: Create order directly without cart session
  * Used when the session-based checkout fails (e.g., session expired)
@@ -890,23 +951,26 @@ async function checkoutHandler(
       eventType: 'payment_success',
     });
 
-    let order: PendingOrder;
-    try {
-      order = await createOrderWithPayment(req, body, transactionId, authToken);
-    } catch (checkoutError) {
-      // If session-based checkout fails, try direct order creation as fallback
-      console.log('[Checkout] Session-based checkout failed, trying direct order creation...');
-      console.log('[Checkout] Original error:', checkoutError instanceof Error ? checkoutError.message : checkoutError);
+    const subscriptionScheme = await getForcedSubscriptionScheme(body.items, authToken);
 
+    let order: PendingOrder;
+    if (subscriptionScheme) {
+      order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, authToken);
+    } else {
       try {
-        const fallbackCookies = req.headers.cookie || '';
-        const fallbackSession = extractWcSessionToken(fallbackCookies) || undefined;
-        order = await createOrderDirectly(body, transactionId, fallbackCookies, fallbackSession, authToken);
-        console.log('[Checkout] Direct order creation succeeded!');
-      } catch (directError) {
-        // Both methods failed - throw the original error
-        console.error('[Checkout] Both checkout methods failed!');
-        throw checkoutError;
+        order = await createOrderWithPayment(req, body, transactionId, authToken);
+      } catch (checkoutError) {
+        console.log('[Checkout] Session-based checkout failed, trying direct order creation...');
+        console.log('[Checkout] Original error:', checkoutError instanceof Error ? checkoutError.message : checkoutError);
+        try {
+          const fallbackCookies = req.headers.cookie || '';
+          const fallbackSession = extractWcSessionToken(fallbackCookies) || undefined;
+          order = await createOrderDirectly(body, transactionId, fallbackCookies, fallbackSession, authToken);
+          console.log('[Checkout] Direct order creation succeeded!');
+        } catch (directError) {
+          console.error('[Checkout] Both checkout methods failed!');
+          throw checkoutError;
+        }
       }
     }
     orderId = order.databaseId.toString();
@@ -983,8 +1047,6 @@ async function checkoutHandler(
     // === POST-RESPONSE WORK (customer already has their confirmation) ===
 
     // STEP 4: Create CIM profile + handle subscriptions in the background
-    const subscriptionScheme = await getForcedSubscriptionScheme(body.items, authToken).catch(() => null);
-
     if (authToken && body.saveCard && !body.savedCard && transactionId && !subscriptionScheme) {
       (async () => {
         try {
@@ -1046,53 +1108,6 @@ async function checkoutHandler(
       })();
     }
 
-    if (subscriptionScheme && authToken && transactionId) {
-      try {
-        let customerProfileId = body.savedCard?.customerProfileId || '';
-        let paymentProfileId = body.savedCard?.paymentProfileId || '';
-        if (!customerProfileId || !paymentProfileId) {
-          const viewerRes = await makeHttpRequest({
-            url: getWordPressGraphQLUrl(),
-            body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
-            authToken,
-          });
-          const wpUserId = viewerRes.data?.data?.viewer?.databaseId;
-          if (wpUserId) {
-            const profile = await createProfileFromTransaction(
-              transactionId,
-              String(wpUserId),
-              body.billing.email
-            );
-            customerProfileId = profile.customerProfileId;
-            paymentProfileId = profile.paymentProfileId;
-          }
-        }
-        if (customerProfileId && paymentProfileId) {
-          const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-          const faustSecret = process.env.FAUST_SECRET_KEY;
-          const subRes = await fetch(`${wpBaseUrl}/wp-json/mf/v1/create-subscription`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${faustSecret}` },
-            body: JSON.stringify({
-              orderId: order.databaseId,
-              period: subscriptionScheme.period,
-              interval: subscriptionScheme.interval,
-              customerProfileId,
-              paymentProfileId,
-            }),
-          });
-          if (!subRes.ok) {
-            console.error(`[Subscription] create-subscription failed (${subRes.status}): ${await subRes.text()}`);
-          } else {
-            console.log(`[Subscription] Created for order ${order.databaseId}`);
-          }
-        } else {
-          console.error('[Subscription] No CIM profile available; subscription not created.');
-        }
-      } catch (err) {
-        console.error('[Subscription] handling failed:', err);
-      }
-    }
 
   } catch (error) {
     logError('checkout.handler', error, { orderId, orderNumber, transactionId });
