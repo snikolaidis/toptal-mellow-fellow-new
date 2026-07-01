@@ -16,6 +16,7 @@ import {
   ActiveFilters,
   isHiddenTerm,
 } from '@/lib/shopFilters';
+import { getAllProducts as getAllProductsFromDb } from '@/lib/product-queries';
 import styles from '@/styles/pages/shop.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
@@ -68,6 +69,55 @@ function sortProducts(products: Product[], sort: string): Product[] {
 interface TaxonomyMap {
   terms: Record<string, Array<{ name: string; slug: string; count: number; productIds: number[] }>>;
   productIndex: Record<number, Record<string, string[]>>;
+}
+
+const TAXONOMY_FIELDS: Record<string, string> = {
+  productType: 'mfproductTypes',
+  size: 'size',
+  strainType: 'strainTypes',
+  blendType: 'blendTypes',
+  cannabinoid: 'cannabinoids',
+  singleCannabinoid: 'singleCannabinoid',
+  mg: 'mG',
+  pieces: 'pieces',
+};
+
+/** Build a TaxonomyMap from product raw data (for Postgres path). */
+function buildTaxMapFromProducts(products: Product[]): TaxonomyMap {
+  const terms: TaxonomyMap['terms'] = {};
+  const productIndex: TaxonomyMap['productIndex'] = {};
+
+  for (const product of products) {
+    const p = product as any;
+    const pid = p.databaseId;
+    if (!productIndex[pid]) productIndex[pid] = {};
+
+    for (const [filterKey, fieldName] of Object.entries(TAXONOMY_FIELDS)) {
+      const nodes = p?.[fieldName]?.nodes || [];
+      if (!terms[filterKey]) terms[filterKey] = [];
+
+      for (const term of nodes) {
+        if (!term?.slug) continue;
+
+        // Product index
+        if (!productIndex[pid][filterKey]) productIndex[pid][filterKey] = [];
+        if (!productIndex[pid][filterKey].includes(term.slug)) {
+          productIndex[pid][filterKey].push(term.slug);
+        }
+
+        // Terms list
+        const existing = terms[filterKey].find((t) => t.slug === term.slug);
+        if (existing) {
+          existing.count++;
+          if (!existing.productIds.includes(pid)) existing.productIds.push(pid);
+        } else {
+          terms[filterKey].push({ name: term.name, slug: term.slug, count: 1, productIds: [pid] });
+        }
+      }
+    }
+  }
+
+  return { terms, productIndex };
 }
 
 interface ShopPageProps {
@@ -299,28 +349,50 @@ export default function ShopPage({ allProducts, taxMap }: ShopPageProps) {
 
 export const getStaticProps: GetStaticProps = async () => {
   try {
-    const client = getClient();
+    // Try Postgres first (fast, <20ms for all products)
+    const pgProducts = await getAllProductsFromDb();
 
-    // Fetch in batches of 200 to stay within PHP memory limits.
-    // Each batch runs sequentially using cursor pagination.
+    if (pgProducts && pgProducts.length > 0) {
+      console.log(`[Shop] Loaded ${pgProducts.length} products from Postgres`);
+
+      // Build taxonomy map from the products' raw data
+      const taxMap = buildTaxMapFromProducts(pgProducts);
+
+      return {
+        props: { allProducts: pgProducts, taxMap },
+        revalidate: 120,
+      };
+    }
+
+    // Fallback: GraphQL batched fetch (slow, may 504)
+    console.log('[Shop] Postgres unavailable, falling back to GraphQL');
+    const client = getClient();
     let allProducts: Product[] = [];
     let after: string | null = null;
     let hasMore = true;
 
     while (hasMore) {
-      const { data }: { data: any } = await client.query({
-        query: GET_ALL_SHOP_PRODUCTS,
-        variables: { first: 200, ...(after ? { after } : {}) },
-        fetchPolicy: 'no-cache',
-      });
+      try {
+        const { data }: { data: any } = await client.query({
+          query: GET_ALL_SHOP_PRODUCTS,
+          variables: { first: 100, ...(after ? { after } : {}) },
+          fetchPolicy: 'no-cache',
+        });
 
-      const nodes = data?.products?.nodes || [];
-      allProducts = [...allProducts, ...nodes];
-      after = data?.products?.pageInfo?.endCursor || null;
-      hasMore = data?.products?.pageInfo?.hasNextPage || false;
+        const nodes = data?.products?.nodes || [];
+        allProducts = [...allProducts, ...nodes];
+        after = data?.products?.pageInfo?.endCursor || null;
+        hasMore = data?.products?.pageInfo?.hasNextPage || false;
+      } catch {
+        console.error(`[Shop] GraphQL batch failed, using ${allProducts.length} products`);
+        hasMore = false;
+      }
+
+      // Delay between batches
+      if (hasMore) await new Promise((r) => setTimeout(r, 1500));
     }
 
-    // Fetch taxonomy map from the WP REST endpoint (single SQL, ~0.6s)
+    // Fetch taxonomy map from WP REST
     const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
     let taxMap: TaxonomyMap | null = null;
     try {
