@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { useQuery, useMutation } from '@apollo/client';
@@ -11,6 +11,7 @@ interface Option {
   points: number;
   costText: string;
   isVariable?: boolean;
+  isFreeProduct?: boolean;
 }
 
 const PolicyLink = () => (
@@ -28,12 +29,23 @@ export default function LoyaltyCheckoutRewards() {
     skip: !isReady || !isAuthenticated,
   });
   const [redeem] = useMutation(REDEEM_LOYALTY_OPTION, { client });
-  const { applyCoupon } = useCart();
+  const { applyCoupon, cart } = useCart();
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!appliedCode || !cart) {
+      return;
+    }
+    const codes = (cart.appliedCoupons ?? []).map((c) => c.code.toLowerCase());
+    if (!codes.includes(appliedCode.toLowerCase())) {
+      setAppliedCode(null);
+      refetch();
+    }
+  }, [cart, appliedCode, refetch]);
 
   if (!isReady) {
     return null;
@@ -55,7 +67,9 @@ export default function LoyaltyCheckoutRewards() {
   }
 
   const points: number = info.pointsBalance ?? 0;
-  const options: Option[] = (info.options ?? []).filter((o: Option) => !o.isVariable);
+  const options: Option[] = (info.options ?? []).filter(
+    (o: Option) => !o.isVariable && !o.isFreeProduct
+  );
   if (options.length === 0) {
     return null;
   }
