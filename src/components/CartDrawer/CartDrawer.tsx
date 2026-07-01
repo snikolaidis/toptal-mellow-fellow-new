@@ -84,6 +84,9 @@ export default function CartDrawer() {
       params.set('cartProductIds', excludeIds.join(','));
     }
 
+    // Only fetch if drawer is open — avoid unnecessary API calls
+    if (!isDrawerOpen) return;
+
     setRecsLoading(true);
     fetch(`/api/shop/recommendations?${params}`)
       .then((r) => r.json())
@@ -92,7 +95,7 @@ export default function CartDrawer() {
       })
       .catch(() => setRecommendations([]))
       .finally(() => setRecsLoading(false));
-  }, [cart?.items.map((i) => i.product.databaseId).join(','), cart?.subtotal]);
+  }, [cart?.items.map((i) => i.product.databaseId).join(','), cart?.subtotal, isDrawerOpen]);
 
   const handleAddRecommendation = useCallback(
     async (product: Product) => {

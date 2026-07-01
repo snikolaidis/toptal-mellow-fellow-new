@@ -70,11 +70,24 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     };
   }, [isOpen, onClose]);
 
+  // Client-side search cache — avoids re-fetching for repeat/similar queries
+  const searchCache = useRef<Map<string, { results: SearchResult[]; time: number }>>(new Map());
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   // Debounced search
   const searchProducts = useCallback(async (searchQuery: string) => {
     if (searchQuery.length < 2) {
       setResults([]);
       setHasSearched(false);
+      return;
+    }
+
+    // Check client cache first
+    const cacheKey = searchQuery.toLowerCase().trim();
+    const cached = searchCache.current.get(cacheKey);
+    if (cached && Date.now() - cached.time < CACHE_TTL) {
+      setResults(cached.results);
+      setHasSearched(true);
       return;
     }
 
@@ -87,6 +100,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
       if (data.success) {
         setResults(data.products);
+        searchCache.current.set(cacheKey, { results: data.products, time: Date.now() });
       } else {
         setResults([]);
       }
