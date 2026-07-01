@@ -18,6 +18,7 @@ const GET_DEALS_CARD_GRID = gql`
           label
           heading
           description
+          bullets
           visible
           image {
             node {
@@ -75,6 +76,7 @@ export const getStaticProps: GetStaticProps<DealsPageProps> = async () => {
           label: row.label,
           heading: row.heading ?? null,
           description: row.description ?? null,
+          bullets: row.bullets ?? null,
           image: imageNode?.sourceUrl
             ? { src: imageNode.sourceUrl, alt: imageNode.altText ?? '' }
             : null,
