@@ -32,25 +32,12 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const [navigating, setNavigating] = useState(false);
-
   const goToSearchPage = () => {
     if (query.trim().length >= 2) {
-      setNavigating(true);
+      onClose();
       router.push(`/search?q=${encodeURIComponent(query.trim())}`);
     }
   };
-
-  // Close modal when navigation completes
-  useEffect(() => {
-    const done = () => { setNavigating(false); onClose(); };
-    router.events.on('routeChangeComplete', done);
-    router.events.on('routeChangeError', done);
-    return () => {
-      router.events.off('routeChangeComplete', done);
-      router.events.off('routeChangeError', done);
-    };
-  }, [router, onClose]);
 
   // Focus input when modal opens
   useEffect(() => {
@@ -172,28 +159,21 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
         </form>
 
         <div className={styles.results}>
-          {navigating && (
-            <div className={styles.loading}>
-              <div className="spinner h-6 w-6"></div>
-              <span>Loading results...</span>
-            </div>
-          )}
-
-          {!navigating && loading && (
+          {loading && (
             <div className={styles.loading}>
               <div className="spinner h-6 w-6"></div>
               <span>Searching...</span>
             </div>
           )}
 
-          {!navigating && !loading && hasSearched && results.length === 0 && (
+          {!loading && hasSearched && results.length === 0 && (
             <div className={styles.empty}>
               <p>No products found for &ldquo;{query}&rdquo;</p>
               <span>Try a different search term</span>
             </div>
           )}
 
-          {!navigating && !loading && results.length > 0 && (
+          {!loading && results.length > 0 && (
             <div className={styles.resultsList}>
               {results.map((product) => (
                 <Link
@@ -239,7 +219,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             </div>
           )}
 
-          {!navigating && !loading && !hasSearched && (
+          {!loading && !hasSearched && (
             <div className={styles.hint}>
               <p>Start typing to search products</p>
             </div>

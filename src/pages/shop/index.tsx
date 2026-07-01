@@ -72,21 +72,13 @@ interface TaxonomyMap {
 
 interface ShopPageProps {
   allProducts: Product[];
+  taxMap: TaxonomyMap | null;
 }
 
-export default function ShopPage({ allProducts }: ShopPageProps) {
+export default function ShopPage({ allProducts, taxMap }: ShopPageProps) {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
-  const [taxMap, setTaxMap] = useState<TaxonomyMap | null>(null);
-
-  // Fetch the taxonomy map once on mount — single SQL query, 0.6s, cached 2 min
-  useEffect(() => {
-    fetch('/api/shop/taxonomy-map')
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setTaxMap(d); })
-      .catch(() => {});
-  }, []);
 
   // Enrich products with taxonomy names from the map (for ProductCard display)
   const enrichedProducts = useMemo(() => {
@@ -328,14 +320,25 @@ export const getStaticProps: GetStaticProps = async () => {
       hasMore = data?.products?.pageInfo?.hasNextPage || false;
     }
 
+    // Fetch taxonomy map from the WP REST endpoint (single SQL, ~0.6s)
+    const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+    let taxMap: TaxonomyMap | null = null;
+    try {
+      const taxRes = await fetch(`${wpUrl}/wp-json/mf/v1/taxonomy-map`);
+      const taxData = await taxRes.json();
+      if (taxData.success) taxMap = taxData;
+    } catch {
+      console.error('Failed to fetch taxonomy map');
+    }
+
     return {
-      props: { allProducts },
+      props: { allProducts, taxMap },
       revalidate: 120,
     };
   } catch (error) {
     console.error('Error fetching shop data:', error);
     return {
-      props: { allProducts: [] },
+      props: { allProducts: [], taxMap: null },
       revalidate: 60,
     };
   }
