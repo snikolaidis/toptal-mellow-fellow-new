@@ -1,19 +1,4 @@
 <?php
-/**
- * Backfill _shopify_id post meta on WooCommerce products from the Shopify export.
- *
- * Matches each Woo product to its Shopify product by slug (Woo post_name == Shopify
- * handle), then stores the numeric Shopify product id in _shopify_id. Matching by
- * slug is stable across re-imports, unlike the Woo post id. The Mellow Fellow Shopify
- * ID plugin reads _shopify_id and exposes the numeric id as `shopifyId` on WPGraphQL,
- * which the Klaviyo reviews widget uses as its product key.
- *
- * Input is the Shopify products export (JSONL, one product per line with `id` and
- * `handle`), e.g. migration/data/products.jsonl.
- *
- * Run: wp eval-file backfill-shopify-id.php /absolute/path/to/products.jsonl
- * With no argument it looks for products.jsonl next to this script.
- */
 
 if (!defined('WP_CLI') || !WP_CLI) {
     fwrite(STDERR, "This script must run under WP-CLI (wp eval-file).\n");

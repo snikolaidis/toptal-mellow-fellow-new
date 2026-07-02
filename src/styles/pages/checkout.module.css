@@ -356,43 +356,141 @@
   background-color: #EAE4D9;
 }
 
-.subscribeOption {
+.subUpgrade {
   border: 1px solid #D5D0C9;
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 18px;
   margin-bottom: 16px;
 }
 
-.subscribeTitle {
-  margin: 0 0 12px;
+.subUpgradeTitle {
+  margin: 0 0 8px;
   font-size: 1rem;
+  font-weight: 700;
+  color: #232323;
 }
 
-.subscribeChoice {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
+.subUpgradeText {
+  margin: 0 0 10px;
+  color: #232323;
+  font-size: 0.9rem;
+}
+
+.subUpgradeList {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  color: #232323;
+  font-size: 0.9rem;
+}
+
+.subUpgradeList li {
+  margin: 2px 0;
+}
+
+.subDeliverLabel {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8A8683;
+  margin-bottom: 4px;
+}
+
+.subDeliverSelect {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #D5D0C9;
+  border-radius: 8px;
+  background: #F5F5F0;
+  color: #232323;
+  font-size: 0.95rem;
+  margin-bottom: 14px;
   cursor: pointer;
 }
 
-.subscribeChoice input[type="radio"] {
-  accent-color: #354654;
+.subUpgradeBtn {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: #354654;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.subUpgradeBtn:hover {
+  background: #2a3a47;
+}
+
+.subSaved {
+  border: 1px solid #B1F2B4;
+  background: #EAFBEA;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.subSavedHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.subSavedCheck {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #10866A;
+}
+
+.subSavedText {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #17683F;
+}
+
+.subSavedChevron {
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
-}
-
-.subscribeFrequency {
-  margin-top: 8px;
-  padding: 8px 10px;
-  border: 1px solid #D5D0C9;
-  border-radius: 6px;
-  width: 100%;
-}
-
-.subscribeNote {
-  margin: 8px 0 0;
   color: #8A8683;
+  transition: transform 0.15s ease;
+}
+
+.subSavedChevronUp {
+  transform: rotate(180deg);
+}
+
+.subSavedBody {
+  padding: 0 16px 14px 44px;
+  font-size: 0.9rem;
+  color: #232323;
+}
+
+.subSavedDeliver {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.subUndo {
+  margin-top: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #354654;
+  text-decoration: underline;
+  cursor: pointer;
   font-size: 0.9rem;
 }
 

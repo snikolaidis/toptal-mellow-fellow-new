@@ -37,13 +37,16 @@ interface Cart {
 
 interface MobileOrderSummaryProps {
   cart: Cart;
+  subscription?: { savings: number; recurring: number; label: string };
 }
 
-export default function MobileOrderSummary({ cart }: MobileOrderSummaryProps) {
+export default function MobileOrderSummary({ cart, subscription }: MobileOrderSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const hasDiscount = cart.discountTotal &&
     parseFloat(cart.discountTotal.replace(/[^0-9.-]/g, '')) > 0;
+
+  const displayTotal = subscription ? `$${subscription.recurring.toFixed(2)}` : cart.total;
 
   return (
     <div className={`${styles.mobileSummary} ${isExpanded ? styles.expanded : ''}`}>
@@ -60,7 +63,7 @@ export default function MobileOrderSummary({ cart }: MobileOrderSummaryProps) {
         </div>
         <div className={styles.total}>
           <span className={styles.totalLabel}>Total</span>
-          <span className={styles.totalAmount}>{cart.total}</span>
+          <span className={styles.totalAmount}>{displayTotal}</span>
         </div>
       </button>
 
@@ -103,7 +106,7 @@ export default function MobileOrderSummary({ cart }: MobileOrderSummaryProps) {
           <dl className={styles.totals}>
             <div className={styles.row}>
               <dt>Subtotal</dt>
-              <dd>{cart.subtotal}</dd>
+              <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : cart.subtotal}</dd>
             </div>
 
             {hasDiscount && (
@@ -124,8 +127,15 @@ export default function MobileOrderSummary({ cart }: MobileOrderSummaryProps) {
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>
-              <dd>{cart.total}</dd>
+              <dd>{displayTotal}</dd>
             </div>
+
+            {subscription && (
+              <div className={styles.row}>
+                <dt>Recurring subtotal</dt>
+                <dd>${subscription.recurring.toFixed(2)} every {subscription.label}</dd>
+              </div>
+            )}
           </dl>
         </div>
       )}

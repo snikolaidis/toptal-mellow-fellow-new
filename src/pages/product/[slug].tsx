@@ -402,26 +402,29 @@ export default function ProductPage({
                           <span>No commitment. Cancel anytime</span>
                         </span>
                         <span className={styles.purchaseDeliver}>
-                          <span className={styles.purchaseDeliverLabel}>Deliver every</span>
-                          <select
-                            className={styles.purchaseDeliverSelect}
-                            value={`${sel.period}:${sel.interval}`}
-                            onChange={(e) => {
-                              const [period, interval] = e.target.value.split(':');
-                              setSubChoice({ period, interval: Number(interval) });
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {subSchemes.map((s) => (
-                              <option
-                                key={`${s.period}:${s.interval}`}
-                                value={`${s.period}:${s.interval}`}
-                              >
-                                {formatEvery(s.period, s.interval)}
-                                {s.discount > 0 ? ` (save ${Math.round(s.discount)}%)` : ''}
-                              </option>
-                            ))}
-                          </select>
+                          <span className={styles.purchaseDeliverLabel}>Deliver every:</span>
+                          <span className={styles.purchaseFreqs}>
+                            {subSchemes.map((s) => {
+                              const active = sel.period === s.period && sel.interval === s.interval;
+                              return (
+                                <button
+                                  key={`${s.period}:${s.interval}`}
+                                  type="button"
+                                  className={`${styles.purchaseFreq} ${active ? styles.purchaseFreqActive : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSubChoice({ period: s.period, interval: s.interval });
+                                  }}
+                                  aria-pressed={active}
+                                >
+                                  <span className={styles.purchaseFreqLabel}>{formatEvery(s.period, s.interval)}</span>
+                                  {s.discount > 0 && (
+                                    <span className={styles.purchaseFreqSave}>save {Math.round(s.discount)}%</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </span>
                         </span>
                       </span>
                     )}

@@ -576,8 +576,8 @@
 }
 
 .purchaseOptionActive {
-  border-color: var(--color-brand-primary);
-  box-shadow: inset 0 0 0 1px var(--color-brand-primary);
+  border-color: #D9C79E;
+  box-shadow: inset 0 0 0 1px #D9C79E;
 }
 
 .purchaseTop {
@@ -596,11 +596,11 @@
 }
 
 .purchaseRadio[data-checked='true'] {
-  border-color: var(--color-brand-primary);
+  border-color: #BC912D;
   background:
     radial-gradient(
       circle,
-      var(--color-brand-primary) 0 5px,
+      #BC912D 0 5px,
       transparent 6px
     );
 }
@@ -617,7 +617,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  background: var(--color-state-success);
+  background: #10866A;
   color: var(--color-text-inverse);
 }
 
@@ -668,17 +668,43 @@
   color: var(--color-text-secondary);
 }
 
-.purchaseDeliverSelect {
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-primary);
-  color: var(--color-text-primary);
-  font-size: 0.9rem;
-  cursor: pointer;
+.purchaseFreqs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.purchaseDeliverSelect:hover,
-.purchaseDeliverSelect:focus {
-  border-color: var(--color-brand-primary);
-  outline: none;
+.purchaseFreq {
+  flex: 1 1 auto;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid #D9C79E;
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.purchaseFreq:hover {
+  border-color: #BC912D;
+}
+
+.purchaseFreqActive {
+  background: #D9C79E;
+  border-color: #D9C79E;
+  color: #5A493A;
+}
+
+.purchaseFreqLabel {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.purchaseFreqSave {
+  font-size: 0.75rem;
+  opacity: 0.85;
 }

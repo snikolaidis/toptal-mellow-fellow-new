@@ -42,9 +42,10 @@ interface Cart {
 
 interface OrderSummaryProps {
   cart: Cart;
+  subscription?: { savings: number; recurring: number; label: string };
 }
 
-export default function OrderSummary({ cart }: OrderSummaryProps) {
+export default function OrderSummary({ cart, subscription }: OrderSummaryProps) {
   const { applyCoupon, removeCoupon, error: cartError, bundleNames, bundleDiscounts, removeBundleGroup } = useCart();
   const { bundles, standalone } = groupCartItems(cart.items as any[], bundleNames);
   const [couponCode, setCouponCode] = useState('');
@@ -265,7 +266,7 @@ export default function OrderSummary({ cart }: OrderSummaryProps) {
           <dl className={styles.totals}>
             <div className={styles.row}>
               <dt>Subtotal</dt>
-              <dd>{cart.subtotal}</dd>
+              <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : cart.subtotal}</dd>
             </div>
 
             {totalBundleDiscount > 0 && (
@@ -293,8 +294,15 @@ export default function OrderSummary({ cart }: OrderSummaryProps) {
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>
-              <dd>{cart.total}</dd>
+              <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : cart.total}</dd>
             </div>
+
+            {subscription && (
+              <div className={styles.row}>
+                <dt>Recurring subtotal</dt>
+                <dd>${subscription.recurring.toFixed(2)} every {subscription.label}</dd>
+              </div>
+            )}
           </dl>
         );
       })()}
