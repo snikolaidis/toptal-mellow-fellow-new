@@ -221,7 +221,7 @@ async function applyCouponsToSession(
 async function getServerCartTotal(
   req: NextApiRequest,
   authToken?: string
-): Promise<{ total: number; discountTotal: number } | null> {
+): Promise<{ total: number; discountTotal: number; shipping: number } | null> {
   const graphqlUrl = getWordPressGraphQLUrl();
   const cookies = req.headers.cookie || '';
   const wcSessionToken = extractWcSessionToken(cookies);
@@ -232,6 +232,7 @@ async function getServerCartTotal(
         total
         subtotal
         discountTotal
+        shippingTotal
         isEmpty
       }
     }
@@ -256,7 +257,12 @@ async function getServerCartTotal(
     if (isNaN(total)) return null;
 
     const discountTotal = parseMoney(cart.discountTotal);
-    return { total, discountTotal: isNaN(discountTotal) ? 0 : discountTotal };
+    const shipping = parseMoney(cart.shippingTotal);
+    return {
+      total,
+      discountTotal: isNaN(discountTotal) ? 0 : discountTotal,
+      shipping: isNaN(shipping) ? 0 : shipping,
+    };
   } catch (err) {
     console.error('[Checkout] Failed to read server cart total:', err);
     return null;
@@ -398,6 +404,7 @@ async function createSubscriptionOrder(
   transactionId: string,
   scheme: { period: string; interval: number },
   lines: SubscriptionLine[] | null,
+  shipping: number,
   authToken?: string
 ): Promise<PendingOrder> {
   if (!authToken) {
@@ -443,6 +450,7 @@ async function createSubscriptionOrder(
       shipping: body.shipping || body.billing,
       items: body.items,
       lines: lines || [],
+      shipping,
       transactionId,
       period: scheme.period,
       interval: scheme.interval,
@@ -1007,6 +1015,7 @@ async function checkoutHandler(
 
     let subscriptionScheme: { period: string; interval: number } | null = null;
     let subscriptionLines: SubscriptionLine[] | null = null;
+    let subscriptionShipping = 0;
     if (body.subscription && body.subscription.period && Number(body.subscription.interval) >= 1) {
       const schemesByProduct = await getSchemesByProduct(body.items, authToken);
       subscriptionScheme = resolveSubscriptionChoice(body, schemesByProduct);
@@ -1014,7 +1023,8 @@ async function checkoutHandler(
         const priced = buildSubscriptionLines(body, schemesByProduct, subscriptionScheme);
         if (priced) {
           subscriptionLines = priced.lines;
-          chargeAmount = priced.amount;
+          subscriptionShipping = serverCart ? Math.max(0, serverCart.shipping) : 0;
+          chargeAmount = priced.amount + subscriptionShipping;
         }
       }
     }
@@ -1039,7 +1049,7 @@ async function checkoutHandler(
 
     let order: PendingOrder;
     if (subscriptionScheme) {
-      order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, subscriptionLines, authToken);
+      order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, subscriptionLines, subscriptionShipping, authToken);
     } else {
       try {
         order = await createOrderWithPayment(req, body, transactionId, authToken);
@@ -1119,6 +1129,7 @@ async function checkoutHandler(
       orderId: orderNumber || orderId,
       orderDatabaseId: order.databaseId,
       transactionId,
+      amountCharged: chargeAmount.toFixed(2),
     };
 
     if (trackingKey) {

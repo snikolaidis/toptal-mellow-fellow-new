@@ -218,15 +218,111 @@ export default function CheckoutPage() {
     subscribe && subChoice
       ? (() => {
           const t = subTotals(subChoice);
-          return t
-            ? {
-                savings: t.savings,
-                recurring: t.recurring,
-                label: formatFrequency(subChoice.period, subChoice.interval),
-              }
-            : undefined;
+          if (!t) return undefined;
+          const ship = parseFloat((cart?.shippingTotal || '0').replace(/[^0-9.]/g, '')) || 0;
+          return {
+            savings: t.savings,
+            recurring: t.recurring,
+            total: t.recurring + ship,
+            label: formatFrequency(subChoice.period, subChoice.interval),
+          };
         })()
       : undefined;
+
+  const subscriptionCard =
+    subSchemes.length > 0 && subChoice
+      ? (() => {
+          const totals = subTotals(subChoice);
+          const savings = totals?.savings ?? 0;
+          const names = (cart?.items || []).map((it) => it.product?.name).filter(Boolean);
+          const freqLabel = formatFrequency(subChoice.period, subChoice.interval);
+          if (!subscribe) {
+            return (
+              <div className={styles.subUpgrade}>
+                <h3 className={styles.subUpgradeTitle}>Upgrade to a subscription and save!</h3>
+                <p className={styles.subUpgradeText}>
+                  Upgrade the following products to a subscription
+                  {savings > 0 ? ` and save up to $${savings.toFixed(2)} today!` : '.'}
+                </p>
+                <ul className={styles.subUpgradeList}>
+                  {names.map((n, i) => (
+                    <li key={i}>{n}</li>
+                  ))}
+                </ul>
+                <label className={styles.subDeliverLabel} htmlFor="mf-deliver">
+                  Deliver every
+                </label>
+                <select
+                  id="mf-deliver"
+                  className={styles.subDeliverSelect}
+                  value={`${subChoice.period}_${subChoice.interval}`}
+                  onChange={(e) => {
+                    const [period, interval] = e.target.value.split('_');
+                    setSubChoice({ period, interval: Number(interval) });
+                  }}
+                >
+                  {subSchemes.map((s) => (
+                    <option key={`${s.period}_${s.interval}`} value={`${s.period}_${s.interval}`}>
+                      {formatFrequency(s.period, s.interval)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className={styles.subUpgradeBtn}
+                  onClick={() => setSubscribe(true)}
+                >
+                  Upgrade all to a subscription
+                </button>
+              </div>
+            );
+          }
+          return (
+            <div className={styles.subSaved}>
+              <button
+                type="button"
+                className={styles.subSavedHead}
+                onClick={() => setSubExpanded((v) => !v)}
+                aria-expanded={subExpanded}
+              >
+                <svg className={styles.subSavedCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className={styles.subSavedText}>
+                  You saved ${savings.toFixed(2)} by upgrading products to a subscription!
+                </span>
+                <svg
+                  className={`${styles.subSavedChevron} ${subExpanded ? styles.subSavedChevronUp : ''}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {subExpanded && (
+                <div className={styles.subSavedBody}>
+                  <p className={styles.subSavedDeliver}>Deliver every {freqLabel}:</p>
+                  <ul className={styles.subUpgradeList}>
+                    {names.map((n, i) => (
+                      <li key={i}>{n}</li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className={styles.subUndo}
+                    onClick={() => setSubscribe(false)}
+                  >
+                    Undo savings
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()
+      : null;
 
   // Fetch CSRF token on component mount
   const fetchCsrfToken = useCallback(async () => {
@@ -508,7 +604,7 @@ export default function CheckoutPage() {
         pathname: '/order-confirmation',
         query: {
           orderId: result.orderId,
-          total: cart?.total,
+          total: result.amountCharged ? `$${result.amountCharged}` : cart?.total,
         },
       });
     } catch (err) {
@@ -603,97 +699,6 @@ export default function CheckoutPage() {
 
             {step === 'payment' && (
               <>
-                {subSchemes.length > 0 && subChoice && (() => {
-                  const totals = subTotals(subChoice);
-                  const savings = totals?.savings ?? 0;
-                  const names = (cart?.items || []).map((it) => it.product?.name).filter(Boolean);
-                  const freqLabel = formatFrequency(subChoice.period, subChoice.interval);
-                  if (!subscribe) {
-                    return (
-                      <div className={styles.subUpgrade}>
-                        <h3 className={styles.subUpgradeTitle}>Upgrade to a subscription and save!</h3>
-                        <p className={styles.subUpgradeText}>
-                          Upgrade the following products to a subscription
-                          {savings > 0 ? ` and save up to $${savings.toFixed(2)} today!` : '.'}
-                        </p>
-                        <ul className={styles.subUpgradeList}>
-                          {names.map((n, i) => (
-                            <li key={i}>{n}</li>
-                          ))}
-                        </ul>
-                        <label className={styles.subDeliverLabel} htmlFor="mf-deliver">
-                          Deliver every
-                        </label>
-                        <select
-                          id="mf-deliver"
-                          className={styles.subDeliverSelect}
-                          value={`${subChoice.period}_${subChoice.interval}`}
-                          onChange={(e) => {
-                            const [period, interval] = e.target.value.split('_');
-                            setSubChoice({ period, interval: Number(interval) });
-                          }}
-                        >
-                          {subSchemes.map((s) => (
-                            <option key={`${s.period}_${s.interval}`} value={`${s.period}_${s.interval}`}>
-                              {formatFrequency(s.period, s.interval)}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className={styles.subUpgradeBtn}
-                          onClick={() => setSubscribe(true)}
-                        >
-                          Upgrade all to a subscription
-                        </button>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className={styles.subSaved}>
-                      <button
-                        type="button"
-                        className={styles.subSavedHead}
-                        onClick={() => setSubExpanded((v) => !v)}
-                        aria-expanded={subExpanded}
-                      >
-                        <svg className={styles.subSavedCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className={styles.subSavedText}>
-                          You saved ${savings.toFixed(2)} by upgrading products to a subscription!
-                        </span>
-                        <svg
-                          className={`${styles.subSavedChevron} ${subExpanded ? styles.subSavedChevronUp : ''}`}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          aria-hidden="true"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      {subExpanded && (
-                        <div className={styles.subSavedBody}>
-                          <p className={styles.subSavedDeliver}>Deliver every {freqLabel}:</p>
-                          <ul className={styles.subUpgradeList}>
-                            {names.map((n, i) => (
-                              <li key={i}>{n}</li>
-                            ))}
-                          </ul>
-                          <button
-                            type="button"
-                            className={styles.subUndo}
-                            onClick={() => setSubscribe(false)}
-                          >
-                            Undo savings
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
                 <RealIdVerification
                   customer={{
                     id: customerData?.customer?.databaseId ?? null,
@@ -711,7 +716,7 @@ export default function CheckoutPage() {
                   onBack={() => setStep('shipping')}
                   isProcessing={isProcessing}
                   isLoading={csrfLoading}
-                  amount={subSummary ? `$${subSummary.recurring.toFixed(2)}` : cart.total}
+                  amount={subSummary ? `$${subSummary.total.toFixed(2)}` : cart.total}
                   realIdBlocked={!realIdVerified}
                   isAuthenticated={!!isAuthenticated}
                 />
@@ -722,12 +727,12 @@ export default function CheckoutPage() {
 
         {/* Right: Order Summary (desktop only) */}
         <aside className={styles.summarySection}>
-          <OrderSummary cart={cart} subscription={subSummary} />
+          <OrderSummary cart={cart} subscription={subSummary} subscriptionSlot={subscriptionCard} />
         </aside>
       </div>
 
       {/* Mobile: Fixed bottom summary */}
-      <MobileOrderSummary cart={cart} subscription={subSummary} />
+      <MobileOrderSummary cart={cart} subscription={subSummary} subscriptionSlot={subscriptionCard} />
     </Layout>
   );
 }

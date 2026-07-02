@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import Image from 'next/image';
 import { ChevronUpIcon } from '@/components/icons';
 import styles from './MobileOrderSummary.module.css';
@@ -37,16 +37,17 @@ interface Cart {
 
 interface MobileOrderSummaryProps {
   cart: Cart;
-  subscription?: { savings: number; recurring: number; label: string };
+  subscription?: { savings: number; recurring: number; total: number; label: string };
+  subscriptionSlot?: ReactNode;
 }
 
-export default function MobileOrderSummary({ cart, subscription }: MobileOrderSummaryProps) {
+export default function MobileOrderSummary({ cart, subscription, subscriptionSlot }: MobileOrderSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const hasDiscount = cart.discountTotal &&
     parseFloat(cart.discountTotal.replace(/[^0-9.-]/g, '')) > 0;
 
-  const displayTotal = subscription ? `$${subscription.recurring.toFixed(2)}` : cart.total;
+  const displayTotal = subscription ? `$${subscription.total.toFixed(2)}` : cart.total;
 
   return (
     <div className={`${styles.mobileSummary} ${isExpanded ? styles.expanded : ''}`}>
@@ -101,6 +102,8 @@ export default function MobileOrderSummary({ cart, subscription }: MobileOrderSu
               </li>
             ))}
           </ul>
+
+          {subscriptionSlot}
 
           {/* Totals */}
           <dl className={styles.totals}>

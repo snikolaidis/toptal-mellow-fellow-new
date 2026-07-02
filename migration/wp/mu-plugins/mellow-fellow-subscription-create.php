@@ -97,6 +97,13 @@ function mf_build_subscription($order, $period, $interval, $customer_profile_id,
         }
     }
 
+    foreach ($order->get_items('shipping') as $ship_item) {
+        $sub_ship = new WC_Order_Item_Shipping();
+        $sub_ship->set_method_title($ship_item->get_method_title());
+        $sub_ship->set_total($ship_item->get_total());
+        $sub->add_item($sub_ship);
+    }
+
     $sub->set_address($order->get_address('billing'), 'billing');
     $sub->set_address($order->get_address('shipping'), 'shipping');
     $sub->set_payment_method('authorize_net');
@@ -202,6 +209,14 @@ function mf_create_subscription_order_endpoint($request) {
                 $order->add_product($product, $qty);
             }
         }
+    }
+
+    $shipping_cost = isset($params['shipping']) && is_numeric($params['shipping']) ? (float) $params['shipping'] : 0;
+    if ($shipping_cost > 0) {
+        $ship_item = new WC_Order_Item_Shipping();
+        $ship_item->set_method_title('Shipping');
+        $ship_item->set_total((string) round($shipping_cost, 2));
+        $order->add_item($ship_item);
     }
 
     $order->set_address($billing, 'billing');

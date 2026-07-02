@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import Image from 'next/image';
 import { useCart, groupCartItems } from '@/context/CartContext';
 import { CloseIcon } from '@/components/icons';
@@ -42,10 +42,11 @@ interface Cart {
 
 interface OrderSummaryProps {
   cart: Cart;
-  subscription?: { savings: number; recurring: number; label: string };
+  subscription?: { savings: number; recurring: number; total: number; label: string };
+  subscriptionSlot?: ReactNode;
 }
 
-export default function OrderSummary({ cart, subscription }: OrderSummaryProps) {
+export default function OrderSummary({ cart, subscription, subscriptionSlot }: OrderSummaryProps) {
   const { applyCoupon, removeCoupon, error: cartError, bundleNames, bundleDiscounts, removeBundleGroup } = useCart();
   const { bundles, standalone } = groupCartItems(cart.items as any[], bundleNames);
   const [couponCode, setCouponCode] = useState('');
@@ -251,6 +252,8 @@ export default function OrderSummary({ cart, subscription }: OrderSummaryProps) 
         )}
       </div>
 
+      {subscriptionSlot}
+
       {/* Totals */}
       {(() => {
         const totalBundleDiscount = bundles.reduce((sum, group) => {
@@ -294,7 +297,7 @@ export default function OrderSummary({ cart, subscription }: OrderSummaryProps) 
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>
-              <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : cart.total}</dd>
+              <dd>{subscription ? `$${subscription.total.toFixed(2)}` : cart.total}</dd>
             </div>
 
             {subscription && (
