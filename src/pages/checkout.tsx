@@ -44,6 +44,10 @@ function generateIdempotencyKey(): string {
   return `checkout_${timestamp}_${random}`;
 }
 
+function formatFrequency(period: string, interval: number): string {
+  return interval > 1 ? `every ${interval} ${period}s` : `every ${period}`;
+}
+
 type CheckoutStep = 'billing' | 'shipping' | 'payment';
 
 export default function CheckoutPage() {
@@ -65,6 +69,10 @@ export default function CheckoutPage() {
   const [shipping, setShipping] = useState<AddressData>(emptyAddress);
   const [sameAsBilling, setSameAsBilling] = useState(true);
 
+  const [subSchemes, setSubSchemes] = useState<Array<{ period: string; interval: number }>>([]);
+  const [subscribe, setSubscribe] = useState(false);
+  const [subChoice, setSubChoice] = useState<{ period: string; interval: number } | null>(null);
+
   // CSRF token for secure checkout
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [csrfLoading, setCsrfLoading] = useState(true);
@@ -75,6 +83,112 @@ export default function CheckoutPage() {
     client: client!,
     skip: !isAuthenticated || !client,
   });
+
+  const cartItemIdsKey = (cart?.items || [])
+    .map((i) => i.product?.databaseId)
+    .filter((n) => typeof n === 'number' && n > 0)
+    .join(',');
+
+  useEffect(() => {
+    const ids = cartItemIdsKey
+      ? cartItemIdsKey.split(',').map(Number).filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+    if (!ids.length) {
+      setSubSchemes([]);
+      setSubscribe(false);
+      setSubChoice(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const fields = ids
+          .map(
+            (id, i) =>
+              `p${i}: product(id: ${id}, idType: DATABASE_ID) { ` +
+              `... on SimpleProduct { subscriptionSchemes { period interval } } ` +
+              `... on VariableProduct { subscriptionSchemes { period interval } } }`
+          )
+          .join('\n');
+        const res = await fetch('/api/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ query: `{ ${fields} }` }),
+        });
+        const json = await res.json();
+        const data = json?.data || {};
+        const perItem = ids.map((_, i) => {
+          const keys: string[] = [];
+          const schemes = data[`p${i}`]?.subscriptionSchemes;
+          if (Array.isArray(schemes)) {
+            schemes.forEach((x: { period?: string; interval?: number }) => {
+              const key = `${x.period}_${Number(x.interval)}`;
+              if (!keys.includes(key)) keys.push(key);
+            });
+          }
+          return keys;
+        });
+        let intersection = perItem.length ? perItem[0] : [];
+        for (let i = 1; i < perItem.length; i++) {
+          intersection = intersection.filter((k) => perItem[i].includes(k));
+        }
+        const schemes = intersection.map((k) => {
+          const [period, interval] = k.split('_');
+          return { period, interval: Number(interval) };
+        });
+        if (!cancelled) {
+          setSubSchemes(schemes);
+          setSubChoice(schemes[0] || null);
+          if (schemes.length === 0) {
+            setSubscribe(false);
+          } else {
+            let stored: { period: string; interval: number } | null = null;
+            let allStored = true;
+            for (const id of ids) {
+              let raw: string | null = null;
+              try {
+                raw = window.sessionStorage.getItem(`mf_sub_${id}`);
+              } catch {
+                raw = null;
+              }
+              if (!raw) {
+                allStored = false;
+                break;
+              }
+              try {
+                const parsed = JSON.parse(raw);
+                const choice = { period: String(parsed.period), interval: Number(parsed.interval) };
+                if (!stored) {
+                  stored = choice;
+                } else if (stored.period !== choice.period || stored.interval !== choice.interval) {
+                  allStored = false;
+                  break;
+                }
+              } catch {
+                allStored = false;
+                break;
+              }
+            }
+            const inIntersection =
+              !!stored && schemes.some((s) => s.period === stored!.period && s.interval === stored!.interval);
+            if (allStored && stored && inIntersection) {
+              setSubscribe(true);
+              setSubChoice(stored);
+            }
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setSubSchemes([]);
+          setSubscribe(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartItemIdsKey]);
 
   // Fetch CSRF token on component mount
   const fetchCsrfToken = useCallback(async () => {
@@ -297,6 +411,7 @@ export default function CheckoutPage() {
           paymentNonce: paymentData.opaqueData || undefined,
           savedCard: paymentData.savedCard || undefined,
           saveCard: paymentData.saveCard || false,
+          subscription: subscribe && subChoice ? subChoice : undefined,
           amount: cart?.total,
           coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
           items: cart?.items.map((item) => ({
@@ -450,6 +565,51 @@ export default function CheckoutPage() {
 
             {step === 'payment' && (
               <>
+                {subSchemes.length > 0 && (
+                  <div className={styles.subscribeOption}>
+                    <h3 className={styles.subscribeTitle}>Purchase options</h3>
+                    <label className={styles.subscribeChoice}>
+                      <input
+                        type="radio"
+                        name="purchaseType"
+                        checked={!subscribe}
+                        onChange={() => setSubscribe(false)}
+                      />
+                      <span>One-time purchase</span>
+                    </label>
+                    <label className={styles.subscribeChoice}>
+                      <input
+                        type="radio"
+                        name="purchaseType"
+                        checked={subscribe}
+                        onChange={() => {
+                          setSubscribe(true);
+                          if (!subChoice && subSchemes[0]) setSubChoice(subSchemes[0]);
+                        }}
+                      />
+                      <span>Subscribe and save</span>
+                    </label>
+                    {subscribe && subSchemes.length > 1 && (
+                      <select
+                        className={styles.subscribeFrequency}
+                        value={subChoice ? `${subChoice.period}_${subChoice.interval}` : ''}
+                        onChange={(e) => {
+                          const [period, interval] = e.target.value.split('_');
+                          setSubChoice({ period, interval: Number(interval) });
+                        }}
+                      >
+                        {subSchemes.map((s) => (
+                          <option key={`${s.period}_${s.interval}`} value={`${s.period}_${s.interval}`}>
+                            Deliver {formatFrequency(s.period, s.interval)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {subscribe && subSchemes.length === 1 && subChoice && (
+                      <p className={styles.subscribeNote}>Deliver {formatFrequency(subChoice.period, subChoice.interval)}</p>
+                    )}
+                  </div>
+                )}
                 <RealIdVerification
                   customer={{
                     id: customerData?.customer?.databaseId ?? null,

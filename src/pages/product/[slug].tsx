@@ -18,6 +18,10 @@ interface ProductPageProps {
   collectionSlug: string | null;
 }
 
+function formatEvery(period: string, interval: number) {
+  return interval > 1 ? `${interval} ${period}s` : period;
+}
+
 export default function ProductPage({
   product,
   collectionProducts,
@@ -30,7 +34,52 @@ export default function ProductPage({
   const [addedToCart, setAddedToCart] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [subSchemes, setSubSchemes] = useState<
+    Array<{ period: string; interval: number; price: string; discount: number }>
+  >([]);
+  const [subscribe, setSubscribe] = useState(true);
+  const [subChoice, setSubChoice] = useState<{ period: string; interval: number } | null>(null);
   const { addToCart } = useCart();
+
+  useEffect(() => {
+    const id = product?.databaseId;
+    if (!id) {
+      setSubSchemes([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            query: `{ product(id: ${id}, idType: DATABASE_ID) { ... on SimpleProduct { subscriptionSchemes { period interval price discount } } ... on VariableProduct { subscriptionSchemes { period interval price discount } } } }`,
+          }),
+        });
+        const json = await res.json();
+        const schemes = json?.data?.product?.subscriptionSchemes;
+        if (cancelled) return;
+        if (Array.isArray(schemes) && schemes.length) {
+          setSubSchemes(schemes);
+          setSubChoice({ period: schemes[0].period, interval: schemes[0].interval });
+          setSubscribe(true);
+        } else {
+          setSubSchemes([]);
+          setSubscribe(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setSubSchemes([]);
+          setSubscribe(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.databaseId]);
 
   // Reset state when product changes
   useEffect(() => {
@@ -81,6 +130,19 @@ export default function ProductPage({
         quantity,
         variationId,
       });
+      try {
+        const key = `mf_sub_${product.databaseId}`;
+        if (subscribe && subChoice) {
+          window.sessionStorage.setItem(
+            key,
+            JSON.stringify({ period: subChoice.period, interval: subChoice.interval })
+          );
+        } else {
+          window.sessionStorage.removeItem(key);
+        }
+      } catch {
+        void 0;
+      }
       klaviyoTrack('Added to Cart', {
         ProductName: product.name,
         ProductID: product.databaseId,
@@ -199,10 +261,10 @@ export default function ProductPage({
             {/* Title */}
             <h1 className={styles.title}>{product.name}</h1>
 
-            {mounted && (
+            {mounted && product.shopifyId && (
               <div
                 className="klaviyo-star-rating-widget"
-                data-id={product.shopifyId ?? product.databaseId}
+                data-id={product.shopifyId}
                 data-product-title={product.name}
               />
             )}
@@ -306,6 +368,82 @@ export default function ProductPage({
               </div>
             )}
 
+            {isInStock && subSchemes.length > 0 && (() => {
+              const sel =
+                (subChoice &&
+                  subSchemes.find(
+                    (s) => s.period === subChoice.period && s.interval === subChoice.interval
+                  )) ||
+                subSchemes[0];
+              const discount = Math.round(sel.discount);
+              return (
+                <div className={styles.purchaseOptions}>
+                  <button
+                    type="button"
+                    className={`${styles.purchaseOption} ${subscribe ? styles.purchaseOptionActive : ''}`}
+                    onClick={() => setSubscribe(true)}
+                    aria-pressed={subscribe}
+                  >
+                    <span className={styles.purchaseTop}>
+                      <span className={styles.purchaseRadio} data-checked={subscribe} aria-hidden="true" />
+                      <span className={styles.purchaseName}>Subscribe &amp; save</span>
+                      {discount > 0 && (
+                        <span className={styles.purchaseBadge}>Save up to {discount}%</span>
+                      )}
+                      <span className={styles.purchasePricing}>
+                        <span className={styles.purchaseWas}>{product.price}</span>
+                        <span className={styles.purchaseNow}>${sel.price}</span>
+                      </span>
+                    </span>
+                    {subscribe && (
+                      <span className={styles.purchaseDetail}>
+                        <span className={styles.purchaseBenefits}>
+                          {discount > 0 && <span>Save {discount}%</span>}
+                          <span>No commitment. Cancel anytime</span>
+                        </span>
+                        <span className={styles.purchaseDeliver}>
+                          <span className={styles.purchaseDeliverLabel}>Deliver every</span>
+                          <select
+                            className={styles.purchaseDeliverSelect}
+                            value={`${sel.period}:${sel.interval}`}
+                            onChange={(e) => {
+                              const [period, interval] = e.target.value.split(':');
+                              setSubChoice({ period, interval: Number(interval) });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {subSchemes.map((s) => (
+                              <option
+                                key={`${s.period}:${s.interval}`}
+                                value={`${s.period}:${s.interval}`}
+                              >
+                                {formatEvery(s.period, s.interval)}
+                                {s.discount > 0 ? ` (save ${Math.round(s.discount)}%)` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.purchaseOption} ${!subscribe ? styles.purchaseOptionActive : ''}`}
+                    onClick={() => setSubscribe(false)}
+                    aria-pressed={!subscribe}
+                  >
+                    <span className={styles.purchaseTop}>
+                      <span className={styles.purchaseRadio} data-checked={!subscribe} aria-hidden="true" />
+                      <span className={styles.purchaseName}>One-time</span>
+                      <span className={styles.purchasePricing}>
+                        <span className={styles.purchaseNow}>{product.price}</span>
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              );
+            })()}
+
             {/* Add to Cart Section */}
             {isInStock ? (
               <div className={styles.addToCartSection}>
@@ -390,9 +528,9 @@ export default function ProductPage({
           </div>
         )}
 
-        {mounted && (
+        {mounted && product.shopifyId && (
           <div className={styles.descriptionSection}>
-            <div id="klaviyo-reviews-all" data-id={product.shopifyId ?? product.databaseId} />
+            <div id="klaviyo-reviews-all" data-id={product.shopifyId} />
           </div>
         )}
 

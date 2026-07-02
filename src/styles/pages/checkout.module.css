@@ -356,6 +356,46 @@
   background-color: #EAE4D9;
 }
 
+.subscribeOption {
+  border: 1px solid #D5D0C9;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.subscribeTitle {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.subscribeChoice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.subscribeChoice input[type="radio"] {
+  accent-color: #354654;
+  width: 16px;
+  height: 16px;
+}
+
+.subscribeFrequency {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #D5D0C9;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.subscribeNote {
+  margin: 8px 0 0;
+  color: #8A8683;
+  font-size: 0.9rem;
+}
+
 .securityBadges {
   margin-top: 2rem;
   padding-top: 1.5rem;

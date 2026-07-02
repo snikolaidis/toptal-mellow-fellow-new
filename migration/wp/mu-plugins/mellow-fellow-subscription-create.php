@@ -176,12 +176,31 @@ function mf_create_subscription_order_endpoint($request) {
         return new WP_REST_Response(array('error' => 'order_failed', 'message' => $order->get_error_message()), 500);
     }
 
+    $lines = isset($params['lines']) && is_array($params['lines']) ? $params['lines'] : array();
+    $unit_prices = array();
+    foreach ($lines as $ln) {
+        $lpid = (int) (isset($ln['productId']) ? $ln['productId'] : 0);
+        if ($lpid && isset($ln['unitPrice']) && is_numeric($ln['unitPrice'])) {
+            $unit_prices[$lpid] = (float) $ln['unitPrice'];
+        }
+    }
+
+    $applied_discount = false;
     foreach ($items as $it) {
         $pid = (int) (isset($it['productId']) ? $it['productId'] : 0);
         $qty = max(1, (int) (isset($it['quantity']) ? $it['quantity'] : 1));
         $product = $pid ? wc_get_product($pid) : null;
         if ($product && $product->get_id()) {
-            $order->add_product($product, $qty);
+            if (isset($unit_prices[$pid])) {
+                $line_total = round($unit_prices[$pid] * $qty, 2);
+                $order->add_product($product, $qty, array(
+                    'subtotal' => $line_total,
+                    'total' => $line_total,
+                ));
+                $applied_discount = true;
+            } else {
+                $order->add_product($product, $qty);
+            }
         }
     }
 
@@ -198,7 +217,7 @@ function mf_create_subscription_order_endpoint($request) {
     if ($payment_profile_id) {
         $order->update_meta_data('_authnet_payment_profile_id', $payment_profile_id);
     }
-    $order->calculate_totals();
+    $order->calculate_totals(!$applied_discount);
     $order->payment_complete($transaction_id);
 
     $sub = mf_build_subscription($order, $period, $interval, $customer_profile_id, $payment_profile_id);

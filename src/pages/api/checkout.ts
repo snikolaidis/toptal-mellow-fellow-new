@@ -74,6 +74,10 @@ interface CheckoutRequest {
     paymentProfileId: string;
   };
   saveCard?: boolean;
+  subscription?: {
+    period: string;
+    interval: number;
+  };
   amount: string;
   coupons?: string[];
   items: Array<{
@@ -301,46 +305,99 @@ async function voidPayment(transactionId: string): Promise<boolean> {
   }
 }
 
-async function getForcedSubscriptionScheme(
+type SchemeInfo = { period: string; interval: number; price: string };
+
+async function getSchemesByProduct(
   items: Array<{ productId: number }>,
   authToken?: string
-): Promise<{ period: string; interval: number } | null> {
+): Promise<Record<number, Array<SchemeInfo>>> {
   try {
     const ids = (items || [])
       .map((i) => Number(i.productId))
       .filter((n) => Number.isFinite(n) && n > 0);
-    if (!ids.length) return null;
+    if (!ids.length) return {};
     const fields = ids
       .map(
         (id, i) =>
           `p${i}: product(id: ${id}, idType: DATABASE_ID) { ` +
-          `... on SimpleProduct { subscriptionSchemes { period interval } } ` +
-          `... on VariableProduct { subscriptionSchemes { period interval } } }`
+          `... on SimpleProduct { subscriptionSchemes { period interval price } } ` +
+          `... on VariableProduct { subscriptionSchemes { period interval price } } }`
       )
       .join('\n');
-    const query = `{ ${fields} }`;
     const res = await makeHttpRequest({
       url: getWordPressGraphQLUrl(),
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query: `{ ${fields} }` }),
       authToken,
     });
     const data = res.data?.data || {};
-    for (let i = 0; i < ids.length; i++) {
+    const map: Record<number, Array<SchemeInfo>> = {};
+    ids.forEach((id, i) => {
       const schemes = data[`p${i}`]?.subscriptionSchemes;
-      if (Array.isArray(schemes) && schemes.length) {
-        return { period: String(schemes[0].period || 'month'), interval: Number(schemes[0].interval || 1) };
-      }
-    }
-    return null;
+      map[id] = Array.isArray(schemes)
+        ? schemes.map((x: { period?: string; interval?: number; price?: string }) => ({
+            period: String(x.period),
+            interval: Number(x.interval),
+            price: String(x.price ?? ''),
+          }))
+        : [];
+    });
+    return map;
   } catch {
+    return {};
+  }
+}
+
+function resolveSubscriptionChoice(
+  body: CheckoutRequest,
+  schemesByProduct: Record<number, Array<SchemeInfo>>
+): { period: string; interval: number } | null {
+  if (!body.subscription || !body.subscription.period || Number(body.subscription.interval) < 1) {
     return null;
   }
+  const choice = { period: String(body.subscription.period), interval: Number(body.subscription.interval) };
+  const ids = (body.items || [])
+    .map((i) => Number(i.productId))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!ids.length) return null;
+  const allMatch = ids.every((id) =>
+    (schemesByProduct[id] || []).some((s) => s.period === choice.period && s.interval === choice.interval)
+  );
+  return allMatch ? choice : null;
+}
+
+type SubscriptionLine = { productId: number; quantity: number; unitPrice: number };
+
+function buildSubscriptionLines(
+  body: CheckoutRequest,
+  schemesByProduct: Record<number, Array<SchemeInfo>>,
+  choice: { period: string; interval: number }
+): { amount: number; lines: SubscriptionLine[] } | null {
+  const lines: SubscriptionLine[] = [];
+  let amount = 0;
+  for (const item of body.items || []) {
+    const pid = Number(item.productId);
+    const qty = Math.max(1, Number(item.quantity) || 1);
+    const scheme = (schemesByProduct[pid] || []).find(
+      (s) => s.period === choice.period && s.interval === choice.interval
+    );
+    const unitPrice = scheme ? parseFloat(String(scheme.price)) : NaN;
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      return null;
+    }
+    lines.push({ productId: pid, quantity: qty, unitPrice });
+    amount += unitPrice * qty;
+  }
+  if (!lines.length || !Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+  return { amount: Math.round(amount * 100) / 100, lines };
 }
 
 async function createSubscriptionOrder(
   body: CheckoutRequest,
   transactionId: string,
   scheme: { period: string; interval: number },
+  lines: SubscriptionLine[] | null,
   authToken?: string
 ): Promise<PendingOrder> {
   if (!authToken) {
@@ -385,6 +442,7 @@ async function createSubscriptionOrder(
       billing: body.billing,
       shipping: body.shipping || body.billing,
       items: body.items,
+      lines: lines || [],
       transactionId,
       period: scheme.period,
       interval: scheme.interval,
@@ -938,7 +996,7 @@ async function checkoutHandler(
 
     const serverCart = await getServerCartTotal(req, authToken);
     const browserAmount = parseMoney(body.amount);
-    const chargeAmount = serverCart ? serverCart.total : browserAmount;
+    let chargeAmount = serverCart ? serverCart.total : browserAmount;
 
     if (isNaN(chargeAmount) || chargeAmount <= 0) {
       throw new CheckoutError(
@@ -947,9 +1005,25 @@ async function checkoutHandler(
       );
     }
 
+    let subscriptionScheme: { period: string; interval: number } | null = null;
+    let subscriptionLines: SubscriptionLine[] | null = null;
+    if (body.subscription && body.subscription.period && Number(body.subscription.interval) >= 1) {
+      const schemesByProduct = await getSchemesByProduct(body.items, authToken);
+      subscriptionScheme = resolveSubscriptionChoice(body, schemesByProduct);
+      if (subscriptionScheme) {
+        const priced = buildSubscriptionLines(body, schemesByProduct, subscriptionScheme);
+        if (priced) {
+          subscriptionLines = priced.lines;
+          chargeAmount = priced.amount;
+        }
+      }
+    }
+
+    const amountSource =
+      subscriptionScheme && subscriptionLines ? 'subscription' : serverCart ? 'server cart' : 'browser fallback';
     console.log(
       `[Checkout] Charge amount resolved to ${chargeAmount.toFixed(2)} ` +
-        `(source: ${serverCart ? 'server cart' : 'browser fallback'}, browser said ${browserAmount})`
+        `(source: ${amountSource}, browser said ${browserAmount})`
     );
 
     const paymentResult = await processPayment(body, chargeAmount, idempotencyKey);
@@ -963,11 +1037,9 @@ async function checkoutHandler(
       eventType: 'payment_success',
     });
 
-    const subscriptionScheme = await getForcedSubscriptionScheme(body.items, authToken);
-
     let order: PendingOrder;
     if (subscriptionScheme) {
-      order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, authToken);
+      order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, subscriptionLines, authToken);
     } else {
       try {
         order = await createOrderWithPayment(req, body, transactionId, authToken);

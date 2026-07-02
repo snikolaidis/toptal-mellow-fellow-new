@@ -551,3 +551,134 @@
   color: var(--color-text-secondary);
   margin-bottom: 2rem;
 }
+
+.purchaseOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.purchaseOption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-primary);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.purchaseOption:hover {
+  border-color: var(--color-brand-primary);
+}
+
+.purchaseOptionActive {
+  border-color: var(--color-brand-primary);
+  box-shadow: inset 0 0 0 1px var(--color-brand-primary);
+}
+
+.purchaseTop {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.purchaseRadio {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-default);
+  background: var(--color-surface-primary);
+}
+
+.purchaseRadio[data-checked='true'] {
+  border-color: var(--color-brand-primary);
+  background:
+    radial-gradient(
+      circle,
+      var(--color-brand-primary) 0 5px,
+      transparent 6px
+    );
+}
+
+.purchaseName {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.purchaseBadge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--color-state-success);
+  color: var(--color-text-inverse);
+}
+
+.purchasePricing {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.purchaseWas {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  font-size: 0.9rem;
+}
+
+.purchaseNow {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.purchaseDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-left: calc(20px + 0.75rem);
+}
+
+.purchaseBenefits {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.purchaseDeliver {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.purchaseDeliverLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.purchaseDeliverSelect {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.purchaseDeliverSelect:hover,
+.purchaseDeliverSelect:focus {
+  border-color: var(--color-brand-primary);
+  outline: none;
+}

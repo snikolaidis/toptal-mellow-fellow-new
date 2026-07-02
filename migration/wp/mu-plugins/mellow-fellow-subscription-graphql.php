@@ -25,10 +25,26 @@ function mellow_fellow_subscription_schemes_from_meta($product_id) {
     if (!is_array($schemes) || empty($schemes)) {
         return array();
     }
+    $base_price = 0.0;
+    if (function_exists('wc_get_product')) {
+        $product = wc_get_product($product_id);
+        if ($product) {
+            $base_price = (float) $product->get_price();
+        }
+    }
     $out = array();
     foreach ($schemes as $s) {
         if (!is_array($s)) {
             continue;
+        }
+        $pricing = isset($s['subscription_pricing_method']) ? (string) $s['subscription_pricing_method'] : '';
+        $regular = isset($s['subscription_regular_price']) ? (string) $s['subscription_regular_price'] : '';
+        $sale = isset($s['subscription_sale_price']) ? (string) $s['subscription_sale_price'] : '';
+        $discount = isset($s['subscription_discount']) ? (float) $s['subscription_discount'] : 0.0;
+        if ($pricing === 'override') {
+            $effective = ($sale !== '' && (float) $sale > 0) ? (float) $sale : (float) $regular;
+        } else {
+            $effective = $discount > 0 ? $base_price * (1 - $discount / 100) : $base_price;
         }
         $out[] = array(
             'id' => isset($s['id']) ? (string) $s['id'] : '',
@@ -37,9 +53,11 @@ function mellow_fellow_subscription_schemes_from_meta($product_id) {
             'length' => isset($s['subscription_length']) ? (int) $s['subscription_length'] : 0,
             'trialPeriod' => isset($s['subscription_trial_period']) ? (string) $s['subscription_trial_period'] : '',
             'trialLength' => isset($s['subscription_trial_length']) ? (int) $s['subscription_trial_length'] : 0,
-            'pricingMethod' => isset($s['subscription_pricing_method']) ? (string) $s['subscription_pricing_method'] : '',
-            'regularPrice' => isset($s['subscription_regular_price']) ? (string) $s['subscription_regular_price'] : '',
-            'salePrice' => isset($s['subscription_sale_price']) ? (string) $s['subscription_sale_price'] : '',
+            'pricingMethod' => $pricing,
+            'regularPrice' => $regular,
+            'salePrice' => $sale,
+            'discount' => $discount,
+            'price' => number_format($effective, 2, '.', ''),
         );
     }
     return $out;
@@ -69,6 +87,8 @@ function mellow_fellow_subscription_schemes($product_id) {
                                 'pricingMethod' => method_exists($scheme, 'get_pricing_mode') ? (string) $scheme->get_pricing_mode() : '',
                                 'regularPrice' => '',
                                 'salePrice' => '',
+                                'discount' => 0.0,
+                                'price' => '',
                             );
                         }
                     }
@@ -94,6 +114,8 @@ add_action('graphql_register_types', function () {
             'pricingMethod' => array('type' => 'String'),
             'regularPrice' => array('type' => 'String'),
             'salePrice' => array('type' => 'String'),
+            'discount' => array('type' => 'Float'),
+            'price' => array('type' => 'String'),
         ),
     ));
 
