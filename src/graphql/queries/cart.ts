@@ -8,6 +8,9 @@ export const CART_FIELDS = gql`
         key
         quantity
         total
+        bbBundleId
+        bbGroupKey
+        bbLocked
         product {
           node {
             id
@@ -87,6 +90,17 @@ export const ADD_TO_CART = gql`
       cart {
         ...CartFields
       }
+    }
+  }
+`;
+
+export const ADD_BUNDLE_TO_CART = gql`
+  mutation AddBundleToCart($bundleId: Int!, $productIds: [Int!]!) {
+    addBundleToCart(input: { bundleId: $bundleId, productIds: $productIds }) {
+      success
+      message
+      groupKey
+      addedItemKeys
     }
   }
 `;

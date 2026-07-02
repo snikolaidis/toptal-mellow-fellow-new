@@ -11,6 +11,7 @@ import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
 import { GET_PRODUCTS } from '@/graphql/queries/products';
+import { cachedQuery } from '@/lib/cache';
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
@@ -290,16 +291,14 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
 
     // One product query (100 max from WPGraphQL) + blog query in parallel
     const [searchRes, blogRes] = await Promise.all([
-      client.query({
+      cachedQuery(client, {
         query: GET_PRODUCTS,
         variables: { first: 100, search: query },
-        fetchPolicy: 'no-cache',
-      }),
-      client.query({
+      }, { ttl: 300 }),
+      cachedQuery(client, {
         query: SEARCH_BLOG_POSTS,
         variables: { search: query },
-        fetchPolicy: 'network-only',
-      }).catch(() => ({ data: null })),
+      }, { ttl: 300 }).catch(() => ({ data: null })),
     ]);
 
     let products = searchRes.data?.products?.nodes || [];

@@ -18,10 +18,22 @@ export interface CheckoutFormData {
 }
 
 export interface PaymentData {
-  opaqueData: {
+  opaqueData?: {
     dataDescriptor: string;
     dataValue: string;
   };
+  savedCard?: {
+    customerProfileId: string;
+    paymentProfileId: string;
+  };
+  saveCard?: boolean;
+}
+
+export interface SavedCardInfo {
+  paymentProfileId: string;
+  last4: string;
+  cardType: string;
+  expDate: string;
 }
 
 export interface PaymentResult {

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getClient } from '@/lib/apollo-client';
 import { gql } from '@apollo/client';
 import { withRateLimitOnly } from '@/lib/middleware';
+import { cachedQuery } from '@/lib/cache';
 
 /**
  * Cross-sell Recommendations API
@@ -125,22 +126,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const fetchBySlug = async (slug: string): Promise<any | null> => {
       try {
-        const { data } = await client.query({
+        const { data } = await cachedQuery(client, {
           query: GET_PRODUCT_BY_SLUG,
           variables: { slug },
-          fetchPolicy: 'cache-first',
-        });
+        }, { ttl: 300 });
         return data?.product || null;
       } catch { return null; }
     };
 
     const fetchByType = async (typeSlug: string, first = 4): Promise<any[]> => {
       try {
-        const { data } = await client.query({
+        const { data } = await cachedQuery(client, {
           query: GET_PRODUCTS_BY_TYPE,
           variables: { mfProductType: typeSlug, first },
-          fetchPolicy: 'cache-first',
-        });
+        }, { ttl: 300 });
         return data?.products?.nodes || [];
       } catch { return []; }
     };

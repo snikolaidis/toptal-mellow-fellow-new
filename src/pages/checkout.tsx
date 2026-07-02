@@ -11,8 +11,9 @@ import RealIdVerification from '@/components/RealIdVerification';
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
-import { AddressData, PaymentData } from '@/types/checkout';
+import { AddressData, PaymentData, SavedCardInfo } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
+import SavedCardSelector from '@/components/checkout/SavedCardSelector';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
@@ -293,7 +294,9 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           billing,
           shipping: sameAsBilling ? undefined : finalShipping,
-          paymentNonce: paymentData.opaqueData,
+          paymentNonce: paymentData.opaqueData || undefined,
+          savedCard: paymentData.savedCard || undefined,
+          saveCard: paymentData.saveCard || false,
           amount: cart?.total,
           coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
           items: cart?.items.map((item) => ({
@@ -322,8 +325,9 @@ export default function CheckoutPage() {
 
       if (!response.ok || !result.success) {
         if (result.requiresSupport && result.transactionId) {
+          const reason = result.message ? ` (${result.message})` : '';
           throw new Error(
-            `Your payment was processed but we encountered an issue. Please contact support with Transaction ID: ${result.transactionId}`
+            `Your payment was processed but we encountered an issue${reason}. Please contact support with Transaction ID: ${result.transactionId}`
           );
         }
         throw new Error(result.message || 'Checkout failed. Please try again.');
@@ -465,6 +469,7 @@ export default function CheckoutPage() {
                   isLoading={csrfLoading}
                   amount={cart.total}
                   realIdBlocked={!realIdVerified}
+                  isAuthenticated={!!isAuthenticated}
                 />
               </>
             )}
@@ -491,6 +496,7 @@ function PaymentForm({
   isLoading = false,
   amount,
   realIdBlocked = false,
+  isAuthenticated = false,
 }: {
   onSubmit: (data: PaymentData) => void;
   onBack: () => void;
@@ -498,6 +504,7 @@ function PaymentForm({
   isLoading?: boolean;
   amount: string;
   realIdBlocked?: boolean;
+  isAuthenticated?: boolean;
 }) {
   const isDisabled = isProcessing || isLoading || realIdBlocked;
   const [cardNumber, setCardNumber] = useState('');
@@ -505,11 +512,49 @@ function PaymentForm({
   const [expYear, setExpYear] = useState('');
   const [cvv, setCvv] = useState('');
   const [cardError, setCardError] = useState<string | null>(null);
+  const [saveCard, setSaveCard] = useState(false);
+
+  // Saved cards state
+  const [savedCards, setSavedCards] = useState<SavedCardInfo[]>([]);
+  const [customerProfileId, setCustomerProfileId] = useState<string | null>(null);
+  const [selectedSavedCard, setSelectedSavedCard] = useState<string | null>(null);
+  const [loadingCards, setLoadingCards] = useState(false);
+
+  // Fetch saved cards for authenticated users
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    setLoadingCards(true);
+    fetch('/api/account/payment-methods', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.cards?.length > 0) {
+          setSavedCards(data.cards);
+          setCustomerProfileId(data.customerProfileId);
+          setSelectedSavedCard(data.cards[0].paymentProfileId);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingCards(false));
+  }, [isAuthenticated]);
+
+  const usingSavedCard = selectedSavedCard !== null && savedCards.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCardError(null);
 
+    // Using saved card — no tokenization needed
+    if (usingSavedCard && customerProfileId) {
+      onSubmit({
+        savedCard: {
+          customerProfileId,
+          paymentProfileId: selectedSavedCard,
+        },
+      });
+      return;
+    }
+
+    // New card — validate and tokenize
     if (!cardNumber || cardNumber.replace(/\s/g, '').length < 13) {
       setCardError('Please enter a valid card number');
       return;
@@ -533,7 +578,7 @@ function PaymentForm({
         cvv,
       });
 
-      onSubmit({ opaqueData });
+      onSubmit({ opaqueData, saveCard: isAuthenticated && saveCard });
     } catch (err) {
       console.error('Tokenization error:', err);
       setCardError(
@@ -567,6 +612,16 @@ function PaymentForm({
         and never stored on our servers.
       </p>
 
+      {/* Saved cards selector for authenticated users */}
+      {isAuthenticated && !loadingCards && savedCards.length > 0 && (
+        <SavedCardSelector
+          cards={savedCards}
+          selectedId={selectedSavedCard}
+          onSelect={setSelectedSavedCard}
+          disabled={isDisabled}
+        />
+      )}
+
       <form onSubmit={handleSubmit} className={styles.paymentForm}>
         {cardError && (
           <div className={styles.cardError} role="alert">
@@ -574,78 +629,96 @@ function PaymentForm({
           </div>
         )}
 
-        <div className={styles.formGroup}>
-          <label htmlFor="cardNumber">Card Number</label>
-          <input
-            type="text"
-            id="cardNumber"
-            value={cardNumber}
-            onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-            placeholder="1234 5678 9012 3456"
-            maxLength={19}
-            autoComplete="cc-number"
-            required
-            disabled={isDisabled}
-          />
-        </div>
+        {/* New card form — hidden when using saved card */}
+        {!usingSavedCard && (
+          <>
+            <div className={styles.formGroup}>
+              <label htmlFor="cardNumber">Card Number</label>
+              <input
+                type="text"
+                id="cardNumber"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                placeholder="1234 5678 9012 3456"
+                maxLength={19}
+                autoComplete="cc-number"
+                required
+                disabled={isDisabled}
+              />
+            </div>
 
-        <div className={styles.paymentFormRow}>
-          <div className={styles.formGroup}>
-            <label htmlFor="expMonth">Expiry Month</label>
-            <select
-              id="expMonth"
-              value={expMonth}
-              onChange={(e) => setExpMonth(e.target.value)}
-              autoComplete="cc-exp-month"
-              required
-              disabled={isDisabled}
-            >
-              <option value="">MM</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                <option key={month} value={month.toString().padStart(2, '0')}>
-                  {month.toString().padStart(2, '0')}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className={styles.paymentFormRow}>
+              <div className={styles.formGroup}>
+                <label htmlFor="expMonth">Expiry Month</label>
+                <select
+                  id="expMonth"
+                  value={expMonth}
+                  onChange={(e) => setExpMonth(e.target.value)}
+                  autoComplete="cc-exp-month"
+                  required
+                  disabled={isDisabled}
+                >
+                  <option value="">MM</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                    <option key={month} value={month.toString().padStart(2, '0')}>
+                      {month.toString().padStart(2, '0')}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className={styles.formGroup}>
-            <label htmlFor="expYear">Expiry Year</label>
-            <select
-              id="expYear"
-              value={expYear}
-              onChange={(e) => setExpYear(e.target.value)}
-              autoComplete="cc-exp-year"
-              required
-              disabled={isDisabled}
-            >
-              <option value="">YY</option>
-              {Array.from({ length: 10 }, (_, i) => {
-                const year = new Date().getFullYear() + i;
-                return (
-                  <option key={year} value={year.toString()}>
-                    {year}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+              <div className={styles.formGroup}>
+                <label htmlFor="expYear">Expiry Year</label>
+                <select
+                  id="expYear"
+                  value={expYear}
+                  onChange={(e) => setExpYear(e.target.value)}
+                  autoComplete="cc-exp-year"
+                  required
+                  disabled={isDisabled}
+                >
+                  <option value="">YY</option>
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const year = new Date().getFullYear() + i;
+                    return (
+                      <option key={year} value={year.toString()}>
+                        {year}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
 
-          <div className={styles.formGroup}>
-            <label htmlFor="cvv">CVV</label>
-            <input
-              type="text"
-              id="cvv"
-              value={cvv}
-              onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="123"
-              maxLength={4}
-              autoComplete="cc-csc"
-              required
-              disabled={isDisabled}
-            />
-          </div>
-        </div>
+              <div className={styles.formGroup}>
+                <label htmlFor="cvv">CVV</label>
+                <input
+                  type="text"
+                  id="cvv"
+                  value={cvv}
+                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="123"
+                  maxLength={4}
+                  autoComplete="cc-csc"
+                  required
+                  disabled={isDisabled}
+                />
+              </div>
+            </div>
+
+            {/* Save card checkbox — authenticated users only */}
+            {isAuthenticated && (
+              <label className={styles.saveCardCheckbox}>
+                <input
+                  type="checkbox"
+                  checked={saveCard}
+                  onChange={(e) => setSaveCard(e.target.checked)}
+                  disabled={isDisabled}
+                />
+                <span>Save this card for future purchases</span>
+              </label>
+            )}
+          </>
+        )}
 
         <div className={styles.formActions}>
           <button
