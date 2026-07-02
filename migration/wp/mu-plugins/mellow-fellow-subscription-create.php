@@ -44,7 +44,66 @@ add_action('rest_api_init', function () {
         'permission_callback' => 'mf_subscription_verify_request',
         'callback' => 'mf_create_subscription_order_endpoint',
     ));
+    register_rest_route('mf/v1', '/subscriptions/(?P<user_id>\d+)', array(
+        'methods' => 'GET',
+        'permission_callback' => 'mf_subscription_verify_request',
+        'callback' => 'mf_subscriptions_list_endpoint',
+    ));
+    register_rest_route('mf/v1', '/subscriptions/(?P<user_id>\d+)/cancel', array(
+        'methods' => 'POST',
+        'permission_callback' => 'mf_subscription_verify_request',
+        'callback' => 'mf_subscription_cancel_endpoint',
+    ));
 });
+
+function mf_subscriptions_list_endpoint($request) {
+    $user_id = (int) $request['user_id'];
+    if (!$user_id || !function_exists('wcs_get_users_subscriptions')) {
+        return new WP_REST_Response(array('subscriptions' => array()), 200);
+    }
+    $subs = wcs_get_users_subscriptions($user_id);
+    $out = array();
+    foreach ($subs as $sub) {
+        $items = array();
+        foreach ($sub->get_items() as $item) {
+            $items[] = array(
+                'name' => $item->get_name(),
+                'quantity' => $item->get_quantity(),
+            );
+        }
+        $next = $sub->get_date('next_payment');
+        $out[] = array(
+            'id' => $sub->get_id(),
+            'status' => $sub->get_status(),
+            'total' => $sub->get_total(),
+            'currency' => $sub->get_currency(),
+            'billingPeriod' => $sub->get_billing_period(),
+            'billingInterval' => (int) $sub->get_billing_interval(),
+            'nextPayment' => $next ? $next : '',
+            'canCancel' => $sub->can_be_updated_to('cancelled'),
+            'items' => $items,
+        );
+    }
+    return new WP_REST_Response(array('subscriptions' => $out), 200);
+}
+
+function mf_subscription_cancel_endpoint($request) {
+    $user_id = (int) $request['user_id'];
+    $params = $request->get_json_params();
+    $sub_id = (int) (isset($params['subscriptionId']) ? $params['subscriptionId'] : 0);
+    if (!$user_id || !$sub_id || !function_exists('wcs_get_subscription')) {
+        return new WP_REST_Response(array('error' => 'invalid_request'), 400);
+    }
+    $sub = wcs_get_subscription($sub_id);
+    if (!$sub || (int) $sub->get_user_id() !== $user_id) {
+        return new WP_REST_Response(array('error' => 'not_found'), 404);
+    }
+    if (!$sub->can_be_updated_to('cancelled')) {
+        return new WP_REST_Response(array('error' => 'cannot_cancel', 'status' => $sub->get_status()), 409);
+    }
+    $sub->update_status('cancelled', 'Cancelled by customer (headless account).');
+    return new WP_REST_Response(array('success' => true, 'status' => $sub->get_status()), 200);
+}
 
 function mf_map_address($addr) {
     if (!is_array($addr)) {

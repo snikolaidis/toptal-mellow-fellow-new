@@ -156,6 +156,11 @@ function AccountDashboard() {
               View addresses ({addressCount})
             </Link>
           </p>
+          <p>
+            <Link href="/account/subscriptions" className="account__link">
+              Manage subscriptions
+            </Link>
+          </p>
         </aside>
       </div>
       </div>
