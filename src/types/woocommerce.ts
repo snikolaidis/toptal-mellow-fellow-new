@@ -120,6 +120,8 @@ export interface Product {
   productLines?: { nodes: Array<{ name: string }> };
   size?: { nodes: Array<{ name: string }> };
   mfproductTypes?: { nodes: Array<{ name: string }> };
+  mG?: { nodes: Array<{ name: string; slug: string }> };
+  pieces?: { nodes: Array<{ name: string; slug: string }> };
   seo?: {
     title?: string;
     metaDesc?: string;
