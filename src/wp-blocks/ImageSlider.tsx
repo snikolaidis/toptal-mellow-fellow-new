@@ -83,14 +83,19 @@ export default function ImageSlider(props: ImageSliderProps) {
   }
 
   return (
-    <div className="image-slider">
-      {globalTitle && <h3 className="image-slider__title">{globalTitle}</h3>}
+    <section className="image-slider">
+      {globalTitle && (
+        <div className="container is-fluid">
+          <h3 className="image-slider__title">{globalTitle}</h3>
+        </div>
+      )}
+
       <div className="image-slider__track">
         {slides.map((slide, i) => (
           <SlideCard key={i} slide={slide} />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
