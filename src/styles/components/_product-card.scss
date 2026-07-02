@@ -74,8 +74,13 @@
     &.product__tag--sold-out {
       background-color: #dac8a0;
     }
+
+    &.product-pieces{
+      background-color: #0023824d;
+     
+    }
   }
-  
+ 
   .product__strain-tags {
     display: flex;
     gap: 9px;
