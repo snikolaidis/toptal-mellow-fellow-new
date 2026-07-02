@@ -12,12 +12,22 @@ function mf_subscription_verify_request($request) {
     $auth = $request->get_header('Authorization');
     if ($auth && strpos($auth, 'Bearer ') === 0) {
         $provided = substr($auth, 7);
-        $faust_secret = get_option('faustwp_secret_key', '');
-        if ($faust_secret && hash_equals($faust_secret, $provided)) {
-            return true;
+        $candidates = array();
+        if (defined('FAUSTWP_SECRET_KEY')) {
+            $candidates[] = FAUSTWP_SECRET_KEY;
         }
-        if (defined('FAUSTWP_SECRET_KEY') && hash_equals(FAUSTWP_SECRET_KEY, $provided)) {
-            return true;
+        $opt = get_option('faustwp_secret_key', '');
+        if ($opt) {
+            $candidates[] = $opt;
+        }
+        $settings = get_option('faustwp_settings');
+        if (is_array($settings) && !empty($settings['secret_key'])) {
+            $candidates[] = $settings['secret_key'];
+        }
+        foreach ($candidates as $secret) {
+            if ($secret && hash_equals((string) $secret, $provided)) {
+                return true;
+            }
         }
     }
     return new WP_Error('rest_forbidden', 'Unauthorized', array('status' => 401));

@@ -50,27 +50,32 @@ function mellow_fellow_subscription_schemes($product_id) {
     if (!empty($out)) {
         return $out;
     }
-    if (class_exists('WCS_ATT_Product_Schemes') && function_exists('wc_get_product')) {
-        $product = wc_get_product($product_id);
-        if ($product) {
-            $resolved = WCS_ATT_Product_Schemes::get_product_subscription_schemes($product);
-            if (is_array($resolved)) {
-                foreach ($resolved as $scheme) {
-                    if (is_object($scheme) && method_exists($scheme, 'get_period')) {
-                        $out[] = array(
-                            'id' => method_exists($scheme, 'get_key') ? (string) $scheme->get_key() : '',
-                            'period' => (string) $scheme->get_period(),
-                            'interval' => (int) $scheme->get_interval(),
-                            'length' => method_exists($scheme, 'get_length') ? (int) $scheme->get_length() : 0,
-                            'trialPeriod' => method_exists($scheme, 'get_trial_period') ? (string) $scheme->get_trial_period() : '',
-                            'trialLength' => method_exists($scheme, 'get_trial_length') ? (int) $scheme->get_trial_length() : 0,
-                            'pricingMethod' => method_exists($scheme, 'get_pricing_mode') ? (string) $scheme->get_pricing_mode() : '',
-                            'regularPrice' => '',
-                            'salePrice' => '',
-                        );
+    if (class_exists('WCS_ATT_Product_Schemes') && function_exists('wc_get_product')
+        && method_exists('WCS_ATT_Product_Schemes', 'get_product_subscription_schemes')) {
+        try {
+            $product = wc_get_product($product_id);
+            if ($product) {
+                $resolved = WCS_ATT_Product_Schemes::get_product_subscription_schemes($product);
+                if (is_array($resolved)) {
+                    foreach ($resolved as $scheme) {
+                        if (is_object($scheme) && method_exists($scheme, 'get_period') && method_exists($scheme, 'get_interval')) {
+                            $out[] = array(
+                                'id' => method_exists($scheme, 'get_key') ? (string) $scheme->get_key() : '',
+                                'period' => (string) $scheme->get_period(),
+                                'interval' => (int) $scheme->get_interval(),
+                                'length' => method_exists($scheme, 'get_length') ? (int) $scheme->get_length() : 0,
+                                'trialPeriod' => method_exists($scheme, 'get_trial_period') ? (string) $scheme->get_trial_period() : '',
+                                'trialLength' => method_exists($scheme, 'get_trial_length') ? (int) $scheme->get_trial_length() : 0,
+                                'pricingMethod' => method_exists($scheme, 'get_pricing_mode') ? (string) $scheme->get_pricing_mode() : '',
+                                'regularPrice' => '',
+                                'salePrice' => '',
+                            );
+                        }
                     }
                 }
             }
+        } catch (\Throwable $e) {
+            return array();
         }
     }
     return $out;

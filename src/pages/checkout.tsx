@@ -325,8 +325,9 @@ export default function CheckoutPage() {
 
       if (!response.ok || !result.success) {
         if (result.requiresSupport && result.transactionId) {
+          const reason = result.message ? ` (${result.message})` : '';
           throw new Error(
-            `Your payment was processed but we encountered an issue. Please contact support with Transaction ID: ${result.transactionId}`
+            `Your payment was processed but we encountered an issue${reason}. Please contact support with Transaction ID: ${result.transactionId}`
           );
         }
         throw new Error(result.message || 'Checkout failed. Please try again.');

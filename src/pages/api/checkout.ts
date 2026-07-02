@@ -306,24 +306,27 @@ async function getForcedSubscriptionScheme(
   authToken?: string
 ): Promise<{ period: string; interval: number } | null> {
   try {
-    const ids = (items || []).map((i) => i.productId).filter(Boolean);
+    const ids = (items || [])
+      .map((i) => Number(i.productId))
+      .filter((n) => Number.isFinite(n) && n > 0);
     if (!ids.length) return null;
-    const query = `query MFSubs($ids: [Int]) {
-      products(first: 100, where: { include: $ids }) {
-        nodes {
-          ... on SimpleProduct { forceSubscription subscriptionSchemes { period interval } }
-          ... on VariableProduct { forceSubscription subscriptionSchemes { period interval } }
-        }
-      }
-    }`;
+    const fields = ids
+      .map(
+        (id, i) =>
+          `p${i}: product(id: ${id}, idType: DATABASE_ID) { ` +
+          `... on SimpleProduct { subscriptionSchemes { period interval } } ` +
+          `... on VariableProduct { subscriptionSchemes { period interval } } }`
+      )
+      .join('\n');
+    const query = `{ ${fields} }`;
     const res = await makeHttpRequest({
       url: getWordPressGraphQLUrl(),
-      body: JSON.stringify({ query, variables: { ids } }),
+      body: JSON.stringify({ query }),
       authToken,
     });
-    const nodes = res.data?.data?.products?.nodes || [];
-    for (const n of nodes) {
-      const schemes = n?.subscriptionSchemes;
+    const data = res.data?.data || {};
+    for (let i = 0; i < ids.length; i++) {
+      const schemes = data[`p${i}`]?.subscriptionSchemes;
       if (Array.isArray(schemes) && schemes.length) {
         return { period: String(schemes[0].period || 'month'), interval: Number(schemes[0].interval || 1) };
       }
@@ -350,17 +353,25 @@ async function createSubscriptionOrder(
   });
   const wpUserId = viewerRes.data?.data?.viewer?.databaseId;
   if (!wpUserId) {
+    console.error('[Checkout][SUB] viewer lookup returned no databaseId; authToken present:', !!authToken);
     throw new CheckoutError('Could not identify the customer for the subscription.', ErrorCode.VALIDATION_ERROR);
   }
 
   let customerProfileId = body.savedCard?.customerProfileId || '';
   let paymentProfileId = body.savedCard?.paymentProfileId || '';
   if (!customerProfileId || !paymentProfileId) {
-    const profile = await createProfileFromTransaction(transactionId, String(wpUserId), body.billing.email);
-    customerProfileId = profile.customerProfileId;
-    paymentProfileId = profile.paymentProfileId;
+    try {
+      const profile = await createProfileFromTransaction(transactionId, String(wpUserId), body.billing.email);
+      customerProfileId = profile.customerProfileId;
+      paymentProfileId = profile.paymentProfileId;
+    } catch (cimErr) {
+      const m = cimErr instanceof Error ? cimErr.message : String(cimErr);
+      console.error('[Checkout][SUB] CIM profile creation threw:', m);
+      throw new CheckoutError(`Could not save the card for recurring billing: ${m}`, ErrorCode.VALIDATION_ERROR);
+    }
   }
   if (!customerProfileId || !paymentProfileId) {
+    console.error('[Checkout][SUB] Missing CIM ids after profile step:', { customerProfileId, paymentProfileId });
     throw new CheckoutError('Could not save the card for recurring billing.', ErrorCode.VALIDATION_ERROR);
   }
 
@@ -383,7 +394,8 @@ async function createSubscriptionOrder(
   });
   const data = await res.json().catch(() => null);
   if (!data?.orderId) {
-    const msg = data?.message || `subscription order failed (${res.status})`;
+    const msg = data?.message || data?.error || `subscription order failed (${res.status})`;
+    console.error('[Checkout][SUB] create-subscription-order returned no orderId. status:', res.status, 'body:', data);
     throw new CheckoutError(`Subscription order creation failed: ${msg}`, ErrorCode.VALIDATION_ERROR);
   }
   return {

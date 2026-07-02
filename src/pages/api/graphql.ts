@@ -31,15 +31,42 @@ async function handler(
     const cookies = req.headers.cookie || '';
     const wcSessionToken = extractWcSessionToken(cookies);
 
-    const response = await makeHttpRequest({
+    let response = await makeHttpRequest({
       url,
       body: JSON.stringify(req.body),
       cookies,
       wcSessionToken: wcSessionToken || undefined,
     });
 
-    const data = response.data;
     const cookiesToSet: string[] = [];
+
+    const hasSignatureError =
+      !!wcSessionToken &&
+      response.data &&
+      Array.isArray(response.data.errors) &&
+      response.data.errors.some(
+        (e: { message?: string }) =>
+          typeof e?.message === 'string' &&
+          e.message.toLowerCase().includes('signature verification failed')
+      );
+
+    if (hasSignatureError) {
+      const strippedCookies = cookies
+        .split(';')
+        .map((c) => c.trim())
+        .filter((c) => c && !c.toLowerCase().startsWith('wc_session_token='))
+        .join('; ');
+
+      response = await makeHttpRequest({
+        url,
+        body: JSON.stringify(req.body),
+        cookies: strippedCookies,
+      });
+
+      cookiesToSet.push('wc_session_token=; Path=/; Max-Age=0; SameSite=Lax');
+    }
+
+    const data = response.data;
 
     // Handle WooCommerce session header from WordPress
     const wcSessionHeader = response.headers[WC_SESSION_HEADER.toLowerCase()] as string | undefined;

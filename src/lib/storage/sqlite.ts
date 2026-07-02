@@ -9,6 +9,8 @@
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import type {
   IStorage,
   RateLimitEntry,
@@ -78,6 +80,10 @@ export class SQLiteStorage implements IStorage {
   }
 
   async initialize(): Promise<void> {
+    const dir = path.dirname(this.dbPath);
+    if (dir && dir !== '.' && !fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');
