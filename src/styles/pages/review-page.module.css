@@ -1,0 +1,12 @@
+.reviewsWrap {
+  box-sizing: border-box;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+@media (max-width: 768px) {
+  .reviewsWrap {
+    padding: 0 17px;
+  }
+}

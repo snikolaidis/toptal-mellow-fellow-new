@@ -5,6 +5,7 @@ import ContentPage from '@/components/ContentPage';
 import { getClient } from '@/lib/apollo-client';
 import { GET_CONTENT_PAGE_BY_SLUG } from '@/graphql/queries/pages';
 import type { ContentPageData } from '@/types/mellow-fellow';
+import styles from '@/styles/pages/review-page.module.css';
 
 interface ReviewPageProps {
   page: ContentPageData | null;
@@ -17,7 +18,11 @@ export default function ReviewPage({ page }: ReviewPageProps) {
   return (
     <Layout title={page?.title ?? 'Reviews'} seo={page?.seo}>
       {page && <ContentPage page={page} />}
-      {mounted && <div id="klaviyo-reviews-all" data-id="all" />}
+      {mounted && (
+        <div className={styles.reviewsWrap}>
+          <div id="klaviyo-reviews-all" data-id="all" />
+        </div>
+      )}
     </Layout>
   );
 }
