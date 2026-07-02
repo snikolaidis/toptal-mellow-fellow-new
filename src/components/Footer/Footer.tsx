@@ -28,6 +28,24 @@ const GET_FOOTER_MENU = gql`
   }
 `;
 
+const GET_FOOTER_MENU_2 = gql`
+  query GetFooterMenu2 {
+    menus(where: { location: FOOTER_2 }, first: 1) {
+      nodes {
+        name
+        menuItems(where: { parentDatabaseId: 0 }, first: 100) {
+          nodes {
+            id
+            label
+            uri
+            target
+          }
+        }
+      }
+    }
+  }
+`;
+
 // Social URLs come from the "Site Settings" ACF options page
 // (mellow-fellow-site-settings.php mu-plugin). Kept as a separate query from
 // GET_FOOTER_MENU: if the mu-plugin isn't deployed yet, siteSettings is an
@@ -103,6 +121,10 @@ export default function Footer() {
   const footerMenu = data?.menus?.nodes?.[0];
   const footerItems: FooterMenuItem[] = footerMenu?.menuItems?.nodes ?? [];
 
+  const { data: data2 } = useQuery(GET_FOOTER_MENU_2, { client });
+  const footerMenu2 = data2?.menus?.nodes?.[0];
+  const footerItems2: FooterMenuItem[] = footerMenu2?.menuItems?.nodes ?? [];
+
   const { data: socialData } = useQuery(GET_SOCIAL_LINKS, {
     client,
     errorPolicy: 'ignore',
@@ -162,60 +184,89 @@ export default function Footer() {
 
             {/* Brand */}
             <div className="brand-section">
-              <h4 className="section-title">Get in touch</h4>
-              <a href="/pages/contact-us">
-                <span className="icon-text">
-                  <span className="icon">
-                    <EmailIcon />
+              <div className="email-link">
+                <h4 className="section-title">Get in touch</h4>
+                <a href="/pages/contact-us">
+                  <span className="icon-text">
+                    <span className="icon">
+                      <EmailIcon />
+                    </span>
+                    <span>Email us</span>
                   </span>
-                  <span>Email us</span>
-                </span>
-              </a>
+                </a>
+              </div>
+              
               <div className="social-links">
-                {SOCIAL_NETWORKS.map(({ key, label, Icon }) => {
-                  const url = socialLinks?.[key];
-                  if (!url) return null;
-                  return (
-                    <a
-                      key={key}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="social-link"
-                      aria-label={label}
-                    >
-                      <span className="icon">
-                        <Icon />
-                      </span>
-                    </a>
-                  );
-                })}
+                <h6>
+                  Follow us
+                </h6>
+                <ul>
+                  {SOCIAL_NETWORKS.map(({ key, label, Icon }) => {
+                    const url = socialLinks?.[key];
+                    if (!url) return null;
+                    return (
+                      <li className="social-link">
+                        <a
+                          key={key}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="social-link"
+                          aria-label={label}
+                        >
+                          <span className="icon">
+                            <Icon />
+                          </span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             </div>
 
-            {/* Info Links */}
+            {/* Backend-managed menu (WP "Footer 2" location) */}
             <div className="link-section">
-              <h4 className="section-title">Information</h4>
+              <h4 className="section-title">{footerMenu2?.name ?? 'Information'}</h4>
               <ul className="link-list">
-                <li><Link href="/account" className="link">My Account</Link></li>
-                <li><Link href="#" className="link">Shipping & Returns</Link></li>
-                <li><Link href="#" className="link">FAQ</Link></li>
-                <li><Link href="#" className="link">Contact</Link></li>
+                {footerItems2.map((item) => {
+                  const { href, external } = footerHref(item.uri);
+                  return (
+                    <li key={item.id}>
+                      {external ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="link"
+                        >
+                          {item.label}
+                        </a>
+                      ) : (
+                        <Link href={href} className="link">
+                          {item.label}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
+          </div>
+
+          <div className="copyright-section section">
+            <p>
+              &copy; {new Date().getFullYear()} Mellow Fellow
+            </p>
           </div>
         </div>
       </footer>
 
       {/* Footer Bottom */}
-      <div className="footer-bottom">
-        <p className="copyright">
-          &copy; {new Date().getFullYear()} Twenty One Cannabis. All rights reserved. 21+ only.
+      <div className="footer-bottom section">
+        <p>
+          THCA Disclaimer - This product is not available for shipment to the following states: Arkansas, Hawaii, Idaho, Kansas, Louisiana, Oklahoma, Oregon, Rhode Island, Utah
         </p>
-        <div className="legal-links">
-          <a href="#" className="legal-link">Privacy</a>
-          <a href="#" className="legal-link">Terms</a>
-        </div>
       </div>
     </>
   );
