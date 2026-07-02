@@ -165,7 +165,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const client = getClient();
     const { data } = await client.query({
       query: GET_COLLECTION_BY_SLUG,
-      variables: { slug: params?.slug },
+      variables: { slug: params?.slug, collectionSlug: params?.slug },
     });
 
     if (!data?.collection) {

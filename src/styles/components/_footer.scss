@@ -1,0 +1,161 @@
+/* Newsletter Section */
+.section.footer-newsletter {
+  display: flex;
+  flex-direction: column;
+  background-color: #000000;
+
+  p {
+    color: #ffffff;
+    text-align: center;
+    margin-bottom: 20px;
+    line-height: 20.8px;
+
+    span {
+      font-weight: 700;
+      display: block;
+    }
+  }
+}
+
+/* Footer Container */
+.footer {
+  background-color: #f0e6d0;
+
+  .link-section {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .section-title {
+    margin-bottom: 15px;
+  }
+
+  .link-list {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+  }
+
+  .link {
+    font-size: 0.875rem;
+    transition: color 0.2s;
+  }
+}
+
+/* Footer Content Grid */
+.footer-content {
+  max-width: 1920px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+}
+
+@media (min-width: 768px) {
+  .footer-content {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Brand Section */
+.brand-section {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Social Links */
+.social-links {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.social-link {
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s;
+}
+
+.social-link:hover {
+  color: white;
+}
+
+.newsletter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.newsletter-input {
+  width: 100%;
+  height: 3rem;
+  padding: 0 1rem;
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 0.875rem;
+}
+
+.newsletter-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.newsletter-input:focus {
+  outline: none;
+  border-color: white;
+}
+
+.newsletter-btn {
+  width: 100%;
+  height: 3rem;
+  background-color: white;
+  color: #000000;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background-color 0.2s;
+}
+
+.newsletter-btn:hover {
+  background-color: #f5f5f0;
+}
+
+/* Footer Bottom */
+.footer-bottom {
+  max-width: 1920px;
+  margin: 0 auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 3rem;
+  padding-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .footer-bottom {
+    flex-direction: row;
+  }
+}
+
+.copyright {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.legal-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.legal-link {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.2s;
+}
+
+.legal-link:hover {
+  color: white;
+}
