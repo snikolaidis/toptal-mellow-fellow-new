@@ -48,6 +48,8 @@ export default function ProductCard({ product, badge, priority = false }: Produc
   const blendType = product.blendTypes?.nodes?.[0]?.name;
   const lineCollection = product.productLines?.nodes?.[0]?.name;
   const size = product.size?.nodes?.[0]?.name;
+  const mG = product.mG?.nodes?.[0]?.name;
+  const pieces = product.pieces?.nodes?.[0]?.name;
   const mfProductTypeRaw = product.mfproductTypes?.nodes?.[0]?.name;
   // Taxonomy terms come uppercase (e.g. "DISPOSABLE VAPE") — title-case for display.
   const mfProductType = mfProductTypeRaw
@@ -173,6 +175,18 @@ export default function ProductCard({ product, badge, priority = false }: Produc
               {size && (
                 <div className="product__tag product-size">
                   {size}
+                </div>
+              )}
+
+              {mG && (
+                <div className="product__tag product-mg">
+                  {mG}
+                </div>
+              )}
+
+              {pieces && (
+                <div className="product__tag product-pieces">
+                  {pieces}
                 </div>
               )}
             </div>
