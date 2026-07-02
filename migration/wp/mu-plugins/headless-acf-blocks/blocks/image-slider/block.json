@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/image-slider",
+	"title": "Image Slider",
+	"description": "A horizontally scrollable strip of image cards, each with overlay text (heading, subheading, tertiary heading) in a per-slide color and an optional link. Rendered as a pure CSS slider on the headless frontend.",
+	"category": "headless-blocks",
+	"icon": "images-alt2",
+	"keywords": [ "image", "slider", "carousel", "cards" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\ImageSlider\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

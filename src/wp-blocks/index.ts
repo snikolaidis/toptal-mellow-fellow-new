@@ -6,6 +6,7 @@ import CollectionSlider from './CollectionSlider';
 import SaleCountdownHero from './SaleCountdownHero';
 import DoublePointsDaily from './DoublePointsDaily';
 import CollectionGroup from './CollectionGroup';
+import ImageSlider from './ImageSlider';
 
 export default {
   ...CoreBlocks,
@@ -24,5 +25,8 @@ export default {
   AcfDoublePointsDaily: DoublePointsDaily,
   // Migrated from Shopify; takes collections as props. Inert until a matching
   // WP/ACF block __typename exists.
-  AcfCollectionGroup: CollectionGroup
+  AcfCollectionGroup: CollectionGroup,
+  // Ready, but inert until the `acf/image-slider` block is deployed to WP (the
+  // `AcfImageSlider` type must exist before templates can query it).
+  AcfImageSlider: ImageSlider
 };

@@ -1,0 +1,100 @@
+{
+    "key": "group_image_slider",
+    "title": "Image Slider Fields",
+    "fields": [
+        {
+            "key": "field_is_global_title",
+            "label": "Global Title",
+            "name": "global_title",
+            "type": "text",
+            "instructions": "Optional. Shown centered above the slider.",
+            "required": 0
+        },
+        {
+            "key": "field_is_slides",
+            "label": "Slides",
+            "name": "slides",
+            "type": "repeater",
+            "instructions": "Each slide is an image card with overlay text and an optional link. The slider is a plain horizontal scroller on the frontend (no arrows or dots).",
+            "layout": "block",
+            "button_label": "Add Slide",
+            "min": 0,
+            "sub_fields": [
+                {
+                    "key": "field_is_image",
+                    "label": "Image",
+                    "name": "image",
+                    "type": "image",
+                    "return_format": "array",
+                    "preview_size": "medium",
+                    "required": 1,
+                    "wrapper": { "width": "40" }
+                },
+                {
+                    "key": "field_is_heading",
+                    "label": "Heading",
+                    "name": "heading",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "60" }
+                },
+                {
+                    "key": "field_is_subheading",
+                    "label": "Subheading",
+                    "name": "subheading",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "40" }
+                },
+                {
+                    "key": "field_is_tertiary_heading",
+                    "label": "Tertiary Heading",
+                    "name": "tertiary_heading",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "30" }
+                },
+                {
+                    "key": "field_is_text_color",
+                    "label": "Text Color",
+                    "name": "text_color",
+                    "type": "color_picker",
+                    "instructions": "Color of the overlay text on this slide.",
+                    "default_value": "#434345",
+                    "required": 0,
+                    "wrapper": { "width": "30" }
+                },
+                {
+                    "key": "field_is_link",
+                    "label": "Link",
+                    "name": "link",
+                    "type": "link",
+                    "instructions": "Optional. Makes the whole card clickable.",
+                    "required": 0
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/image-slider"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "imageSlider",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfImageSlider"
+    ]
+}
