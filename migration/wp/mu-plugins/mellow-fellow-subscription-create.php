@@ -270,7 +270,9 @@ function mf_create_subscription_order_endpoint($request) {
         }
     }
 
-    $shipping_cost = isset($params['shipping']) && is_numeric($params['shipping']) ? (float) $params['shipping'] : 0;
+    $shipping_cost = isset($params['shippingCost']) && is_numeric($params['shippingCost'])
+        ? (float) $params['shippingCost']
+        : ( isset($params['shipping']) && is_numeric($params['shipping']) ? (float) $params['shipping'] : 0 );
     if ($shipping_cost > 0) {
         $ship_item = new WC_Order_Item_Shipping();
         $ship_item->set_method_title('Shipping');

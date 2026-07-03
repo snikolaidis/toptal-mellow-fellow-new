@@ -404,7 +404,7 @@ async function createSubscriptionOrder(
   transactionId: string,
   scheme: { period: string; interval: number },
   lines: SubscriptionLine[] | null,
-  shipping: number,
+  shippingCost: number,
   authToken?: string
 ): Promise<PendingOrder> {
   if (!authToken) {
@@ -450,7 +450,7 @@ async function createSubscriptionOrder(
       shipping: body.shipping || body.billing,
       items: body.items,
       lines: lines || [],
-      shipping,
+      shippingCost,
       transactionId,
       period: scheme.period,
       interval: scheme.interval,

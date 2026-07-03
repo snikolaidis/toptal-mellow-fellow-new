@@ -9,7 +9,6 @@ import {
   GROUP_PRODUCT_FIELDS,
 } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
-import HighlightsGroup from '@/components/HighlightsGroup';
 import FeaturedIn from '@/components/FeaturedIn';
 import FeaturedCollection from '@/components/FeaturedCollection';
 import RebuyRecommendations from '@/components/RebuyRecommendations';
@@ -76,48 +75,11 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
         }),
       }}
     >
-      {/* Backend-managed homepage blocks (hero slider + collection links). */}
+      {/* Backend-managed homepage blocks (hero slider, image slider,
+          highlights groups, collection links). */}
       {pageBlocks.length > 0 && <WordPressBlocksViewer blocks={pageBlocks} />}
 
-      <HighlightsGroup
-        title="Deals of the Day"
-        description="Get today's deals & preview upcoming deals"
-        highlights={[
-          { id: 1, small_text: 'Smokeable Bundles', big_text: 'Enjoy 30% Off', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Smokeable_Bundle.webp' },
-          { id: 2, small_text: 'Monthly Mystery Boxes', big_text: '30% Off Value', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Fam_Box.webp' },
-          { id: 3, small_text: 'Edibles Bundles', big_text: 'Stock Up & Save', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Edible_Bundle.webp' }
-        ]}
-      />
-
       <FeaturedIn />
-
-      <HighlightsGroup
-        title="New Collections"
-        description="Fresh drops designed to elevate your everyday."
-        highlights={[
-          {
-            id: 1,
-            small_text: 'Delta-9 + CBD Seltzers',
-            big_text: 'Sip Mellow',
-            link: 'https://mellowfellow.fun/collections/new-arrivals',
-            image: '/images/Seltzers_3-4.webp'
-          },
-          {
-            id: 2,
-            small_text: 'THCa 3.5g Exotic Flower + One Hitter',
-            big_text: 'On-The-Go Freshness',
-            link: 'https://mellowfellow.fun/collections/new-arrivals',
-            image: '/images/Collection_Cards_THCa_One_Hitter.webp'
-          },
-          {
-            id: 3,
-            small_text: 'New Wellness Gummies',
-            big_text: 'Pure CBD, CBG and CBN',
-            link: 'https://mellowfellow.fun/collections/new-arrivals',
-            image: '/images/CBD_CBG_CBN_Edibles_3-4.webp'
-          }
-        ]}
-      />
 
       <FeaturedCollection products={awardedProducts} title="Award-Winning Products" />
 
@@ -149,6 +111,7 @@ FrontPage.query = gql`
   ${blocks.AcfCollectionLinks.fragments.entry}
   ${blocks.AcfCollectionSlider.fragments.entry}
   ${blocks.AcfImageSlider.fragments.entry}
+  ${blocks.AcfHighlightsGroup.fragments.entry}
   ${SIMPLE_PRODUCT_FIELDS}
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
@@ -164,6 +127,7 @@ FrontPage.query = gql`
         ...${blocks.AcfCollectionLinks.fragments.key}
         ...${blocks.AcfCollectionSlider.fragments.key}
         ...${blocks.AcfImageSlider.fragments.key}
+        ...${blocks.AcfHighlightsGroup.fragments.key}
       }
     }
     products(first: $first, where: { status: "publish" }) {

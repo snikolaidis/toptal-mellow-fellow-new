@@ -86,7 +86,15 @@ export default function HighlightsGroup(props: HighlightsGroupProps) {
         <div className="highlights-group__box">
           <div className="highlights-group__header">
             {heading && <h3 className="highlights-group__title">{heading}</h3>}
-            {description && <p className="highlights-group__description">{description}</p>}
+            {description && (
+              // Description is an inline-richtext field (may contain <strong>,
+              // <em>, etc.), authored in WP — render it as HTML like the
+              // original Shopify section did.
+              <p
+                className="highlights-group__description"
+                dangerouslySetInnerHTML={{ __html: description }}
+              />
+            )}
           </div>
 
           <div className="highlights-group__track">
