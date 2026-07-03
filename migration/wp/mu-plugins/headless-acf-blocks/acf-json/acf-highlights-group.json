@@ -1,0 +1,112 @@
+{
+    "key": "group_highlights_group",
+    "title": "Highlights Group Fields",
+    "fields": [
+        {
+            "key": "field_hg_heading",
+            "label": "Heading",
+            "name": "heading",
+            "type": "text",
+            "instructions": "Optional. Shown centered at the top of the box.",
+            "required": 0,
+            "wrapper": { "width": "40" }
+        },
+        {
+            "key": "field_hg_description",
+            "label": "Description",
+            "name": "description",
+            "type": "text",
+            "instructions": "Optional. Shown centered under the heading.",
+            "required": 0,
+            "wrapper": { "width": "60" }
+        },
+        {
+            "key": "field_hg_highlights",
+            "label": "Highlights",
+            "name": "highlights",
+            "type": "repeater",
+            "instructions": "Up to 3 highlight cards. Each has an image, overlay text (big + small, with per-text colors) and an optional link.",
+            "layout": "block",
+            "button_label": "Add Highlight",
+            "min": 0,
+            "max": 3,
+            "sub_fields": [
+                {
+                    "key": "field_hg_image",
+                    "label": "Image",
+                    "name": "image",
+                    "type": "image",
+                    "return_format": "array",
+                    "preview_size": "medium",
+                    "required": 1,
+                    "wrapper": { "width": "40" }
+                },
+                {
+                    "key": "field_hg_link",
+                    "label": "Link",
+                    "name": "link",
+                    "type": "link",
+                    "instructions": "Optional. Makes the whole card clickable.",
+                    "required": 0,
+                    "wrapper": { "width": "60" }
+                },
+                {
+                    "key": "field_hg_big_text",
+                    "label": "Big text",
+                    "name": "big_text",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "30" }
+                },
+                {
+                    "key": "field_hg_big_color",
+                    "label": "Big text color",
+                    "name": "big_color",
+                    "type": "color_picker",
+                    "default_value": "#ffffff",
+                    "required": 0,
+                    "wrapper": { "width": "20" }
+                },
+                {
+                    "key": "field_hg_small_text",
+                    "label": "Small text",
+                    "name": "small_text",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "30" }
+                },
+                {
+                    "key": "field_hg_small_color",
+                    "label": "Small text color",
+                    "name": "small_color",
+                    "type": "color_picker",
+                    "default_value": "#ffffff",
+                    "required": 0,
+                    "wrapper": { "width": "20" }
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/highlights-group"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "highlightsGroup",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfHighlightsGroup"
+    ]
+}

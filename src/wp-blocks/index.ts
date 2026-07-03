@@ -7,6 +7,7 @@ import SaleCountdownHero from './SaleCountdownHero';
 import DoublePointsDaily from './DoublePointsDaily';
 import CollectionGroup from './CollectionGroup';
 import ImageSlider from './ImageSlider';
+import HighlightsGroup from './HighlightsGroup';
 
 export default {
   ...CoreBlocks,
@@ -28,5 +29,7 @@ export default {
   AcfCollectionGroup: CollectionGroup,
   // Ready, but inert until the `acf/image-slider` block is deployed to WP (the
   // `AcfImageSlider` type must exist before templates can query it).
-  AcfImageSlider: ImageSlider
+  AcfImageSlider: ImageSlider,
+  // Ready, but inert until the `acf/highlights-group` block is deployed to WP.
+  AcfHighlightsGroup: HighlightsGroup
 };

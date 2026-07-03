@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/highlights-group",
+	"title": "Highlights Group",
+	"description": "A boxed section with a heading, description and up to 3 highlight cards, each with an image, overlay text (big + small, per-text colors) and an optional link.",
+	"category": "headless-blocks",
+	"icon": "grid-view",
+	"keywords": [ "highlights", "cards", "group", "collections" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\HighlightsGroup\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}
