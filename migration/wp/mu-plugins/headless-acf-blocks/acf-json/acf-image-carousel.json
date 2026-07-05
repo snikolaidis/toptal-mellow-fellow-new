@@ -1,0 +1,47 @@
+{
+    "key": "group_image_carousel",
+    "title": "Image Carousel Fields",
+    "fields": [
+        {
+            "key": "field_ic_title",
+            "label": "Title",
+            "name": "title",
+            "type": "text",
+            "instructions": "Optional. Shown above the carousel (e.g. \"Featured In\").",
+            "required": 0
+        },
+        {
+            "key": "field_ic_images",
+            "label": "Images",
+            "name": "images",
+            "type": "gallery",
+            "instructions": "Logos\/images shown in the carousel. Drag to reorder. Carousel behaviour (autoplay, loop, slides per view) is fixed by the frontend.",
+            "return_format": "array",
+            "preview_size": "medium",
+            "insert": "append",
+            "library": "all"
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/image-carousel"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "imageCarousel",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfImageCarousel"
+    ]
+}

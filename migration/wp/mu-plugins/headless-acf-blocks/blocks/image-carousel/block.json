@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/image-carousel",
+	"title": "Image Carousel",
+	"description": "A titled strip of images (e.g. press logos) shown as an autoplaying carousel. Carousel behaviour is fixed by the headless frontend; only the title and images are editable.",
+	"category": "headless-blocks",
+	"icon": "slides",
+	"keywords": [ "carousel", "logos", "featured", "images" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\ImageCarousel\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

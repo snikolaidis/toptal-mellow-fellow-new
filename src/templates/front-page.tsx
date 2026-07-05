@@ -9,7 +9,6 @@ import {
   GROUP_PRODUCT_FIELDS,
 } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
-import FeaturedIn from '@/components/FeaturedIn';
 import FeaturedCollection from '@/components/FeaturedCollection';
 import RebuyRecommendations from '@/components/RebuyRecommendations';
 import CollectionCards from '@/components/CollectionCards';
@@ -79,8 +78,6 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
           highlights groups, collection links). */}
       {pageBlocks.length > 0 && <WordPressBlocksViewer blocks={pageBlocks} />}
 
-      <FeaturedIn />
-
       <FeaturedCollection products={awardedProducts} title="Award-Winning Products" />
 
       <CollectionCards
@@ -112,6 +109,7 @@ FrontPage.query = gql`
   ${blocks.AcfCollectionSlider.fragments.entry}
   ${blocks.AcfImageSlider.fragments.entry}
   ${blocks.AcfHighlightsGroup.fragments.entry}
+  ${blocks.AcfResponsiveImage.fragments.entry}
   ${blocks.CoreImage.fragments.entry}
   ${SIMPLE_PRODUCT_FIELDS}
   ${VARIABLE_PRODUCT_FIELDS}
@@ -129,6 +127,7 @@ FrontPage.query = gql`
         ...${blocks.AcfCollectionSlider.fragments.key}
         ...${blocks.AcfImageSlider.fragments.key}
         ...${blocks.AcfHighlightsGroup.fragments.key}
+        ...${blocks.AcfResponsiveImage.fragments.key}
         ...${blocks.CoreImage.fragments.key}
       }
     }
