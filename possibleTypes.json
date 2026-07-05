@@ -954,6 +954,7 @@
     "RootQueryToUserConnectionPageInfo",
     "RootQueryToVisibleProductConnectionPageInfo",
     "CorePostTermsToTermNodeConnectionPageInfo",
+    "AcfMediaItemConnectionPageInfo",
     "SubmitGfFormPayloadToFormFieldConnectionPageInfo"
   ],
   "TaxonomyConnectionEdge": [
@@ -1238,6 +1239,7 @@
     "RootQueryToUserConnectionPageInfo",
     "RootQueryToVisibleProductConnectionPageInfo",
     "CorePostTermsToTermNodeConnectionPageInfo",
+    "AcfMediaItemConnectionPageInfo",
     "SubmitGfFormPayloadToFormFieldConnectionPageInfo"
   ],
   "TermNodeConnection": [
@@ -1465,7 +1467,8 @@
   "MediaItemConnection": [
     "UserToMediaItemConnection",
     "ProductToMediaItemConnection",
-    "RootQueryToMediaItemConnection"
+    "RootQueryToMediaItemConnection",
+    "AcfMediaItemConnection"
   ],
   "MediaItemConnectionEdge": [
     "UserToMediaItemConnectionEdge",
@@ -1497,7 +1500,8 @@
   "MediaItemConnectionPageInfo": [
     "UserToMediaItemConnectionPageInfo",
     "ProductToMediaItemConnectionPageInfo",
-    "RootQueryToMediaItemConnectionPageInfo"
+    "RootQueryToMediaItemConnectionPageInfo",
+    "AcfMediaItemConnectionPageInfo"
   ],
   "NewsArticleConnection": [
     "UserToNewsArticleConnection",
@@ -2104,6 +2108,7 @@
     "RootQueryToUserConnection",
     "RootQueryToVisibleProductConnection",
     "CorePostTermsToTermNodeConnection",
+    "AcfMediaItemConnection",
     "SubmitGfFormPayloadToFormFieldConnection"
   ],
   "BadgeConnection": [
@@ -4683,6 +4688,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -5056,6 +5062,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -5360,6 +5367,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -5664,6 +5672,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -5968,6 +5977,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -6272,6 +6282,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -6576,6 +6587,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -6880,6 +6892,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -7184,6 +7197,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -7488,6 +7502,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -7792,6 +7807,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -8096,6 +8112,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -8400,6 +8417,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -8704,6 +8722,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -9008,6 +9027,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -9312,6 +9332,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -9616,6 +9637,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -9920,6 +9942,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -10224,6 +10247,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -10528,6 +10552,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -10832,6 +10857,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -11136,6 +11162,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -11440,6 +11467,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -11744,6 +11772,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -12048,6 +12077,7 @@
     "AcfHeroSection",
     "AcfHeroSlider",
     "AcfHighlightsGroup",
+    "AcfImageCarousel",
     "AcfImageSlider",
     "AcfResponsiveImage",
     "AcfSaleCountdownHero",
@@ -12436,6 +12466,8 @@
     "AcfHeroSliderAttributes",
     "AcfHighlightsGroup",
     "AcfHighlightsGroupAttributes",
+    "AcfImageCarousel",
+    "AcfImageCarouselAttributes",
     "AcfImageSlider",
     "AcfImageSliderAttributes",
     "AcfResponsiveImage",
@@ -12464,6 +12496,9 @@
   "WithAcfHighlightsGroup": [
     "AcfHighlightsGroup"
   ],
+  "WithAcfImageCarousel": [
+    "AcfImageCarousel"
+  ],
   "WithAcfImageSlider": [
     "AcfImageSlider"
   ],
@@ -12489,6 +12524,7 @@
     "HeroSection",
     "HeroSlider",
     "HighlightsGroup",
+    "ImageCarousel",
     "ImageSlider",
     "ResponsiveImage",
     "SaleCountdownHero",
@@ -12516,6 +12552,7 @@
     "HeroSection",
     "HeroSlider",
     "HighlightsGroup",
+    "ImageCarousel",
     "ImageSlider",
     "ResponsiveImage",
     "SaleCountdownHero",
@@ -12589,6 +12626,9 @@
   ],
   "HighlightsGroup_Fields": [
     "HighlightsGroup"
+  ],
+  "ImageCarousel_Fields": [
+    "ImageCarousel"
   ],
   "ImageSliderSlides_Fields": [
     "ImageSliderSlides"

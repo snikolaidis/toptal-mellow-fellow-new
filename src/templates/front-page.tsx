@@ -110,6 +110,7 @@ FrontPage.query = gql`
   ${blocks.AcfImageSlider.fragments.entry}
   ${blocks.AcfHighlightsGroup.fragments.entry}
   ${blocks.AcfResponsiveImage.fragments.entry}
+  ${blocks.AcfImageCarousel.fragments.entry}
   ${blocks.CoreImage.fragments.entry}
   ${SIMPLE_PRODUCT_FIELDS}
   ${VARIABLE_PRODUCT_FIELDS}
@@ -128,6 +129,7 @@ FrontPage.query = gql`
         ...${blocks.AcfImageSlider.fragments.key}
         ...${blocks.AcfHighlightsGroup.fragments.key}
         ...${blocks.AcfResponsiveImage.fragments.key}
+        ...${blocks.AcfImageCarousel.fragments.key}
         ...${blocks.CoreImage.fragments.key}
       }
     }
