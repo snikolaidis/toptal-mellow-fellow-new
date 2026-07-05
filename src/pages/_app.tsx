@@ -34,6 +34,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <WordPressBlocksProvider
 				config={{
 					blocks,
+					theme: fromThemeJson({}),
 				}}
 			>
         <CartProvider>

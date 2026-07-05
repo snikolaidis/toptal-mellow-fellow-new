@@ -8,6 +8,7 @@ import DoublePointsDaily from './DoublePointsDaily';
 import CollectionGroup from './CollectionGroup';
 import ImageSlider from './ImageSlider';
 import HighlightsGroup from './HighlightsGroup';
+import ResponsiveImage from './ResponsiveImage';
 
 export default {
   ...CoreBlocks,
@@ -31,5 +32,7 @@ export default {
   // `AcfImageSlider` type must exist before templates can query it).
   AcfImageSlider: ImageSlider,
   // Ready, but inert until the `acf/highlights-group` block is deployed to WP.
-  AcfHighlightsGroup: HighlightsGroup
+  AcfHighlightsGroup: HighlightsGroup,
+  // Ready, but inert until the `acf/responsive-image` block is deployed to WP.
+  AcfResponsiveImage: ResponsiveImage
 };

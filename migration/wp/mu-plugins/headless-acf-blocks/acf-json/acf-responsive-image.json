@@ -1,0 +1,100 @@
+{
+    "key": "group_responsive_image",
+    "title": "Responsive Image Fields",
+    "fields": [
+        {
+            "key": "field_ri_mobile_image",
+            "label": "Mobile image",
+            "name": "mobile_image",
+            "type": "image",
+            "instructions": "Shown below 768px.",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "33" }
+        },
+        {
+            "key": "field_ri_tablet_image",
+            "label": "Tablet image",
+            "name": "tablet_image",
+            "type": "image",
+            "instructions": "Shown from 768px to 1023px.",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "33" }
+        },
+        {
+            "key": "field_ri_desktop_image",
+            "label": "Desktop image",
+            "name": "desktop_image",
+            "type": "image",
+            "instructions": "Shown from 1024px up.",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "34" }
+        },
+        {
+            "key": "field_ri_link",
+            "label": "Link",
+            "name": "link",
+            "type": "link",
+            "instructions": "Optional. Makes the whole image clickable.",
+            "required": 0
+        },
+        {
+            "key": "field_ri_border_radius",
+            "label": "Border radius",
+            "name": "border_radius",
+            "type": "range",
+            "min": 0,
+            "max": 50,
+            "step": 1,
+            "default_value": 0,
+            "append": "px",
+            "wrapper": { "width": "34" }
+        },
+        {
+            "key": "field_ri_width",
+            "label": "Width",
+            "name": "width",
+            "type": "button_group",
+            "choices": {
+                "full": "Full width",
+                "contained": "Contained"
+            },
+            "default_value": "full",
+            "wrapper": { "width": "33" }
+        },
+        {
+            "key": "field_ri_eager_load",
+            "label": "Eager load",
+            "name": "eager_load",
+            "type": "true_false",
+            "instructions": "Enable for above-the-fold banners so the image loads immediately (LCP).",
+            "default_value": 0,
+            "ui": 1,
+            "wrapper": { "width": "33" }
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/responsive-image"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "responsiveImage",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfResponsiveImage"
+    ]
+}

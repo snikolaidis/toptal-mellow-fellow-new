@@ -112,6 +112,7 @@ FrontPage.query = gql`
   ${blocks.AcfCollectionSlider.fragments.entry}
   ${blocks.AcfImageSlider.fragments.entry}
   ${blocks.AcfHighlightsGroup.fragments.entry}
+  ${blocks.CoreImage.fragments.entry}
   ${SIMPLE_PRODUCT_FIELDS}
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
@@ -128,6 +129,7 @@ FrontPage.query = gql`
         ...${blocks.AcfCollectionSlider.fragments.key}
         ...${blocks.AcfImageSlider.fragments.key}
         ...${blocks.AcfHighlightsGroup.fragments.key}
+        ...${blocks.CoreImage.fragments.key}
       }
     }
     products(first: $first, where: { status: "publish" }) {
