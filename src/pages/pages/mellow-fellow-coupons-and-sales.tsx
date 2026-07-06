@@ -22,12 +22,18 @@ const GET_DEALS_CARD_GRID = gql`
           heading
           description
           bullets
+          body
           visible
           image {
             node {
               sourceUrl
               altText
             }
+          }
+          dealLink {
+            url
+            title
+            target
           }
           collectionTarget {
             nodes {
@@ -73,15 +79,24 @@ export const getStaticProps: GetStaticProps<DealsPageProps> = async () => {
     const rows = group?.dealCtas || [];
     const cards: DealCard[] = rows
       .filter((row: any) => row?.visible)
-      .filter((row: any) => row?.collectionTarget?.nodes?.[0]?.slug)
+      .filter((row: any) => row?.dealLink?.url || row?.collectionTarget?.nodes?.[0]?.slug)
       .map((row: any) => {
         const imageNode = row.image?.node;
+        const rawLink = row.dealLink?.url;
+        const parsed = rawLink ? new URL(rawLink, 'https://x') : null;
+        const stripped = parsed ? parsed.pathname + parsed.search : null;
+        const href =
+          stripped ??
+          (row.collectionTarget?.nodes?.[0]?.slug
+            ? `/collections/${row.collectionTarget.nodes[0].slug}`
+            : null);
         return {
-          href: `/collections/${row.collectionTarget.nodes[0].slug}`,
+          href,
           label: row.label,
           heading: row.heading ?? null,
           description: row.description ?? null,
           bullets: row.bullets ?? null,
+          body: row.body ?? null,
           image: imageNode?.sourceUrl
             ? { src: imageNode.sourceUrl, alt: imageNode.altText ?? '' }
             : null,

@@ -8,6 +8,7 @@ export interface DealCard {
   heading: string | null;
   description: string | null;
   bullets: string | null;
+  body: string | null;
   image: { src: string; alt: string } | null;
 }
 
@@ -46,13 +47,24 @@ export default function DealsCardGrid({ cards }: DealsCardGridProps) {
               )}
               <div className={styles.body}>
                 {card.heading && <h3 className={styles.heading}>{card.heading}</h3>}
-                {card.description && <p className={styles.description}>{card.description}</p>}
-                {bulletItems.length > 0 && (
-                  <ul className={styles.bullets}>
-                    {bulletItems.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
+                {card.body ? (
+                  <div
+                    className={styles.bodyContent}
+                    dangerouslySetInnerHTML={{ __html: card.body }}
+                  />
+                ) : (
+                  <>
+                    {card.description && (
+                      <p className={styles.description}>{card.description}</p>
+                    )}
+                    {bulletItems.length > 0 && (
+                      <ul className={styles.bullets}>
+                        {bulletItems.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
                 )}
                 <Link href={card.href} className={styles.shopBtn}>
                   {card.label}
