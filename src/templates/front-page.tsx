@@ -95,6 +95,7 @@ FrontPage.query = gql`
   ${blocks.AcfHighlightsGroup.fragments.entry}
   ${blocks.AcfResponsiveImage.fragments.entry}
   ${blocks.AcfImageCarousel.fragments.entry}
+  ${blocks.AcfFeaturedCollection.fragments.entry}
   ${blocks.CoreImage.fragments.entry}
   query FrontPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
@@ -110,6 +111,7 @@ FrontPage.query = gql`
         ...${blocks.AcfHighlightsGroup.fragments.key}
         ...${blocks.AcfResponsiveImage.fragments.key}
         ...${blocks.AcfImageCarousel.fragments.key}
+        ...${blocks.AcfFeaturedCollection.fragments.key}
         ...${blocks.CoreImage.fragments.key}
       }
     }
