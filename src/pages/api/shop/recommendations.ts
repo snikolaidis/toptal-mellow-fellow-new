@@ -31,6 +31,40 @@ const CROSS_SELL_MAP: Record<string, string[]> = {
   'roll-on': ['edible', 'disposable-vape'],
 };
 
+const TYPE_ALIASES: Record<string, string> = {
+  'edibles': 'edible',
+  'beverages': 'beverage',
+  'bundles': 'bundle',
+  'preroll': 'prerolls',
+  'pre-rolls': 'prerolls',
+  'disposable-vapes': 'disposable-vape',
+  '2ml-disposable-vapes': 'disposable-vape',
+  '1ml-disposable-vapes': 'disposable-vape',
+  '0-5ml-disposable-vapes': 'disposable-vape',
+  'vape-cartridges': 'vape-cartridge',
+  '2ml-vape-cartridges': 'vape-cartridge',
+  'concentrate': 'concentrates',
+};
+
+const CATEGORY_SLUGS: Record<string, string[]> = {
+  'disposable-vape': ['disposable-vape', 'disposable-vapes', '2ml-disposable-vapes', '1ml-disposable-vapes', '0-5ml-disposable-vapes'],
+  'vape-cartridge': ['vape-cartridge', 'vape-cartridges', '2ml-vape-cartridges'],
+  'edible': ['edible', 'edibles'],
+  'beverage': ['beverage', 'beverages'],
+  'bundle': ['bundle', 'bundles'],
+  'flower': ['flower'],
+  'prerolls': ['prerolls', 'preroll', 'pre-rolls'],
+  'accessories': ['accessories'],
+  'capsules': ['capsules'],
+  'concentrates': ['concentrates', 'concentrate'],
+  'syringes': ['syringes'],
+  'roll-on': ['roll-on'],
+};
+
+function canonicalType(slug: string): string {
+  return TYPE_ALIASES[slug] || slug;
+}
+
 // GraphQL query to fetch products filtered by product-type taxonomy
 const GET_PRODUCTS_BY_TYPE = gql`
   query GetProductsByType($mfProductType: String!, $first: Int = 4) {
@@ -47,6 +81,9 @@ const GET_PRODUCTS_BY_TYPE = gql`
           salePrice
           stockStatus
           image { id sourceUrl altText }
+          mfproductTypes { nodes { name } }
+          productLines { nodes { name } }
+          cannabinoids { nodes { name } }
         }
       }
     }
@@ -67,6 +104,9 @@ const GET_PRODUCT_BY_SLUG = gql`
         salePrice
         stockStatus
         image { id sourceUrl altText }
+        mfproductTypes { nodes { name } }
+        productLines { nodes { name } }
+        cannabinoids { nodes { name } }
       }
     }
   }
@@ -92,7 +132,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const cartTypeSlugs = parseSlugs(typeof req.query.productTypes === 'string' ? req.query.productTypes : undefined);
+  const cartTypeSlugs = Array.from(
+    new Set(
+      parseSlugs(typeof req.query.productTypes === 'string' ? req.query.productTypes : undefined).map(canonicalType)
+    )
+  );
   const cartProductSlugs = parseSlugs(typeof req.query.cartProductSlugs === 'string' ? req.query.cartProductSlugs : undefined);
   const cartTotal = parseFloat(typeof req.query.cartTotal === 'string' ? req.query.cartTotal : '0') || 0;
   const excludeIds = parseIds(typeof req.query.excludeProductIds === 'string' ? req.query.excludeProductIds : undefined);
@@ -144,6 +188,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch { return []; }
     };
 
+    const fetchByCategory = async (category: string, first = 4): Promise<any[]> => {
+      const slugs = CATEGORY_SLUGS[category] || [category];
+      const lists = await Promise.all(slugs.map((s) => fetchByType(s, first)));
+      const merged: any[] = [];
+      const localSeen = new Set<number>();
+      for (const list of lists) {
+        for (const p of list) {
+          if (p && !localSeen.has(p.databaseId)) {
+            localSeen.add(p.databaseId);
+            merged.push(p);
+          }
+        }
+      }
+      return merged;
+    };
+
     // RULE 1 & 2: Fetch specific products in parallel
     const specificFetches: Promise<any>[] = [];
     if (hasConcentrates && !excludeSlugSet.has(TERP_PEN_SLUG)) {
@@ -167,7 +227,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     // RULE 4: Fetch from all categories in parallel via GraphQL
     const categoriesToFetch = recCategories.slice(0, 4);
-    const fetchPromises = categoriesToFetch.map((slug) => fetchByType(slug, 4));
+    const fetchPromises = categoriesToFetch.map((category) => fetchByCategory(category, 4));
     const fetchResults = await Promise.all(fetchPromises);
 
     const categoryProducts: Record<string, any[]> = {};
@@ -209,17 +269,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Transform to consistent format
-    const transformed = results.slice(0, limit).map((p: any) => ({
-      id: p.id,
-      databaseId: p.databaseId,
-      name: p.name,
-      slug: p.slug,
-      price: p.price || '',
-      regularPrice: p.regularPrice || undefined,
-      salePrice: p.salePrice || undefined,
-      stockStatus: p.stockStatus || 'IN_STOCK',
-      image: p.image || undefined,
-    }));
+    const transformed = results.slice(0, limit).map((p: any) => {
+      const cannabinoidNames = (p.cannabinoids?.nodes || []).map((c: any) => c.name).filter(Boolean);
+      return {
+        id: p.id,
+        databaseId: p.databaseId,
+        name: p.name,
+        slug: p.slug,
+        price: p.price || '',
+        regularPrice: p.regularPrice || undefined,
+        salePrice: p.salePrice || undefined,
+        stockStatus: p.stockStatus || 'IN_STOCK',
+        image: p.image || undefined,
+        typeLabel: p.mfproductTypes?.nodes?.[0]?.name || '',
+        subtitle: p.productLines?.nodes?.[0]?.name || cannabinoidNames.join(' + ') || '',
+      };
+    });
 
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     return res.status(200).json({ success: true, products: transformed, count: transformed.length });

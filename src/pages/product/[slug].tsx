@@ -6,6 +6,7 @@ import { getClient } from '@/lib/apollo-client';
 import { GET_PRODUCT_BY_SLUG, GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
 import Layout from '@/components/Layout';
+import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
 import { Product, Collection } from '@/types/woocommerce';
@@ -581,6 +582,29 @@ export default function ProductPage({
                 <p>This item is out of stock. Check back soon!</p>
               </div>
             )}
+
+            <FrequentlyBoughtTogether
+              productId={product.databaseId}
+              productSlug={product.slug}
+              productName={product.name}
+              productPrice={product.price || ''}
+              productRegularPrice={product.regularPrice}
+              productImage={product.image}
+              productTypeLabel={product.mfproductTypes?.nodes?.[0]?.name}
+              productSubtitle={
+                product.productLines?.nodes?.[0]?.name ||
+                (
+                  (product as { cannabinoids?: { nodes: Array<{ name: string }> } }).cannabinoids
+                    ?.nodes || []
+                )
+                  .map((c) => c.name)
+                  .join(' + ') ||
+                undefined
+              }
+              typeSlugs={(product.mfproductTypes?.nodes || [])
+                .map((t) => (t as { slug?: string }).slug || '')
+                .filter(Boolean)}
+            />
 
             {/* Product Meta */}
             <div className={styles.meta}>
