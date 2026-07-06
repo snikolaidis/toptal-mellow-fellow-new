@@ -1,0 +1,75 @@
+{
+    "key": "group_featured_collection",
+    "title": "Featured Collection Fields",
+    "fields": [
+        {
+            "key": "field_fc_collection",
+            "label": "Collection",
+            "name": "collection",
+            "type": "taxonomy",
+            "instructions": "The collection whose products are shown in the grid.",
+            "taxonomy": "collection",
+            "field_type": "select",
+            "allow_null": 0,
+            "add_term": 0,
+            "save_terms": 0,
+            "load_terms": 0,
+            "return_format": "object",
+            "multiple": 0,
+            "required": 1,
+            "wrapper": { "width": "60" }
+        },
+        {
+            "key": "field_fc_title",
+            "label": "Title",
+            "name": "title",
+            "type": "text",
+            "instructions": "Optional. Defaults to the collection's name when left blank.",
+            "required": 0,
+            "wrapper": { "width": "40" }
+        },
+        {
+            "key": "field_fc_product_count",
+            "label": "Number of products",
+            "name": "product_count",
+            "type": "number",
+            "instructions": "How many products to show (1–24).",
+            "default_value": 8,
+            "min": 1,
+            "max": 24,
+            "required": 0,
+            "wrapper": { "width": "40" }
+        },
+        {
+            "key": "field_fc_button",
+            "label": "Button",
+            "name": "button",
+            "type": "link",
+            "instructions": "Optional CTA shown below the product grid.",
+            "required": 0,
+            "wrapper": { "width": "60" }
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/featured-collection"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "featuredCollection",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfFeaturedCollection"
+    ]
+}

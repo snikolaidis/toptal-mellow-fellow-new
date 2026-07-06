@@ -2,30 +2,16 @@ import { gql } from '@apollo/client';
 import { FaustTemplate } from '@faustwp/core';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import blocks from '@/wp-blocks';
-import {
-  SIMPLE_PRODUCT_FIELDS,
-  VARIABLE_PRODUCT_FIELDS,
-  EXTERNAL_PRODUCT_FIELDS,
-  GROUP_PRODUCT_FIELDS,
-} from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
-import FeaturedCollection from '@/components/FeaturedCollection';
 import RebuyRecommendations from '@/components/RebuyRecommendations';
 import CollectionCards from '@/components/CollectionCards';
-import { Product } from '@/types/woocommerce';
 
 interface FrontPageData {
   page?: { editorBlocks?: any[] } | null;
-  products?: { nodes: Product[] };
 }
 
 const FrontPage: FaustTemplate<FrontPageData> = (props) => {
-  const products = props.data?.products?.nodes ?? [];
   const pageBlocks = props.data?.page?.editorBlocks ?? [];
-
-  const featuredProducts = products.slice(0, 8);
-  const newArrivals = products.slice(8, 16);
-  const awardedProducts = products.slice(16, 24);
 
   return (
     <Layout
@@ -78,8 +64,6 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
           highlights groups, collection links). */}
       {pageBlocks.length > 0 && <WordPressBlocksViewer blocks={pageBlocks} />}
 
-      <FeaturedCollection products={awardedProducts} title="Award-Winning Products" />
-
       <CollectionCards
         title="Premium Smokable Devices"
         cards={[
@@ -100,9 +84,9 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
   );
 };
 
-// Combined document: the front page's editor blocks (only the hero-slider
-// fragment is spread — that's the one block this template renders) plus the
-// products that feed the hardcoded homepage sections.
+// The front page's editor blocks — every backend-managed section spreads its
+// fragment here. Product-driven blocks (collection slider / featured
+// collection) fetch their own products client-side.
 FrontPage.query = gql`
   ${blocks.AcfHeroSlider.fragments.entry}
   ${blocks.AcfCollectionLinks.fragments.entry}
@@ -112,11 +96,7 @@ FrontPage.query = gql`
   ${blocks.AcfResponsiveImage.fragments.entry}
   ${blocks.AcfImageCarousel.fragments.entry}
   ${blocks.CoreImage.fragments.entry}
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
-  query FrontPage($id: ID!, $first: Int = 24) {
+  query FrontPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       editorBlocks(flat: false) {
         name
@@ -133,18 +113,9 @@ FrontPage.query = gql`
         ...${blocks.CoreImage.fragments.key}
       }
     }
-    products(first: $first, where: { status: "publish" }) {
-      nodes {
-        __typename
-        ... on SimpleProduct { ...SimpleProductFields }
-        ... on VariableProduct { ...VariableProductFields }
-        ... on ExternalProduct { ...ExternalProductFields }
-        ... on GroupProduct { ...GroupProductFields }
-      }
-    }
   }
 `;
 
-FrontPage.variables = (seedNode) => ({ id: seedNode.databaseId, first: 24 });
+FrontPage.variables = (seedNode) => ({ id: seedNode.databaseId });
 
 export default FrontPage;

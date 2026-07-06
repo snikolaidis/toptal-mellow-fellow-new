@@ -10,6 +10,7 @@ import ImageSlider from './ImageSlider';
 import HighlightsGroup from './HighlightsGroup';
 import ResponsiveImage from './ResponsiveImage';
 import ImageCarousel from './ImageCarousel';
+import FeaturedCollection from './FeaturedCollection';
 
 export default {
   ...CoreBlocks,
@@ -37,5 +38,7 @@ export default {
   // Ready, but inert until the `acf/responsive-image` block is deployed to WP.
   AcfResponsiveImage: ResponsiveImage,
   // Ready, but inert until the `acf/image-carousel` block is deployed to WP.
-  AcfImageCarousel: ImageCarousel
+  AcfImageCarousel: ImageCarousel,
+  // Ready, but inert until the `acf/featured-collection` block is deployed to WP.
+  AcfFeaturedCollection: FeaturedCollection
 };

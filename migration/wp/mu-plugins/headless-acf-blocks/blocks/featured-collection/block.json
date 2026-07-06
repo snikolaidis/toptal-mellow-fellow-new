@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/featured-collection",
+	"title": "Featured Collection",
+	"description": "A titled grid of products from a selected collection, with an optional CTA button below. Rendered as a product-card grid on the headless frontend.",
+	"category": "headless-blocks",
+	"icon": "grid-view",
+	"keywords": [ "collection", "products", "grid", "featured" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\FeaturedCollection\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

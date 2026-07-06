@@ -5,8 +5,8 @@ import { gql } from '@apollo/client';
  * Migrated from the Shopify `highlights-group` section: a boxed section with
  * heading + description and up to 3 highlight cards, each with an image,
  * big/small overlay text in per-text colors and an optional link. Reuses the
- * markup and classes of the hardcoded src/components/HighlightsGroup.tsx
- * (styles in src/styles/components/_highlights-group.scss).
+ * markup and classes of the (since removed) hardcoded HighlightsGroup
+ * component (styles in src/styles/components/_highlights-group.scss).
  */
 
 interface MediaItem {
