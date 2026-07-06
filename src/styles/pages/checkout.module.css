@@ -594,3 +594,53 @@
   width: 16px;
   height: 16px;
 }
+
+.subChoiceList {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.subChoiceItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.subChoiceLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #232323;
+}
+
+.subChoiceLabel input[type='checkbox'] {
+  accent-color: #BC912D;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.subChoiceName {
+  line-height: 1.3;
+}
+
+.subChoicePrice {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #10866A;
+  white-space: nowrap;
+}
+
+.subCommit {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #8A8683;
+}

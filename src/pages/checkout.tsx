@@ -70,10 +70,9 @@ export default function CheckoutPage() {
   const [sameAsBilling, setSameAsBilling] = useState(true);
 
   const [subSchemes, setSubSchemes] = useState<Array<{ period: string; interval: number }>>([]);
-  const [subscribe, setSubscribe] = useState(false);
+  const [subChecked, setSubChecked] = useState<number[]>([]);
   const [subChoice, setSubChoice] = useState<{ period: string; interval: number } | null>(null);
   const [subUnitPrices, setSubUnitPrices] = useState<Record<string, number>>({});
-  const [subExpanded, setSubExpanded] = useState(false);
 
   // CSRF token for secure checkout
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
@@ -97,7 +96,7 @@ export default function CheckoutPage() {
       : [];
     if (!ids.length) {
       setSubSchemes([]);
-      setSubscribe(false);
+      setSubChecked([]);
       setSubChoice(null);
       setSubUnitPrices({});
       return;
@@ -136,59 +135,57 @@ export default function CheckoutPage() {
           return keys;
         });
         if (!cancelled) setSubUnitPrices(priceMap);
-        let intersection = perItem.length ? perItem[0] : [];
-        for (let i = 1; i < perItem.length; i++) {
-          intersection = intersection.filter((k) => perItem[i].includes(k));
-        }
-        const schemes = intersection.map((k) => {
+        const union: string[] = [];
+        perItem.forEach((keys) =>
+          keys.forEach((k) => {
+            if (!union.includes(k)) union.push(k);
+          })
+        );
+        const schemes = union.map((k) => {
           const [period, interval] = k.split('_');
           return { period, interval: Number(interval) };
         });
         if (!cancelled) {
           setSubSchemes(schemes);
-          setSubChoice(schemes[0] || null);
           if (schemes.length === 0) {
-            setSubscribe(false);
-          } else {
-            let stored: { period: string; interval: number } | null = null;
-            let allStored = true;
-            for (const id of ids) {
-              let raw: string | null = null;
-              try {
-                raw = window.sessionStorage.getItem(`mf_sub_${id}`);
-              } catch {
-                raw = null;
-              }
-              if (!raw) {
-                allStored = false;
-                break;
-              }
-              try {
-                const parsed = JSON.parse(raw);
-                const choice = { period: String(parsed.period), interval: Number(parsed.interval) };
-                if (!stored) {
-                  stored = choice;
-                } else if (stored.period !== choice.period || stored.interval !== choice.interval) {
-                  allStored = false;
-                  break;
-                }
-              } catch {
-                allStored = false;
-                break;
-              }
+            setSubChoice(null);
+            setSubChecked([]);
+            return;
+          }
+          const chosen: Array<{ id: number; period: string; interval: number }> = [];
+          for (const id of ids) {
+            let raw: string | null = null;
+            try {
+              raw = window.sessionStorage.getItem(`mf_sub_${id}`);
+            } catch {
+              raw = null;
             }
-            const inIntersection =
-              !!stored && schemes.some((s) => s.period === stored!.period && s.interval === stored!.interval);
-            if (allStored && stored && inIntersection) {
-              setSubscribe(true);
-              setSubChoice(stored);
+            if (!raw) continue;
+            try {
+              const parsed = JSON.parse(raw);
+              chosen.push({ id, period: String(parsed.period), interval: Number(parsed.interval) });
+            } catch {
+              void 0;
             }
           }
+          let choice = schemes[0];
+          if (chosen.length) {
+            const c = chosen[0];
+            if (schemes.some((s) => s.period === c.period && s.interval === c.interval)) {
+              choice = { period: c.period, interval: c.interval };
+            }
+          }
+          setSubChoice(choice);
+          const checked = chosen
+            .filter((c) => c.period === choice.period && c.interval === choice.interval)
+            .map((c) => c.id)
+            .filter((id) => priceMap[`${id}_${choice.period}_${choice.interval}`] != null);
+          setSubChecked(checked);
         }
       } catch {
         if (!cancelled) {
           setSubSchemes([]);
-          setSubscribe(false);
+          setSubChecked([]);
           setSubUnitPrices({});
         }
       }
@@ -198,131 +195,111 @@ export default function CheckoutPage() {
     };
   }, [cartItemIdsKey]);
 
-  const subTotals = (choice: { period: string; interval: number } | null) => {
-    if (!choice) return null;
+  const eligibleAt = (choice: { period: string; interval: number } | null, pid?: number) =>
+    !!choice && pid != null && subUnitPrices[`${pid}_${choice.period}_${choice.interval}`] != null;
+
+  const subTotals = (choice: { period: string; interval: number } | null, checkedIds: number[]) => {
+    if (!choice || !checkedIds.length) return null;
     let recurring = 0;
-    let oneTime = 0;
+    let oneTimeChecked = 0;
     for (const it of cart?.items || []) {
       const pid = it.product?.databaseId;
+      if (pid == null || !checkedIds.includes(pid)) continue;
       const qty = it.quantity || 1;
       const line = parseFloat((it.total || '0').replace(/[^0-9.]/g, '')) || 0;
       const unit = subUnitPrices[`${pid}_${choice.period}_${choice.interval}`];
-      if (unit == null) return null;
+      if (unit == null) continue;
       recurring += unit * qty;
-      oneTime += line;
+      oneTimeChecked += line;
     }
-    return { recurring, savings: Math.max(0, oneTime - recurring) };
+    if (recurring <= 0) return null;
+    return { recurring, savings: Math.max(0, oneTimeChecked - recurring) };
   };
 
   const subSummary =
-    subscribe && subChoice
+    subChecked.length > 0 && subChoice
       ? (() => {
-          const t = subTotals(subChoice);
+          const t = subTotals(subChoice, subChecked);
           if (!t) return undefined;
-          const ship = parseFloat((cart?.shippingTotal || '0').replace(/[^0-9.]/g, '')) || 0;
+          const fullTotal = parseFloat((cart?.total || '0').replace(/[^0-9.]/g, '')) || 0;
           return {
             savings: t.savings,
             recurring: t.recurring,
-            total: t.recurring + ship,
+            total: Math.max(0, fullTotal - t.savings),
             label: formatFrequency(subChoice.period, subChoice.interval),
           };
         })()
       : undefined;
 
-  const subscriptionCard =
-    subSchemes.length > 0 && subChoice
-      ? (() => {
-          const totals = subTotals(subChoice);
-          const savings = totals?.savings ?? 0;
-          const names = (cart?.items || []).map((it) => it.product?.name).filter(Boolean);
-          const freqLabel = formatFrequency(subChoice.period, subChoice.interval);
-          if (!subscribe) {
+  const subscriptionCard = (() => {
+    if (!subChoice || subSchemes.length === 0) return null;
+    const eligible = (cart?.items || []).filter((it) => eligibleAt(subChoice, it.product?.databaseId));
+    if (!eligible.length) return null;
+    const totals = subTotals(subChoice, subChecked);
+    const savings = totals?.savings ?? 0;
+    const toggle = (pid: number) =>
+      setSubChecked((prev) => (prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]));
+    return (
+      <div className={styles.subUpgrade}>
+        <h3 className={styles.subUpgradeTitle}>Subscribe &amp; save</h3>
+        {savings > 0 ? (
+          <p className={styles.subUpgradeText}>You save ${savings.toFixed(2)} on your subscription today.</p>
+        ) : (
+          <p className={styles.subUpgradeText}>Choose which products to subscribe and save.</p>
+        )}
+        <ul className={styles.subChoiceList}>
+          {eligible.map((it) => {
+            const pid = it.product!.databaseId;
+            const qty = it.quantity || 1;
+            const unit = subUnitPrices[`${pid}_${subChoice.period}_${subChoice.interval}`];
+            const checked = subChecked.includes(pid);
             return (
-              <div className={styles.subUpgrade}>
-                <h3 className={styles.subUpgradeTitle}>Upgrade to a subscription and save!</h3>
-                <p className={styles.subUpgradeText}>
-                  Upgrade the following products to a subscription
-                  {savings > 0 ? ` and save up to $${savings.toFixed(2)} today!` : '.'}
-                </p>
-                <ul className={styles.subUpgradeList}>
-                  {names.map((n, i) => (
-                    <li key={i}>{n}</li>
-                  ))}
-                </ul>
-                <label className={styles.subDeliverLabel} htmlFor="mf-deliver">
-                  Deliver every
+              <li key={pid} className={styles.subChoiceItem}>
+                <label className={styles.subChoiceLabel}>
+                  <input type="checkbox" checked={checked} onChange={() => toggle(pid)} />
+                  <span className={styles.subChoiceName}>{it.product?.name}</span>
                 </label>
-                <select
-                  id="mf-deliver"
-                  className={styles.subDeliverSelect}
-                  value={`${subChoice.period}_${subChoice.interval}`}
-                  onChange={(e) => {
-                    const [period, interval] = e.target.value.split('_');
-                    setSubChoice({ period, interval: Number(interval) });
-                  }}
-                >
-                  {subSchemes.map((s) => (
-                    <option key={`${s.period}_${s.interval}`} value={`${s.period}_${s.interval}`}>
-                      {formatFrequency(s.period, s.interval)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className={styles.subUpgradeBtn}
-                  onClick={() => setSubscribe(true)}
-                >
-                  Upgrade all to a subscription
-                </button>
-              </div>
+                {unit != null && (
+                  <span className={styles.subChoicePrice}>
+                    ${(unit * qty).toFixed(2)} / {formatFrequency(subChoice.period, subChoice.interval)}
+                  </span>
+                )}
+              </li>
             );
-          }
-          return (
-            <div className={styles.subSaved}>
-              <button
-                type="button"
-                className={styles.subSavedHead}
-                onClick={() => setSubExpanded((v) => !v)}
-                aria-expanded={subExpanded}
-              >
-                <svg className={styles.subSavedCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span className={styles.subSavedText}>
-                  You saved ${savings.toFixed(2)} by upgrading products to a subscription!
-                </span>
-                <svg
-                  className={`${styles.subSavedChevron} ${subExpanded ? styles.subSavedChevronUp : ''}`}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {subExpanded && (
-                <div className={styles.subSavedBody}>
-                  <p className={styles.subSavedDeliver}>Deliver every {freqLabel}:</p>
-                  <ul className={styles.subUpgradeList}>
-                    {names.map((n, i) => (
-                      <li key={i}>{n}</li>
-                    ))}
-                  </ul>
-                  <button
-                    type="button"
-                    className={styles.subUndo}
-                    onClick={() => setSubscribe(false)}
-                  >
-                    Undo savings
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })()
-      : null;
+          })}
+        </ul>
+        {subSchemes.length > 1 && (
+          <>
+            <label className={styles.subDeliverLabel} htmlFor="mf-deliver">
+              Deliver every
+            </label>
+            <select
+              id="mf-deliver"
+              className={styles.subDeliverSelect}
+              value={`${subChoice.period}_${subChoice.interval}`}
+              onChange={(e) => {
+                const [period, interval] = e.target.value.split('_');
+                const next = { period, interval: Number(interval) };
+                setSubChoice(next);
+                setSubChecked((prev) =>
+                  prev.filter((pid) => subUnitPrices[`${pid}_${next.period}_${next.interval}`] != null)
+                );
+              }}
+            >
+              {subSchemes.map((s) => (
+                <option key={`${s.period}_${s.interval}`} value={`${s.period}_${s.interval}`}>
+                  {formatFrequency(s.period, s.interval)}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+        {subChecked.length > 0 && (
+          <p className={styles.subCommit}>No commitment. Cancel anytime.</p>
+        )}
+      </div>
+    );
+  })();
 
   // Fetch CSRF token on component mount
   const fetchCsrfToken = useCallback(async () => {
@@ -545,7 +522,14 @@ export default function CheckoutPage() {
           paymentNonce: paymentData.opaqueData || undefined,
           savedCard: paymentData.savedCard || undefined,
           saveCard: paymentData.saveCard || false,
-          subscription: subscribe && subChoice ? subChoice : undefined,
+          subscriptionItems:
+            subChecked.length > 0 && subChoice
+              ? subChecked.map((pid) => ({
+                  productId: pid,
+                  period: subChoice.period,
+                  interval: subChoice.interval,
+                }))
+              : undefined,
           amount: cart?.total,
           coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
           items: cart?.items.map((item) => ({

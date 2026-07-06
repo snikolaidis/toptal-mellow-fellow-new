@@ -19,7 +19,7 @@ interface ProductPageProps {
 }
 
 function formatEvery(period: string, interval: number) {
-  return interval > 1 ? `${interval} ${period}s` : period;
+  return interval > 1 ? `${interval} ${period}s` : `1 ${period}`;
 }
 
 export default function ProductPage({
@@ -37,8 +37,9 @@ export default function ProductPage({
   const [subSchemes, setSubSchemes] = useState<
     Array<{ period: string; interval: number; price: string; discount: number }>
   >([]);
-  const [subscribe, setSubscribe] = useState(true);
+  const [subscribe, setSubscribe] = useState(false);
   const [subChoice, setSubChoice] = useState<{ period: string; interval: number } | null>(null);
+  const [showSubInfo, setShowSubInfo] = useState(false);
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export default function ProductPage({
         if (Array.isArray(schemes) && schemes.length) {
           setSubSchemes(schemes);
           setSubChoice({ period: schemes[0].period, interval: schemes[0].interval });
-          setSubscribe(true);
+          setSubscribe(false);
         } else {
           setSubSchemes([]);
           setSubscribe(false);
@@ -377,6 +378,7 @@ export default function ProductPage({
                 subSchemes[0];
               const discount = Math.round(sel.discount);
               return (
+                <>
                 <div className={styles.purchaseOptions}>
                   <button
                     type="button"
@@ -387,6 +389,21 @@ export default function ProductPage({
                     <span className={styles.purchaseTop}>
                       <span className={styles.purchaseRadio} data-checked={subscribe} aria-hidden="true" />
                       <span className={styles.purchaseName}>Subscribe &amp; save</span>
+                      <button
+                        type="button"
+                        className={styles.purchaseInfo}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowSubInfo(true);
+                        }}
+                        aria-label="Why subscribe?"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                          <circle cx="12" cy="12" r="9" />
+                          <path strokeLinecap="round" d="M12 11.5v4.5" />
+                          <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+                        </svg>
+                      </button>
                       {discount > 0 && (
                         <span className={styles.purchaseBadge}>Save up to {discount}%</span>
                       )}
@@ -398,8 +415,22 @@ export default function ProductPage({
                     {subscribe && (
                       <span className={styles.purchaseDetail}>
                         <span className={styles.purchaseBenefits}>
-                          {discount > 0 && <span>Save {discount}%</span>}
-                          <span>No commitment. Cancel anytime</span>
+                          {discount > 0 && (
+                            <span className={styles.purchaseBenefit}>
+                              <svg className={styles.purchaseBenefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
+                              </svg>
+                              Save {discount}%
+                            </span>
+                          )}
+                          <span className={styles.purchaseBenefit}>
+                            <svg className={styles.purchaseBenefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                              <circle cx="12" cy="12" r="9" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
+                            </svg>
+                            No commitment. Cancel anytime
+                          </span>
                         </span>
                         <span className={styles.purchaseDeliver}>
                           <span className={styles.purchaseDeliverLabel}>Deliver every:</span>
@@ -444,6 +475,74 @@ export default function ProductPage({
                     </span>
                   </button>
                 </div>
+                {showSubInfo && (
+                  <div
+                    className={styles.subInfoOverlay}
+                    role="dialog"
+                    aria-modal="true"
+                    onClick={() => setShowSubInfo(false)}
+                  >
+                    <div className={styles.subInfoModal} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className={styles.subInfoClose}
+                        onClick={() => setShowSubInfo(false)}
+                        aria-label="Close"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                        </svg>
+                      </button>
+                      <h3 className={styles.subInfoTitle}>Great reasons to subscribe</h3>
+                      <ul className={styles.subInfoList}>
+                        <li className={styles.subInfoItem}>
+                          <span className={styles.subInfoIcon}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                              <rect x="4" y="5" width="16" height="16" rx="2" />
+                              <path strokeLinecap="round" d="M4 9.5h16M8.5 3v4M15.5 3v4" />
+                            </svg>
+                          </span>
+                          <span className={styles.subInfoText}>
+                            <strong>Flexible frequency</strong>
+                            {' Not sure how much of something you need, or how often? Adjust quantities and frequencies any time.'}
+                          </span>
+                        </li>
+                        <li className={styles.subInfoItem}>
+                          <span className={styles.subInfoIcon}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 8.5a6 6 0 10-12 0c0 6.5-2.5 8.5-2.5 8.5h17S18 15 18 8.5" />
+                              <path strokeLinecap="round" d="M13.6 20.5a1.9 1.9 0 01-3.2 0" />
+                            </svg>
+                          </span>
+                          <span className={styles.subInfoText}>
+                            <strong>Order reminders</strong>
+                            {" We'll let you know before each shipment. Delay, reschedule or cancel if you need to, we'll only bill you when your order ships."}
+                          </span>
+                        </li>
+                        <li className={styles.subInfoItem}>
+                          <span className={styles.subInfoIcon}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.5h9" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2 2 0 012.9 2.9L7.5 18.7 3.5 20l1.3-4z" />
+                            </svg>
+                          </span>
+                          <span className={styles.subInfoText}>
+                            <strong>You&apos;re in control</strong>
+                            {' Add or remove subscriptions, cancel orders, and edit frequencies and quantities through our user-friendly customer portal.'}
+                          </span>
+                        </li>
+                      </ul>
+                      <button
+                        type="button"
+                        className={styles.subInfoBtn}
+                        onClick={() => setShowSubInfo(false)}
+                      >
+                        Got it
+                      </button>
+                    </div>
+                  </div>
+                )}
+                </>
               );
             })()}
 
