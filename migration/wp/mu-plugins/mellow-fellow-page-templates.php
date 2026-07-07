@@ -28,12 +28,20 @@ function mf_register_landing_page_settings_fields() {
         'title'  => 'Landing Page Settings',
         'fields' => [
             [
-                'key'     => 'field_mf_lps_hero_image',
-                'label'   => 'Hero Image',
-                'name'    => 'hero_image',
-                'type'    => 'clone',
-                'clone'   => [ 'group_responsive_image' ],
-                'display' => 'group',
+                'key'        => 'field_mf_lps_hero_image',
+                'label'      => 'Hero Image',
+                'name'       => 'hero_image',
+                'type'       => 'group',
+                'sub_fields' => [
+                    [
+                        'key'     => 'field_mf_lps_hero_image_clone',
+                        'label'   => 'Hero Image Fields',
+                        'name'    => 'hero_image_fields',
+                        'type'    => 'clone',
+                        'clone'   => [ 'group_responsive_image' ],
+                        'display' => 'seamless',
+                    ],
+                ],
             ],
             [
                 'key'        => 'field_mf_lps_collection_group',
