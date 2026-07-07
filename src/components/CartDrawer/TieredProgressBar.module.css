@@ -1,0 +1,73 @@
+.wrap {
+  padding: 0.75rem 1.25rem 1.5rem;
+}
+
+.text {
+  margin: 0 0 0.9rem;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--color-text-primary);
+}
+
+.text strong {
+  font-weight: 700;
+}
+
+.track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+}
+
+.fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-brand-primary);
+  transition: width 0.35s ease;
+}
+
+.milestone {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-surface-primary);
+  border: 2px solid var(--color-border-default);
+  color: var(--color-text-inverse);
+}
+
+.dotReached {
+  background: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+}
+
+.labels {
+  position: relative;
+  height: 1rem;
+  margin-top: 0.5rem;
+}
+
+.label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.labelReached {
+  color: var(--color-brand-primary);
+}

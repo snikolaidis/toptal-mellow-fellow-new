@@ -114,6 +114,13 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         }
       }
     }
+    collections(first: 50) {
+      nodes {
+        name
+        slug
+        count
+      }
+    }
   }
 `;
 
@@ -531,6 +538,51 @@ export const GET_PRODUCT_BY_SLUG = gql`
       }
       ... on GroupProduct {
         ...GroupProductFields
+      }
+    }
+  }
+`;
+
+export const GET_PRODUCTS_BY_COLLECTION = gql`
+  query GetProductsByCollection($collectionFilter: String!, $first: Int = 40) {
+    products(first: $first, where: { status: "publish", collectionFilter: $collectionFilter }) {
+      nodes {
+        __typename
+        ... on SimpleProduct {
+          id
+          databaseId
+          name
+          slug
+          image { sourceUrl altText }
+        }
+        ... on VariableProduct {
+          id
+          databaseId
+          name
+          slug
+          image { sourceUrl altText }
+        }
+      }
+    }
+  }
+`;
+
+export const GET_GIFT_PRODUCTS = gql`
+  query GetGiftProducts($maxPrice: Float!, $minPrice: Float = 0.5, $first: Int = 12) {
+    products(
+      first: $first
+      where: { status: "publish", minPrice: $minPrice, maxPrice: $maxPrice, orderby: { field: PRICE, order: DESC } }
+    ) {
+      nodes {
+        __typename
+        ... on SimpleProduct {
+          id
+          databaseId
+          name
+          slug
+          price
+          image { sourceUrl altText }
+        }
       }
     }
   }

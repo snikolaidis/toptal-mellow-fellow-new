@@ -5,9 +5,9 @@ import { useRouter } from 'next/router';
 import { useCart, groupCartItems } from '@/context/CartContext';
 import { MellowFellowLogo, CloseIcon } from '@/components/icons';
 import type { Product } from '@/types/woocommerce';
+import TieredProgressBar from './TieredProgressBar';
+import FreeGiftWidget from './FreeGiftWidget';
 import styles from './CartDrawer.module.css';
-
-const FREE_SHIPPING_THRESHOLD = 80;
 
 function parsePrice(price: string): number {
   return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
@@ -137,11 +137,7 @@ export default function CartDrawer() {
     [addToCart]
   );
 
-  // Shipping progress
   const subtotal = parsePrice(cart?.subtotal || '0');
-  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
-  const progress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
-  const hasFreeShipping = remaining <= 0;
 
   if (!isDrawerOpen) return null;
 
@@ -176,25 +172,11 @@ export default function CartDrawer() {
           Free shipping on all orders over $80
         </div>
 
-        {/* Progress bar */}
-        <div className={styles.progressSection}>
-          <p className={styles.progressText}>
-            {hasFreeShipping ? (
-              <>You have qualified for <strong>FREE shipping!</strong></>
-            ) : (
-              <>
-                You are <strong className={styles.progressAmount}>${remaining.toFixed(2)} USD</strong> away
-                from <strong>FREE shipping!</strong>
-              </>
-            )}
-          </p>
-          <div className={styles.progressBar}>
-            <div
-              className={styles.progressFill}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+        {/* Tiered offers progress */}
+        <TieredProgressBar subtotal={subtotal} />
+
+        {/* Selectable Gift With Purchase */}
+        <FreeGiftWidget subtotal={subtotal} />
 
         {/* Mutating indicator — thin bar that appears during any cart operation */}
         {isMutating && <div className={styles.mutatingBar} />}
