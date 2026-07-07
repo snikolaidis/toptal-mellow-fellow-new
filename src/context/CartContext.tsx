@@ -58,6 +58,7 @@ interface CartItem {
   bbBundleId?: number;
   bbGroupKey?: string;
   bbLocked?: boolean;
+  bbUnitPrice?: number;
   product: {
     databaseId: number;
     name: string;
@@ -194,6 +195,7 @@ function transformCartData(data: any): Cart | null {
       bbBundleId: item.bbBundleId ?? undefined,
       bbGroupKey: item.bbGroupKey ?? undefined,
       bbLocked: item.bbLocked ?? undefined,
+      bbUnitPrice: item.bbUnitPrice ?? undefined,
       product: {
         databaseId: item.product?.node?.databaseId,
         name: item.product?.node?.name,

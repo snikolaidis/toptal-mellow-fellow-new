@@ -214,14 +214,15 @@ export default function CartDrawer() {
               <ul className={styles.itemsList}>
                 {/* Bundle groups */}
                 {bundles.map((group) => {
-                  const discount = bundleDiscounts[group.bundleId] ?? 0;
                   const allItems = group.instances.flatMap((inst) => inst.items);
                   const originalTotal = allItems.reduce(
+                    (sum, i) => sum + i.quantity * parsePrice(i.product.price), 0
+                  );
+                  const discountedTotal = allItems.reduce(
                     (sum, i) => sum + parsePrice(i.total), 0
                   );
-                  const discountedTotal = discount > 0
-                    ? originalTotal * (1 - discount / 100)
-                    : originalTotal;
+                  const hasDiscount = discountedTotal < originalTotal - 0.005;
+                  const discount = bundleDiscounts[group.bundleId] ?? 0;
 
                   const isRemoving = removingGroupKey === group.mergeKey;
                   return (
@@ -249,26 +250,26 @@ export default function CartDrawer() {
                         </button>
                       </div>
                       {group.representativeItems
-                        .reduce<{ item: typeof group.representativeItems[0]; qty: number; totalAmount: number }[]>(
+                        .reduce<{ item: typeof group.representativeItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
                           (acc, item) => {
                             const existing = acc.find(
                               (r) => r.item.product.databaseId === item.product.databaseId
                             );
+                            const lineOriginal = item.quantity * parsePrice(item.product.price);
                             const lineTotal = parsePrice(item.total);
                             if (existing) {
                               existing.qty += item.quantity;
+                              existing.originalAmount += lineOriginal;
                               existing.totalAmount += lineTotal;
                             } else {
-                              acc.push({ item, qty: item.quantity, totalAmount: lineTotal });
+                              acc.push({ item, qty: item.quantity, originalAmount: lineOriginal, totalAmount: lineTotal });
                             }
                             return acc;
                           },
                           []
                         )
-                        .map(({ item, qty, totalAmount }) => {
-                          const itemDiscounted = discount > 0
-                            ? totalAmount * (1 - discount / 100)
-                            : totalAmount;
+                        .map(({ item, qty, originalAmount, totalAmount }) => {
+                          const itemHasDiscount = totalAmount < originalAmount - 0.005;
                           return (
                             <div key={item.product.databaseId} className={styles.bundleItem}>
                               <div className={styles.itemImage}>
@@ -296,12 +297,12 @@ export default function CartDrawer() {
                                   <span className={styles.bundleItemQty}>×{qty}</span>
                                 </div>
                                 <div className={styles.bundleItemPrices}>
-                                  {discount > 0 && (
+                                  {itemHasDiscount && (
                                     <span className={styles.bundleOriginalPrice}>
-                                      ${totalAmount.toFixed(2)}
+                                      ${originalAmount.toFixed(2)}
                                     </span>
                                   )}
-                                  <span className={styles.itemPrice}>${itemDiscounted.toFixed(2)}</span>
+                                  <span className={styles.itemPrice}>${totalAmount.toFixed(2)}</span>
                                 </div>
                               </div>
                             </div>
@@ -341,7 +342,7 @@ export default function CartDrawer() {
                           </button>
                         </div>
                         <div className={styles.bundleTotalPrices}>
-                          {discount > 0 && (
+                          {hasDiscount && (
                             <span className={styles.bundleOriginalTotal}>
                               ${originalTotal.toFixed(2)}
                             </span>
@@ -498,12 +499,10 @@ export default function CartDrawer() {
           <div className={styles.footer}>
             {(() => {
               const totalBundleDiscount = bundles.reduce((sum, group) => {
-                const discount = bundleDiscounts[group.bundleId] ?? 0;
-                if (!discount) return sum;
-                const original = group.instances
-                  .flatMap((inst) => inst.items)
-                  .reduce((s, i) => s + parsePrice(i.total), 0);
-                return sum + original * (discount / 100);
+                const allItems = group.instances.flatMap((inst) => inst.items);
+                const original = allItems.reduce((s, i) => s + i.quantity * parsePrice(i.product.price), 0);
+                const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
+                return sum + Math.max(0, original - discounted);
               }, 0);
               const effectiveSubtotal = parsePrice(cart.subtotal) - totalBundleDiscount;
 

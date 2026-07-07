@@ -11,6 +11,7 @@ export const CART_FIELDS = gql`
         bbBundleId
         bbGroupKey
         bbLocked
+        bbUnitPrice
         product {
           node {
             id
