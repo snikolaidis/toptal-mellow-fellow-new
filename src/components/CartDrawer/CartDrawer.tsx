@@ -504,7 +504,7 @@ export default function CartDrawer() {
                 const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
                 return sum + Math.max(0, original - discounted);
               }, 0);
-              const effectiveSubtotal = parsePrice(cart.subtotal) - totalBundleDiscount;
+              const effectiveSubtotal = parsePrice(cart.subtotal);
 
               return (
                 <>
