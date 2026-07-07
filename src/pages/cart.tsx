@@ -73,7 +73,7 @@ export default function CartPage() {
                               className={styles.quantityBtn}
                               onClick={() =>
                                 removeBundleGroup(
-                                  group.instances[group.instances.length - 1].items.map((i) => i.key)
+                                  [group.instances[group.instances.length - 1].groupKey]
                                 )
                               }
                               aria-label={`Remove one ${group.bundleName}`}

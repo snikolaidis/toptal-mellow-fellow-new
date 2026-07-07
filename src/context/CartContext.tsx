@@ -13,6 +13,7 @@ import {
   GET_CART,
   ADD_TO_CART,
   ADD_BUNDLE_TO_CART,
+  REMOVE_BUNDLE_FROM_CART,
   UPDATE_CART_ITEM_QUANTITY,
   REMOVE_FROM_CART,
   CLEAR_CART,
@@ -167,7 +168,7 @@ interface CartContextType {
   addBundleToCart: (bundleId: number, productIds: number[], bundleName: string, discountPercent?: number) => Promise<void>;
   updateQuantity: (key: string, quantity: number) => Promise<void>;
   removeFromCart: (key: string) => Promise<void>;
-  removeBundleGroup: (keys: string[]) => Promise<void>;
+  removeBundleGroup: (groupKeys: string[]) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
   applyCoupon: (code: string) => Promise<boolean>;
@@ -439,16 +440,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const removeBundleGroup = useCallback(
-    async (keys: string[]) => {
+    async (groupKeys: string[]) => {
       setError(null);
       setIsMutating(true);
       try {
         const client = getClient();
-        const { data } = await client.mutate({
-          mutation: REMOVE_FROM_CART,
-          variables: { keys },
+        for (const groupKey of groupKeys) {
+          await client.mutate({
+            mutation: REMOVE_BUNDLE_FROM_CART,
+            variables: { groupKey },
+          });
+        }
+        const { data: cartData } = await client.query({
+          query: GET_CART,
+          fetchPolicy: 'network-only',
         });
-        const transformedCart = transformCartData({ cart: data.removeItemsFromCart.cart });
+        const transformedCart = transformCartData(cartData);
         if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
       } catch (err) {
         logError('CartContext.removeBundleGroup', err);

@@ -50,9 +50,9 @@ export default function CartDrawer() {
     try { await removeFromCart(key); } finally { setRemovingKey(null); }
   }, [removeFromCart]);
 
-  const handleRemoveBundleGroup = useCallback(async (groupKey: string, keys: string[]) => {
-    setRemovingGroupKey(groupKey);
-    try { await removeBundleGroup(keys); } finally { setRemovingGroupKey(null); }
+  const handleRemoveBundleGroup = useCallback(async (mergeKey: string, groupKeys: string[]) => {
+    setRemovingGroupKey(mergeKey);
+    try { await removeBundleGroup(groupKeys); } finally { setRemovingGroupKey(null); }
   }, [removeBundleGroup]);
 
   // Lock body scroll when open
@@ -232,7 +232,7 @@ export default function CartDrawer() {
                           className={styles.bundleDeleteBtn}
                           disabled={isRemoving}
                           onClick={() =>
-                            handleRemoveBundleGroup(group.mergeKey, allItems.map((i) => i.key))
+                            handleRemoveBundleGroup(group.mergeKey, group.instances.map((inst) => inst.groupKey))
                           }
                           aria-label={`Remove all ${group.bundleName}`}
                         >
@@ -315,7 +315,7 @@ export default function CartDrawer() {
                             onClick={() =>
                               handleRemoveBundleGroup(
                                 group.mergeKey,
-                                group.instances[group.instances.length - 1].items.map((i) => i.key)
+                                [group.instances[group.instances.length - 1].groupKey]
                               )
                             }
                             aria-label={`Remove one ${group.bundleName}`}

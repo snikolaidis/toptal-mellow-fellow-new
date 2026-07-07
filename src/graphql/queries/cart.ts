@@ -105,6 +105,18 @@ export const ADD_BUNDLE_TO_CART = gql`
   }
 `;
 
+export const REMOVE_BUNDLE_FROM_CART = gql`
+  mutation RemoveBundleFromCart($groupKey: String!) {
+    removeBundleFromCart(input: { groupKey: $groupKey }) {
+      success
+      removedCount
+      cartItemCount
+      cartSubtotal
+      cartTotal
+    }
+  }
+`;
+
 export const UPDATE_CART_ITEM_QUANTITY = gql`
   ${CART_FIELDS}
   mutation UpdateCartItemQuantity($key: ID!, $quantity: Int!) {

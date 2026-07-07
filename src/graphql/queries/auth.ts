@@ -100,6 +100,7 @@ export const GET_CUSTOMER = gql`
       billing {
         firstName
         lastName
+        company
         email
         phone
         address1
@@ -112,6 +113,7 @@ export const GET_CUSTOMER = gql`
       shipping {
         firstName
         lastName
+        company
         address1
         address2
         city
@@ -173,6 +175,7 @@ export const UPDATE_CUSTOMER = gql`
         billing {
           firstName
           lastName
+          company
           email
           phone
           address1
@@ -185,6 +188,7 @@ export const UPDATE_CUSTOMER = gql`
         shipping {
           firstName
           lastName
+          company
           address1
           address2
           city
