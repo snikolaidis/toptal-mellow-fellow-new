@@ -536,7 +536,9 @@ export default function CheckoutPage() {
             productId: item.product.databaseId,
             name: item.product.name,
             quantity: item.quantity,
-            price: item.product.price,
+            price: item.bbLocked && typeof item.bbUnitPrice === 'number'
+              ? `$${item.bbUnitPrice.toFixed(2)}`
+              : item.product.price,
           })),
         }),
       });

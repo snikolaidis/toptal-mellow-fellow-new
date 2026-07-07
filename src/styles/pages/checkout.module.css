@@ -320,7 +320,7 @@
   margin-top: 0.5rem;
 }
 
-.formActionsBtn {
+.formActionsPrimary {
   flex: 1;
   padding: 1rem;
   font-size: 0.875rem;
@@ -329,31 +329,43 @@
   letter-spacing: 0.05em;
   transition: all 0.2s;
   cursor: pointer;
-  border: none;
-}
-
-.formActionsPrimary {
-  background-color: #354654;
-  color: white;
+  border: 1px solid var(--color-brand-primary, #354654);
+  background-color: var(--color-brand-primary, #354654);
+  color: var(--color-text-inverse, #ffffff);
 }
 
 .formActionsPrimary:hover {
-  background-color: #2a3a47;
+  background-color: var(--color-brand-primary-hover, #2a3a47);
+  border-color: var(--color-brand-primary-hover, #2a3a47);
 }
 
 .formActionsPrimary:disabled {
-  background-color: #D5D0C9;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .formActionsSecondary {
-  background-color: #F5F0E8;
-  color: #232323;
-  border: 1px solid #D5D0C9;
+  flex: 1;
+  padding: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--color-brand-primary, #354654);
+  border: 1px solid var(--color-brand-primary, #354654);
 }
 
 .formActionsSecondary:hover {
-  background-color: #EAE4D9;
+  background-color: var(--color-brand-primary, #354654);
+  color: var(--color-text-inverse, #ffffff);
+}
+
+.formActionsSecondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .subUpgrade {

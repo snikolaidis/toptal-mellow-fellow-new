@@ -11,6 +11,7 @@ export const CART_FIELDS = gql`
         bbBundleId
         bbGroupKey
         bbLocked
+        bbUnitPrice
         product {
           node {
             id
@@ -101,6 +102,18 @@ export const ADD_BUNDLE_TO_CART = gql`
       message
       groupKey
       addedItemKeys
+    }
+  }
+`;
+
+export const REMOVE_BUNDLE_FROM_CART = gql`
+  mutation RemoveBundleFromCart($groupKey: String!) {
+    removeBundleFromCart(input: { groupKey: $groupKey }) {
+      success
+      removedCount
+      cartItemCount
+      cartSubtotal
+      cartTotal
     }
   }
 `;
