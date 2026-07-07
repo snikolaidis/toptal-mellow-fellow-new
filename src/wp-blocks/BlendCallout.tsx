@@ -1,16 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { gql } from '@apollo/client';
 import Image from 'next/image';
 import Link from 'next/link';
 
-/**
- * Renders the `acf/blend-callout` ACF block on the frontend: a blend art image,
- * heading, a multi-paragraph WYSIWYG description, and two CTA links (learn about
- * blends + shop the blend). Mirrors the HighlightsGroup convention for rendering
- * an ACF rich-text field as HTML.
- *
- * Data shape confirmed via GraphiQL against the live schema:
- * AcfBlendCallout.blendCallout { heading, description, image { node {...} }, learnLink {...}, shopLink {...} }
- */
 interface MediaItem {
   altText?: string | null;
   sourceUrl?: string | null;
@@ -51,6 +43,39 @@ function CalloutLink({ link, fallback }: { link?: LinkField | null; fallback: st
 export default function BlendCallout(props: BlendCalloutProps) {
   const { blendCallout } = props;
 
+  const sectionRef = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (typeof IntersectionObserver === 'undefined' || prefersReduced) {
+      setVisible(true);
+      return;
+    }
+
+    const el = sectionRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   if (!blendCallout) {
     return null;
   }
@@ -59,7 +84,10 @@ export default function BlendCallout(props: BlendCalloutProps) {
   const media = image?.node;
 
   return (
-    <section className="blend-callout">
+    <section
+      ref={sectionRef}
+      className={`blend-callout${visible ? ' is-visible' : ''}`}
+    >
       {media?.sourceUrl && (
         <div className="blend-callout__media">
           <Image
@@ -76,9 +104,6 @@ export default function BlendCallout(props: BlendCalloutProps) {
         {heading && <h3 className="blend-callout__heading">{heading}</h3>}
 
         {description && (
-          // Description is a WYSIWYG field authored in WP: multi-paragraph,
-          // block-level HTML — render it as HTML in a <div> (not a <p>, which
-          // would nest block elements inside a paragraph and be invalid).
           <div
             className="blend-callout__description"
             dangerouslySetInnerHTML={{ __html: description }}
