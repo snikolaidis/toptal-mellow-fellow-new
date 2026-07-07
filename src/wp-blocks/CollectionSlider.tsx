@@ -1,9 +1,10 @@
 import { gql, useQuery } from '@apollo/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay, Pagination, Navigation } from 'swiper/modules';
+import { Autoplay, Pagination, Navigation, Mousewheel } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
+import 'swiper/css/mousewheel';
 import { Product } from '@/types/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import { getClient, getBrowserClient } from '@/lib/apollo-client';
@@ -56,29 +57,29 @@ export default function CollectionSlider(props: CollectionSliderProps) {
 
         <div className="collection-swiper__products-slider">
           <Swiper
+            spaceBetween={16}
             slidesPerView={2}
-            slidesOffsetAfter={9}
-            slidesOffsetBefore={9}
-            modules={[Autoplay, Pagination, Navigation]}
+            slidesOffsetAfter={8}
+            slidesOffsetBefore={8}
+            modules={[Autoplay, Pagination, Navigation, Mousewheel]}
             pagination={{ clickable: true }}
             navigation
             breakpoints={{
               769: {
-                slidesPerView: 2,
-                slidesOffsetAfter: 0,
-                slidesOffsetBefore: 0,
+                slidesPerView: 2
               },
               992: {
-                slidesPerView: 3,
-                slidesOffsetAfter: 0,
-                slidesOffsetBefore: 0,
+                slidesPerView: 3
               },
               1400: {
-                slidesPerView: 4,
-                slidesOffsetAfter: 0,
-                slidesOffsetBefore: 0,
+                slidesPerView: 4
               },
             }}
+            mousewheel={{
+              enabled: true,
+              forceToAxis: true
+            }}
+            cssMode={true}
           >
             {products.map((product) => (
               <SwiperSlide key={product.id}>

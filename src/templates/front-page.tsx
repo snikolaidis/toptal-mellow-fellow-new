@@ -4,7 +4,6 @@ import { WordPressBlocksViewer } from '@faustwp/blocks';
 import blocks from '@/wp-blocks';
 import Layout from '@/components/Layout';
 import RebuyRecommendations from '@/components/RebuyRecommendations';
-import CollectionCards from '@/components/CollectionCards';
 
 interface FrontPageData {
   page?: { editorBlocks?: any[] } | null;
@@ -63,18 +62,6 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
       {/* Backend-managed homepage blocks (hero slider, image slider,
           highlights groups, collection links). */}
       {pageBlocks.length > 0 && <WordPressBlocksViewer blocks={pageBlocks} />}
-
-      <CollectionCards
-        title="Premium Smokable Devices"
-        cards={[
-          { id: 1, smallText: 'Smokeable Bundles', bigText: 'Enjoy 30% Off', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Smokeable_Bundle.webp' },
-          { id: 2, smallText: 'Monthly Mystery Boxes', bigText: '30% Off Value', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Fam_Box.webp' },
-          { id: 3, smallText: 'Edibles Bundles', bigText: 'Stock Up & Save', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Edible_Bundle.webp' },
-          { id: 4, smallText: 'Smokeable Bundles', bigText: 'Enjoy 30% Off', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Smokeable_Bundle.webp' },
-          { id: 5, smallText: 'Monthly Mystery Boxes', bigText: '30% Off Value', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Fam_Box.webp' },
-          { id: 6, smallText: 'Edibles Bundles', bigText: 'Stock Up & Save', link: 'https://mellowfellow.fun/collections/new-arrivals', image: '/Collection_Cards_Edible_Bundle.webp' }
-        ]}
-      />
 
       <div className="container">
         {/* Rebuy Recommendations */}

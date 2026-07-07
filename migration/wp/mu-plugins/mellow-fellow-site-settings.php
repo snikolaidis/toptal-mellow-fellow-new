@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 add_action( 'acf/init', 'mf_register_site_settings_options_page' );
 add_action( 'acf/init', 'mf_register_site_settings_fields' );
+add_action( 'acf/init', 'mf_register_landing_page_icon_row_fields' );
 
 function mf_register_site_settings_options_page() {
     if ( ! function_exists( 'acf_add_options_page' ) ) {
@@ -89,5 +90,65 @@ function mf_register_site_settings_fields() {
         'active'             => true,
         'show_in_graphql'    => 1,
         'graphql_field_name' => 'socialLinks',
+    ] );
+}
+
+function mf_register_landing_page_icon_row_fields() {
+    if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+        return;
+    }
+
+    acf_add_local_field_group( [
+        'key'    => 'group_mf_landing_icon_row',
+        'title'  => 'Landing Page Icon Row',
+        'fields' => [
+            [
+                'key'         => 'field_mf_lir_icons',
+                'label'       => 'Icons',
+                'name'        => 'icons',
+                'type'        => 'repeater',
+                'instructions' => 'Shown as a static row on every landing page. Drag rows to set the display order.',
+                'layout'      => 'block',
+                'button_label' => 'Add Icon',
+                'min'         => 0,
+                'sub_fields'  => [
+                    [
+                        'key'             => 'field_mf_lir_icon',
+                        'label'           => 'Icon',
+                        'name'            => 'icon',
+                        'type'            => 'image',
+                        'return_format'   => 'array',
+                        'preview_size'    => 'medium',
+                        'required'        => 1,
+                        'wrapper'         => [ 'width' => '33' ],
+                    ],
+                    [
+                        'key'      => 'field_mf_lir_label',
+                        'label'    => 'Label',
+                        'name'     => 'label',
+                        'type'     => 'text',
+                        'required' => 0,
+                        'wrapper'  => [ 'width' => '33' ],
+                    ],
+                    [
+                        'key'         => 'field_mf_lir_link',
+                        'label'       => 'Link',
+                        'name'        => 'link',
+                        'type'        => 'link',
+                        'instructions' => 'Optional. Makes the icon clickable.',
+                        'required'    => 0,
+                        'wrapper'     => [ 'width' => '34' ],
+                    ],
+                ],
+            ],
+        ],
+        'location' => [ [ [
+            'param'    => 'options_page',
+            'operator' => '==',
+            'value'    => 'mf-site-settings',
+        ] ] ],
+        'active'             => true,
+        'show_in_graphql'    => 1,
+        'graphql_field_name' => 'landingPageIconRow',
     ] );
 }
