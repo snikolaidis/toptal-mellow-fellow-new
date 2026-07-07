@@ -11,6 +11,7 @@ import HighlightsGroup from './HighlightsGroup';
 import ResponsiveImage from './ResponsiveImage';
 import ImageCarousel from './ImageCarousel';
 import FeaturedCollection from './FeaturedCollection';
+import BlendCallout from './BlendCallout';
 
 export default {
   ...CoreBlocks,
@@ -40,5 +41,7 @@ export default {
   // Ready, but inert until the `acf/image-carousel` block is deployed to WP.
   AcfImageCarousel: ImageCarousel,
   // Ready, but inert until the `acf/featured-collection` block is deployed to WP.
-  AcfFeaturedCollection: FeaturedCollection
+  AcfFeaturedCollection: FeaturedCollection,
+  // Ready, but inert until the `acf/blend-callout` block is deployed to WP.
+  AcfBlendCallout: BlendCallout
 };
