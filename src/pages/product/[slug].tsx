@@ -7,6 +7,11 @@ import { GET_PRODUCT_BY_SLUG, GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/pr
 import { GET_COLLECTION_BY_SLUG } from '@/graphql/queries/collections';
 import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
+import ProductFaqs from '@/components/pdp/ProductFaqs';
+import PdpTrustBadges from '@/components/pdp/PdpTrustBadges';
+import YouMayAlsoLike from '@/components/pdp/YouMayAlsoLike';
+import RecentlyViewed from '@/components/pdp/RecentlyViewed';
+import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
 import { Product, Collection } from '@/types/woocommerce';
@@ -42,6 +47,22 @@ export default function ProductPage({
   const [subChoice, setSubChoice] = useState<{ period: string; interval: number } | null>(null);
   const [showSubInfo, setShowSubInfo] = useState(false);
   const { addToCart } = useCart();
+
+  useEffect(() => {
+    if (!product?.slug) return;
+    addRecentlyViewed({
+      databaseId: product.databaseId,
+      slug: product.slug,
+      name: product.name,
+      price: product.price,
+      regularPrice: product.regularPrice,
+      salePrice: product.salePrice,
+      image: product.image
+        ? { sourceUrl: product.image.sourceUrl, altText: product.image.altText || product.name }
+        : undefined,
+      typeLabel: product.mfproductTypes?.nodes?.[0]?.name,
+    });
+  }, [product?.slug]);
 
   useEffect(() => {
     const id = product?.databaseId;
@@ -271,31 +292,6 @@ export default function ProductPage({
               />
             )}
 
-            {/* Collection Items Grid */}
-            {collectionProducts.length > 1 && collectionName && (
-              <div className={styles.collectionItems}>
-                <span className={styles.collectionLabel}>Available Options</span>
-                <div className={styles.collectionGrid}>
-                  {collectionProducts.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/product/${item.slug}`}
-                      className={`${styles.collectionItem} ${item.id === product.id ? styles.currentItem : ''}`}
-                      title={item.name}
-                    >
-                      <Image
-                        src={item.image?.sourceUrl || '/placeholder-product.png'}
-                        alt={item.name}
-                        fill
-                        sizes="80px"
-                        className={styles.collectionItemImage}
-                      />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Price */}
             <div className={styles.price}>
               {displaySalePrice ? (
@@ -307,6 +303,34 @@ export default function ProductPage({
                 <span>{displayPrice}</span>
               )}
             </div>
+
+            {/* Available Options */}
+            {collectionProducts.length > 1 && collectionName && (
+              <div className={styles.collectionItems}>
+                <span className={styles.collectionLabel}>Available Options</span>
+                <div className={styles.collectionGrid}>
+                  {collectionProducts.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/product/${item.slug}`}
+                      className={`${styles.collectionItem} ${item.id === product.id ? styles.currentItem : ''}`}
+                      title={item.name}
+                    >
+                      <div className={styles.collectionItemImageWrap}>
+                        <Image
+                          src={item.image?.sourceUrl || '/placeholder-product.png'}
+                          alt={item.name}
+                          fill
+                          sizes="90px"
+                          className={styles.collectionItemImage}
+                        />
+                      </div>
+                      <span className={styles.collectionItemName}>{item.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Stock Status */}
             <div className={`${styles.stock} ${isInStock ? styles.inStock : styles.outOfStock}`}>
@@ -325,22 +349,28 @@ export default function ProductPage({
             {/* Variations */}
             {hasVariations && (
               <div className={styles.variations}>
-                <label htmlFor="variation-select" className={styles.variationLabel}>
-                  Select Option
-                </label>
-                <select
-                  id="variation-select"
-                  value={selectedVariation || ''}
-                  onChange={(e) => setSelectedVariation(e.target.value)}
-                  className={styles.variationSelect}
-                >
-                  <option value="">Choose an option</option>
-                  {product.variations!.nodes.map((variation) => (
-                    <option key={variation.databaseId} value={variation.databaseId}>
-                      {variation.name} - {variation.price}
-                    </option>
-                  ))}
-                </select>
+                <span className={styles.variationLabel}>Select Option</span>
+                <div className={styles.variationTiles}>
+                  {product.variations!.nodes.map((variation) => {
+                    const variationId = String(variation.databaseId);
+                    const optionLabel =
+                      variation.name?.replace(product.name, '').replace(/^\s*-\s*/, '').trim() ||
+                      variation.name;
+                    const isSelected = selectedVariation === variationId;
+                    return (
+                      <button
+                        key={variation.databaseId}
+                        type="button"
+                        className={`${styles.variationTile} ${isSelected ? styles.variationTileActive : ''}`}
+                        onClick={() => setSelectedVariation(variationId)}
+                        aria-pressed={isSelected}
+                      >
+                        <span className={styles.variationTileName}>{optionLabel}</span>
+                        <span className={styles.variationTilePrice}>{variation.price}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -632,33 +662,46 @@ export default function ProductPage({
             </div>
 
             {/* Full Description */}
-            {product.description && (
-              <div className={styles.descriptionSection}>
+            <div className={styles.descriptionSection}>
+              {product.description && (
                 <div
                   className={styles.description}
                   dangerouslySetInnerHTML={{ __html: product.description }}
                 />
-              </div>
-            )}
+              )}
+              <PdpTrustBadges />
+              {product.productDetails?.coaLink && (
+                <a
+                  href={product.productDetails.coaLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.coaButton}
+                >
+                  See Test Results
+                </a>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Full Description */}
-        {product.description && (
-          <div className={styles.descriptionSection}>
-            <h2 className={styles.sectionTitle}>Product Details</h2>
-            <div
-              className={styles.description}
-              dangerouslySetInnerHTML={{ __html: product.description }}
-            />
-          </div>
-        )}
+        <ProductFaqs details={product.productDetails} noidName={product.blendTypes?.nodes?.[0]?.name} />
 
         {mounted && product.shopifyId && (
-          <div className={styles.descriptionSection}>
+          <div className={`${styles.descriptionSection} ${styles.reviewsSection}`}>
             <div id="klaviyo-reviews-all" data-id={product.shopifyId} />
           </div>
         )}
+
+        <YouMayAlsoLike
+          productId={product.databaseId}
+          productSlug={product.slug}
+          productPrice={product.price || ''}
+          typeSlugs={(product.mfproductTypes?.nodes || [])
+            .map((t) => (t as { slug?: string }).slug || '')
+            .filter(Boolean)}
+        />
+
+        <RecentlyViewed currentSlug={product.slug} />
 
       </div>
     </Layout>

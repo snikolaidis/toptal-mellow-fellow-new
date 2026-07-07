@@ -73,7 +73,7 @@ export interface ProductACF {
   // Image field
   blendsHighlights?: { sourceUrl?: string | null; altText?: string | null } | null;
   // Post-object references (single)
-  deviceFaqsReference?: { node?: { id?: string; title?: string } | null } | null;
+  deviceFaqsReference?: { nodes?: Array<{ id?: string; title?: string; content?: string }> } | null;
   deviceFaqTest?: { node?: { id?: string; title?: string } | null } | null;
   blendNoidFaqsReference?: { node?: { id?: string; title?: string } | null } | null;
   newNoidBlendDescriptionsReference?: { node?: { id?: string; title?: string } | null } | null;

@@ -95,6 +95,25 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    productDetails {
+      noidOrBlendDescriptionTitle
+      whatIsNoid
+      directionsForUse
+      deviceSpecifications
+      ingredientsV2
+      servingSize
+      disclaimers
+      coaLink
+      deviceFaqsReference {
+        nodes {
+          id
+          ... on FAQ {
+            title
+            content
+          }
+        }
+      }
+    }
   }
 `;
 
