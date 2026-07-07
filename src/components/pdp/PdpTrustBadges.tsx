@@ -19,7 +19,7 @@ const iconProps = {
 
 const BADGES: Badge[] = [
   {
-    label: 'Hemp-Derived',
+    label: 'Hemp-Derived Cannabinoids',
     icon: (
       <svg {...iconProps} aria-hidden="true">
         <path d="M11 20A7 7 0 0 1 4 13C4 8 7 4 12 3c1 5-1 9-5 11" />
@@ -61,6 +61,16 @@ const BADGES: Badge[] = [
       <svg {...iconProps} aria-hidden="true">
         <rect x="5" y="10.5" width="14" height="9" rx="2" />
         <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Discreet Shipping',
+    icon: (
+      <svg {...iconProps} aria-hidden="true">
+        <path d="M3 8l9-4.5L21 8v8l-9 4.5L3 16z" />
+        <path d="M3 8l9 4.5L21 8" />
+        <path d="M12 12.5V21" />
       </svg>
     ),
   },

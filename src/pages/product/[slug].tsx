@@ -613,8 +613,6 @@ export default function ProductPage({
               </div>
             )}
 
-            <PdpTrustBadges />
-
             <FrequentlyBoughtTogether
               productId={product.databaseId}
               productSlug={product.slug}
@@ -664,14 +662,25 @@ export default function ProductPage({
             </div>
 
             {/* Full Description */}
-            {product.description && (
-              <div className={styles.descriptionSection}>
+            <div className={styles.descriptionSection}>
+              {product.description && (
                 <div
                   className={styles.description}
                   dangerouslySetInnerHTML={{ __html: product.description }}
                 />
-              </div>
-            )}
+              )}
+              <PdpTrustBadges />
+              {product.productDetails?.coaLink && (
+                <a
+                  href={product.productDetails.coaLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.coaButton}
+                >
+                  See Test Results
+                </a>
+              )}
+            </div>
           </div>
         </div>
 

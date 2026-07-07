@@ -1,6 +1,7 @@
 import styles from './ProductFaqs.module.css';
 
 export interface ProductFaqDetails {
+  noidOrBlendDescriptionTitle?: string | null;
   whatIsNoid?: string | null;
   directionsForUse?: string | null;
   deviceSpecifications?: string | null;
@@ -24,7 +25,8 @@ export default function ProductFaqs({ details, noidName }: Props) {
   if (!details) return null;
 
   const items: Array<{ question: string; answer: string }> = [];
-  if (details.whatIsNoid && noidName) items.push({ question: `What is ${noidName}?`, answer: details.whatIsNoid });
+  const noidTitle = details.noidOrBlendDescriptionTitle || noidName;
+  if (details.whatIsNoid && noidTitle) items.push({ question: `What is ${noidTitle}?`, answer: details.whatIsNoid });
   if (details.directionsForUse) items.push({ question: 'Directions for Use', answer: details.directionsForUse });
   if (details.deviceSpecifications) items.push({ question: 'Device Specifications', answer: details.deviceSpecifications });
   if (details.ingredientsV2) items.push({ question: 'Ingredients', answer: details.ingredientsV2 });
