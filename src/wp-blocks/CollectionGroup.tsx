@@ -52,6 +52,16 @@ export interface CollectionGroupProps {
   // Optional so the component stays assignable to Faust's WordPressBlock type
   // when registered; the empty case is guarded below.
   collections?: CollectionGroupItem[];
+  /**
+   * Controlled active-tab state, for callers that fetch a tab's products
+   * lazily on selection (see LandingCollectionGroup) and need to know which
+   * tab is active before this component does. Falls back to internal state
+   * when omitted, so existing uncontrolled callers are unaffected.
+   */
+  activeHandle?: string;
+  onActiveChange?: (handle: string) => void;
+  /** True while the active tab's products are still being fetched. */
+  loading?: boolean;
 }
 
 export default function CollectionGroup({
@@ -59,8 +69,13 @@ export default function CollectionGroup({
   showThumbnail = false,
   showProductsSlider = false,
   collections = [],
+  activeHandle: controlledActiveHandle,
+  onActiveChange,
+  loading = false,
 }: CollectionGroupProps) {
-  const [activeHandle, setActiveHandle] = useState(collections[0]?.handle);
+  const [internalActiveHandle, setInternalActiveHandle] = useState(collections[0]?.handle);
+  const activeHandle = controlledActiveHandle ?? internalActiveHandle;
+  const setActiveHandle = onActiveChange ?? setInternalActiveHandle;
 
   if (collections.length === 0) {
     return null;
@@ -106,7 +121,9 @@ export default function CollectionGroup({
       </div>
 
       <div className="container">
-        {showProductsSlider ? (
+        {loading ? (
+          <div className="collection-group__loading">Loading…</div>
+        ) : showProductsSlider ? (
           <div className="collection-group__products-slider">
             <Swiper
               key={active.handle}

@@ -1,0 +1,46 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+.landing-page-icon-row {
+  padding: 24px 0;
+
+  &__list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    @include medium-up {
+      gap: 40px;
+    }
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  &__link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  &__icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+  }
+
+  &__label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+}

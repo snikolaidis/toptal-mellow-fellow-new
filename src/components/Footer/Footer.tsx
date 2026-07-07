@@ -205,9 +205,8 @@ export default function Footer() {
                     const url = socialLinks?.[key];
                     if (!url) return null;
                     return (
-                      <li className="social-link">
+                      <li className="social-link" key={key}>
                         <a
-                          key={key}
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
