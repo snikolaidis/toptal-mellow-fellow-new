@@ -123,7 +123,7 @@ function mf_map_address($addr) {
     );
 }
 
-function mf_build_subscription($order, $period, $interval, $customer_profile_id, $payment_profile_id) {
+function mf_build_subscription($order, $period, $interval, $customer_profile_id, $payment_profile_id, $subscribed_ids = array()) {
     if (!function_exists('wcs_create_subscription')) {
         return new WP_Error('subscriptions_unavailable', 'WooCommerce Subscriptions not available.');
     }
@@ -146,9 +146,13 @@ function mf_build_subscription($order, $period, $interval, $customer_profile_id,
         return $sub;
     }
 
+    $only = array_map('intval', (array) $subscribed_ids);
     foreach ($order->get_items() as $item) {
         $product = $item->get_product();
         if ($product && $product->get_id()) {
+            if (!empty($only) && !in_array((int) $product->get_id(), $only, true)) {
+                continue;
+            }
             $sub->add_product($product, $item->get_quantity(), array(
                 'subtotal' => $item->get_subtotal(),
                 'total' => $item->get_total(),
@@ -296,7 +300,7 @@ function mf_create_subscription_order_endpoint($request) {
     $order->calculate_totals(!$applied_discount);
     $order->payment_complete($transaction_id);
 
-    $sub = mf_build_subscription($order, $period, $interval, $customer_profile_id, $payment_profile_id);
+    $sub = mf_build_subscription($order, $period, $interval, $customer_profile_id, $payment_profile_id, array_keys($unit_prices));
     if (is_wp_error($sub)) {
         $order->add_order_note('Subscription creation failed: ' . $sub->get_error_message());
         $order->save();

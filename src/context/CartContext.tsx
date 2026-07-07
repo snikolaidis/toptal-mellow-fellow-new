@@ -242,13 +242,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Always-current ref for optimistic rollback
   const cartRef = useRef<Cart | null>(null);
   cartRef.current = cart;
+  // bundleNames and bundleDiscounts use localStorage so they survive tab closes and new sessions.
+  // bundleItemMap stays in sessionStorage because it maps ephemeral cart item keys.
   const [bundleNames, setBundleNames] = useState<Record<number, string>>(() => {
     if (typeof window === 'undefined') return {};
-    try { return JSON.parse(sessionStorage.getItem('bundleNames') || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem('bundleNames') || '{}'); } catch { return {}; }
   });
   const [bundleDiscounts, setBundleDiscounts] = useState<Record<number, number>>(() => {
     if (typeof window === 'undefined') return {};
-    try { return JSON.parse(sessionStorage.getItem('bundleDiscounts') || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem('bundleDiscounts') || '{}'); } catch { return {}; }
   });
   const [bundleItemMap, setBundleItemMap] = useState<Record<string, { groupKey: string; bundleId: number }>>(() => {
     if (typeof window === 'undefined') return {};
@@ -387,13 +389,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         // Persist the bundle name and discount so cart UI can label and price the group
         setBundleNames((prev) => {
           const next = { ...prev, [bundleId]: bundleName };
-          try { sessionStorage.setItem('bundleNames', JSON.stringify(next)); } catch {}
+          try { localStorage.setItem('bundleNames', JSON.stringify(next)); } catch {}
           return next;
         });
         if (discountPercent > 0) {
           setBundleDiscounts((prev) => {
             const next = { ...prev, [bundleId]: discountPercent };
-            try { sessionStorage.setItem('bundleDiscounts', JSON.stringify(next)); } catch {}
+            try { localStorage.setItem('bundleDiscounts', JSON.stringify(next)); } catch {}
             return next;
           });
         }

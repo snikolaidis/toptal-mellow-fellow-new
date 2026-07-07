@@ -78,6 +78,7 @@ interface CheckoutRequest {
     period: string;
     interval: number;
   };
+  subscriptionItems?: Array<{ productId: number; period: string; interval: number }>;
   amount: string;
   coupons?: string[];
   items: Array<{
@@ -353,50 +354,39 @@ async function getSchemesByProduct(
   }
 }
 
-function resolveSubscriptionChoice(
-  body: CheckoutRequest,
-  schemesByProduct: Record<number, Array<SchemeInfo>>
-): { period: string; interval: number } | null {
-  if (!body.subscription || !body.subscription.period || Number(body.subscription.interval) < 1) {
-    return null;
-  }
-  const choice = { period: String(body.subscription.period), interval: Number(body.subscription.interval) };
-  const ids = (body.items || [])
-    .map((i) => Number(i.productId))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  if (!ids.length) return null;
-  const allMatch = ids.every((id) =>
-    (schemesByProduct[id] || []).some((s) => s.period === choice.period && s.interval === choice.interval)
-  );
-  return allMatch ? choice : null;
-}
-
 type SubscriptionLine = { productId: number; quantity: number; unitPrice: number };
 
 function buildSubscriptionLines(
   body: CheckoutRequest,
-  schemesByProduct: Record<number, Array<SchemeInfo>>,
-  choice: { period: string; interval: number }
-): { amount: number; lines: SubscriptionLine[] } | null {
+  schemesByProduct: Record<number, Array<SchemeInfo>>
+): { lines: SubscriptionLine[]; savings: number; period: string; interval: number } | null {
+  const wanted = Array.isArray(body.subscriptionItems) ? body.subscriptionItems : [];
+  if (!wanted.length) return null;
+  const period = String(wanted[0].period);
+  const interval = Number(wanted[0].interval);
+  if (!period || interval < 1) return null;
+  const wantedIds = new Set(
+    wanted
+      .filter((w) => String(w.period) === period && Number(w.interval) === interval)
+      .map((w) => Number(w.productId))
+  );
   const lines: SubscriptionLine[] = [];
-  let amount = 0;
+  let savings = 0;
   for (const item of body.items || []) {
     const pid = Number(item.productId);
+    if (!wantedIds.has(pid)) continue;
     const qty = Math.max(1, Number(item.quantity) || 1);
     const scheme = (schemesByProduct[pid] || []).find(
-      (s) => s.period === choice.period && s.interval === choice.interval
+      (s) => s.period === period && s.interval === interval
     );
     const unitPrice = scheme ? parseFloat(String(scheme.price)) : NaN;
-    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
-      return null;
-    }
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) continue;
+    const fullUnit = parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0;
     lines.push({ productId: pid, quantity: qty, unitPrice });
-    amount += unitPrice * qty;
+    savings += Math.max(0, (fullUnit - unitPrice) * qty);
   }
-  if (!lines.length || !Number.isFinite(amount) || amount <= 0) {
-    return null;
-  }
-  return { amount: Math.round(amount * 100) / 100, lines };
+  if (!lines.length) return null;
+  return { lines, savings: Math.round(savings * 100) / 100, period, interval };
 }
 
 async function createSubscriptionOrder(
@@ -1016,16 +1006,14 @@ async function checkoutHandler(
     let subscriptionScheme: { period: string; interval: number } | null = null;
     let subscriptionLines: SubscriptionLine[] | null = null;
     let subscriptionShipping = 0;
-    if (body.subscription && body.subscription.period && Number(body.subscription.interval) >= 1) {
+    if (Array.isArray(body.subscriptionItems) && body.subscriptionItems.length > 0) {
       const schemesByProduct = await getSchemesByProduct(body.items, authToken);
-      subscriptionScheme = resolveSubscriptionChoice(body, schemesByProduct);
-      if (subscriptionScheme) {
-        const priced = buildSubscriptionLines(body, schemesByProduct, subscriptionScheme);
-        if (priced) {
-          subscriptionLines = priced.lines;
-          subscriptionShipping = serverCart ? Math.max(0, serverCart.shipping) : 0;
-          chargeAmount = priced.amount + subscriptionShipping;
-        }
+      const priced = buildSubscriptionLines(body, schemesByProduct);
+      if (priced) {
+        subscriptionScheme = { period: priced.period, interval: priced.interval };
+        subscriptionLines = priced.lines;
+        subscriptionShipping = serverCart ? Math.max(0, serverCart.shipping) : 0;
+        chargeAmount = Math.max(0, Math.round((chargeAmount - priced.savings) * 100) / 100);
       }
     }
 

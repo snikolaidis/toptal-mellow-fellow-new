@@ -83,9 +83,10 @@ export const GET_COLLECTION_SLIDER_PRODUCTS = gql`
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
   ${GROUP_PRODUCT_FIELDS}
-  query GetCollectionSliderProducts($collectionSlug: String!, $first: Int = 24) {
+  query GetCollectionSliderProducts($collectionSlug: String!, $first: Int = 24, $orderby: [ProductsOrderbyInput]) {
     products(first: $first, where: {
       status: "publish",
+      orderby: $orderby,
       taxonomyFilter: {
         filters: [{
           taxonomy: COLLECTION,
