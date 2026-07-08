@@ -95,7 +95,7 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
-      uniqueSellingProps {
+    uniqueSellingProps {
       nodes {
         id
         name
@@ -105,13 +105,12 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
               sourceUrl
               altText
             }
-
           }
         }
       }
     }
     productDetails {
-      noidOrBlendDescriptionTitle
+      noidOrBlendDescriptionTitle: blendDescriptionTitle
       whatIsNoid
       directionsForUse
       deviceSpecifications
