@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { gql } from '@apollo/client';
 import Image from 'next/image';
 import Link from 'next/link';
+import RichText from '@/components/RichText';
 
 interface MediaItem {
   altText?: string | null;
@@ -104,10 +105,7 @@ export default function BlendCallout(props: BlendCalloutProps) {
         {heading && <h3 className="blend-callout__heading">{heading}</h3>}
 
         {description && (
-          <div
-            className="blend-callout__description"
-            dangerouslySetInnerHTML={{ __html: description }}
-          />
+          <RichText html={description} className="blend-callout__description" />
         )}
 
         <div className="blend-callout__actions">
