@@ -1,5 +1,6 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getClient } from '@/lib/apollo-client';
@@ -8,13 +9,14 @@ import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
 import ProductFaqs from '@/components/pdp/ProductFaqs';
 import PdpTrustBadges from '@/components/pdp/PdpTrustBadges';
-import YouMayAlsoLike from '@/components/pdp/YouMayAlsoLike';
-import RecentlyViewed from '@/components/pdp/RecentlyViewed';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
 import { Product, Collection } from '@/types/woocommerce';
 import styles from '@/styles/pages/product.module.css';
+
+const YouMayAlsoLike = dynamic(() => import('@/components/pdp/YouMayAlsoLike'), { ssr: false });
+const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
 interface ProductPageProps {
   product: Product;

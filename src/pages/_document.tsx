@@ -22,12 +22,14 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
             type="text/javascript"
             src="https://js.authorize.net/v1/Accept.js"
             charSet="utf-8"
+            defer
           />
         ) : (
           <script
             type="text/javascript"
             src="https://jstest.authorize.net/v1/Accept.js"
             charSet="utf-8"
+            defer
           />
         )}
         {klaviyoEnabled && (

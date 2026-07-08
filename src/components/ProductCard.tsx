@@ -157,7 +157,7 @@ export default function ProductCard({ product, badge, priority = false }: Produc
                 <div className="product__usp-icons">
                   {uniqueSellingProps.map((usp) => (
                     <div key={usp.id} className="product__usp-icon" title={usp.name}>
-                      <img src={usp.iconUrl} alt="" />
+                      <img src={usp.iconUrl} alt="" loading="lazy" decoding="async" width={20} height={20} />
                       <span className="product__usp-tooltip">{usp.name}</span>
                     </div>
                   ))}
