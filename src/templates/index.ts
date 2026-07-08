@@ -15,6 +15,7 @@ import Rewards from './page-rewards';
 import Affiliate from './page-affiliate';
 import BonusPointsProducts from './page-bonus-points-products';
 import PageLearnAboutOurBlends from './page-learn-about-our-blends';
+import PageLearnAboutCannabinoids from './page-learn-about-cannabinoids-1';
 import LandingPage from './template-landing-page';
 
 const templates = {
@@ -25,6 +26,7 @@ const templates = {
   'page-affiliate': Affiliate,
   'page-bonus-points-products': BonusPointsProducts,
   'page-learn-about-our-blends': PageLearnAboutOurBlends,
+  'page-learn-about-cannabinoids-1': PageLearnAboutCannabinoids,
   // Assigned via the WP admin's Page Attributes → Template dropdown (mu-plugin:
   // mellow-fellow-page-templates.php). Faust keys custom-template matches as
   // `template-${templateName}`, checked before slug-based fallbacks.
