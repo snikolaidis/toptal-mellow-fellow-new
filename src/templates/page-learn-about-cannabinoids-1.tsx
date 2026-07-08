@@ -21,6 +21,9 @@ const PageLearnAboutCannabinoids: FaustTemplate<LearnAboutCannabinoidsData> = (p
   return (
     <Layout title={page.title} seo={page.seo}>
       <div className="learn-cannabinoids-page">
+        <div className="learn-cannabinoids-page__intro">
+          <h2 className="learn-cannabinoids-page__heading">Learn About Cannabinoids</h2>
+        </div>
         {hasBlocks ? (
           <WordPressBlocksViewer blocks={page.editorBlocks} />
         ) : (

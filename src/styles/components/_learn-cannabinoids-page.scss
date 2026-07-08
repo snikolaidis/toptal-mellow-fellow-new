@@ -1,0 +1,35 @@
+.learn-cannabinoids-page {
+  .learn-cannabinoids-page__intro {
+    height: 340px;
+    box-sizing: border-box;
+    padding: 77px 17px 0;
+    background-image: url('/cannabinoids-wave.webp');
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center bottom;
+    text-align: center;
+  }
+
+  .learn-cannabinoids-page__heading {
+    max-width: 296px;
+    margin: 0 auto;
+    font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+    font-weight: 700;
+    font-size: 23.94px;
+    line-height: 1.2;
+    color: #434345;
+    text-align: center;
+  }
+
+  @media only screen and (min-width: 769px) {
+    .learn-cannabinoids-page__intro {
+      height: 320px;
+      padding: 70px 40px 0;
+    }
+
+    .learn-cannabinoids-page__heading {
+      max-width: 620px;
+      font-size: 32.3px;
+    }
+  }
+}
