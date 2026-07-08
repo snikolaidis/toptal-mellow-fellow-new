@@ -110,7 +110,7 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
       }
     }
     productDetails {
-      noidOrBlendDescriptionTitle: blendDescriptionTitle
+      noidOrBlendDescriptionTitle
       whatIsNoid
       directionsForUse
       deviceSpecifications
