@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { BlogPost, BlogTag, LatestPostCard } from '@/types/blog';
+import { Product } from '@/types/woocommerce';
 import TableOfContents from '@/components/TableOfContents';
 import RelatedProductsCarousel from '@/components/RelatedProductsCarousel';
 import styles from '@/styles/pages/blogs.module.css';
@@ -9,6 +10,7 @@ interface BlogPostProps {
   post: BlogPost;
   latestPosts: LatestPostCard[];
   allTags: BlogTag[];
+  relatedProducts: Product[];
 }
 
 interface Heading {
@@ -67,7 +69,7 @@ function formatDate(dateString: string) {
   }).toUpperCase();
 }
 
-export default function BlogPostTemplate({ post, latestPosts, allTags }: BlogPostProps) {
+export default function BlogPostTemplate({ post, latestPosts, allTags, relatedProducts }: BlogPostProps) {
   const tags = post.tags?.nodes || [];
   const featuredImage = post.featuredImage?.node;
   const otherLatest = latestPosts.filter((p) => p.slug !== post.slug).slice(0, 3);
@@ -139,8 +141,8 @@ export default function BlogPostTemplate({ post, latestPosts, allTags }: BlogPos
           )}
 
           {/* Related Products Carousel */}
-          {post.smartRelatedProducts?.length ? (
-            <RelatedProductsCarousel products={post.smartRelatedProducts} />
+          {relatedProducts.length ? (
+            <RelatedProductsCarousel products={relatedProducts} />
           ) : null}
 
           {/* FAQ Accordions */}

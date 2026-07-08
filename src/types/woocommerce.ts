@@ -122,6 +122,15 @@ export interface Product {
   mfproductTypes?: { nodes: Array<{ name: string }> };
   mG?: { nodes: Array<{ name: string; slug: string }> };
   pieces?: { nodes: Array<{ name: string; slug: string }> };
+  uniqueSellingProps?: {
+    nodes: Array<{
+      id: string;
+      name: string;
+      uniqueSellingFields?: {
+        propIcon?: { node?: { sourceUrl: string; altText?: string } };
+      };
+    }>;
+  };
   seo?: {
     title?: string;
     metaDesc?: string;

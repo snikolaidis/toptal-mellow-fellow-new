@@ -56,6 +56,14 @@ export default function ProductCard({ product, badge, priority = false }: Produc
     ?.toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
+  const uniqueSellingProps = (product.uniqueSellingProps?.nodes || [])
+    .map((usp) => ({
+      id: usp.id,
+      name: usp.name,
+      iconUrl: usp.uniqueSellingFields?.propIcon?.node?.sourceUrl,
+    }))
+    .filter((usp): usp is { id: string; name: string; iconUrl: string } => !!usp.iconUrl);
+
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -121,27 +129,41 @@ export default function ProductCard({ product, badge, priority = false }: Produc
 
             {/* Product type tags overlaying the image */}
             <div className="product__tags">
-              {mfProductType && (
-                <div className="product__tag product-type">
-                  {mfProductType}
-                </div>
-              )}
-
-              {/* Out of Stock Badge when out of stock, otherwise the regular Badge */}
-              {!isInStock ? (
-                <div className="product__tag product__tag--sold-out">
-                  Sold Out
-                </div>
-              ) : (
-                displayBadge && (
-                  <div className={getBadgeClasses()}>
-                    {displayBadge === 'new' && 'New'}
-                    {displayBadge === 'sale' && 'Price Drop'}
-                    {displayBadge === 'limited' && 'Limited'}
+              <div className="product__tags-left">
+                {mfProductType && (
+                  <div className="product__tag product-type">
+                    {mfProductType}
                   </div>
-                )
+                )}
+
+                {/* Out of Stock Badge when out of stock, otherwise the regular Badge */}
+                {!isInStock ? (
+                  <div className="product__tag product__tag--sold-out">
+                    Sold Out
+                  </div>
+                ) : (
+                  displayBadge && (
+                    <div className={getBadgeClasses()}>
+                      {displayBadge === 'new' && 'New'}
+                      {displayBadge === 'sale' && 'Price Drop'}
+                      {displayBadge === 'limited' && 'Limited'}
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* Unique selling prop icons (e.g. Vegan, High Potency) — title shown on hover */}
+              {uniqueSellingProps.length > 0 && (
+                <div className="product__usp-icons">
+                  {uniqueSellingProps.map((usp) => (
+                    <div key={usp.id} className="product__usp-icon" title={usp.name}>
+                      <img src={usp.iconUrl} alt="" />
+                      <span className="product__usp-tooltip">{usp.name}</span>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>  
+            </div>
           </div>
 
           {/* Product Info */}
@@ -163,6 +185,23 @@ export default function ProductCard({ product, badge, priority = false }: Produc
                 {strainName}
               </p>
             )}
+
+            {!lineCollection && !blendType && !strainName && (() => {
+              // No taxonomy data available (e.g. lean recommendation feeds) — fall back to
+              // splitting the raw title on its last dash, mirroring the blend-type/strain-name
+              // split used for regular products so the card reads the same way.
+              const parts = product.name.split(/\s[-–—]\s/);
+              const main = parts[0];
+              const variant = parts.slice(1).join(' - ');
+              return (
+                <>
+                  <p className="product__blend-type">{main}</p>
+                  {variant && (
+                    <p className="product__strain-name">{variant}</p>
+                  )}
+                </>
+              );
+            })()}
 
             <div className="product__strain-tags">
               {strainType && (

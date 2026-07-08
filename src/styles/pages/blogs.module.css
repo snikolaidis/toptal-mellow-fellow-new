@@ -478,15 +478,21 @@
 }
 
 .relatedSwiper {
-  padding-bottom: 2.5rem !important;
+  padding: 12px !important;
 }
 
-.relatedSwiper :global(.swiper-pagination-bullet) {
+.relatedPagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.relatedPagination :global(.swiper-pagination-bullet) {
   background: #000;
   opacity: 0.25;
 }
 
-.relatedSwiper :global(.swiper-pagination-bullet-active) {
+.relatedPagination :global(.swiper-pagination-bullet-active) {
   opacity: 1;
 }
 
@@ -494,54 +500,27 @@
   height: auto;
 }
 
-.relatedCard {
+.relatedSlide :global(.product-card) {
+  height: 435px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-decoration: none;
-  color: inherit;
-  gap: 0;
+  overflow: hidden;
 }
 
-.relatedImageWrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 3 / 4;
+.relatedSlide :global(.product-card > a) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.relatedImage {
-  object-fit: contain;
+.relatedSlide :global(.product__media-badges) {
+  flex-shrink: 0;
 }
 
-.relatedInfo {
-  padding: 1rem 0.5rem 0;
-  text-align: center;
-  width: 100%;
-}
-
-.relatedTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #000;
-  line-height: 1.3;
-  margin: 0 0 0.5rem;
-}
-
-.relatedPrice {
-  font-size: 0.9375rem;
-  color: #000;
-  margin: 0 0 1rem;
-}
-
-.relatedBtn {
-  display: inline-block;
-  background: #000;
-  color: #fff;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  padding: 0.625rem 2rem;
-  border-radius: 999px;
-  text-decoration: none;
+.relatedSlide :global(.product__info) {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .faqSection {

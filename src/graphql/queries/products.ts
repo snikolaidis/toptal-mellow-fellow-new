@@ -95,6 +95,21 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+      uniqueSellingProps {
+      nodes {
+        id
+        name
+        uniqueSellingFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+
+          }
+        }
+      }
+    }
     productDetails {
       noidOrBlendDescriptionTitle
       whatIsNoid
@@ -234,6 +249,20 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    uniqueSellingProps {
+      nodes {
+        id
+        name
+        uniqueSellingFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
   }
 `;
 
@@ -331,6 +360,20 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    uniqueSellingProps {
+      nodes {
+        id
+        name
+        uniqueSellingFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
   }
 `;
 
@@ -422,6 +465,20 @@ export const GROUP_PRODUCT_FIELDS = gql`
       nodes {
         name
         slug
+      }
+    }
+    uniqueSellingProps {
+      nodes {
+        id
+        name
+        uniqueSellingFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
       }
     }
   }
@@ -707,6 +764,32 @@ export const GET_FACETS = gql`
         ... on VariableProduct { ...FacetOnlyFields }
         ... on ExternalProduct { ...FacetOnlyFields }
         ... on GroupProduct { ...FacetOnlyFields }
+      }
+    }
+  }
+`;
+
+export const GET_PRODUCTS_BY_IDS = gql`
+  ${SIMPLE_PRODUCT_FIELDS}
+  ${VARIABLE_PRODUCT_FIELDS}
+  ${EXTERNAL_PRODUCT_FIELDS}
+  ${GROUP_PRODUCT_FIELDS}
+  query GetProductsByIds($ids: [Int]!) {
+    products(first: 100, where: { include: $ids, status: "publish" }) {
+      nodes {
+        __typename
+        ... on SimpleProduct {
+          ...SimpleProductFields
+        }
+        ... on VariableProduct {
+          ...VariableProductFields
+        }
+        ... on ExternalProduct {
+          ...ExternalProductFields
+        }
+        ... on GroupProduct {
+          ...GroupProductFields
+        }
       }
     }
   }

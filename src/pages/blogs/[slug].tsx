@@ -6,14 +6,17 @@ import {
   GET_LATEST_POSTS,
   GET_ALL_TAGS,
 } from '@/graphql/queries/posts';
+import { GET_PRODUCTS_BY_IDS } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import BlogPostTemplate from '@/templates/blogs/BlogPost';
 import { BlogPost, BlogTag, LatestPostCard } from '@/types/blog';
+import { Product } from '@/types/woocommerce';
 
 interface BlogPostPageProps {
   post: BlogPost;
   latestPosts: LatestPostCard[];
   allTags: BlogTag[];
+  relatedProducts: Product[];
 }
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
@@ -60,7 +63,7 @@ function buildArticleSchema(post: BlogPost) {
   });
 }
 
-export default function BlogPostPage({ post, latestPosts, allTags }: BlogPostPageProps) {
+export default function BlogPostPage({ post, latestPosts, allTags, relatedProducts }: BlogPostPageProps) {
   const schema = post.seo?.schema?.raw || buildArticleSchema(post);
   const faqSchema = buildFaqSchema(post);
 
@@ -81,7 +84,7 @@ export default function BlogPostPage({ post, latestPosts, allTags }: BlogPostPag
         modifiedTime: post.modified || post.date,
       }}
     >
-      <BlogPostTemplate post={post} latestPosts={latestPosts} allTags={allTags} />
+      <BlogPostTemplate post={post} latestPosts={latestPosts} allTags={allTags} relatedProducts={relatedProducts} />
     </Layout>
   );
 }
@@ -116,11 +119,35 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       return { notFound: true };
     }
 
+    const post = postResult.data.post;
+    const relatedIds = (post.smartRelatedProducts || []).map(
+      (p: { databaseId: number }) => p.databaseId
+    );
+
+    let relatedProducts: Product[] = [];
+    if (relatedIds.length) {
+      try {
+        const relatedResult = await client.query({
+          query: GET_PRODUCTS_BY_IDS,
+          variables: { ids: relatedIds },
+        });
+        const byId = new Map<number, Product>(
+          (relatedResult.data?.products?.nodes || []).map((p: Product) => [p.databaseId, p])
+        );
+        relatedProducts = relatedIds
+          .map((id: number) => byId.get(id))
+          .filter((p: Product | undefined): p is Product => !!p);
+      } catch (error) {
+        console.error('Error fetching related products:', error);
+      }
+    }
+
     return {
       props: {
-        post: postResult.data.post,
+        post,
         latestPosts: latestResult.data?.posts?.nodes || [],
         allTags: tagsResult.data?.tags?.nodes || [],
+        relatedProducts,
       },
       revalidate: 60,
     };
