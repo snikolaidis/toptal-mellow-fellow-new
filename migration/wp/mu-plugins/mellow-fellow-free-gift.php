@@ -33,7 +33,7 @@ function mellow_fellow_free_gift($request) {
     $max_price = (float) ($offers['free_gift_max_price'] ?? 10);
 
     $price = (float) $product->get_price();
-    if ($price <= 0 || $price >= $max_price) {
+    if ($price <= 0 || $price > $max_price) {
         return new WP_REST_Response(array('error' => 'not_eligible'), 400);
     }
 
