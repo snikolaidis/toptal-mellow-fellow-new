@@ -559,6 +559,11 @@ export default function CheckoutPage() {
       }
 
       if (!response.ok || !result.success) {
+        if (result.paymentVoided) {
+          throw new Error(
+            'We could not complete your order, so your payment was reversed and you were not charged. Please try again.'
+          );
+        }
         if (result.requiresSupport && result.transactionId) {
           const reason = result.message ? ` (${result.message})` : '';
           throw new Error(

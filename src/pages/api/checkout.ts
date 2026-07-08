@@ -380,7 +380,12 @@ function buildSubscriptionLines(
       (s) => s.period === period && s.interval === interval
     );
     const unitPrice = scheme ? parseFloat(String(scheme.price)) : NaN;
-    if (!Number.isFinite(unitPrice) || unitPrice <= 0) continue;
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      console.warn(
+        `[Checkout][SUB] Product ${pid} was selected for subscription (${interval} ${period}) but has no matching live scheme; charging it as one-time.`
+      );
+      continue;
+    }
     const fullUnit = parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0;
     lines.push({ productId: pid, quantity: qty, unitPrice });
     savings += Math.max(0, (fullUnit - unitPrice) * qty);
@@ -1195,9 +1200,18 @@ async function checkoutHandler(
   } catch (error) {
     logError('checkout.handler', error, { orderId, orderNumber, transactionId });
 
-    // Log failure to reconciliation
-    // If we have a transactionId but no orderId, payment succeeded but order creation failed
-    // This is a critical situation that needs manual attention
+    let paymentVoided = false;
+    if (transactionId && !orderId) {
+      try {
+        paymentVoided = await voidPayment(transactionId);
+        console.error(
+          `[Checkout] Order creation failed after charge. Void of ${transactionId}: ${paymentVoided ? 'reversed' : 'FAILED'}`
+        );
+      } catch (voidError) {
+        console.error('[Checkout] Error while voiding orphaned payment:', voidError);
+      }
+    }
+
     await storage.createReconciliationEntry({
       orderId: orderId || 'failed',
       orderNumber,
@@ -1210,6 +1224,7 @@ async function checkoutHandler(
         hasTransaction: !!transactionId,
         hasOrder: !!orderId,
         orphanedPayment: transactionId && !orderId,
+        paymentVoided,
       }),
     });
 
@@ -1220,8 +1235,8 @@ async function checkoutHandler(
       orderId,
       orderNumber,
       transactionId,
-      // If payment succeeded but order creation failed, tell user to contact support
-      requiresSupport: !!transactionId && !orderId,
+      paymentVoided,
+      requiresSupport: !!transactionId && !orderId && !paymentVoided,
     };
 
     // Fail idempotency tracking
