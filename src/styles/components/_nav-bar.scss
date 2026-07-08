@@ -1,6 +1,64 @@
 @use "bulma/sass/utilities/mixins";
 
 nav.navbar {
+background-image:linear-gradient(180deg,#dbcaa9,#f0e6d0);
+
+  // Invisible wrapper by default — no layout effect, so normal (non-scrolled)
+  // desktop nav is untouched. Becomes a real flex box only while scrolled,
+  // so the grid row below has a single measurable child to animate against.
+  .navbar-menu-inner {
+    display: contents;
+  }
+
+  &.is-scrolled {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+
+    // Collapsed by default once scrolled — but clicking the burger still adds
+    // Bulma's .is-active class (existing isOpen toggle), which this overrides
+    // to expand the menu back open. grid-template-rows 0fr/1fr animates smoothly
+    // to the content's real height (unlike max-height, which has to guess a
+    // fixed value and looks jerky since most of the transition happens before
+    // the content is actually visible).
+    .navbar-menu {
+      display: grid;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      transform: translateY(-8px);
+      pointer-events: none;
+      transition: grid-template-rows 0.35s ease, opacity 0.25s ease, transform 0.3s ease;
+
+      &.is-active {
+        grid-template-rows: 1fr;
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+      
+    }
+
+    .navbar-menu-inner {
+      display: flex ;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    // Once open, let dropdown submenus escape the row's clipping box —
+    // overflow:hidden above is only needed while collapsed/animating.
+    .navbar-menu.is-active .navbar-menu-inner {
+      overflow: visible;
+    }
+
+    .navbar-burger {
+      display: flex !important;
+    }
+  }
 
   img.mf-logo {
     max-height: none;
@@ -16,6 +74,36 @@ nav.navbar {
   a.navbar-item:hover,
   .navbar-link:hover {
     --bulma-navbar-item-background-l-delta: none;
+  }
+
+  // Reserve the border space up front so hover doesn't shift layout —
+  // only the color changes on hover, not the width. The has-dropdown wrapper
+  // is excluded since its inner .navbar-link already carries the border —
+  // otherwise both would stack and the dropdown trigger's border looks doubled.
+  .navbar-item:not(.has-dropdown),
+  .navbar-link {
+    border-bottom: 1px solid transparent;
+    font-size: 1.05rem;
+  }
+
+  .navbar-item:not(.has-dropdown):hover,
+  .navbar-link:hover {
+    border-bottom-color: currentColor;
+  }
+
+  .navbar-dropdown {
+    background-color: #f0e6d0;
+    border-top:0px;
+
+    .navbar-item {
+      color: var(--bulma-navbar-item-color);
+      background-color: #f0e6d0;
+      border-bottom: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 
   .navbar-controls {
@@ -40,6 +128,7 @@ nav.navbar {
 
     .navbar-menu {
       width: 100%;
+      gap: 16px;
 
       @include mixins.desktop {
         justify-content: center;

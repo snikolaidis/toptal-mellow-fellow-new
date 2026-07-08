@@ -12,4 +12,8 @@
       height: auto;
     }
   }
+  .swiper-pagination-bullet-active{
+    background-color: #fff;
+    transform: scale(1.2);
+  }
 }

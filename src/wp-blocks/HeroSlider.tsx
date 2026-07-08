@@ -75,9 +75,9 @@ export default function HeroSlider(props: HeroSliderProps) {
   return (
     <div className="hero-slider">
       <Swiper
-        modules={[Autoplay, Pagination, Navigation]}
+        modules={[Autoplay, Pagination]}
         pagination={{ clickable: true }}
-        navigation
+        
         autoplay={{ delay: 5000, disableOnInteraction: false }}
         loop
       >

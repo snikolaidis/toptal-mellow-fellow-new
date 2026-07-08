@@ -11,10 +11,57 @@
   }
 }
 
+/* Hero */
+/* Full-bleed technique: breaks out of any ancestor's padding/max-width by
+   sizing and centering against the viewport directly, rather than relying
+   on the parent not constraining it. */
+.hero {
+  position: relative;
+  left: 50%;
+  width: 100vw;
+  max-width: 1440px;
+  transform: translateX(-50%);
+  margin-top: 0;
+  margin-bottom: 2rem;
+}
+
+.heroImageWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.heroImage {
+  object-fit: cover;
+}
+
+.heroDesktop {
+  display: none;
+}
+
+.heroMobile {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .heroImageWrap {
+    aspect-ratio: 21 / 6;
+  }
+
+  .heroDesktop {
+    display: block;
+  }
+
+  .heroMobile {
+    display: none;
+  }
+}
+
 /* Breadcrumb */
 .breadcrumb {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   font-size: 0.75rem;
   color: var(--color-text-secondary);
@@ -50,7 +97,9 @@
 }
 
 .headerContent {
-  max-width: 700px;
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
 }
 
 .title {
@@ -62,6 +111,12 @@
   margin-bottom: 0.75rem;
 }
 
+/* Keep the stylistic lowercase look, but the name should still read as a
+   proper name — capitalize just the leading letter. */
+.title::first-letter {
+  text-transform: uppercase;
+}
+
 @media (min-width: 768px) {
   .title {
     font-size: 2.5rem;
@@ -70,7 +125,7 @@
 
 .description {
   font-size: 1rem;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   line-height: 1.6;
 }
 

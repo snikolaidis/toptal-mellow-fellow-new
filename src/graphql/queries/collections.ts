@@ -125,6 +125,20 @@ export const GET_COLLECTION_META = gql`
       slug
       description
       count
+      collectionFields {
+        collectionHeroDesktop {
+          node {
+            sourceUrl
+            altText
+          }
+        }
+        collectionHeroMobile {
+          node {
+            sourceUrl
+            altText
+          }
+        }
+      }
       seo {
         title
         metaDesc

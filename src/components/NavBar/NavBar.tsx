@@ -1,6 +1,6 @@
 import { getClient, getBrowserClient } from '@/lib/apollo-client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@faustwp/core';
 import { 
@@ -56,12 +56,20 @@ export default function Navbar() {
   const { isAuthenticated, isReady } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 0);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const menuItems: MenuItem[] = data?.menuItems?.nodes ?? [];
 
   return (
     <>
-      <nav className="navbar is-primary" role="navigation" aria-label="main navigation">
+      <nav className={`navbar is-primary ${isScrolled ? 'is-scrolled' : ''}`} role="navigation" aria-label="main navigation">
         <div className="container">
           <div className="navbar-start">
             <a role="button"
@@ -127,6 +135,7 @@ export default function Navbar() {
           </div>
 
           <div className={`navbar-menu ${isOpen ? 'is-active' : ''}`}>
+            <div className="navbar-menu-inner">
             {menuItems.map((item: MenuItem) => {
               const children = item.childItems?.nodes ?? [];
 
@@ -153,6 +162,7 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            </div>
           </div>
         </div>
       </nav>

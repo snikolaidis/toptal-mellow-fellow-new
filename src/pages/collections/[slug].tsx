@@ -1,5 +1,6 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import {
@@ -135,6 +136,42 @@ export default function CollectionsPage({
         opengraphImage: collection.seo?.opengraphImage?.sourceUrl,
       }}
     >
+      {(() => {
+        const heroDesktop = collection.collectionFields?.collectionHeroDesktop?.node;
+        const heroMobile = collection.collectionFields?.collectionHeroMobile?.node;
+        const desktopSrc = heroDesktop?.sourceUrl || heroMobile?.sourceUrl;
+        const mobileSrc = heroMobile?.sourceUrl || heroDesktop?.sourceUrl;
+        if (!desktopSrc && !mobileSrc) return null;
+        return (
+          <div className={styles.hero}>
+            {desktopSrc && (
+              <div className={`${styles.heroImageWrap} ${styles.heroDesktop}`}>
+                <Image
+                  src={desktopSrc}
+                  alt={heroDesktop?.altText || collection.name}
+                  fill
+                  priority
+                  sizes="100vw"
+                  className={styles.heroImage}
+                />
+              </div>
+            )}
+            {mobileSrc && (
+              <div className={`${styles.heroImageWrap} ${styles.heroMobile}`}>
+                <Image
+                  src={mobileSrc}
+                  alt={heroMobile?.altText || collection.name}
+                  fill
+                  priority
+                  sizes="100vw"
+                  className={styles.heroImage}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div className={styles.page}>
         <nav className={styles.breadcrumb}>
           <Link href="/">Home</Link>

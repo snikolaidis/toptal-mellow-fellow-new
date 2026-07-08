@@ -17,9 +17,10 @@ export interface ProductCategory {
 }
 
 export interface CollectionFields {
-  collectionImage?: string;
-  collectionHeroDesktop?: string;
-  collectionHeroMobile?: string;
+  collectionImage?: { node?: { sourceUrl: string; altText?: string } };
+  collectionHeroDesktop?: { node?: { sourceUrl: string; altText?: string } };
+  collectionHeroMobile?: { node?: { sourceUrl: string; altText?: string } };
+  thumbnailImage?: { node?: { sourceUrl: string; altText?: string } };
 }
 
 export interface Collection {
