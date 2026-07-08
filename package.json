@@ -37,6 +37,7 @@
     "graphql": "^16.8.0",
     "graphql-request": "^6.1.0",
     "ioredis": "^5.10.1",
+    "isomorphic-dompurify": "^3.18.0",
     "next": "^14.0.0",
     "pg": "^8.22.0",
     "react": "^18.2.0",
