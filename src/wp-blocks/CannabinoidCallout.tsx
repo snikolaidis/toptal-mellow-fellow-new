@@ -1,6 +1,7 @@
 import { gql } from '@apollo/client';
 import Image from 'next/image';
 import Link from 'next/link';
+import RichText from '@/components/RichText';
 
 interface MediaItem {
   altText?: string | null;
@@ -78,10 +79,7 @@ export default function CannabinoidCallout(props: CannabinoidCalloutProps) {
         {name && <h3 className="cannabinoid-callout__name">{name}</h3>}
 
         {description && (
-          <div
-            className="cannabinoid-callout__description"
-            dangerouslySetInnerHTML={{ __html: description }}
-          />
+          <RichText html={description} className="cannabinoid-callout__description" />
         )}
 
         <div className="cannabinoid-callout__actions">
