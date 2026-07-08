@@ -4,11 +4,13 @@ import { Product } from '@/types/woocommerce';
 import { useCart } from '@/context/CartContext';
 import { ReactNode, useState } from 'react';
 import QuickView from '@/components/shop/QuickView';
+import { recordWidgetSource, WidgetSource } from '@/lib/widgetAttribution';
 
 interface ProductCardProps {
   product: Product;
   badge?: 'new' | 'sale' | 'limited';
   priority?: boolean;
+  source?: WidgetSource;
 }
 
 const IconIndica = () => (
@@ -29,7 +31,7 @@ const IconSativa = () => (
   </svg>
 );
 
-export default function ProductCard({ product, badge, priority = false }: ProductCardProps) {
+export default function ProductCard({ product, badge, priority = false, source }: ProductCardProps) {
   const { addToCart } = useCart();
   const [isAdding, setIsAdding] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
@@ -72,6 +74,9 @@ export default function ProductCard({ product, badge, priority = false }: Produc
 
     setIsAdding(true);
     try {
+      if (source) {
+        recordWidgetSource(product.databaseId, source);
+      }
       await addToCart({
         productId: product.databaseId,
         quantity: 1,

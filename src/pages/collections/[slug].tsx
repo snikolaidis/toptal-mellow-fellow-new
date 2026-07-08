@@ -6,7 +6,7 @@ import {
   GET_COLLECTION_META,
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
-import { GET_PRODUCTS } from '@/graphql/queries/products';
+import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ShopSidebar from '@/components/shop/ShopSidebar';
@@ -250,7 +250,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         variables: { slug },
       }),
       client.query({
-        query: GET_PRODUCTS,
+        query: GET_COLLECTION_PRODUCTS,
         variables: { first: 500, collectionFilterIn: [slug] },
         fetchPolicy: 'no-cache',
       }),

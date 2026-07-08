@@ -13,6 +13,7 @@ const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
 import { AddressData, PaymentData, SavedCardInfo } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
+import { collectWidgetSources } from '@/lib/widgetAttribution';
 import SavedCardSelector from '@/components/checkout/SavedCardSelector';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
@@ -540,6 +541,7 @@ export default function CheckoutPage() {
               ? `$${item.bbUnitPrice.toFixed(2)}`
               : item.product.price,
           })),
+          sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
         }),
       });
 

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
+import { recordWidgetSource } from '@/lib/widgetAttribution';
 import styles from './FrequentlyBoughtTogether.module.css';
 
 interface RecProduct {
@@ -168,6 +169,7 @@ export default function FrequentlyBoughtTogether({
     try {
       for (const item of items) {
         if (!checked.has(item.databaseId)) continue;
+        recordWidgetSource(item.databaseId, 'fbt');
         await addToCart({ productId: item.databaseId, quantity: 1 });
       }
     } finally {

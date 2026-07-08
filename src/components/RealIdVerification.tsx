@@ -151,18 +151,23 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
       observer.observe(el, { childList: true, subtree: true, characterData: true });
     }
 
-    const onSdkEvent = () => {
+    const onPassed = () => {
+      if (!active) return;
+      onVerifiedRef.current?.(true, checkId);
+      active = false;
+    };
+    const onLoaded = () => {
       if (active) tick();
     };
-    window.addEventListener('real-id-check-passed', onSdkEvent);
-    window.addEventListener('real-id-check-loaded', onSdkEvent);
+    window.addEventListener('real-id-check-passed', onPassed);
+    window.addEventListener('real-id-check-loaded', onLoaded);
 
     return () => {
       active = false;
       window.clearInterval(interval);
       if (observer) observer.disconnect();
-      window.removeEventListener('real-id-check-passed', onSdkEvent);
-      window.removeEventListener('real-id-check-loaded', onSdkEvent);
+      window.removeEventListener('real-id-check-passed', onPassed);
+      window.removeEventListener('real-id-check-loaded', onLoaded);
     };
   }, [checkId]);
 

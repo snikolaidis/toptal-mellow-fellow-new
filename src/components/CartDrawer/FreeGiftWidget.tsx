@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
+import { recordWidgetSource } from '@/lib/widgetAttribution';
 import { getBrowserClient } from '@/lib/apollo-client';
 import { GET_GIFT_PRODUCTS } from '@/graphql/queries/products';
 import { useCartOffers } from '@/config/cartOffers';
@@ -56,6 +57,7 @@ export default function FreeGiftWidget({ subtotal }: Props) {
           body: JSON.stringify({ productId: gift.databaseId }),
         });
         const data = await res.json();
+        recordWidgetSource(gift.databaseId, 'free_gift');
         await addToCart({ productId: gift.databaseId, quantity: 1 });
         if (data?.code) await applyCoupon(data.code);
       } finally {

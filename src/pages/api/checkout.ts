@@ -87,6 +87,7 @@ interface CheckoutRequest {
     quantity: number;
     price: string;
   }>;
+  sources?: Record<string, string>;
 }
 
 interface PendingOrder {
@@ -465,118 +466,6 @@ async function createSubscriptionOrder(
     orderNumber: String(data.orderNumber || data.orderId),
     status: 'processing',
     total: String(data.total || body.amount),
-  };
-}
-
-/**
- * Fallback: Create order directly without cart session
- * Used when the session-based checkout fails (e.g., session expired)
- */
-async function createOrderDirectly(
-  body: CheckoutRequest,
-  transactionId: string,
-  cookies?: string,
-  wcSessionToken?: string,
-  authToken?: string
-): Promise<PendingOrder> {
-  const graphqlUrl = getWordPressGraphQLUrl();
-
-  console.log('[Checkout] Attempting direct order creation (fallback)...');
-
-  const mutation = `
-    mutation CreateOrder($input: CreateOrderInput!) {
-      createOrder(input: $input) {
-        orderId
-        order {
-          id
-          databaseId
-          orderNumber
-          status
-          total
-        }
-      }
-    }
-  `;
-
-  // Convert items to line items format
-  const lineItems = body.items.map((item) => ({
-    productId: item.productId,
-    quantity: item.quantity,
-  }));
-
-  const variables = {
-    input: {
-      billing: {
-        firstName: body.billing.firstName,
-        lastName: body.billing.lastName,
-        email: body.billing.email,
-        phone: body.billing.phone || '',
-        address1: body.billing.address1,
-        address2: body.billing.address2 || '',
-        city: body.billing.city,
-        state: body.billing.state,
-        postcode: body.billing.postcode,
-        country: body.billing.country,
-      },
-      shipping: {
-        firstName: body.shipping?.firstName || body.billing.firstName,
-        lastName: body.shipping?.lastName || body.billing.lastName,
-        address1: body.shipping?.address1 || body.billing.address1,
-        address2: body.shipping?.address2 || body.billing.address2 || '',
-        city: body.shipping?.city || body.billing.city,
-        state: body.shipping?.state || body.billing.state,
-        postcode: body.shipping?.postcode || body.billing.postcode,
-        country: body.shipping?.country || body.billing.country,
-      },
-      paymentMethod: 'authorize_net',
-      isPaid: true,
-      transactionId: transactionId,
-      lineItems,
-      metaData: [
-        { key: '_transaction_id', value: transactionId },
-        { key: '_authorize_net_transaction_id', value: transactionId },
-        { key: '_payment_method', value: 'authnet' },
-        { key: '_payment_method_title', value: 'Credit Card (Authorize.net)' },
-      ],
-    },
-  };
-
-  const response = await makeHttpRequest({
-    url: graphqlUrl,
-    body: JSON.stringify({ query: mutation, variables }),
-    cookies,
-    wcSessionToken,
-    authToken,
-  });
-
-  console.log('[Checkout] Direct order response:', JSON.stringify(response.data, null, 2).substring(0, 1000));
-
-  if (response.data?.errors) {
-    console.error('[Checkout] Direct order GraphQL errors:', JSON.stringify(response.data.errors, null, 2));
-    throw new CheckoutError(
-      response.data.errors[0]?.message || 'Failed to create order directly',
-      ErrorCode.ORDER_CREATION_FAILED,
-      { graphqlErrors: response.data.errors, transactionId }
-    );
-  }
-
-  const order = response.data?.data?.createOrder?.order;
-  if (!order) {
-    throw new CheckoutError(
-      'No order returned from direct creation',
-      ErrorCode.ORDER_CREATION_FAILED,
-      { transactionId }
-    );
-  }
-
-  console.log(`[Checkout] Direct order created: ${order.orderNumber} (ID: ${order.databaseId})`);
-
-  return {
-    id: order.id,
-    databaseId: order.databaseId,
-    orderNumber: order.orderNumber,
-    status: order.status,
-    total: order.total,
   };
 }
 
@@ -1044,21 +933,7 @@ async function checkoutHandler(
     if (subscriptionScheme) {
       order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, subscriptionLines, subscriptionShipping, authToken);
     } else {
-      try {
-        order = await createOrderWithPayment(req, body, transactionId, authToken);
-      } catch (checkoutError) {
-        console.log('[Checkout] Session-based checkout failed, trying direct order creation...');
-        console.log('[Checkout] Original error:', checkoutError instanceof Error ? checkoutError.message : checkoutError);
-        try {
-          const fallbackCookies = req.headers.cookie || '';
-          const fallbackSession = extractWcSessionToken(fallbackCookies) || undefined;
-          order = await createOrderDirectly(body, transactionId, fallbackCookies, fallbackSession, authToken);
-          console.log('[Checkout] Direct order creation succeeded!');
-        } catch (directError) {
-          console.error('[Checkout] Both checkout methods failed!');
-          throw checkoutError;
-        }
-      }
+      order = await createOrderWithPayment(req, body, transactionId, authToken);
     }
     orderId = order.databaseId.toString();
     orderNumber = order.orderNumber;
@@ -1131,6 +1006,22 @@ async function checkoutHandler(
 
     console.log(`[Checkout] Checkout complete: Order ${orderNumber}, Transaction ${transactionId}`);
     res.status(200).json(successResponse);
+
+    if (body.sources && Object.keys(body.sources).length > 0 && order.databaseId) {
+      (async () => {
+        try {
+          const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+          const faustSecret = process.env.FAUST_SECRET_KEY;
+          await fetch(`${wpBaseUrl}/wp-json/mf/v1/attribute-order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${faustSecret}` },
+            body: JSON.stringify({ orderId: order.databaseId, sources: body.sources }),
+          });
+        } catch (err) {
+          console.error('[Checkout] Attribution failed (non-blocking):', err);
+        }
+      })();
+    }
 
     // === POST-RESPONSE WORK (customer already has their confirmation) ===
 

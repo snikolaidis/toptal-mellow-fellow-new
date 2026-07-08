@@ -623,6 +623,79 @@ export const GET_PRODUCTS_BY_COLLECTION = gql`
   }
 `;
 
+export const GET_COLLECTION_PRODUCTS = gql`
+  query GetCollectionProducts($first: Int = 500, $collectionFilterIn: [String]) {
+    products(first: $first, where: { status: "publish", collectionFilterIn: $collectionFilterIn }) {
+      nodes {
+        __typename
+        ... on SimpleProduct {
+          id
+          databaseId
+          name
+          slug
+          type
+          price
+          regularPrice
+          salePrice
+          stockStatus
+          image { id sourceUrl altText }
+          strainTypes { nodes { name slug } }
+          strainNames { nodes { name slug } }
+          blendTypes { nodes { name slug } }
+          productLines { nodes { name slug } }
+          size { nodes { name slug } }
+          mfproductTypes { nodes { name slug } }
+          cannabinoids { nodes { name slug } }
+          singleCannabinoid { nodes { name slug } }
+          mG { nodes { name slug } }
+          pieces { nodes { name slug } }
+          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
+        }
+        ... on VariableProduct {
+          id
+          databaseId
+          name
+          slug
+          type
+          price
+          regularPrice
+          salePrice
+          stockStatus
+          image { id sourceUrl altText }
+          strainTypes { nodes { name slug } }
+          strainNames { nodes { name slug } }
+          blendTypes { nodes { name slug } }
+          productLines { nodes { name slug } }
+          size { nodes { name slug } }
+          mfproductTypes { nodes { name slug } }
+          cannabinoids { nodes { name slug } }
+          singleCannabinoid { nodes { name slug } }
+          mG { nodes { name slug } }
+          pieces { nodes { name slug } }
+          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
+        }
+        ... on ExternalProduct {
+          id
+          databaseId
+          name
+          slug
+          type
+          price
+          image { id sourceUrl altText }
+        }
+        ... on GroupProduct {
+          id
+          databaseId
+          name
+          slug
+          type
+          image { id sourceUrl altText }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_GIFT_PRODUCTS = gql`
   query GetGiftProducts($maxPrice: Float!, $minPrice: Float = 0.5, $first: Int = 12) {
     products(

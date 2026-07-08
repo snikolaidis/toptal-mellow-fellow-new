@@ -38,7 +38,7 @@ export default function RecentlyViewed({ currentSlug }: Props) {
       <h2 className={styles.title}>Recently viewed</h2>
       <div className="products-grid">
         {items.map((r) => (
-          <ProductCard key={r.slug} product={toProduct(r)} />
+          <ProductCard key={r.slug} product={toProduct(r)} source="recently_viewed" />
         ))}
       </div>
     </section>

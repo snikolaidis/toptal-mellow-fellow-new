@@ -10,6 +10,7 @@ interface SeoData {
   metaDesc?: string;
   schema?: string;
   faqSchema?: string;
+  productSchema?: string;
   opengraphTitle?: string;
   opengraphDescription?: string;
   opengraphImage?: string;
@@ -26,7 +27,8 @@ interface LayoutProps {
   seo?: SeoData;
 }
 
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
+const RAW_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
+const SITE_URL = RAW_SITE_URL && !/^https?:\/\//i.test(RAW_SITE_URL) ? `https://${RAW_SITE_URL}` : RAW_SITE_URL;
 const SITE_NAME = 'Mellow Fellow';
 
 export default function Layout({
@@ -86,6 +88,12 @@ export default function Layout({
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: seo.faqSchema }}
+          />
+        )}
+        {seo?.productSchema && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: seo.productSchema }}
           />
         )}
       </Head>

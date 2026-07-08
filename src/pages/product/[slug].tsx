@@ -18,6 +18,9 @@ import styles from '@/styles/pages/product.module.css';
 const YouMayAlsoLike = dynamic(() => import('@/components/pdp/YouMayAlsoLike'), { ssr: false });
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
+const RAW_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
+const SITE_URL = RAW_SITE_URL && !/^https?:\/\//i.test(RAW_SITE_URL) ? `https://${RAW_SITE_URL}` : RAW_SITE_URL;
+
 interface ProductPageProps {
   product: Product;
   collectionName: string | null;
@@ -214,6 +217,30 @@ export default function ProductPage({
   const displaySalePrice = selectedVariationData?.salePrice || product.salePrice;
   const displayRegularPrice = selectedVariationData?.regularPrice || product.regularPrice;
 
+  const seoPriceNumeric = String(displaySalePrice || displayPrice || displayRegularPrice || '').replace(/[^0-9.]/g, '');
+  const seoDescription = (product.shortDescription || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
+  const productSchema = JSON.stringify({
+    '@context': 'https://schema.org/',
+    '@type': 'Product',
+    name: product.name,
+    image: product.image?.sourceUrl ? [product.image.sourceUrl] : undefined,
+    description: seoDescription || undefined,
+    sku: product.sku || undefined,
+    offers: seoPriceNumeric
+      ? {
+          '@type': 'Offer',
+          price: seoPriceNumeric,
+          priceCurrency: 'USD',
+          availability: isInStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+          url: SITE_URL ? `${SITE_URL}/product/${product.slug}` : undefined,
+        }
+      : undefined,
+  });
+
   return (
     <Layout
       title={product.name}
@@ -221,6 +248,7 @@ export default function ProductPage({
         title: product.seo?.title,
         metaDesc: product.seo?.metaDesc,
         schema: product.seo?.schema?.raw,
+        productSchema,
         opengraphTitle: product.seo?.opengraphTitle,
         opengraphDescription: product.seo?.opengraphDescription,
         opengraphImage: product.seo?.opengraphImage?.sourceUrl,

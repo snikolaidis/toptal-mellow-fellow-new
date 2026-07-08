@@ -82,7 +82,7 @@ export default function YouMayAlsoLike({ productId, productSlug, productPrice, t
       <h2 className={styles.title}>You may also like</h2>
       <div className="products-grid">
         {recs.map((r) => (
-          <ProductCard key={r.slug} product={toProduct(r)} />
+          <ProductCard key={r.slug} product={toProduct(r)} source="you_may_also_like" />
         ))}
       </div>
     </section>
