@@ -1,0 +1,24 @@
+.featured-collection__cta {
+  margin-top: 30px;
+  text-align: center;
+
+  a {
+    display: inline-block;
+    padding: 11px 25px;
+    background-color: #000000;
+    color: #ffffff;
+    border-radius: 50px;
+    font-family: var(--font-family-body);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.42;
+    letter-spacing: 0.8px;
+    text-decoration: none;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  a:hover {
+    background-color: transparent;
+    color: #000000;
+  }
+}

@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/blend-callout",
+	"title": "Blend Callout",
+	"description": "An editorial blend callout: blend art image, heading, description, and learn/shop links. Rendered on the frontend by the Faust.js app.",
+	"category": "headless-blocks",
+	"icon": "megaphone",
+	"keywords": [ "blend", "callout", "product" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\BlendCallout\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}
