@@ -17,8 +17,8 @@ import { collectWidgetSources } from '@/lib/widgetAttribution';
 import SavedCardSelector from '@/components/checkout/SavedCardSelector';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
-import { useQuery } from '@apollo/client';
-import { GET_CUSTOMER } from '@/graphql/queries/auth';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_CUSTOMER, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { validateBillingAddress, validateShippingAddress, isValid, ValidationErrors } from '@/lib/validation';
 import styles from '@/styles/pages/checkout.module.css';
 
@@ -85,6 +85,35 @@ export default function CheckoutPage() {
     client: client!,
     skip: !isAuthenticated || !client,
   });
+  const [updateCustomer] = useMutation(UPDATE_CUSTOMER, { client: client! });
+
+  // Persist an edited billing/shipping address back to the customer's saved
+  // profile — best-effort: failures here shouldn't block checkout.
+  const saveAddressToProfile = useCallback(
+    async (type: 'billing' | 'shipping', address: AddressData) => {
+      if (!isAuthenticated || !client) return;
+      const base = {
+        firstName: address.firstName,
+        lastName: address.lastName,
+        address1: address.address1,
+        address2: address.address2 || '',
+        city: address.city,
+        state: address.state,
+        postcode: address.postcode,
+        country: address.country,
+      };
+      const input =
+        type === 'billing'
+          ? { billing: { ...base, email: address.email || '', phone: address.phone || '' } }
+          : { shipping: base };
+      try {
+        await updateCustomer({ variables: { input } });
+      } catch {
+        // best-effort — don't block checkout on profile save failures
+      }
+    },
+    [isAuthenticated, client, updateCustomer]
+  );
 
   const cartItemIdsKey = (cart?.items || [])
     .map((i) => i.product?.databaseId)
@@ -334,7 +363,12 @@ export default function CheckoutPage() {
       if (saved.shipping) setShipping(saved.shipping);
       if (typeof saved.sameAsBilling === 'boolean') setSameAsBilling(saved.sameAsBilling);
       if (saved.step) setStep(saved.step);
-      setCustomerDataLoaded(true);
+      // Only skip the server pre-fill if we actually restored a real, filled-in
+      // address — the saved shape always has a `billing` object (even with all
+      // empty strings, from the initial state), so checking for the object alone
+      // would wrongly block the customer's saved address from ever loading on
+      // any return visit to checkout within the same tab session.
+      if (saved.billing?.address1) setCustomerDataLoaded(true);
     } catch {
       void 0;
     }
@@ -449,6 +483,7 @@ export default function CheckoutPage() {
         })) ?? [],
     });
 
+    saveAddressToProfile('billing', billing);
     setStep('shipping');
   };
 
@@ -460,6 +495,7 @@ export default function CheckoutPage() {
         setErrors(shippingErrors);
         return;
       }
+      saveAddressToProfile('shipping', shipping);
     }
     setErrors({});
     setError(null);

@@ -47,7 +47,7 @@ interface OrderSummaryProps {
 }
 
 export default function OrderSummary({ cart, subscription, subscriptionSlot }: OrderSummaryProps) {
-  const { applyCoupon, removeCoupon, error: cartError, bundleNames, removeBundleGroup } = useCart();
+  const { applyCoupon, removeCoupon, error: cartError, bundleNames } = useCart();
   const { bundles, standalone } = groupCartItems(cart.items as any[], bundleNames);
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
@@ -104,15 +104,6 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
                 <span className={styles.bundleGroupName}>
                   {group.bundleName}{group.quantity > 1 ? ` ×${group.quantity}` : ''}
                 </span>
-                <button
-                  className={styles.bundleRemoveBtn}
-                  onClick={() =>
-                    removeBundleGroup(allItems.map((i) => i.key))
-                  }
-                  aria-label={`Remove ${group.bundleName}`}
-                >
-                  Remove
-                </button>
               </div>
               {group.representativeItems
                 .reduce<{ item: typeof group.representativeItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
