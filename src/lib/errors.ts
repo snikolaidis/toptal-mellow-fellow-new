@@ -25,6 +25,7 @@ export enum ErrorCode {
   PAYMENT_INVALID_CARD = 'PAYMENT_INVALID_CARD',
   PAYMENT_EXPIRED_CARD = 'PAYMENT_EXPIRED_CARD',
   PAYMENT_PROCESSING_ERROR = 'PAYMENT_PROCESSING_ERROR',
+  PAYMENT_DUPLICATE_UNRESOLVED = 'PAYMENT_DUPLICATE_UNRESOLVED',
   PAYMENT_TOKENIZATION_FAILED = 'PAYMENT_TOKENIZATION_FAILED',
 
   // Order errors
@@ -147,6 +148,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.PAYMENT_INVALID_CARD]: 'Invalid card information. Please check your card details.',
   [ErrorCode.PAYMENT_EXPIRED_CARD]: 'Your card has expired. Please use a different card.',
   [ErrorCode.PAYMENT_PROCESSING_ERROR]: 'Payment processing failed. Please try again.',
+  [ErrorCode.PAYMENT_DUPLICATE_UNRESOLVED]: 'A duplicate payment was detected but the original could not be confirmed. Please do not retry and contact support.',
   [ErrorCode.PAYMENT_TOKENIZATION_FAILED]: 'Unable to process card. Please try again.',
 
   [ErrorCode.ORDER_CREATION_FAILED]: 'Failed to create your order. Please try again.',

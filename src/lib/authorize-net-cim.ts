@@ -54,6 +54,56 @@ async function callApi(payload: Record<string, any>): Promise<any> {
   return response.json();
 }
 
+export function stableRefId(idempotencyKey: string | undefined, fallbackSeed?: string): string {
+  const seed = idempotencyKey || fallbackSeed || `t_${Date.now()}_${Math.random()}`;
+  let h1 = 0x811c9dc5;
+  let h2 = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    const c = seed.charCodeAt(i);
+    h1 ^= c;
+    h1 = (h1 * 0x01000193) >>> 0;
+    h2 ^= (c + 0x9e);
+    h2 = (h2 * 0x01000193) >>> 0;
+  }
+  const hex = (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+  return `mf${hex}`.substring(0, 20);
+}
+
+export async function getTransactionByRefId(
+  refId: string
+): Promise<{ transId: string; responseCode: string } | null> {
+  try {
+    const result = await callApi({
+      getTransactionListRequest: {
+        merchantAuthentication: getMerchantAuth(),
+        refId,
+        sorting: { orderBy: 'submitTimeUTC', orderDescending: true },
+        paging: { limit: '10', offset: '1' },
+      },
+    });
+    if (result.messages?.resultCode !== 'Ok') {
+      console.error(`[CIM] getTransactionListRequest by refId ${refId} failed: ${result.messages?.message?.[0]?.text}`);
+      return null;
+    }
+    const txns = result.transactions?.transaction;
+    if (!txns) return null;
+    const list = Array.isArray(txns) ? txns : [txns];
+    const settledOk = list.find(
+      (t: any) =>
+        t.transactionStatus !== 'voided' &&
+        t.transactionStatus !== 'declined' &&
+        t.transactionStatus !== 'FDSPendingReview' &&
+        t.transactionStatus !== 'FDSAuthorizedPendingReview'
+    );
+    const chosen = settledOk || list[0];
+    if (!chosen?.transId) return null;
+    return { transId: String(chosen.transId), responseCode: '1' };
+  } catch (err) {
+    console.error(`[CIM] getTransactionByRefId error for ${refId}:`, err);
+    return null;
+  }
+}
+
 /**
  * Create a CIM customer profile from a completed transaction.
  * This reuses the card data already on file at Authorize.net — no raw
@@ -130,10 +180,11 @@ export async function chargeProfile(
   amount: string,
   refId?: string
 ): Promise<ChargeResult> {
+  const effectiveRefId = stableRefId(refId, `cim_${customerProfileId}_${amount}`);
   const result = await callApi({
     createTransactionRequest: {
       merchantAuthentication: getMerchantAuth(),
-      refId: (refId || `cim_${Date.now()}`).substring(0, 20),
+      refId: effectiveRefId,
       transactionRequest: {
         transactionType: 'authCaptureTransaction',
         amount,
@@ -143,14 +194,29 @@ export async function chargeProfile(
             paymentProfileId,
           },
         },
+        order: { invoiceNumber: effectiveRefId },
       },
     },
   });
 
+  const okDup =
+    result.transactionResponse?.errors?.[0]?.errorCode === '11' ||
+    result.messages?.message?.[0]?.code === 'E00027';
   if (
     result.messages?.resultCode !== 'Ok' ||
     result.transactionResponse?.responseCode !== '1'
   ) {
+    if (okDup) {
+      console.warn(`[CIM] E00027 duplicate on refId ${effectiveRefId}; reconciling against Authorize.net.`);
+      const prior = await getTransactionByRefId(effectiveRefId);
+      if (prior?.transId) {
+        console.warn(`[CIM] Reconciled duplicate to prior transaction ${prior.transId}; not re-charging.`);
+        return { transactionId: prior.transId, authCode: '' };
+      }
+      throw new Error(
+        'DUPLICATE_UNRESOLVED: a duplicate charge was detected but the original could not be found. Do not retry; contact support.'
+      );
+    }
     const errorMessage =
       result.transactionResponse?.errors?.[0]?.errorText ||
       result.messages?.message?.[0]?.text ||

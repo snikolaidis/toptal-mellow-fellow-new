@@ -28,6 +28,12 @@ export default function LoginPage() {
     }
   }, [isReady, isAuthenticated, router, redirectUrl]);
 
+  useEffect(() => {
+    if (data?.generateAuthorizationCode?.code) {
+      router.push(redirectUrl);
+    }
+  }, [data, router, redirectUrl]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -39,7 +45,7 @@ export default function LoginPage() {
 
     // Don't clear WC session on login - WooCommerce will restore the user's cart
     // This preserves cart items for returning users
-    login(usernameEmail, password, redirectUrl);
+    login(usernameEmail, password);
   };
 
   if (!isReady) {

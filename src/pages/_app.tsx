@@ -4,7 +4,7 @@ import '@/styles/globals.scss';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/autoplay';
-import { FaustProvider } from '@faustwp/core';
+import { FaustProvider, useAuth, getApolloAuthClient } from '@faustwp/core';
 import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';
 import { useEffect, useRef } from 'react';
@@ -15,6 +15,16 @@ import AgeVerification from '@/components/AgeVerification/AgeVerification';
 import LiveAgentChat from '@/components/LiveAgentChat';
 import { WordPressBlocksProvider, fromThemeJson } from "@faustwp/blocks";
 import blocks from "@/wp-blocks";
+
+function AuthWarmer() {
+  const { isReady, isAuthenticated } = useAuth();
+  useEffect(() => {
+    if (isReady && isAuthenticated) {
+      getApolloAuthClient();
+    }
+  }, [isReady, isAuthenticated]);
+  return null;
+}
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -39,6 +49,7 @@ export default function App({ Component, pageProps }: AppProps) {
 			>
         <CartProvider>
           <YotpoLoyaltyProvider>
+            <AuthWarmer />
             <AgeVerification />
             <LiveAgentChat />
             <Component {...pageProps} />

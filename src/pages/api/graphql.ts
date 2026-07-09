@@ -1,4 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { parse } from 'graphql';
+import type { ASTNode, SelectionSetNode } from 'graphql';
 import {
   makeHttpRequest,
   extractWcSessionToken,
@@ -7,6 +9,75 @@ import {
   WC_SESSION_HEADER,
 } from '@/lib/http';
 import { withRateLimitOnly } from '@/lib/middleware';
+
+const MAX_DEPTH = 10;
+const MAX_ALIASES = 50;
+const MAX_BATCH = 10;
+
+function selectionSetDepth(selectionSet: SelectionSetNode): number {
+  let deepest = 0;
+  for (const selection of selectionSet.selections) {
+    if ('selectionSet' in selection && selection.selectionSet) {
+      const childDepth = selectionSetDepth(selection.selectionSet);
+      if (childDepth > deepest) {
+        deepest = childDepth;
+      }
+    }
+  }
+  return deepest + 1;
+}
+
+function countAliases(node: ASTNode): number {
+  let count = 0;
+  if ('alias' in node && node.alias) {
+    count += 1;
+  }
+  if ('selectionSet' in node && node.selectionSet) {
+    for (const selection of node.selectionSet.selections) {
+      count += countAliases(selection);
+    }
+  }
+  if ('definitions' in node && Array.isArray(node.definitions)) {
+    for (const definition of node.definitions) {
+      count += countAliases(definition);
+    }
+  }
+  return count;
+}
+
+function exceedsComplexity(query: unknown): boolean {
+  if (typeof query !== 'string' || query.length === 0) {
+    return false;
+  }
+  const document = parse(query);
+  let aliases = 0;
+  for (const definition of document.definitions) {
+    if (definition.kind === 'OperationDefinition' || definition.kind === 'FragmentDefinition') {
+      if (selectionSetDepth(definition.selectionSet) > MAX_DEPTH) {
+        return true;
+      }
+    }
+    aliases += countAliases(definition);
+  }
+  return aliases > MAX_ALIASES;
+}
+
+function isAbusivePayload(body: unknown): boolean {
+  try {
+    if (Array.isArray(body)) {
+      if (body.length > MAX_BATCH) {
+        return true;
+      }
+      return body.some((entry) => exceedsComplexity(entry?.query));
+    }
+    if (body && typeof body === 'object') {
+      return exceedsComplexity((body as { query?: unknown }).query);
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * GraphQL Proxy API Route
@@ -21,6 +92,12 @@ async function handler(
 ) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  if (isAbusivePayload(req.body)) {
+    return res.status(400).json({
+      errors: [{ message: 'Query exceeds allowed complexity' }],
+    });
   }
 
   const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');

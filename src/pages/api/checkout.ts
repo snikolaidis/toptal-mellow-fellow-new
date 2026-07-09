@@ -36,6 +36,8 @@ import {
   createProfileFromTransaction,
   chargeProfile,
   getSavedCards,
+  stableRefId,
+  getTransactionByRefId,
 } from '@/lib/authorize-net-cim';
 
 // ============================================================================
@@ -707,12 +709,11 @@ async function processPayment(
   // Saved card: use CIM charge (no opaqueData needed)
   if (body.savedCard) {
     console.log('[Checkout] Charging saved card...');
-    const refId = (idempotencyKey || `cim_${Date.now()}`).substring(0, 20);
     const result = await chargeProfile(
       body.savedCard.customerProfileId,
       body.savedCard.paymentProfileId,
       amount.toFixed(2),
-      refId
+      idempotencyKey
     );
     return result;
   }
@@ -731,8 +732,7 @@ async function processPayment(
     unitPrice: parseFloat(item.price.replace(/[^0-9.]/g, '')).toFixed(2),
   }));
 
-  // Use idempotency key as refId to help with duplicate detection
-  const refId = idempotencyKey || `checkout_${Date.now()}`;
+  const refId = stableRefId(idempotencyKey, `checkout_${body.billing.email}_${amount.toFixed(2)}`);
 
   const payload = {
     createTransactionRequest: {
@@ -740,7 +740,7 @@ async function processPayment(
         name: apiLoginId,
         transactionKey: transactionKey,
       },
-      refId: refId.substring(0, 20), // Authorize.net limits refId to 20 chars
+      refId,
       transactionRequest: {
         transactionType: 'authCaptureTransaction',
         amount: amount.toFixed(2),
@@ -751,7 +751,7 @@ async function processPayment(
           },
         },
         order: {
-          invoiceNumber: refId.substring(0, 20),
+          invoiceNumber: refId,
           description: `Purchase from ${process.env.NEXT_PUBLIC_SITE_NAME || 'Store'}`,
         },
         lineItems: lineItems?.length ? { lineItem: lineItems } : undefined,
@@ -807,10 +807,27 @@ async function processPayment(
   const result = await response.json();
 
   // Check for success (responseCode 1 = Approved)
+  const isDuplicate =
+    result.transactionResponse?.errors?.[0]?.errorCode === '11' ||
+    result.messages?.message?.[0]?.code === 'E00027';
   if (
     result.messages?.resultCode !== 'Ok' ||
     result.transactionResponse?.responseCode !== '1'
   ) {
+    if (isDuplicate) {
+      console.warn(`[Checkout] E00027 duplicate on refId ${refId}; reconciling instead of re-charging.`);
+      const prior = await getTransactionByRefId(refId);
+      if (prior?.transId) {
+        console.warn(`[Checkout] Reconciled duplicate to prior transaction ${prior.transId}.`);
+        return { transactionId: prior.transId, authCode: '' };
+      }
+      throw new CheckoutError(
+        'A duplicate payment was detected but the original could not be confirmed. Do not retry; please contact support.',
+        ErrorCode.PAYMENT_DUPLICATE_UNRESOLVED,
+        { refId }
+      );
+    }
+
     const errorMessage =
       result.transactionResponse?.errors?.[0]?.errorText ||
       result.messages?.message?.[0]?.text ||
