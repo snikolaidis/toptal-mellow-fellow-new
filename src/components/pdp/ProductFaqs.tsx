@@ -19,7 +19,7 @@ interface Props {
 const PACKAGING_COPY =
   'Please note that the packaging of your ordered items may vary. Occasionally, there are updates between prints.\n\nThese modifications could be influenced by regulation changes, aesthetic enhancements, or adjustments aimed at enhancing your overall user experience.\n\nWe promise that the quality experience you expect at purchase is in the final product you receive. Please reach out if you have any questions or concerns.';
 
-const ASK_COPY = 'We are always happy to answer any questions. <a href="/contact">Contact Us</a>';
+const ASK_COPY = 'We are always happy to answer any questions. <a href="/pages/contact-us">Contact Us</a>';
 
 export default function ProductFaqs({ details, noidName }: Props) {
   if (!details) return null;
