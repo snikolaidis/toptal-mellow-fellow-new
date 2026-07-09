@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useQuery, useMutation } from '@apollo/client';
 import AccountGuard from '@/components/account/AccountGuard';
-import { GET_CUSTOMER, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
+import { GET_CUSTOMER_BILLING, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { COUNTRIES, getStatesForCountry } from '@/constants/geography';
 
 interface AddressState {
@@ -187,7 +187,7 @@ function AddressFieldset({
 
 function AddressesContent() {
   const client = getApolloAuthClient();
-  const { data, loading } = useQuery(GET_CUSTOMER, { client });
+  const { data, loading } = useQuery(GET_CUSTOMER_BILLING, { client });
   const [updateCustomer, { loading: saving }] = useMutation(UPDATE_CUSTOMER, { client });
 
   const [billing, setBilling] = useState<AddressState>(EMPTY);

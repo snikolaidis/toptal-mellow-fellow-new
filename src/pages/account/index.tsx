@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getApolloAuthClient, useLogout } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
 import AccountGuard from '@/components/account/AccountGuard';
-import { GET_CUSTOMER } from '@/graphql/queries/auth';
+import { GET_CUSTOMER_ORDERS } from '@/graphql/queries/auth';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
@@ -35,7 +35,7 @@ function statusModifier(status: string): string {
 function AccountDashboard() {
   const client = getApolloAuthClient();
   const { logout } = useLogout();
-  const { data, loading, error } = useQuery(GET_CUSTOMER, { client, fetchPolicy: 'cache-and-network' });
+  const { data, loading, error } = useQuery(GET_CUSTOMER_ORDERS, { client, fetchPolicy: 'cache-and-network' });
   const { ready, token } = useYotpoLoyalty();
 
   const myRewards = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_MY_REWARDS_INSTANCE;

@@ -18,7 +18,7 @@ import SavedCardSelector from '@/components/checkout/SavedCardSelector';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_CUSTOMER, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
+import { GET_CUSTOMER_BILLING, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { validateBillingAddress, validateShippingAddress, isValid, ValidationErrors } from '@/lib/validation';
 import styles from '@/styles/pages/checkout.module.css';
 
@@ -81,7 +81,7 @@ export default function CheckoutPage() {
 
   // Fetch customer data for logged-in users
   const client = isAuthenticated ? getApolloAuthClient() : null;
-  const { data: customerData } = useQuery(GET_CUSTOMER, {
+  const { data: customerData } = useQuery(GET_CUSTOMER_BILLING, {
     client: client!,
     skip: !isAuthenticated || !client,
   });

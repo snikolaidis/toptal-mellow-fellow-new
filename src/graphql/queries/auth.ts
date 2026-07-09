@@ -147,6 +147,74 @@ export const GET_CUSTOMER = gql`
   }
 `;
 
+export const GET_CUSTOMER_BILLING = gql`
+  query GetCustomerBilling {
+    customer {
+      id
+      databaseId
+      email
+      firstName
+      lastName
+      displayName
+      billing {
+        firstName
+        lastName
+        company
+        email
+        phone
+        address1
+        address2
+        city
+        state
+        postcode
+        country
+      }
+      shipping {
+        firstName
+        lastName
+        company
+        address1
+        address2
+        city
+        state
+        postcode
+        country
+      }
+    }
+  }
+`;
+
+export const GET_CUSTOMER_ORDERS = gql`
+  query GetCustomerOrders {
+    customer {
+      id
+      databaseId
+      email
+      firstName
+      lastName
+      displayName
+      billing {
+        address1
+        country
+      }
+      shipping {
+        address1
+        country
+      }
+      orders(first: 10) {
+        nodes {
+          id
+          databaseId
+          orderNumber
+          date
+          status
+          total
+        }
+      }
+    }
+  }
+`;
+
 // Register a new customer (WooGraphQL mutation)
 export const REGISTER_CUSTOMER = gql`
   mutation RegisterCustomer($input: RegisterCustomerInput!) {
