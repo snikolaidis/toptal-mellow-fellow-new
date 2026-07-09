@@ -7,7 +7,7 @@
   right: 0;
   background: white;
   border-top: 1px solid #e0e0e0;
-  z-index: 50;
+  z-index: 10001;
   box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
@@ -121,11 +121,11 @@
   position: absolute;
   top: -0.375rem;
   right: -0.375rem;
-  min-width: 1.125rem;
-  height: 1.125rem;
-  background: #666666;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  background: #232323;
   color: white;
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -205,4 +205,110 @@
 .rowTotal dd {
   font-size: 1.125rem;
   font-weight: 600;
+}
+
+.couponSection {
+  padding: 1rem 0;
+  border-top: 1px solid #e0e0e0;
+}
+
+.couponForm {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.couponForm input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e0e0e0;
+  background: white;
+  font-size: 0.875rem;
+  color: #000000;
+  transition: border-color 0.15s;
+}
+
+.couponForm input:focus {
+  outline: none;
+  border-color: #000000;
+}
+
+.couponForm input.error {
+  border-color: #b91c1c;
+  background-color: #fef2f2;
+}
+
+.couponForm input::placeholder {
+  color: #999999;
+}
+
+.couponApplyBtn {
+  padding: 0.75rem 1.25rem;
+  background: #232323;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.couponApplyBtn:hover:not(:disabled) {
+  background: #000000;
+}
+
+.couponApplyBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.couponError {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #b91c1c;
+}
+
+.appliedCoupons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.appliedCoupon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: #e8e8e3;
+  border-radius: 0.25rem;
+}
+
+.couponCode {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #000000;
+  text-transform: uppercase;
+}
+
+.couponRemoveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.couponRemoveBtn:hover {
+  opacity: 1;
+}
+
+.couponRemoveBtn svg {
+  width: 0.75rem;
+  height: 0.75rem;
 }

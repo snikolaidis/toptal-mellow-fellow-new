@@ -53,7 +53,7 @@ type CheckoutStep = 'billing' | 'shipping' | 'payment';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, clearCart } = useCart();
+  const { cart, clearCart, isLoading: cartLoading } = useCart();
   const { isAuthenticated } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [realIdVerified, setRealIdVerified] = useState(!REALID_ENABLED);
@@ -645,6 +645,19 @@ export default function CheckoutPage() {
       setIsProcessing(false);
     }
   };
+
+  if (cartLoading && (!cart || cart.items.length === 0)) {
+    return (
+      <Layout title="Checkout">
+        <div className={styles.page}>
+          <h1 className={styles.pageTitle}>Checkout</h1>
+          <div className={styles.emptyCart}>
+            <p>Loading your cart...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!cart || cart.items.length === 0) {
     return (
