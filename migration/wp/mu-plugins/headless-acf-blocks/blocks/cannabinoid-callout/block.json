@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/cannabinoid-callout",
+	"title": "Cannabinoid Callout",
+	"description": "An editorial cannabinoid callout: cannabinoid icon, name, description, and learn/shop links. Rendered on the frontend by the Faust.js app.",
+	"category": "headless-blocks",
+	"icon": "megaphone",
+	"keywords": [ "cannabinoid", "callout", "product" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\CannabinoidCallout\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

@@ -12,6 +12,7 @@ import ResponsiveImage from './ResponsiveImage';
 import ImageCarousel from './ImageCarousel';
 import FeaturedCollection from './FeaturedCollection';
 import BlendCallout from './BlendCallout';
+import CannabinoidCallout from './CannabinoidCallout';
 
 export default {
   ...CoreBlocks,
@@ -43,5 +44,6 @@ export default {
   // Ready, but inert until the `acf/featured-collection` block is deployed to WP.
   AcfFeaturedCollection: FeaturedCollection,
   // Ready, but inert until the `acf/blend-callout` block is deployed to WP.
-  AcfBlendCallout: BlendCallout
+  AcfBlendCallout: BlendCallout,
+  AcfCannabinoidCallout: CannabinoidCallout
 };
