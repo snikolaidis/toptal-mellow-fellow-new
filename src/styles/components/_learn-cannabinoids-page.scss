@@ -21,6 +21,46 @@
     text-align: center;
   }
 
+  .learn-cannabinoids-page__nav {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 17px 40px;
+  }
+
+  .learn-cannabinoids-page__nav-heading {
+    margin: 0 0 22px;
+    font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+    font-weight: 700;
+    font-size: 23.94px;
+    line-height: 1.2;
+    color: #434345;
+    text-align: left;
+  }
+
+  .learn-cannabinoids-page__nav-list {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 15px;
+    margin: 0;
+    padding: 0 0 15px;
+    list-style: none;
+    overflow-x: auto;
+  }
+
+  .learn-cannabinoids-page__nav-list li {
+    flex: 0 0 auto;
+  }
+
+  .learn-cannabinoids-page__nav-list a {
+    display: block;
+  }
+
+  .learn-cannabinoids-page__nav-list img {
+    display: block;
+    height: 140px;
+    width: auto;
+  }
+
   @media only screen and (min-width: 769px) {
     .learn-cannabinoids-page__intro {
       height: 320px;
@@ -29,6 +69,14 @@
 
     .learn-cannabinoids-page__heading {
       max-width: 620px;
+      font-size: 32.3px;
+    }
+
+    .learn-cannabinoids-page__nav {
+      padding: 0 40px 40px;
+    }
+
+    .learn-cannabinoids-page__nav-heading {
       font-size: 32.3px;
     }
   }
