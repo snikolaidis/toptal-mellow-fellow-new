@@ -20,3 +20,4 @@ define( 'HEADLESS_ACF_BLOCKS_DIR', __DIR__ . '/headless-acf-blocks' );
 define( 'HEADLESS_ACF_BLOCKS_URL', content_url( '/mu-plugins/headless-acf-blocks' ) );
 
 require_once HEADLESS_ACF_BLOCKS_DIR . '/inc/block-loader.php';
+require_once HEADLESS_ACF_BLOCKS_DIR . '/inc/graphql-types.php';
