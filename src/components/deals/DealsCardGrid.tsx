@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import RichText from '@/components/RichText';
 import styles from '@/styles/pages/deals-card-grid.module.css';
 
 export interface DealCard {
@@ -48,10 +49,7 @@ export default function DealsCardGrid({ cards }: DealsCardGridProps) {
               <div className={styles.body}>
                 {card.heading && <h3 className={styles.heading}>{card.heading}</h3>}
                 {card.body ? (
-                  <div
-                    className={styles.bodyContent}
-                    dangerouslySetInnerHTML={{ __html: card.body }}
-                  />
+                  <RichText html={card.body} className={styles.bodyContent} />
                 ) : (
                   <>
                     {card.description && (
