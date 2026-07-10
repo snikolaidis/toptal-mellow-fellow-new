@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/collection-cards-set",
+	"title": "Collection Cards Set",
+	"description": "A responsive grid of collection cards, each with a mobile/desktop image, a link, and preface/title/price overlay text. Optionally scheduled to show only within a start/end date window.",
+	"category": "headless-blocks",
+	"icon": "grid-view",
+	"keywords": [ "collection", "cards", "grid", "schedule" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\CollectionCardsSet\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

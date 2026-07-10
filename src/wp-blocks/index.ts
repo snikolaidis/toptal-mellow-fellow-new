@@ -14,6 +14,7 @@ import FeaturedCollection from './FeaturedCollection';
 import BlendCallout from './BlendCallout';
 import CannabinoidCallout from './CannabinoidCallout';
 import ValuePropsSet from './ValuePropsSet';
+import CollectionCardsSet from './CollectionCardsSet';
 
 export default {
   ...CoreBlocks,
@@ -50,5 +51,8 @@ export default {
   // Ready, but inert until the `acf/value-props-set` block is deployed to WP.
   // Content is global (Site Settings → Value Props), fetched by the component
   // itself — the block is just a placement marker.
-  AcfValuePropsSet: ValuePropsSet
+  AcfValuePropsSet: ValuePropsSet,
+  // Ready, but inert until the `acf/collection-cards-set` block is deployed to
+  // WP. Content is per-block (each placement has its own cards).
+  AcfCollectionCardsSet: CollectionCardsSet
 };

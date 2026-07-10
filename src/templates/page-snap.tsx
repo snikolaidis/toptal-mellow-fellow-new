@@ -31,6 +31,12 @@ const SnapPage: FaustTemplate<SnapPageData> = (props) => {
   );
 };
 
+// NOTE: AcfCollectionCardsSet's fragment is intentionally NOT spread here yet.
+// Its mu-plugin (block.json + acf-json field group) hasn't been deployed to
+// WP, so the type doesn't exist in the live schema — GraphQL rejects the
+// entire query document if it references an unknown type, which would also
+// break the already-working AcfValuePropsSet section above. Add it once the
+// block is confirmed live (see wp-schema-deploy-asymmetry project memory).
 SnapPage.query = gql`
   ${blocks.AcfValuePropsSet.fragments.entry}
   query GetSnapPage($id: ID!) {

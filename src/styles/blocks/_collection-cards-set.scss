@@ -1,0 +1,90 @@
+// Migrated from the Shopify theme's `collection-cards-set` section +
+// `_collection-card` block styles (mf-shopify-theme src/scss/main.scss).
+// Rendered by the AcfCollectionCardsSet block
+// (src/wp-blocks/CollectionCardsSet.tsx). Classes are scoped under
+// `collection-cards-set__card*` (not the bare `.collection-card*` Shopify
+// used) to avoid colliding with the unrelated, unused
+// src/styles/components/_collection-card.scss.
+
+.collection-cards-set {
+  margin: 1rem 0;
+}
+
+@media (min-width: 769px) {
+  .collection-cards-set {
+    margin: 2rem 0;
+  }
+}
+
+.collection-cards-set__track {
+  display: grid;
+  grid-template-columns: repeat(var(--num-per-row-mobile), minmax(0, 1fr));
+  gap: 2.6vw;
+}
+
+@media (min-width: 1024px) {
+  .collection-cards-set__track {
+    grid-template-columns: repeat(var(--num-per-row-desktop), minmax(0, 1fr));
+    gap: 26px;
+  }
+}
+
+.collection-cards-set__card {
+  border-radius: 15px;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.2s ease-out;
+
+  img {
+    width: 100%;
+  }
+}
+
+.collection-cards-set__card__content {
+  position: absolute;
+  top: 15px;
+  left: 25px;
+  display: flex;
+  flex-direction: column;
+}
+
+.collection-cards-set__card__title {
+  font-family: "MrEavesSanOT";
+  font-size: 15px;
+  line-height: 17px;
+  margin: 0;
+}
+
+.collection-cards-set__card__preface {
+  font-family: "MrEavesXLSanNarOT";
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 27px;
+  margin: 0;
+}
+
+.collection-cards-set__card__price {
+  font-family: "MrEavesSanOT";
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 16px;
+}
+
+@media (min-width: 769px) {
+  .collection-cards-set__card__content {
+    top: 25px;
+  }
+
+  .collection-cards-set__card__title {
+    font-size: 16px;
+  }
+
+  .collection-cards-set__card__preface {
+    font-size: 24px;
+  }
+
+  .collection-cards-set__card__price {
+    font-size: 15px;
+    line-height: 17px;
+  }
+}

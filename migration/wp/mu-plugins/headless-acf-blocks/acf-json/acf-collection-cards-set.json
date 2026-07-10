@@ -1,0 +1,186 @@
+{
+    "key": "group_collection_cards_set",
+    "title": "Collection Cards Set Fields",
+    "fields": [
+        {
+            "key": "field_ccs_max_per_row",
+            "label": "Max cards per row",
+            "name": "max_per_row",
+            "type": "number",
+            "instructions": "Affects desktop only.",
+            "default_value": 4,
+            "required": 0,
+            "wrapper": { "width": "50" }
+        },
+        {
+            "key": "field_ccs_stack_on_mobile",
+            "label": "Stack cards on mobile",
+            "name": "stack_on_mobile",
+            "type": "true_false",
+            "default_value": 0,
+            "ui": 1,
+            "required": 0,
+            "wrapper": { "width": "50" }
+        },
+        {
+            "key": "field_ccs_schedule_tab",
+            "label": "Schedule",
+            "name": "schedule_tab",
+            "type": "tab",
+            "placement": "top"
+        },
+        {
+            "key": "field_ccs_is_scheduled",
+            "label": "Schedule this section",
+            "name": "is_scheduled",
+            "type": "true_false",
+            "instructions": "Show this section only between the start and end date/time below. Leave either blank for an open-ended start or end.",
+            "default_value": 0,
+            "ui": 1,
+            "required": 0
+        },
+        {
+            "key": "field_ccs_start_date_time",
+            "label": "Start",
+            "name": "start_date_time",
+            "type": "date_time_picker",
+            "display_format": "F j, Y g:i a",
+            "return_format": "Y-m-d H:i:s",
+            "first_day": 1,
+            "required": 0,
+            "conditional_logic": [
+                [
+                    {
+                        "field": "field_ccs_is_scheduled",
+                        "operator": "==",
+                        "value": "1"
+                    }
+                ]
+            ],
+            "wrapper": { "width": "50" }
+        },
+        {
+            "key": "field_ccs_end_date_time",
+            "label": "End",
+            "name": "end_date_time",
+            "type": "date_time_picker",
+            "display_format": "F j, Y g:i a",
+            "return_format": "Y-m-d H:i:s",
+            "first_day": 1,
+            "required": 0,
+            "conditional_logic": [
+                [
+                    {
+                        "field": "field_ccs_is_scheduled",
+                        "operator": "==",
+                        "value": "1"
+                    }
+                ]
+            ],
+            "wrapper": { "width": "50" }
+        },
+        {
+            "key": "field_ccs_cards_tab",
+            "label": "Cards",
+            "name": "cards_tab",
+            "type": "tab",
+            "placement": "top"
+        },
+        {
+            "key": "field_ccs_cards",
+            "label": "Cards",
+            "name": "cards",
+            "type": "repeater",
+            "instructions": "Add a card per collection/product. Drag rows to set the display order.",
+            "layout": "block",
+            "button_label": "Add Card",
+            "min": 0,
+            "sub_fields": [
+                {
+                    "key": "field_ccs_card_mobile_image",
+                    "label": "Mobile image",
+                    "name": "mobile_image",
+                    "type": "image",
+                    "instructions": "Optional. Falls back to the desktop image below when left blank.",
+                    "return_format": "array",
+                    "preview_size": "medium",
+                    "required": 0,
+                    "wrapper": { "width": "50" }
+                },
+                {
+                    "key": "field_ccs_card_image",
+                    "label": "Desktop image",
+                    "name": "image",
+                    "type": "image",
+                    "return_format": "array",
+                    "preview_size": "medium",
+                    "required": 1,
+                    "wrapper": { "width": "50" }
+                },
+                {
+                    "key": "field_ccs_card_link",
+                    "label": "Link",
+                    "name": "link",
+                    "type": "link",
+                    "required": 0,
+                    "wrapper": { "width": "100" }
+                },
+                {
+                    "key": "field_ccs_card_preface",
+                    "label": "Preface",
+                    "name": "preface",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "33" }
+                },
+                {
+                    "key": "field_ccs_card_title",
+                    "label": "Title",
+                    "name": "title",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "33" }
+                },
+                {
+                    "key": "field_ccs_card_price",
+                    "label": "Price",
+                    "name": "price",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "34" }
+                },
+                {
+                    "key": "field_ccs_card_content_color",
+                    "label": "Content color",
+                    "name": "content_color",
+                    "type": "color_picker",
+                    "default_value": "#ffffff",
+                    "required": 0,
+                    "wrapper": { "width": "100" }
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/collection-cards-set"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "collectionCardsSet",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfCollectionCardsSet"
+    ]
+}
