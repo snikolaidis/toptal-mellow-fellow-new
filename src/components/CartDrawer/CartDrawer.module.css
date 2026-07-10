@@ -72,7 +72,7 @@
 /* Free shipping banner */
 .shippingBanner {
   padding: 0.625rem 1.25rem;
-  background-color: #354654;
+  background-color: #424243;
   color: #ffffff;
   text-align: center;
   font-size: 0.75rem;
@@ -423,6 +423,7 @@
 .recommendations {
   padding: 1.25rem;
   border-top: 1px solid #e0e0e0;
+  background-color: var(--color-surface-secondary);
 }
 
 .recsTitle {
@@ -445,7 +446,7 @@
   padding: 0.75rem;
   border: 1px solid #f0f0f0;
   border-radius: 8px;
-  background-color: #fafafa;
+  background-color: transparent;
 }
 
 .recImageLink {
@@ -472,6 +473,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  background-color: var(--color-surface-primary);
 }
 
 .recName {
@@ -580,7 +582,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.875rem;
-  background-color: #354654;
+  background-color: var(--color-text-primary);
   color: #ffffff;
   font-weight: 600;
   font-size: 0.875rem;
@@ -594,7 +596,7 @@
 }
 
 .checkoutBtn:hover {
-  background-color: #2a3a47;
+  background-color: #000000;
   color: #ffffff;
 }
 

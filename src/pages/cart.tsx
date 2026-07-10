@@ -174,8 +174,7 @@ export default function CartPage() {
                         <button
                           className={styles.quantityBtn}
                           onClick={() => updateQuantity(item.key, item.quantity - 1)}
-                          disabled={item.quantity <= 1}
-                          aria-label="Decrease quantity"
+                          aria-label={item.quantity <= 1 ? 'Remove item' : 'Decrease quantity'}
                         >
                           −
                         </button>

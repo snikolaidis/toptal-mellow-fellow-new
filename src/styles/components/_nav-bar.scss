@@ -74,7 +74,9 @@ background-image:linear-gradient(180deg,#dbcaa9 -10%,#f0e6d0 50%,#dbcaa9 100%);
   // remove the background-color on hover
   a.navbar-item:hover,
   .navbar-link:hover {
-    --bulma-navbar-item-background-l-delta: none;
+    --bulma-navbar-item-background-l-delta: 0%;
+    background-color: transparent;
+    color: var(--color-brand-primary);
   }
 
   // Reserve the border space up front so hover doesn't shift layout —
@@ -105,6 +107,44 @@ background-image:linear-gradient(180deg,#dbcaa9 -10%,#f0e6d0 50%,#dbcaa9 100%);
       &:hover {
         text-decoration: underline;
       }
+    }
+  }
+
+  .nav-caret {
+    display: none;
+  }
+
+  @include mixins.touch {
+    .navbar-menu .navbar-item.has-dropdown {
+      display: block;
+
+      .navbar-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        &::after {
+          display: none;
+        }
+      }
+
+      .navbar-dropdown {
+        display: none;
+      }
+
+      &.is-open .navbar-dropdown {
+        display: block;
+      }
+    }
+
+    .navbar-menu .nav-caret {
+      display: inline-flex;
+      align-items: center;
+      transition: transform 0.25s ease;
+    }
+
+    .navbar-menu .navbar-item.has-dropdown.is-open .navbar-link .nav-caret {
+      transform: rotate(180deg);
     }
   }
 
