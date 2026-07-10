@@ -13,6 +13,7 @@ import ImageCarousel from './ImageCarousel';
 import FeaturedCollection from './FeaturedCollection';
 import BlendCallout from './BlendCallout';
 import CannabinoidCallout from './CannabinoidCallout';
+import ValuePropsSet from './ValuePropsSet';
 
 export default {
   ...CoreBlocks,
@@ -45,5 +46,9 @@ export default {
   AcfFeaturedCollection: FeaturedCollection,
   // Ready, but inert until the `acf/blend-callout` block is deployed to WP.
   AcfBlendCallout: BlendCallout,
-  AcfCannabinoidCallout: CannabinoidCallout
+  AcfCannabinoidCallout: CannabinoidCallout,
+  // Ready, but inert until the `acf/value-props-set` block is deployed to WP.
+  // Content is global (Site Settings → Value Props), fetched by the component
+  // itself — the block is just a placement marker.
+  AcfValuePropsSet: ValuePropsSet
 };

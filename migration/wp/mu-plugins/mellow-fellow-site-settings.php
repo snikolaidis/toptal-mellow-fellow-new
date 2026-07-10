@@ -12,6 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 add_action( 'acf/init', 'mf_register_site_settings_options_page' );
 add_action( 'acf/init', 'mf_register_site_settings_fields' );
 add_action( 'acf/init', 'mf_register_landing_page_icon_row_fields' );
+add_action( 'acf/init', 'mf_register_value_props_fields' );
 
 function mf_register_site_settings_options_page() {
     if ( ! function_exists( 'acf_add_options_page' ) ) {
@@ -90,6 +91,75 @@ function mf_register_site_settings_fields() {
         'active'             => true,
         'show_in_graphql'    => 1,
         'graphql_field_name' => 'socialLinks',
+    ] );
+}
+
+function mf_register_value_props_fields() {
+    if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+        return;
+    }
+
+    acf_add_local_field_group( [
+        'key'    => 'group_mf_value_props',
+        'title'  => 'Value Props',
+        'fields' => [
+            [
+                'key'          => 'field_mf_vp_items',
+                'label'        => 'Value Props',
+                'name'         => 'value_props',
+                'type'         => 'repeater',
+                'instructions' => 'Global value props (icon + short title), migrated from the Shopify "Set of value props" section. Rendered wherever the "Value Props Set" block is placed. Drag rows to set the display order.',
+                'layout'       => 'block',
+                'button_label' => 'Add Value Prop',
+                'min'          => 0,
+                'sub_fields'   => [
+                    [
+                        'key'           => 'field_mf_vp_image',
+                        'label'         => 'Image',
+                        'name'          => 'image',
+                        'type'          => 'image',
+                        'return_format' => 'array',
+                        'preview_size'  => 'thumbnail',
+                        'required'      => 1,
+                        'wrapper'       => [ 'width' => '30' ],
+                    ],
+                    [
+                        'key'      => 'field_mf_vp_title',
+                        'label'    => 'Title',
+                        'name'     => 'title',
+                        'type'     => 'text',
+                        'required' => 1,
+                        'wrapper'  => [ 'width' => '30' ],
+                    ],
+                    [
+                        'key'           => 'field_mf_vp_width_mobile',
+                        'label'         => 'Image width — mobile',
+                        'name'          => 'width_mobile',
+                        'type'          => 'number',
+                        'default_value' => 20,
+                        'append'        => 'px',
+                        'wrapper'       => [ 'width' => '20' ],
+                    ],
+                    [
+                        'key'           => 'field_mf_vp_width_desktop',
+                        'label'         => 'Image width — desktop',
+                        'name'          => 'width_desktop',
+                        'type'          => 'number',
+                        'default_value' => 25,
+                        'append'        => 'px',
+                        'wrapper'       => [ 'width' => '20' ],
+                    ],
+                ],
+            ],
+        ],
+        'location' => [ [ [
+            'param'    => 'options_page',
+            'operator' => '==',
+            'value'    => 'mf-site-settings',
+        ] ] ],
+        'active'             => true,
+        'show_in_graphql'    => 1,
+        'graphql_field_name' => 'valuePropsSet',
     ] );
 }
 

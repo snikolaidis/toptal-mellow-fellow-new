@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/value-props-set",
+	"title": "Value Props Set",
+	"description": "A centered row of global value props (icon + title). Content is managed once under Site Settings → Value Props — this block just marks where the row appears.",
+	"category": "headless-blocks",
+	"icon": "star-filled",
+	"keywords": [ "value", "props", "usp", "icons", "row" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\ValuePropsSet\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}
