@@ -89,7 +89,7 @@ export default function Navbar() {
               <span className="is-sr-only">
                 Mellow Fellow
               </span>
-              <Link className="navbar-item" href="/">
+              <Link className="" href="/">
                 <MellowFellowLogo />
               </Link>
             </h1>

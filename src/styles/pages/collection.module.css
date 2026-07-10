@@ -19,7 +19,7 @@
   position: relative;
   left: 50%;
   width: 100vw;
-  max-width: 1440px;
+  /* max-width: 1440px; */
   transform: translateX(-50%);
   margin-top: 0;
   margin-bottom: 2rem;
