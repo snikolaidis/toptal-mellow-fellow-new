@@ -17,10 +17,12 @@ import BonusPointsProducts from './page-bonus-points-products';
 import PageLearnAboutOurBlends from './page-learn-about-our-blends';
 import PageLearnAboutCannabinoids from './page-learn-about-cannabinoids-1';
 import LandingPage from './template-landing-page';
+import SnapPage from './page-snap';
 
 const templates = {
   'front-page': FrontPage,
   'page': Page,
+  'page-snap': SnapPage,
   'page-mellow-day-2026': MellowDay2026,
   'page-rewards': Rewards,
   'page-affiliate': Affiliate,
