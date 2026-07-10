@@ -1,23 +1,27 @@
 .wrap {
-  padding: 0.75rem 1.25rem 1.5rem;
+  padding: 1rem 1.25rem 1.35rem;
+  background: #FAFAFA;
 }
 
 .text {
-  margin: 0 0 0.9rem;
-  font-size: 0.85rem;
+  margin: 0 0 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   text-align: center;
   color: var(--color-text-primary);
 }
 
 .text strong {
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--color-brand-accent);
 }
 
 .track {
   position: relative;
-  height: 6px;
+  height: 10px;
   border-radius: 999px;
-  background: var(--color-surface-muted);
+  background: var(--color-surface-primary);
+  box-shadow: inset 0 0 0 1px var(--color-border-default);
 }
 
 .fill {
@@ -26,8 +30,42 @@
   left: 0;
   height: 100%;
   border-radius: 999px;
-  background: var(--color-brand-primary);
-  transition: width 0.35s ease;
+  background: var(--color-text-primary);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+
+.fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 2.8s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  55%,
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+  .fill::after {
+    animation: none;
+  }
 }
 
 .milestone {
@@ -40,34 +78,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   background: var(--color-surface-primary);
   border: 2px solid var(--color-border-default);
-  color: var(--color-text-inverse);
+  color: var(--color-brand-primary);
 }
 
 .dotReached {
-  background: var(--color-brand-primary);
-  border-color: var(--color-brand-primary);
-}
-
-.labels {
-  position: relative;
-  height: 1rem;
-  margin-top: 0.5rem;
-}
-
-.label {
-  position: absolute;
-  transform: translateX(-50%);
-  font-size: 0.68rem;
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--color-text-secondary);
-}
-
-.labelReached {
-  color: var(--color-brand-primary);
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: var(--color-text-inverse);
 }
