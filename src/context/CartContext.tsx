@@ -319,8 +319,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Initial cart load
   useEffect(() => {
+    if (!isReady) return;
     fetchCart();
-  }, [fetchCart]);
+  }, [isReady, fetchCart]);
 
   // Handle auth state changes - reload cart for new user
   useEffect(() => {
