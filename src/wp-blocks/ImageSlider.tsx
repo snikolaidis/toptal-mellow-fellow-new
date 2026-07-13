@@ -1,11 +1,12 @@
 import { gql } from '@apollo/client';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import 'swiper/css';
 
 /**
  * Backend-managed image slider (ACF block `acf/image-slider`). Migrated from
- * the Shopify `image-slider` section, minus Flickity: this is a pure CSS
- * horizontal scroller (no snap, no arrows, no dots) — see
- * src/styles/blocks/_image-slider.scss. Each slide is an image card with
- * overlay text in a per-slide color and an optional link.
+ * the Shopify `image-slider` section — draggable/loopable via Swiper (no
+ * arrows, no dots) — see src/styles/blocks/_image-slider.scss. Each slide is
+ * an image card with overlay text in a per-slide color and an optional link.
  */
 
 interface MediaItem {
@@ -90,11 +91,24 @@ export default function ImageSlider(props: ImageSliderProps) {
         </div>
       )}
 
-      <div className="image-slider__track">
+      <Swiper
+        className="image-slider__track"
+        slidesPerView={1.33}
+        spaceBetween={20}
+        loop
+        grabCursor
+        breakpoints={{
+          600: { slidesPerView: 2 },
+          900: { slidesPerView: 2.5 },
+          1200: { slidesPerView: 3.33 },
+        }}
+      >
         {slides.map((slide, i) => (
-          <SlideCard key={i} slide={slide} />
+          <SwiperSlide key={i}>
+            <SlideCard slide={slide} />
+          </SwiperSlide>
         ))}
-      </div>
+      </Swiper>
     </section>
   );
 }
