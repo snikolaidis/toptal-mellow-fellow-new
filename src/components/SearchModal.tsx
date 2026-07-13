@@ -43,6 +43,7 @@ function buildSuggestions(productNames: string[], collectionNames: string[], que
 
   const push = (base: string) => {
     if (base.length < 3 || !qFirst || !base.includes(qFirst)) return;
+    if (base.split(' ').filter(Boolean).length > 4) return;
     if (!seen.has(base)) {
       seen.add(base);
       out.push(base);
@@ -63,7 +64,17 @@ function buildSuggestions(productNames: string[], collectionNames: string[], que
 
   for (const raw of collectionNames) {
     if (out.length >= max) break;
-    const base = raw.toLowerCase().replace(/[^a-z0-9\s&]/g, ' ').replace(/\s+/g, ' ').trim();
+    const words = raw.toLowerCase().replace(/[^a-z0-9\s&]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    const idx = words.findIndex((w) => w.includes(qFirst));
+    let base: string;
+    if (words.length <= 3) {
+      base = words.join(' ');
+    } else if (idx !== -1) {
+      const start = idx === words.length - 1 ? Math.max(0, idx - 1) : idx;
+      base = words.slice(start, start + 2).join(' ');
+    } else {
+      base = words.slice(0, 3).join(' ');
+    }
     push(base);
   }
 

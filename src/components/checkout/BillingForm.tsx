@@ -1,6 +1,7 @@
 import { AddressData } from '@/types/checkout';
-import { COUNTRIES, getStatesForCountry } from '@/constants/geography';
+import { COUNTRIES, getStatesForCountry, US_STATES } from '@/constants/geography';
 import { ValidationErrors } from '@/lib/validation';
+import AddressAutocomplete from './AddressAutocomplete';
 
 interface BillingFormProps {
   billing: AddressData;
@@ -83,11 +84,18 @@ export default function BillingForm({ billing, errors, onUpdate, onSubmit }: Bil
 
         <div className="form-group">
           <label htmlFor="billing-address1">Address *</label>
-          <input
-            type="text"
+          <AddressAutocomplete
             id="billing-address1"
             value={billing.address1}
-            onChange={(e) => onUpdate('address1', e.target.value)}
+            onChange={(v) => onUpdate('address1', v)}
+            onSelectAddress={(a) => {
+              onUpdate('address1', a.line1);
+              onUpdate('city', a.city);
+              onUpdate('country', a.countryCode);
+              const st = US_STATES.find((s) => s.name.toLowerCase() === a.state.toLowerCase());
+              if (st) onUpdate('state', st.code);
+              onUpdate('postcode', a.postcode);
+            }}
             autoComplete="address-line1"
             className={errors['billing.address1'] ? 'error' : ''}
           />

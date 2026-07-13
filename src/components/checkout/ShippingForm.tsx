@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AddressData } from '@/types/checkout';
-import { COUNTRIES, getStatesForCountry } from '@/constants/geography';
+import { COUNTRIES, getStatesForCountry, US_STATES } from '@/constants/geography';
 import { ValidationErrors } from '@/lib/validation';
 import { useCart } from '@/context/CartContext';
+import AddressAutocomplete from './AddressAutocomplete';
 
 interface ShippingFormProps {
   billing: AddressData;
@@ -153,11 +154,18 @@ export default function ShippingForm({
 
             <div className="form-group">
               <label htmlFor="shipping-address1">Address *</label>
-              <input
-                type="text"
+              <AddressAutocomplete
                 id="shipping-address1"
                 value={shipping.address1}
-                onChange={(e) => onUpdateShipping('address1', e.target.value)}
+                onChange={(v) => onUpdateShipping('address1', v)}
+                onSelectAddress={(a) => {
+                  onUpdateShipping('address1', a.line1);
+                  onUpdateShipping('city', a.city);
+                  onUpdateShipping('country', a.countryCode);
+                  const st = US_STATES.find((s) => s.name.toLowerCase() === a.state.toLowerCase());
+                  if (st) onUpdateShipping('state', st.code);
+                  onUpdateShipping('postcode', a.postcode);
+                }}
                 autoComplete="shipping address-line1"
                 className={errors['shipping.address1'] ? 'error' : ''}
               />

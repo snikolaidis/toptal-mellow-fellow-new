@@ -47,7 +47,18 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     const initFlow = (attempt = 0) => {
       const realId = (window as unknown as { RealID?: { createFlow?: (o: object) => void } }).RealID;
       if (realId?.createFlow) {
-        realId.createFlow({ target: '#real-id-check', mode: 'full' });
+        realId.createFlow({
+          target: '#real-id-check',
+          mode: 'full',
+          theme: {
+            verified: {
+              button: {
+                url: `${window.location.origin}/checkout`,
+                content: 'Continue',
+              },
+            },
+          },
+        });
       } else if (attempt < 50) {
         window.setTimeout(() => initFlow(attempt + 1), 150);
       }
@@ -170,6 +181,21 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
       window.removeEventListener('real-id-check-loaded', onLoaded);
     };
   }, [checkId]);
+
+  useEffect(() => {
+    if (!ENABLED || typeof window === 'undefined') return;
+    const verifiedRe = /already completed your id check|you.?ve been verified/i;
+    const hideVerifiedCta = () => {
+      const flow = document.querySelector('.real-id-flow');
+      if (!flow || !verifiedRe.test(flow.textContent || '')) return;
+      flow.querySelectorAll('a.ri-no-underline').forEach((el) => {
+        (el as HTMLElement).style.display = 'none';
+      });
+    };
+    hideVerifiedCta();
+    const interval = window.setInterval(hideVerifiedCta, 400);
+    return () => window.clearInterval(interval);
+  }, []);
 
   if (!ENABLED) return null;
   return <div id="real-id-check" className="real-id-check" />;
