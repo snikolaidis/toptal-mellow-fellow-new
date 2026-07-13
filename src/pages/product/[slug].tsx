@@ -217,6 +217,13 @@ export default function ProductPage({
   const displaySalePrice = selectedVariationData?.salePrice || product.salePrice;
   const displayRegularPrice = selectedVariationData?.regularPrice || product.regularPrice;
 
+  const scalePrice = (price?: string) => {
+    if (!price || quantity <= 1) return price;
+    const nums = price.match(/\d+(?:\.\d+)?/g);
+    if (!nums || nums.length !== 1) return price;
+    return price.replace(nums[0], (parseFloat(nums[0]) * quantity).toFixed(2));
+  };
+
   const seoPriceNumeric = String(displaySalePrice || displayPrice || displayRegularPrice || '').replace(/[^0-9.]/g, '');
   const seoDescription = (product.shortDescription || '')
     .replace(/<[^>]+>/g, ' ')
@@ -336,11 +343,11 @@ export default function ProductPage({
             <div className={styles.price}>
               {displaySalePrice ? (
                 <>
-                  <span className={styles.salePrice}>{displaySalePrice}</span>
-                  <span className={styles.regularPrice}>{displayRegularPrice}</span>
+                  <span className={styles.salePrice}>{scalePrice(displaySalePrice)}</span>
+                  <span className={styles.regularPrice}>{scalePrice(displayRegularPrice)}</span>
                 </>
               ) : (
-                <span>{displayPrice}</span>
+                <span>{scalePrice(displayPrice)}</span>
               )}
             </div>
 
@@ -353,6 +360,8 @@ export default function ProductPage({
                     <Link
                       key={item.id}
                       href={`/product/${item.slug}`}
+                      scroll={false}
+                      prefetch
                       className={`${styles.collectionItem} ${item.id === product.id ? styles.currentItem : ''}`}
                       title={item.name}
                     >
