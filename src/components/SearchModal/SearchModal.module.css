@@ -6,8 +6,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 4rem 1rem;
-  background-color: rgba(0, 0, 0, 0.75);
+  padding: 0;
+  background-color: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease;
 }
@@ -20,15 +20,18 @@
 .modal {
   position: relative;
   width: 100%;
-  max-width: 640px;
+  max-width: none;
   background-color: white;
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   animation: slideDown 0.25s ease;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(-16px);
   }
   to {
     opacity: 1;
@@ -36,48 +39,37 @@
   }
 }
 
-.closeBtn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 2.5rem;
-  height: 2.5rem;
+.header {
+  padding: 0.85rem 1.25rem;
+  background-color: #dbcaa9;
+}
+
+.headerInner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: #666666;
-  cursor: pointer;
-  transition: color 0.15s ease;
-  z-index: 10;
+  gap: 0.75rem;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.closeBtn:hover {
-  color: #000000;
-}
-
-.inputWrapper {
-  position: relative;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.inputIcon {
-  position: absolute;
-  left: 1.25rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #999999;
-  pointer-events: none;
+.searchBar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  border: 1px solid #354654;
+  border-radius: 999px;
+  padding-left: 1.25rem;
+  overflow: hidden;
 }
 
 .input {
-  width: 100%;
-  height: 4rem;
-  padding: 0 3.5rem 0 3.5rem;
+  flex: 1;
+  min-width: 0;
+  height: 2.75rem;
   border: none;
-  font-size: 1.125rem;
-  color: #000000;
+  font-size: 1rem;
+  color: #232323;
   background: transparent;
 }
 
@@ -89,9 +81,56 @@
   color: #999999;
 }
 
+.searchBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: #232323;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.searchBtn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.searchBtn:hover {
+  color: #354654;
+}
+
+.closeBtn {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #232323;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.closeBtn:hover {
+  color: #000000;
+}
+
 .results {
-  max-height: 400px;
+  max-height: 80vh;
   overflow-y: auto;
+}
+
+.bodyInner {
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .loading {
@@ -135,6 +174,77 @@
   font-size: 0.9375rem;
 }
 
+/* Sections layout */
+.panel {
+  padding: 1.25rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .panel {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    grid-template-areas:
+      "suggestions products"
+      "collections products";
+    column-gap: 2.5rem;
+    row-gap: 0.5rem;
+    align-items: start;
+  }
+
+  .sectionSuggestions { grid-area: suggestions; }
+  .sectionCollections { grid-area: collections; }
+  .sectionProducts { grid-area: products; }
+}
+
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #232323;
+  margin: 0 0 0.5rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1.5px solid #232323;
+}
+
+/* Suggestions + Collections lists */
+.suggestList,
+.collectionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestItem,
+.collectionItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0;
+  font-size: 0.9375rem;
+  color: #232323;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.suggestItem:hover,
+.collectionItem:hover {
+  color: #354654;
+  text-decoration: underline;
+}
+
+/* Products */
 .resultsList {
   display: flex;
   flex-direction: column;
@@ -144,26 +254,30 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #e0e0e0;
-  transition: background-color 0.15s ease;
-}
-
-.resultItem:hover {
-  background-color: #f5f5f0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #ebe6dd;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
 }
 
 .resultItem:last-child {
   border-bottom: none;
 }
 
+.resultItem:hover {
+  opacity: 0.75;
+}
+
 .resultImage {
   flex-shrink: 0;
   width: 64px;
   height: 64px;
-  background-color: #f5f5f0;
-  border: 1px solid #e0e0e0;
+  background-color: #E8DEC6;
+  border-radius: 6px;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .resultImage img {
@@ -175,72 +289,55 @@
 .resultPlaceholder {
   width: 100%;
   height: 100%;
-  background-color: #e0e0e0;
+  background-color: #E8DEC6;
 }
 
 .resultInfo {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
 }
 
 .resultName {
   font-size: 0.9375rem;
   font-weight: 500;
-  color: #000000;
-  margin: 0 0 0.25rem 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.resultDescription {
-  font-size: 0.8125rem;
-  color: #666666;
-  line-height: 1.4;
+  color: #232323;
+  margin: 0;
+  line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin: 0;
+}
+
+.resultVendor {
+  font-size: 0.8125rem;
+  color: #8A8683;
 }
 
 .resultPrice {
-  flex-shrink: 0;
-  font-weight: 600;
-  color: #000000;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: #232323;
 }
 
+/* Show all results */
 .viewAll {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   padding: 1rem 1.25rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #354654;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #232323;
   text-decoration: none;
   border-top: 1px solid #e0e0e0;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .viewAll:hover {
-  background-color: #f5f5f0;
-  color: #000;
-}
-
-.footer {
-  display: flex;
-  justify-content: center;
-  padding: 0.875rem;
-  background-color: #fafafa;
-  border-top: 1px solid #e0e0e0;
-}
-
-.footerText {
-  font-size: 0.75rem;
-  color: #999999;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  background-color: #faf7f0;
 }
