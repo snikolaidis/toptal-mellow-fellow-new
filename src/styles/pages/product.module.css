@@ -80,7 +80,7 @@
 .mainImage {
   position: relative;
   aspect-ratio: 1;
-  background: var(--color-surface-muted);
+  /* background: var(--color-surface-muted); */
   overflow: hidden;
 }
 

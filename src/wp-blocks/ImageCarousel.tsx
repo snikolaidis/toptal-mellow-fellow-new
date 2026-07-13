@@ -17,10 +17,18 @@ interface MediaItem {
   mediaDetails?: { width?: number | null; height?: number | null } | null;
 }
 
+interface LinkField {
+  url?: string | null;
+  title?: string | null;
+  target?: string | null;
+}
+
 interface ImageCarouselProps {
   imageCarousel?: {
     title?: string | null;
     images?: { nodes?: MediaItem[] | null } | null;
+    link?: LinkField | null;
+    linkStyle?: string | null;
   } | null;
 }
 
@@ -33,34 +41,65 @@ export default function ImageCarousel(props: ImageCarouselProps) {
     return null;
   }
 
+  const link = props.imageCarousel?.link;
+  const linkUrl = link?.url;
+  const wholeCarouselClickable = linkUrl && props.imageCarousel?.linkStyle === 'whole_carousel';
+
+  const carousel = (
+    <Swiper
+      slidesPerView={2}
+      spaceBetween={30}
+      modules={[Autoplay]}
+      autoplay={{ delay: 5000, disableOnInteraction: false }}
+      loop
+      breakpoints={{
+        768: {
+          slidesPerView: images.length,
+        },
+      }}
+    >
+      {images.map((img, i) => (
+        <SwiperSlide key={i}>
+          <img
+            src={img.sourceUrl ?? undefined}
+            alt={img.altText || ''}
+            width={img.mediaDetails?.width ?? undefined}
+            height={img.mediaDetails?.height ?? undefined}
+            loading="lazy"
+          />
+        </SwiperSlide>
+      ))}
+    </Swiper>
+  );
+
+  if (wholeCarouselClickable) {
+    return (
+      <a
+        className="section featured-in featured-in--linked"
+        href={linkUrl!}
+        target={link?.target || undefined}
+        rel={link?.target === '_blank' ? 'noopener noreferrer' : undefined}
+      >
+        {title && <h3 className="section__title">{title}</h3>}
+        {carousel}
+      </a>
+    );
+  }
+
   return (
     <div className="section featured-in">
       {title && <h3 className="section__title">{title}</h3>}
-
-      <Swiper
-        slidesPerView={2}
-        spaceBetween={30}
-        modules={[Autoplay]}
-        autoplay={{ delay: 5000, disableOnInteraction: false }}
-        loop
-        breakpoints={{
-          768: {
-            slidesPerView: images.length,
-          },
-        }}
-      >
-        {images.map((img, i) => (
-          <SwiperSlide key={i}>
-            <img
-              src={img.sourceUrl ?? undefined}
-              alt={img.altText || ''}
-              width={img.mediaDetails?.width ?? undefined}
-              height={img.mediaDetails?.height ?? undefined}
-              loading="lazy"
-            />
-          </SwiperSlide>
-        ))}
-      </Swiper>
+      {carousel}
+      {linkUrl && (
+        <a
+          className="featured-in__learn-more btn-secondary"
+          href={linkUrl}
+          target={link?.target || undefined}
+          rel={link?.target === '_blank' ? 'noopener noreferrer' : undefined}
+        >
+          {link?.title || 'Learn more'}
+        </a>
+      )}
     </div>
   );
 }
@@ -83,6 +122,12 @@ ImageCarousel.fragments = {
             }
           }
         }
+        link {
+          url
+          title
+          target
+        }
+        linkStyle
       }
     }
   `,

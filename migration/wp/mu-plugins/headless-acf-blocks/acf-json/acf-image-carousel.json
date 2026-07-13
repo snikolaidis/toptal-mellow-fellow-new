@@ -20,6 +20,34 @@
             "preview_size": "medium",
             "insert": "append",
             "library": "all"
+        },
+        {
+            "key": "field_ic_link",
+            "label": "Link",
+            "name": "link",
+            "type": "link",
+            "instructions": "Optional. Shown as a \"Learn more\" button below the carousel, or makes the whole carousel clickable — pick below.",
+            "required": 0
+        },
+        {
+            "key": "field_ic_link_style",
+            "label": "Link Style",
+            "name": "link_style",
+            "type": "button_group",
+            "instructions": "Only applies when a link is set above.",
+            "choices": {
+                "button": "Learn more button",
+                "whole_carousel": "Whole carousel clickable"
+            },
+            "default_value": "button",
+            "conditional_logic": [
+                [
+                    {
+                        "field": "field_ic_link",
+                        "operator": "!=empty"
+                    }
+                ]
+            ]
         }
     ],
     "location": [
