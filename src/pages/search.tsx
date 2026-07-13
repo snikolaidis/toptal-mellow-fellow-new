@@ -12,6 +12,7 @@ import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
 import { GET_PRODUCTS } from '@/graphql/queries/products';
 import { cachedQuery } from '@/lib/cache';
+import { boostTitleMatches, SEARCH_RANK_WINDOW } from '@/lib/searchRanking';
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
@@ -43,18 +44,6 @@ interface BlogPost {
   excerpt: string;
   date: string;
   featuredImage?: { node: { sourceUrl: string; altText: string } } | null;
-}
-
-function boostTitleMatches(products: Product[], query: string): Product[] {
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return products;
-  return [...products].sort((a, b) => {
-    const aMatch = terms.every((t) => a.name.toLowerCase().includes(t));
-    const bMatch = terms.every((t) => b.name.toLowerCase().includes(t));
-    if (aMatch && !bMatch) return -1;
-    if (!aMatch && bMatch) return 1;
-    return 0;
-  });
 }
 
 function parsePrice(price?: string): number {
@@ -293,7 +282,7 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
     const [searchRes, blogRes] = await Promise.all([
       cachedQuery(client, {
         query: GET_PRODUCTS,
-        variables: { first: 100, search: query },
+        variables: { first: SEARCH_RANK_WINDOW, search: query },
       }, { ttl: 300 }),
       cachedQuery(client, {
         query: SEARCH_BLOG_POSTS,
