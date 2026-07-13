@@ -91,7 +91,7 @@ const GET_PRODUCTS_BY_TYPE = gql`
 `;
 
 const GET_PRODUCT_BY_SLUG = gql`
-  query GetProductBySlug($slug: ID!) {
+  query GetProductBySlugForRecommendations($slug: ID!) {
     product(id: $slug, idType: SLUG) {
       __typename
       ... on SimpleProduct {

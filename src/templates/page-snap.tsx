@@ -35,6 +35,7 @@ SnapPage.query = gql`
   ${blocks.AcfValuePropsSet.fragments.entry}
   ${blocks.AcfCollectionSlider.fragments.entry}
   ${blocks.AcfCollectionCardsSet.fragments.entry}
+  ${blocks.AcfShoppableHero.fragments.entry}
   query GetSnapPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       title
@@ -50,6 +51,7 @@ SnapPage.query = gql`
         ...${blocks.AcfValuePropsSet.fragments.key}
         ...${blocks.AcfCollectionSlider.fragments.key}
         ...${blocks.AcfCollectionCardsSet.fragments.key}
+        ...${blocks.AcfShoppableHero.fragments.key}
       }
     }
   }

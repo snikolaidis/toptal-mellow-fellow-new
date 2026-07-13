@@ -45,7 +45,11 @@ interface ShoppableHeroProps {
   shoppableHero?: {
     customTitle?: string | null;
     customDescription?: string | null;
-    contentAlignment?: string | null;
+    // WPGraphQL for ACF resolves `select` fields as a list regardless of the
+    // field's single/multi-select setting — confirmed via introspection
+    // (ShoppableHero.contentAlignment: [String]). This is a single-select
+    // field; only the first entry is meaningful.
+    contentAlignment?: (string | null)[] | null;
     product?: { nodes?: ProductNode[] | null } | null;
     mobileImage?: ImageSlot | null;
     tabletImage?: ImageSlot | null;
@@ -100,7 +104,7 @@ export default function ShoppableHero(props: ShoppableHeroProps) {
 
   const title = data.customTitle || product?.name;
   const cartInput = product ? getAddToCartInput(product) : null;
-  const alignment = data.contentAlignment === 'right' ? 'right' : 'left';
+  const alignment = data.contentAlignment?.[0] === 'right' ? 'right' : 'left';
 
   return (
     <section className="shoppable-hero">
