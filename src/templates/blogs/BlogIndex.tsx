@@ -120,7 +120,7 @@ export default function BlogIndex({ posts, allTags, title, description }: BlogIn
       {/* Two-column layout — always rendered to prevent layout shift */}
       <div className={styles.indexLayout}>
         <div className={styles.postsGrid}>
-          {gridPosts.length === 0 ? (
+          {filteredPosts.length === 0 ? (
             <p className={styles.noResults}>No posts found for this tag.</p>
           ) : (
             gridPosts.map((post) => <PostCard key={post.id} post={post} />)
