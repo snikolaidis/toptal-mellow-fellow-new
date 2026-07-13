@@ -15,6 +15,7 @@ import BlendCallout from './BlendCallout';
 import CannabinoidCallout from './CannabinoidCallout';
 import ValuePropsSet from './ValuePropsSet';
 import CollectionCardsSet from './CollectionCardsSet';
+import ShoppableHero from './ShoppableHero';
 
 export default {
   ...CoreBlocks,
@@ -54,5 +55,7 @@ export default {
   AcfValuePropsSet: ValuePropsSet,
   // Ready, but inert until the `acf/collection-cards-set` block is deployed to
   // WP. Content is per-block (each placement has its own cards).
-  AcfCollectionCardsSet: CollectionCardsSet
+  AcfCollectionCardsSet: CollectionCardsSet,
+  // Ready, but inert until the `acf/shoppable-hero` block is deployed to WP.
+  AcfShoppableHero: ShoppableHero
 };

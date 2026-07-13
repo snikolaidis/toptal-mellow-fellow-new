@@ -1,0 +1,123 @@
+// Migrated from the Shopify theme's `shoppable-hero` section styles
+// (mf-shopify-theme src/scss/sections/_shoppable-hero.scss). Rendered by the
+// AcfShoppableHero block (src/wp-blocks/ShoppableHero.tsx), which reuses the
+// .responsive-banner markup for the background image. Theme mixins/vars are
+// inlined: medium-up = 768px, large-up = 1024px, $gold-cream = #D9C79E.
+
+.shoppable-hero {
+  position: relative;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  .responsive-banner {
+    position: absolute;
+    height: 100%;
+
+    @media screen and (min-width: 768px) {
+      position: relative;
+    }
+
+    > div {
+      height: 100%;
+    }
+
+    .responsive-banner__wrapper {
+      height: 100%;
+    }
+
+    .responsive-banner__image {
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+  }
+
+  .content {
+    position: relative;
+    padding: 20px 25px;
+
+    @media screen and (min-width: 768px) {
+      position: absolute;
+      left: 100px;
+      right: auto;
+      width: 38vw;
+      padding: 0;
+    }
+
+    .title {
+      font-family: "MrEavesXLSanNarOT";
+      font-weight: 800;
+      font-size: 36px;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+      line-height: 1;
+      color: #000000;
+
+      @media screen and (min-width: 1024px) {
+        font-size: 64px;
+      }
+    }
+
+    .description {
+      font-family: "MrEavesSanOT";
+      color: #000000;
+      width: 50vw;
+
+      @media screen and (min-width: 768px) {
+        width: auto;
+      }
+
+      * {
+        font-size: 14px;
+
+        @media screen and (min-width: 1024px) {
+          font-size: 24px;
+        }
+      }
+
+      p {
+        font-size: 14px;
+
+        @media screen and (min-width: 1024px) {
+          font-size: 24px;
+        }
+      }
+    }
+
+    .btn {
+      width: 180px;
+      font-size: 14px;
+      color: #D9C79E;
+      font-weight: bold;
+
+      @media screen and (min-width: 768px) {
+        width: 217px;
+      }
+
+      &:hover {
+        color: #000000;
+      }
+    }
+
+    &.align-right {
+      @media screen and (min-width: 768px) {
+        right: 100px;
+        left: auto;
+      }
+
+      .title {
+        text-align: center;
+
+        @media screen and (min-width: 768px) {
+          text-align: left;
+        }
+      }
+
+      .description {
+        margin-left: auto;
+      }
+    }
+  }
+}

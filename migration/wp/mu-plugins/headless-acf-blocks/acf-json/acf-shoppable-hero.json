@@ -1,0 +1,107 @@
+{
+    "key": "group_shoppable_hero",
+    "title": "Shoppable Hero Fields",
+    "fields": [
+        {
+            "key": "field_sh_product",
+            "label": "Product",
+            "name": "product",
+            "type": "post_object",
+            "instructions": "The product this hero sells. Its title and description are used unless overridden below. Leave empty to show the banner only.",
+            "post_type": [ "product" ],
+            "return_format": "id",
+            "multiple": 0,
+            "allow_null": 1,
+            "required": 0,
+            "wrapper": { "width": "40" }
+        },
+        {
+            "key": "field_sh_custom_title",
+            "label": "Custom title",
+            "name": "custom_title",
+            "type": "text",
+            "instructions": "Optional. Falls back to the product's title.",
+            "required": 0,
+            "wrapper": { "width": "30" }
+        },
+        {
+            "key": "field_sh_content_alignment",
+            "label": "Content alignment",
+            "name": "content_alignment",
+            "type": "select",
+            "choices": {
+                "left": "Left",
+                "right": "Right"
+            },
+            "default_value": "left",
+            "return_format": "value",
+            "required": 0,
+            "wrapper": { "width": "30" }
+        },
+        {
+            "key": "field_sh_custom_description",
+            "label": "Custom description",
+            "name": "custom_description",
+            "type": "textarea",
+            "instructions": "Optional. Falls back to the product's description.",
+            "rows": 3,
+            "required": 0
+        },
+        {
+            "key": "field_sh_image_tab",
+            "label": "Background Image",
+            "name": "image_tab",
+            "type": "tab",
+            "placement": "top"
+        },
+        {
+            "key": "field_sh_mobile_image",
+            "label": "Mobile image",
+            "name": "mobile_image",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "33" }
+        },
+        {
+            "key": "field_sh_tablet_image",
+            "label": "Tablet image",
+            "name": "tablet_image",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "33" }
+        },
+        {
+            "key": "field_sh_desktop_image",
+            "label": "Desktop image",
+            "name": "desktop_image",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "medium",
+            "wrapper": { "width": "34" }
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/shoppable-hero"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "shoppableHero",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfShoppableHero"
+    ]
+}

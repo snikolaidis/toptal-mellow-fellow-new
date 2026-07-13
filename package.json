@@ -12,7 +12,7 @@
     "sync:products": "tsx src/scripts/sync-products.ts",
     "start": "next start",
     "lint": "next lint",
-    "generate": "graphql-codegen",
+    "generate:types": "graphql-codegen",
     "migrate:pull": "tsx migration/scripts/pull-from-shopify.ts",
     "migrate:pull-images": "tsx migration/scripts/pull-images.ts",
     "migrate:resume-bulk": "tsx migration/scripts/resume-bulk.ts",

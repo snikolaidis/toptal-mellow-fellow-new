@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/shoppable-hero",
+	"title": "Shoppable Hero",
+	"description": "A responsive hero banner with a picked product: overlay title/description (falling back to the product's own), left/right alignment, and an Add to Cart button for the product's first available variant.",
+	"category": "headless-blocks",
+	"icon": "cart",
+	"keywords": [ "hero", "product", "shoppable", "banner", "add to cart" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\ShoppableHero\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}
