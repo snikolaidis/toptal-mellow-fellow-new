@@ -1,6 +1,6 @@
 // Image Slider block (acf/image-slider). Ported from the Shopify
-// `image-slider` section; Flickity is replaced by a pure CSS horizontal
-// scroller (no snap, no arrows, no dots — scroll/drag only).
+// `image-slider` section; Flickity is replaced by Swiper (draggable, looped,
+// no arrows, no dots — drag/swipe navigation only).
 .image-slider {
 
   &__title {
@@ -19,18 +19,9 @@
   }
 
   &__track {
-    display: flex;
-    gap: 20px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    // Swiper owns layout/overflow/drag internally now — this class just
+    // keeps the block's original outer spacing.
     margin: 15px 0 100px 35px;
-
-    // Hide the scrollbar — navigation is scroll/drag only.
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
 
     @media (max-width: 600px) {
       margin: 10px 0 40px 20px;
@@ -39,27 +30,16 @@
 
   &__card {
     position: relative;
-    flex: 0 0 calc(30% - 10px);
+    display: block;
+    width: 100%;
+    // Clips the hover-zoomed image to the card's own bounds, so the zoom
+    // never spills into neighboring slides or past the rounded corners.
     overflow: hidden;
     border-radius: 20px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 
-    @media (max-width: 1200px) {
-      flex-basis: calc(40% - 10px);
-    }
-
-    @media (max-width: 900px) {
-      flex-basis: calc(50% - 10px);
-    }
-
-    @media (max-width: 600px) {
-      flex-basis: calc(75% - 10px);
-    }
-
-    @media only screen and (min-width: 1200px) {
-      &:hover .image-slider__image {
-        transform: scale(1.1);
-      }
+    &:hover .image-slider__image {
+      transform: scale(1.1);
     }
   }
 
