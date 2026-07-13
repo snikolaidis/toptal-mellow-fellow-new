@@ -10,6 +10,7 @@ import { getClient } from '@/lib/apollo-client';
 import { gql } from '@apollo/client';
 import { withRateLimitOnly } from '@/lib/middleware';
 import { cachedQuery } from '@/lib/cache';
+import { boostTitleMatches, SEARCH_RANK_WINDOW } from '@/lib/searchRanking';
 
 // Search query - uses WPGraphQL WooCommerce search parameter
 const SEARCH_PRODUCTS = gql`
@@ -123,7 +124,7 @@ async function handler(
     const client = getClient();
     const { data } = await cachedQuery(client, {
       query: SEARCH_PRODUCTS,
-      variables: { search: q, first, after: after || null },
+      variables: { search: q, first: SEARCH_RANK_WINDOW, after: after || null },
     }, { ttl: 300 });
 
     const products: SearchResult[] = (data?.products?.nodes || []).map((product: any) => ({
@@ -144,19 +145,8 @@ async function handler(
         : null,
     }));
 
-    // Boost products whose name contains all search terms to the top
-    const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
-    if (terms.length > 0) {
-      products.sort((a, b) => {
-        const aName = a.name.toLowerCase();
-        const bName = b.name.toLowerCase();
-        const aMatch = terms.every((t) => aName.includes(t));
-        const bMatch = terms.every((t) => bName.includes(t));
-        if (aMatch && !bMatch) return -1;
-        if (!aMatch && bMatch) return 1;
-        return 0;
-      });
-    }
+    const ranked = boostTitleMatches(products, q);
+    const topResults = ranked.slice(0, first);
 
     const pageInfo = data?.products?.pageInfo || {};
 
@@ -164,9 +154,9 @@ async function handler(
 
     return res.status(200).json({
       success: true,
-      products,
+      products: topResults,
       query: q,
-      hasNextPage: pageInfo.hasNextPage || false,
+      hasNextPage: ranked.length > first || pageInfo.hasNextPage || false,
       endCursor: pageInfo.endCursor || null,
     });
   } catch (error) {
