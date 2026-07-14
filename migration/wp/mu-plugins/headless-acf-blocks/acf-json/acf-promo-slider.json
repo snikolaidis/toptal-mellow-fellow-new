@@ -1,0 +1,85 @@
+{
+    "key": "group_promo_slider",
+    "title": "Promo Slider Fields",
+    "fields": [
+        {
+            "key": "field_ps_slides",
+            "label": "Slides",
+            "name": "slides",
+            "type": "repeater",
+            "instructions": "One panel per slide.",
+            "layout": "block",
+            "button_label": "Add slide",
+            "min": 0,
+            "max": 0,
+            "required": 0,
+            "sub_fields": [
+                {
+                    "key": "field_ps_image",
+                    "label": "Image",
+                    "name": "image",
+                    "type": "image",
+                    "return_format": "id",
+                    "preview_size": "medium",
+                    "required": 0,
+                    "wrapper": { "width": "40" }
+                },
+                {
+                    "key": "field_ps_heading",
+                    "label": "Heading",
+                    "name": "heading",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "60" }
+                },
+                {
+                    "key": "field_ps_subheading",
+                    "label": "Subheading",
+                    "name": "subheading",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "100" }
+                },
+                {
+                    "key": "field_ps_button_text",
+                    "label": "Button text",
+                    "name": "button_text",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": { "width": "40" }
+                },
+                {
+                    "key": "field_ps_button_link",
+                    "label": "Button link",
+                    "name": "button_link",
+                    "type": "link",
+                    "return_format": "array",
+                    "required": 0,
+                    "wrapper": { "width": "60" }
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/promo-slider"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "promoSlider",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfPromoSlider"
+    ]
+}

@@ -1,0 +1,38 @@
+{
+    "key": "group_ugc_carousel",
+    "title": "UGC Carousel Fields",
+    "fields": [
+        {
+            "key": "field_ugc_title",
+            "label": "Title",
+            "name": "title",
+            "type": "text",
+            "instructions": "Heading above the carousel, for example \"What Other Customers are Saying\".",
+            "default_value": "What Other Customers are Saying",
+            "required": 0,
+            "wrapper": { "width": "100" }
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/ugc-carousel"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "ugcCarousel",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfUgcCarousel"
+    ]
+}

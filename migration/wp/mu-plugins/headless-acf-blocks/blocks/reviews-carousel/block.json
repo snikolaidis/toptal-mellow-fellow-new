@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/reviews-carousel",
+	"title": "Reviews Carousel",
+	"description": "Heading plus the Klaviyo featured reviews carousel. The reviews themselves come from Klaviyo.",
+	"category": "headless-blocks",
+	"icon": "star-filled",
+	"keywords": [ "reviews", "klaviyo", "carousel", "testimonials" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\ReviewsCarousel\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

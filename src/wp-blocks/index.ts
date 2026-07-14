@@ -16,6 +16,11 @@ import CannabinoidCallout from './CannabinoidCallout';
 import ValuePropsSet from './ValuePropsSet';
 import CollectionCardsSet from './CollectionCardsSet';
 import ShoppableHero from './ShoppableHero';
+import UgcCarousel from './UgcCarousel';
+import BlogPosts from './BlogPosts';
+import Faq from './Faq';
+import ReviewsCarousel from './ReviewsCarousel';
+import PromoSlider from './PromoSlider';
 
 export default {
   ...CoreBlocks,
@@ -57,5 +62,19 @@ export default {
   // WP. Content is per-block (each placement has its own cards).
   AcfCollectionCardsSet: CollectionCardsSet,
   // Ready, but inert until the `acf/shoppable-hero` block is deployed to WP.
-  AcfShoppableHero: ShoppableHero
+  AcfShoppableHero: ShoppableHero,
+  // Ready, but inert until the `acf/ugc-carousel` block is deployed to WP. The
+  // videos are global (managed on the Affiliate page), fetched by the component
+  // itself — the block is just a placement marker with a title.
+  AcfUgcCarousel: UgcCarousel,
+  // Ready, but inert until the `acf/blog-posts` block is deployed to WP. Posts
+  // are fetched by the component itself.
+  AcfBlogPosts: BlogPosts,
+  // Ready, but inert until the `acf/faq` block is deployed to WP.
+  AcfFaq: Faq,
+  // Ready, but inert until the `acf/reviews-carousel` block is deployed to WP.
+  // The reviews themselves are rendered by klaviyo.js into the carousel div.
+  AcfReviewsCarousel: ReviewsCarousel,
+  // Ready, but inert until the `acf/promo-slider` block is deployed to WP.
+  AcfPromoSlider: PromoSlider
 };

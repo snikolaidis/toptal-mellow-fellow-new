@@ -50,13 +50,28 @@ export default function ResponsiveImage(props: ResponsiveImageProps) {
   const picture = (
     <picture>
       {desktopImage?.node?.sourceUrl && (
-        <source media="(width >= 1024px)" srcSet={desktopImage.node.sourceUrl} />
+        <source
+          media="(width >= 1024px)"
+          srcSet={desktopImage.node.sourceUrl}
+          width={desktopImage.node.mediaDetails?.width ?? undefined}
+          height={desktopImage.node.mediaDetails?.height ?? undefined}
+        />
       )}
       {tabletImage?.node?.sourceUrl && (
-        <source media="(width >= 768px)" srcSet={tabletImage.node.sourceUrl} />
+        <source
+          media="(width >= 768px)"
+          srcSet={tabletImage.node.sourceUrl}
+          width={tabletImage.node.mediaDetails?.width ?? undefined}
+          height={tabletImage.node.mediaDetails?.height ?? undefined}
+        />
       )}
       {mobileImage?.node?.sourceUrl && (
-        <source media="(width < 768px)" srcSet={mobileImage.node.sourceUrl} />
+        <source
+          media="(width < 768px)"
+          srcSet={mobileImage.node.sourceUrl}
+          width={mobileImage.node.mediaDetails?.width ?? undefined}
+          height={mobileImage.node.mediaDetails?.height ?? undefined}
+        />
       )}
       <img
         className="responsive-banner__image"

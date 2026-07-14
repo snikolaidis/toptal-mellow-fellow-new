@@ -15,11 +15,12 @@ export interface UGCItem {
 
 interface UGCGalleryProps {
   items: UGCItem[];
+  size?: 'default' | 'large';
 }
 
 const SWIPE_THRESHOLD = 40;
 
-export default function UGCGallery({ items }: UGCGalleryProps) {
+export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps) {
   if (!items || items.length === 0) return null;
 
   const N = items.length;
@@ -186,7 +187,7 @@ export default function UGCGallery({ items }: UGCGalleryProps) {
   return (
     <div
       ref={galleryRef}
-      className={styles.gallery}
+      className={`${styles.gallery} ${size === 'large' ? styles.galleryLarge : ''}`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >

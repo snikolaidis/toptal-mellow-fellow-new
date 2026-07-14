@@ -3,7 +3,6 @@ import { FaustTemplate } from '@faustwp/core';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import blocks from '@/wp-blocks';
 import Layout from '@/components/Layout';
-import RebuyRecommendations from '@/components/RebuyRecommendations';
 
 interface FrontPageData {
   page?: { editorBlocks?: any[] } | null;
@@ -62,11 +61,6 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
       {/* Backend-managed homepage blocks (hero slider, image slider,
           highlights groups, collection links). */}
       {pageBlocks.length > 0 && <WordPressBlocksViewer blocks={pageBlocks} />}
-
-      <div className="container">
-        {/* Rebuy Recommendations */}
-        <RebuyRecommendations title="Recommended for you" limit={8} gridClass="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-6" />
-      </div>
     </Layout>
   );
 };
@@ -83,6 +77,11 @@ FrontPage.query = gql`
   ${blocks.AcfResponsiveImage.fragments.entry}
   ${blocks.AcfImageCarousel.fragments.entry}
   ${blocks.AcfFeaturedCollection.fragments.entry}
+  ${blocks.AcfUgcCarousel.fragments.entry}
+  ${blocks.AcfBlogPosts.fragments.entry}
+  ${blocks.AcfFaq.fragments.entry}
+  ${blocks.AcfReviewsCarousel.fragments.entry}
+  ${blocks.AcfPromoSlider.fragments.entry}
   ${blocks.CoreImage.fragments.entry}
   query FrontPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
@@ -99,6 +98,11 @@ FrontPage.query = gql`
         ...${blocks.AcfResponsiveImage.fragments.key}
         ...${blocks.AcfImageCarousel.fragments.key}
         ...${blocks.AcfFeaturedCollection.fragments.key}
+        ...${blocks.AcfUgcCarousel.fragments.key}
+        ...${blocks.AcfBlogPosts.fragments.key}
+        ...${blocks.AcfFaq.fragments.key}
+        ...${blocks.AcfReviewsCarousel.fragments.key}
+        ...${blocks.AcfPromoSlider.fragments.key}
         ...${blocks.CoreImage.fragments.key}
       }
     }

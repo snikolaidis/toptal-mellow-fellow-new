@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/blog-posts",
+	"title": "Blog Posts",
+	"description": "Latest blog posts with an optional call-to-action button. Posts are fetched on the headless frontend.",
+	"category": "headless-blocks",
+	"icon": "welcome-write-blog",
+	"keywords": [ "blog", "posts", "articles", "learn" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\BlogPosts\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

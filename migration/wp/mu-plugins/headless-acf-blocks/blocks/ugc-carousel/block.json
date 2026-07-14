@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/ugc-carousel",
+	"title": "UGC Carousel",
+	"description": "Customer video carousel. Reuses the UGC videos managed on the Affiliate page. Rendered as the shoppable video slider on the headless frontend.",
+	"category": "headless-blocks",
+	"icon": "video-alt3",
+	"keywords": [ "ugc", "video", "carousel", "customers", "reviews" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\UgcCarousel\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

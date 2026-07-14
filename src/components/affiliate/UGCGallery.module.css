@@ -201,3 +201,33 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+/* Homepage variant: a step up from the affiliate column, without reaching the
+   full product-card width (9/16 makes those read far too tall). */
+.galleryLarge .card {
+  flex: 0 0 215px;
+}
+
+.galleryLarge .cardActive {
+  flex: 0 0 245px;
+}
+
+@media (min-width: 992px) {
+  .galleryLarge .card {
+    flex: 0 0 250px;
+  }
+
+  .galleryLarge .cardActive {
+    flex: 0 0 280px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .galleryLarge .card {
+    flex: 0 0 290px;
+  }
+
+  .galleryLarge .cardActive {
+    flex: 0 0 320px;
+  }
+}

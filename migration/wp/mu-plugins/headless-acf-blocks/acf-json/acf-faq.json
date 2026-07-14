@@ -1,0 +1,102 @@
+{
+    "key": "group_faq",
+    "title": "FAQ Fields",
+    "fields": [
+        {
+            "key": "field_faq_groups",
+            "label": "Groups",
+            "name": "groups",
+            "type": "repeater",
+            "instructions": "One group per cannabinoid, for example \"Delta-9-THC FAQs\".",
+            "layout": "block",
+            "button_label": "Add group",
+            "min": 0,
+            "max": 0,
+            "required": 0,
+            "sub_fields": [
+                {
+                    "key": "field_faq_group_title",
+                    "label": "Group title",
+                    "name": "group_title",
+                    "type": "text",
+                    "required": 0,
+                    "wrapper": {
+                        "width": "100"
+                    }
+                },
+                {
+                    "key": "field_faq_questions",
+                    "label": "Questions",
+                    "name": "questions",
+                    "type": "repeater",
+                    "layout": "block",
+                    "button_label": "Add question",
+                    "min": 0,
+                    "max": 0,
+                    "required": 0,
+                    "sub_fields": [
+                        {
+                            "key": "field_faq_question",
+                            "label": "Question",
+                            "name": "question",
+                            "type": "text",
+                            "required": 0,
+                            "wrapper": {
+                                "width": "100"
+                            }
+                        },
+                        {
+                            "key": "field_faq_answer",
+                            "label": "Answer",
+                            "name": "answer",
+                            "type": "wysiwyg",
+                            "tabs": "all",
+                            "toolbar": "basic",
+                            "media_upload": 0,
+                            "required": 0,
+                            "wrapper": {
+                                "width": "100"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "key": "field_faq_footer_links",
+                    "label": "Footer links",
+                    "name": "footer_links",
+                    "type": "wysiwyg",
+                    "instructions": "Optional links shown under the group, for example Learn More and Shop.",
+                    "tabs": "all",
+                    "toolbar": "basic",
+                    "media_upload": 0,
+                    "required": 0,
+                    "wrapper": {
+                        "width": "100"
+                    }
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/faq"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "faqBlock",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfFaq"
+    ]
+}

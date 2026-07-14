@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/faq",
+	"title": "FAQ",
+	"description": "Grouped FAQ accordions. Each group has a heading, a set of question/answer pairs and optional footer links.",
+	"category": "headless-blocks",
+	"icon": "editor-help",
+	"keywords": [ "faq", "questions", "accordion", "help" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\Faq\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

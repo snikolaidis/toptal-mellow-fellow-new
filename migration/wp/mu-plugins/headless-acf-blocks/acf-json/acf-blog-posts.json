@@ -1,0 +1,70 @@
+{
+    "key": "group_blog_posts",
+    "title": "Blog Posts Fields",
+    "fields": [
+        {
+            "key": "field_bp_title",
+            "label": "Title",
+            "name": "title",
+            "type": "text",
+            "instructions": "Heading above the posts.",
+            "default_value": "From the blog",
+            "required": 0,
+            "wrapper": { "width": "60" }
+        },
+        {
+            "key": "field_bp_post_count",
+            "label": "Number of posts",
+            "name": "post_count",
+            "type": "number",
+            "instructions": "How many of the latest posts to show (1-12).",
+            "default_value": 3,
+            "min": 1,
+            "max": 12,
+            "required": 0,
+            "wrapper": { "width": "40" }
+        },
+        {
+            "key": "field_bp_button_text",
+            "label": "Button text",
+            "name": "button_text",
+            "type": "text",
+            "instructions": "Optional. Leave blank to hide the button.",
+            "default_value": "Explore More Articles",
+            "required": 0,
+            "wrapper": { "width": "50" }
+        },
+        {
+            "key": "field_bp_button_link",
+            "label": "Button link",
+            "name": "button_link",
+            "type": "link",
+            "instructions": "Where the button goes, for example the blog index.",
+            "return_format": "array",
+            "required": 0,
+            "wrapper": { "width": "50" }
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/blog-posts"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "blogPosts",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfBlogPosts"
+    ]
+}

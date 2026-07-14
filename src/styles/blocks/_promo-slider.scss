@@ -1,0 +1,88 @@
+.promo-slider {
+  &__panel {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+
+    @media only screen and (min-width: 769px) {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  &__media {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+
+    @media only screen and (min-width: 769px) {
+      aspect-ratio: 2 / 1;
+    }
+  }
+
+  &__image {
+    object-fit: cover;
+  }
+
+  &__content {
+    padding: 28px 24px;
+
+    @media only screen and (min-width: 769px) {
+      padding: 32px 48px;
+    }
+  }
+
+  &__heading {
+    font-family: 'MrEavesXLSanNarOT';
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1.15;
+    margin-bottom: 10px;
+
+    @media only screen and (min-width: 1024px) {
+      font-size: 38px;
+    }
+  }
+
+  &__subheading {
+    font-size: 16px;
+    line-height: 1.5;
+    margin-bottom: 18px;
+  }
+
+  &__button {
+    display: inline-block;
+    padding: 12px 32px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background-color: #232323;
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    text-decoration: none;
+    text-align: center;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      background-color: transparent;
+      color: #232323;
+      border-color: #232323;
+    }
+  }
+
+  // Swiper's stylesheet is imported after the block partials, so scope these
+  // under .promo-slider to outrank its single-class defaults.
+  & &__track {
+    margin: 0;
+    padding: 0;
+  }
+
+  .swiper-button-prev,
+  .swiper-button-next {
+    color: #232323;
+
+    &::after {
+      font-size: 22px;
+      font-weight: 700;
+    }
+  }
+}

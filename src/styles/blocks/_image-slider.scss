@@ -18,10 +18,11 @@
     }
   }
 
-  &__track {
-    // Swiper owns layout/overflow/drag internally now — this class just
-    // keeps the block's original outer spacing.
-    margin: 15px 0 100px 35px;
+  // Swiper's own stylesheet is imported after the block partials and sets
+  // `.swiper { margin-left: auto; margin-right: auto; }`, which beats a
+  // single-class rule on order. Scoping under .image-slider outranks it.
+  & &__track {
+    margin: 15px 0 100px 40px;
 
     @media (max-width: 600px) {
       margin: 10px 0 40px 20px;
