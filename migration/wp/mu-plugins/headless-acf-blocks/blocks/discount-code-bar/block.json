@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/discount-code-bar",
+	"title": "Discount Code Bar",
+	"description": "A full-width colored bar with promo text, a highlighted \"CODE: X\" callout, and a pill button that copies the discount code to the clipboard.",
+	"category": "headless-blocks",
+	"icon": "tag",
+	"keywords": [ "discount", "code", "promo", "bar", "coupon" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\DiscountCodeBar\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

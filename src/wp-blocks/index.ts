@@ -16,6 +16,7 @@ import CannabinoidCallout from './CannabinoidCallout';
 import ValuePropsSet from './ValuePropsSet';
 import CollectionCardsSet from './CollectionCardsSet';
 import ShoppableHero from './ShoppableHero';
+import DiscountCodeBar from './DiscountCodeBar';
 
 export default {
   ...CoreBlocks,
@@ -57,5 +58,7 @@ export default {
   // WP. Content is per-block (each placement has its own cards).
   AcfCollectionCardsSet: CollectionCardsSet,
   // Ready, but inert until the `acf/shoppable-hero` block is deployed to WP.
-  AcfShoppableHero: ShoppableHero
+  AcfShoppableHero: ShoppableHero,
+  // Ready, but inert until the `acf/discount-code-bar` block is deployed to WP.
+  AcfDiscountCodeBar: DiscountCodeBar
 };
