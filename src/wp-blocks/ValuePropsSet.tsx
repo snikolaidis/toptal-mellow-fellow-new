@@ -73,7 +73,7 @@ export default function ValuePropsSet() {
                     src={media.sourceUrl}
                     width={media.mediaDetails?.width ?? undefined}
                     height={media.mediaDetails?.height ?? undefined}
-                    alt={media.altText || `Image for ${item.title ?? ''}`}
+                    alt={item.title ? '' : media.altText || 'Value prop icon'}
                     style={
                       {
                         '--width-mobile': `${item.widthMobile ?? 20}px`,
