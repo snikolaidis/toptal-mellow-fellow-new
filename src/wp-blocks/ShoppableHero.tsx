@@ -42,6 +42,13 @@ interface ProductNode {
 }
 
 interface ShoppableHeroProps {
+  // Native WordPress block "HTML Anchor" (Advanced panel). The top-level
+  // `anchor` convenience field on AcfShoppableHero resolves to null in this
+  // schema (confirmed via introspection — a WPGraphQL-for-ACF quirk); the
+  // value is only populated under `attributes.anchor`, so read it from there.
+  // Lets a CollectionCardsSet card link here via `#<anchor>` (see
+  // CollectionCardsSet.tsx's scroll-to-anchor handler).
+  attributes?: { anchor?: string | null } | null;
   shoppableHero?: {
     customTitle?: string | null;
     customDescription?: string | null;
@@ -107,7 +114,7 @@ export default function ShoppableHero(props: ShoppableHeroProps) {
   const alignment = data.contentAlignment?.[0] === 'right' ? 'right' : 'left';
 
   return (
-    <section className="shoppable-hero">
+    <section className="shoppable-hero" id={props.attributes?.anchor || undefined}>
       <div className="responsive-banner">
         <div className="responsive-banner__wrapper">
           <picture>
@@ -152,7 +159,7 @@ export default function ShoppableHero(props: ShoppableHeroProps) {
             {cartInput && (
               <button
                 type="button"
-                className="btn btn--full"
+                className="button is-black"
                 disabled={isMutating}
                 onClick={() => {
                   addToCart(cartInput).catch(() => {
@@ -177,6 +184,9 @@ ShoppableHero.fragments = {
   key: `AcfShoppableHeroFragment`,
   entry: gql`
     fragment AcfShoppableHeroFragment on AcfShoppableHero {
+      attributes {
+        anchor
+      }
       shoppableHero {
         customTitle
         customDescription

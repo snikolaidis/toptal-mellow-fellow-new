@@ -11,8 +11,12 @@ export const GET_ALL_POST_SLUGS = gql`
 `;
 
 export const GET_ALL_POSTS = gql`
-  query GetAllPosts($first: Int) {
-    posts(first: $first) {
+  query GetAllPosts($first: Int, $after: String) {
+    posts(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         id
         databaseId

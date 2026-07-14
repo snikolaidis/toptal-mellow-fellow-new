@@ -1,0 +1,55 @@
+// Discount code bar block (AcfDiscountCodeBar / src/wp-blocks/DiscountCodeBar.tsx).
+// Mirrors mf-shopify-theme's src/scss/sections/_discount-code-bar.scss —
+// colors come from block fields via CSS vars set inline on the section.
+
+.discount-code-bar__inner {
+  background: var(--bar-bg);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.discount-code-bar__text,
+.discount-code-bar__code {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.discount-code-bar__text {
+  color: var(--bar-text);
+}
+
+.discount-code-bar__code {
+  color: var(--bar-highlight);
+}
+
+.discount-code-bar__btn {
+  display: inline-flex;
+  padding: 4px 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--btn-bg);
+  border: none;
+  cursor: pointer;
+  color: var(--btn-text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.33;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  &.copied {
+    color: #4ade80;
+  }
+}

@@ -70,6 +70,41 @@ function nextBoundaryDelay(now: number, start: Date | null, end: Date | null): n
   return Math.min(...boundaries) - now;
 }
 
+/**
+ * Card links can point at an in-page anchor (e.g. `#exotic-thcs-flower`, set
+ * to match a ShoppableHero's HTML Anchor further down the same page) instead
+ * of navigating away. Intercepts clicks on hash-only links within this
+ * block's own container and smooth-scrolls to the target element, scoped
+ * here rather than attached globally to every link on the page.
+ */
+function useAnchorScrollLinks(containerRef: React.RefObject<HTMLElement | null>, deps: unknown[]) {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const cleanups: (() => void)[] = [];
+
+    container.querySelectorAll('a').forEach((link) => {
+      const href = link.getAttribute('href');
+      if (!href?.startsWith('#')) return;
+
+      const scrollToEl = document.getElementById(href.slice(1));
+      if (!scrollToEl) return;
+
+      const handleClick = (e: MouseEvent) => {
+        e.preventDefault();
+        scrollToEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+
+      link.addEventListener('click', handleClick);
+      cleanups.push(() => link.removeEventListener('click', handleClick));
+    });
+
+    return () => cleanups.forEach((cleanup) => cleanup());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}
+
 function CardItem({ card }: { card: Card }) {
   const desktop = card.image?.node;
   const mobile = card.mobileImage?.node;
@@ -155,6 +190,9 @@ export default function CollectionCardsSet(props: CollectionCardsSetProps) {
   }, [isScheduled, startDate?.getTime(), endDate?.getTime()]);
 
   const cards = data?.cards ?? [];
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  useAnchorScrollLinks(trackRef, [cards]);
 
   if (!data || cards.length === 0 || visible === false || visible === null) {
     return null;
@@ -164,9 +202,10 @@ export default function CollectionCardsSet(props: CollectionCardsSetProps) {
   const numPerRowDesktop = Math.min(cards.length, data.maxPerRow || 4);
 
   return (
-    <section className="collection-cards-set">
+    <section className="collection-cards-set section">
       <div className="container">
         <div
+          ref={trackRef}
           className="collection-cards-set__track"
           style={
             {

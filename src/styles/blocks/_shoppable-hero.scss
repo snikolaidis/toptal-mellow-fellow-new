@@ -86,18 +86,13 @@
       }
     }
 
-    .btn {
+    .button {
       width: 180px;
       font-size: 14px;
-      color: #D9C79E;
       font-weight: bold;
 
       @media screen and (min-width: 768px) {
         width: 217px;
-      }
-
-      &:hover {
-        color: #000000;
       }
     }
 

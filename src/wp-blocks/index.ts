@@ -21,6 +21,7 @@ import BlogPosts from './BlogPosts';
 import Faq from './Faq';
 import ReviewsCarousel from './ReviewsCarousel';
 import PromoSlider from './PromoSlider';
+import DiscountCodeBar from './DiscountCodeBar';
 
 export default {
   ...CoreBlocks,
@@ -76,5 +77,7 @@ export default {
   // The reviews themselves are rendered by klaviyo.js into the carousel div.
   AcfReviewsCarousel: ReviewsCarousel,
   // Ready, but inert until the `acf/promo-slider` block is deployed to WP.
-  AcfPromoSlider: PromoSlider
+  AcfPromoSlider: PromoSlider,
+  // Ready, but inert until the `acf/discount-code-bar` block is deployed to WP.
+  AcfDiscountCodeBar: DiscountCodeBar
 };

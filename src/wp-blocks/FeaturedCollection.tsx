@@ -71,6 +71,7 @@ export default function FeaturedCollection(props: FeaturedCollectionProps) {
               href={button.url}
               target={button.target || undefined}
               rel={button.target === '_blank' ? 'noopener noreferrer' : undefined}
+              className='button is-black'
             >
               {button.title || 'Shop All'}
             </a>
