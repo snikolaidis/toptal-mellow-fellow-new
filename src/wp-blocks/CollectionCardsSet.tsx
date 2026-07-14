@@ -94,6 +94,19 @@ function useAnchorScrollLinks(containerRef: React.RefObject<HTMLElement | null>,
       const handleClick = (e: MouseEvent) => {
         e.preventDefault();
         scrollToEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        const addedTabIndex = !scrollToEl.hasAttribute('tabindex');
+        if (addedTabIndex) scrollToEl.setAttribute('tabindex', '-1');
+
+        scrollToEl.focus({ preventScroll: true });
+
+        if (addedTabIndex) {
+          scrollToEl.addEventListener(
+            'blur',
+            () => scrollToEl.removeAttribute('tabindex'),
+            { once: true }
+          );
+        }
       };
 
       link.addEventListener('click', handleClick);
@@ -111,7 +124,8 @@ function CardItem({ card }: { card: Card }) {
   const fallback = desktop || mobile;
   if (!fallback?.sourceUrl) return null;
 
-  const fullTitle = [card.preface, card.title].filter(Boolean).join(' ');
+  const fullTitle = [card.preface, card.title, card.price].filter(Boolean).join(' ');
+  const imageAlt = fullTitle ? '' : fallback.altText || 'Collection card image';
 
   const content = (
     <>
@@ -120,7 +134,7 @@ function CardItem({ card }: { card: Card }) {
         {desktop?.sourceUrl && <source media="(width >= 1024px)" srcSet={desktop.sourceUrl} />}
         <img
           src={fallback.sourceUrl}
-          alt={fallback.altText || `Image for ${fullTitle}`}
+          alt={imageAlt}
           width={fallback.mediaDetails?.width ?? undefined}
           height={fallback.mediaDetails?.height ?? undefined}
           loading="lazy"
