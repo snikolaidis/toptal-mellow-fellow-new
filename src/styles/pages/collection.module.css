@@ -133,6 +133,27 @@
   margin: 0;
 }
 
+.descriptionClamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.descriptionToggle {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Layout: sidebar + main */
 .layout {
   display: flex;

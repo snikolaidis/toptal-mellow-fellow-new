@@ -1,7 +1,7 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import {
   GET_COLLECTION_META,
@@ -70,6 +70,14 @@ export default function CollectionsPage({
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [descTruncatable, setDescTruncatable] = useState(false);
+  const descRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!descRef.current) return;
+    setDescTruncatable(descRef.current.scrollHeight > descRef.current.clientHeight + 1);
+  }, [collection?.description]);
 
   const filteredProducts = useMemo(() => {
     let result = allProducts;
@@ -185,7 +193,22 @@ export default function CollectionsPage({
           <div className={styles.headerContent}>
             <h1 className={styles.title}>{collection.name}</h1>
             {collection.description && (
-              <div className={styles.description} dangerouslySetInnerHTML={{ __html: collection.description }} />
+              <>
+                <div
+                  ref={descRef}
+                  className={`${styles.description} ${!descExpanded ? styles.descriptionClamped : ''}`}
+                  dangerouslySetInnerHTML={{ __html: collection.description }}
+                />
+                {descTruncatable && (
+                  <button
+                    type="button"
+                    className={styles.descriptionToggle}
+                    onClick={() => setDescExpanded((v) => !v)}
+                  >
+                    {descExpanded ? 'Read less' : 'Read more'}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </header>
