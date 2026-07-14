@@ -1,0 +1,91 @@
+{
+    "key": "group_discount_code_bar",
+    "title": "Discount Code Bar Fields",
+    "fields": [
+        {
+            "key": "field_dcb_text",
+            "label": "Text",
+            "name": "text",
+            "type": "text",
+            "instructions": "e.g. \"Snapchat users get 20% off |\" — the \"CODE: X\" part is added automatically from the discount code below.",
+            "required": 1,
+            "wrapper": { "width": "60" }
+        },
+        {
+            "key": "field_dcb_discount_code",
+            "label": "Discount code",
+            "name": "discount_code",
+            "type": "text",
+            "instructions": "Shown after the text and copied to the clipboard by the button.",
+            "required": 1,
+            "wrapper": { "width": "40" }
+        },
+        {
+            "key": "field_dcb_text_color",
+            "label": "Text color",
+            "name": "text_color",
+            "type": "color_picker",
+            "default_value": "#ffffff",
+            "required": 0,
+            "wrapper": { "width": "20" }
+        },
+        {
+            "key": "field_dcb_highlight_color",
+            "label": "Highlighted text color",
+            "name": "highlight_color",
+            "type": "color_picker",
+            "instructions": "Optional. Applied to the \"CODE: X\" part; leave unset to match the text color.",
+            "required": 0,
+            "wrapper": { "width": "20" }
+        },
+        {
+            "key": "field_dcb_background_color",
+            "label": "Background color",
+            "name": "background_color",
+            "type": "color_picker",
+            "default_value": "#000000",
+            "required": 0,
+            "wrapper": { "width": "20" }
+        },
+        {
+            "key": "field_dcb_button_background_color",
+            "label": "Button background color",
+            "name": "button_background_color",
+            "type": "color_picker",
+            "default_value": "#ffffff",
+            "required": 0,
+            "wrapper": { "width": "20" }
+        },
+        {
+            "key": "field_dcb_button_text_color",
+            "label": "Button text color",
+            "name": "button_text_color",
+            "type": "color_picker",
+            "default_value": "#241A00",
+            "required": 0,
+            "wrapper": { "width": "20" }
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/discount-code-bar"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "discountCodeBar",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfDiscountCodeBar"
+    ]
+}
