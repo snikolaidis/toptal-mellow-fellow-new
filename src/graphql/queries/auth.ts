@@ -129,6 +129,41 @@ export const GET_CUSTOMER = gql`
           date
           status
           total
+          subtotal
+          shippingTotal
+          discountTotal
+          totalTax
+          paymentMethodTitle
+          billing {
+            firstName
+            lastName
+            company
+            email
+            phone
+            address1
+            address2
+            city
+            state
+            postcode
+            country
+          }
+          shipping {
+            firstName
+            lastName
+            company
+            address1
+            address2
+            city
+            state
+            postcode
+            country
+          }
+          couponLines {
+            nodes {
+              code
+              discount
+            }
+          }
           lineItems {
             nodes {
               product {

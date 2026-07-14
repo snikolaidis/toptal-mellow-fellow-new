@@ -245,13 +245,6 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
               <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : cart.subtotal}</dd>
             </div>
 
-            {hasDiscount && (
-              <div className={`${styles.row} ${styles.rowDiscount}`}>
-                <dt>Discount</dt>
-                <dd>-{cart.discountTotal}</dd>
-              </div>
-            )}
-
             <div className={styles.row}>
               <dt>Shipping</dt>
               <dd>
@@ -260,6 +253,13 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                   : 'Calculated at checkout'}
               </dd>
             </div>
+
+            {hasDiscount && (
+              <div className={`${styles.row} ${styles.rowDiscount}`}>
+                <dt>Discount</dt>
+                <dd>-{cart.discountTotal}</dd>
+              </div>
+            )}
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>

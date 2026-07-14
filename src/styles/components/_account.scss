@@ -378,3 +378,29 @@ body.account {
     grid-template-columns: 2fr 1fr;
   }
 }
+
+.account__addresses {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-top: 24px;
+
+  @media screen and (min-width: 769px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.account__address {
+  margin-top: 24px;
+
+  p {
+    line-height: 1.6;
+  }
+}
+
+.account__subtitle {
+  font-family: var(--font-family-display);
+  font-weight: 700;
+  font-size: 20px;
+  margin-bottom: 8px;
+}

@@ -307,6 +307,13 @@ export default function ShopPage({ allProducts, taxMap }: ShopPageProps) {
                 </div>
               </div>
 
+              <MobileFilters
+                filterGroups={filterGroups}
+                activeFilters={activeFilters}
+                onFilterChange={handleFilterChange}
+                productCount={filteredProducts.length}
+              />
+
               <div className='products-grid'>
                 {pageProducts.length > 0 ? (
                   pageProducts.map((product, index) => (
@@ -336,12 +343,6 @@ export default function ShopPage({ allProducts, taxMap }: ShopPageProps) {
           </div>
         </div>
 
-        <MobileFilters
-          filterGroups={filterGroups}
-          activeFilters={activeFilters}
-          onFilterChange={handleFilterChange}
-          productCount={filteredProducts.length}
-        />
       </div>
     </Layout>
   );

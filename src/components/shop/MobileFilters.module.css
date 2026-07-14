@@ -1,14 +1,14 @@
-/* Mobile Filters - Bottom Sheet Style */
+/* Mobile Filters - inline dropdown under the sort control. It used to be a
+   fixed bottom bar, but the accessibility widget and the live chat launcher sit
+   in that corner and covered it. */
 .mobileFilters {
   display: block;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  width: 100%;
+  margin-bottom: 1rem;
   background: white;
-  border-top: 1px solid #e0e0e0;
-  z-index: 51;
-  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
 }
 
 @media (min-width: 1024px) {
@@ -89,9 +89,20 @@
 .panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
   background: #fff;
+  border-top: 1px solid #e0e0e0;
+  max-height: 65vh;
+  overflow-y: auto;
+  animation: slideDown 0.2s ease-out;
+}
+
+.chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
 }
 
 /* Category list */
@@ -144,25 +155,9 @@
   color: #ffffff;
 }
 
-/* ===== Full-screen filter overlay ===== */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: slideUp 0.25s ease-out;
-}
-
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-@media (min-width: 1024px) {
-  .overlay { display: none; }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .panelHeader {

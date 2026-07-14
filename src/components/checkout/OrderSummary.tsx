@@ -321,6 +321,15 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
               <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : cart.subtotal}</dd>
             </div>
 
+            <div className={styles.row}>
+              <dt>Shipping</dt>
+              <dd>
+                {cart.shippingTotal && parseFloat(cart.shippingTotal.replace(/[^0-9.-]/g, '')) > 0
+                  ? cart.shippingTotal
+                  : 'Calculated at checkout'}
+              </dd>
+            </div>
+
             {totalBundleDiscount > 0 && (
               <div className={`${styles.row} ${styles.rowDiscount}`}>
                 <dt>Bundle Discount</dt>
@@ -334,15 +343,6 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
                 <dd>-{cart.discountTotal}</dd>
               </div>
             )}
-
-            <div className={styles.row}>
-              <dt>Shipping</dt>
-              <dd>
-                {cart.shippingTotal && parseFloat(cart.shippingTotal.replace(/[^0-9.-]/g, '')) > 0
-                  ? cart.shippingTotal
-                  : 'Calculated at checkout'}
-              </dd>
-            </div>
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>

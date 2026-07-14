@@ -189,6 +189,13 @@ export default function SearchPage({
               </div>
             </div>
 
+            <MobileFilters
+              filterGroups={filterGroups}
+              activeFilters={activeFilters}
+              onFilterChange={handleFilterChange}
+              productCount={filteredProducts.length}
+            />
+
             {pageProducts.length > 0 ? (
               <div className="products-grid">
                 {pageProducts.map((product, index) => (
@@ -253,13 +260,6 @@ export default function SearchPage({
           </section>
         )}
       </div>
-
-      <MobileFilters
-        filterGroups={filterGroups}
-        activeFilters={activeFilters}
-        onFilterChange={handleFilterChange}
-        productCount={filteredProducts.length}
-      />
     </Layout>
   );
 }

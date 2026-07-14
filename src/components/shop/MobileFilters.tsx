@@ -44,39 +44,31 @@ export default function MobileFilters({
   };
 
   return (
-    <>
-      {/* Fixed bottom bar */}
-      <div className={styles.mobileFilters}>
-        <button
-          className={styles.filterBar}
-          onClick={() => setIsOpen(true)}
+    <div className={styles.mobileFilters}>
+      <button
+        className={styles.filterBar}
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        <div className={styles.filterInfo}>
+          <svg className={styles.filterIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          <span>Filter</span>
+          {totalActive > 0 && (
+            <span className={styles.badge}>{totalActive}</span>
+          )}
+        </div>
+        <svg
+          className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`}
+          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
         >
-          <div className={styles.filterInfo}>
-            <svg className={styles.filterIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            <span>Filter</span>
-            {totalActive > 0 && (
-              <span className={styles.badge}>{totalActive}</span>
-            )}
-          </div>
-          <span className={styles.productCount}>{productCount}+ products</span>
-        </button>
-      </div>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
 
-      {/* Full screen filter panel */}
       {isOpen && (
-        <div className={styles.overlay}>
-          <div className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h3>Filters</h3>
-              <button onClick={() => setIsOpen(false)} className={styles.closeBtn}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
+        <div className={styles.panel}>
             <div className={styles.panelContent}>
               {filterGroups.map((group) => {
                 const isExpanded = expanded[group.key] || false;
@@ -127,12 +119,11 @@ export default function MobileFilters({
                 </button>
               )}
               <button className={styles.applyBtn} onClick={() => setIsOpen(false)}>
-                Show results
+                Show {productCount} results
               </button>
             </div>
-          </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

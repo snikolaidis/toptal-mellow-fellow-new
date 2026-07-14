@@ -11,13 +11,84 @@ interface LineItem {
   product?: { node?: { name?: string; slug?: string } };
 }
 
+interface OrderAddress {
+  firstName?: string;
+  lastName?: string;
+  company?: string;
+  email?: string;
+  phone?: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
+}
+
+interface CouponLine {
+  code?: string;
+  discount?: string;
+}
+
 interface Order {
   databaseId: number;
   orderNumber: string;
   date: string;
   status: string;
   total: string;
+  subtotal?: string;
+  shippingTotal?: string;
+  discountTotal?: string;
+  totalTax?: string;
+  paymentMethodTitle?: string;
+  billing?: OrderAddress;
+  shipping?: OrderAddress;
+  couponLines?: { nodes: CouponLine[] };
   lineItems?: { nodes: LineItem[] };
+}
+
+function hasAmount(value?: string): boolean {
+  if (!value) return false;
+  const numeric = parseFloat(value.replace(/[^0-9.-]/g, ''));
+  return !Number.isNaN(numeric) && numeric !== 0;
+}
+
+function AddressBlock({ title, address }: { title: string; address?: OrderAddress }) {
+  if (!address?.address1) return null;
+
+  return (
+    <div className="account__address">
+      <h2 className="account__subtitle">{title}</h2>
+      <p>
+        {address.firstName} {address.lastName}
+        {address.company && (
+          <>
+            <br />
+            {address.company}
+          </>
+        )}
+        <br />
+        {address.address1}
+        {address.address2 && <>, {address.address2}</>}
+        <br />
+        {address.city}, {address.state} {address.postcode}
+        <br />
+        {address.country}
+        {address.phone && (
+          <>
+            <br />
+            {address.phone}
+          </>
+        )}
+        {address.email && (
+          <>
+            <br />
+            {address.email}
+          </>
+        )}
+      </p>
+    </div>
+  );
 }
 
 function statusModifier(status: string): string {
@@ -68,6 +139,7 @@ function OrderContent() {
   }
 
   const items = order.lineItems?.nodes || [];
+  const coupons = order.couponLines?.nodes || [];
 
   return (
     <div className="account">
@@ -115,6 +187,41 @@ function OrderContent() {
           })}
         </tbody>
         <tfoot>
+          {hasAmount(order.subtotal) && (
+            <tr>
+              <td>Subtotal</td>
+              <td />
+              <td>{order.subtotal}</td>
+            </tr>
+          )}
+
+          {hasAmount(order.shippingTotal) && (
+            <tr>
+              <td>Shipping</td>
+              <td />
+              <td>{order.shippingTotal}</td>
+            </tr>
+          )}
+
+          {hasAmount(order.discountTotal) && (
+            <tr>
+              <td>
+                Discount
+                {coupons.length > 0 && ` (${coupons.map((c) => c.code).join(', ')})`}
+              </td>
+              <td />
+              <td>-{order.discountTotal}</td>
+            </tr>
+          )}
+
+          {hasAmount(order.totalTax) && (
+            <tr>
+              <td>Tax</td>
+              <td />
+              <td>{order.totalTax}</td>
+            </tr>
+          )}
+
           <tr>
             <td className="account__order-number">Total</td>
             <td />
@@ -122,6 +229,18 @@ function OrderContent() {
           </tr>
         </tfoot>
       </table>
+
+      {order.paymentMethodTitle && (
+        <div className="account__address">
+          <h2 className="account__subtitle">Payment</h2>
+          <p>{order.paymentMethodTitle}</p>
+        </div>
+      )}
+
+      <div className="account__addresses">
+        <AddressBlock title="Shipping address" address={order.shipping} />
+        <AddressBlock title="Billing address" address={order.billing} />
+      </div>
 
       <div className="account__back">
         <Link href="/account" className="account__link">
