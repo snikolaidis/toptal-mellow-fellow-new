@@ -78,9 +78,14 @@ export default function DiscountCodeBar(props: DiscountCodeBarProps) {
               type="button"
               className={`discount-code-bar__btn${copied ? ' copied' : ''}`}
               onClick={handleCopy}
+              aria-label={`Copy discount code ${data.discountCode} to clipboard`}
             >
               {copied ? 'COPIED!' : 'COPY CODE'}
             </button>
+            
+            <span className="sr-only" role="status" aria-live="polite">
+              {copied ? 'Discount code copied to clipboard' : ''}
+            </span>
           </>
         )}
       </div>
