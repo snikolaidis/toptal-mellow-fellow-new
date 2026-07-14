@@ -90,6 +90,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const suggestions = buildSuggestions(
     results.map((r) => r.name),
@@ -120,10 +121,13 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
     if (!isOpen) {
+      abortRef.current?.abort();
+      abortRef.current = null;
       setQuery('');
       setResults([]);
       setCollections([]);
       setHasSearched(false);
+      setLoading(false);
     }
   }, [isOpen]);
 
@@ -152,10 +156,14 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
   // Debounced search
   const searchProducts = useCallback(async (searchQuery: string) => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+
     if (searchQuery.length < 2) {
       setResults([]);
       setCollections([]);
       setHasSearched(false);
+      setLoading(false);
       return;
     }
 
@@ -165,16 +173,24 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
       setResults(cached.results);
       setCollections(cached.collections);
       setHasSearched(true);
+      setLoading(false);
       return;
     }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setLoading(true);
     setHasSearched(true);
 
     try {
       const [productsRes, collectionsRes] = await Promise.all([
-        fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`).then((r) => r.json()),
-        fetch(`/api/search-collections?q=${encodeURIComponent(searchQuery)}`).then((r) => r.json()),
+        fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`, {
+          signal: controller.signal,
+        }).then((r) => r.json()),
+        fetch(`/api/search-collections?q=${encodeURIComponent(searchQuery)}`, {
+          signal: controller.signal,
+        }).then((r) => r.json()),
       ]);
 
       const nextResults: SearchResult[] = productsRes.success ? productsRes.products : [];
@@ -188,11 +204,16 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
         time: Date.now(),
       });
     } catch (error) {
+      if ((error as Error)?.name === 'AbortError') {
+        return;
+      }
       console.error('Search error:', error);
       setResults([]);
       setCollections([]);
     } finally {
-      setLoading(false);
+      if (abortRef.current === controller) {
+        setLoading(false);
+      }
     }
   }, []);
 
