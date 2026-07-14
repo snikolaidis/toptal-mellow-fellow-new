@@ -37,19 +37,49 @@ export default function BlogsPage({ posts, allTags, categoryTitle, categoryDescr
   );
 }
 
+// WPGraphQL caps a single connection query (this install allows up to 500
+// per request) — loop with the cursor until every post has been fetched, so
+// pagination on the client can page through the whole set, not just the
+// first batch.
+interface PostsPage {
+  posts?: {
+    nodes?: BlogPostCard[];
+    pageInfo?: { hasNextPage: boolean; endCursor: string | null };
+  };
+}
+
+async function fetchAllPosts(client: ReturnType<typeof getClient>): Promise<BlogPostCard[]> {
+  const all: BlogPostCard[] = [];
+  let after: string | null = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const result: { data?: PostsPage } = await client.query<PostsPage>({
+      query: GET_ALL_POSTS,
+      variables: { first: 100, after },
+    });
+    const posts = result.data?.posts;
+    all.push(...(posts?.nodes || []));
+    hasNextPage = posts?.pageInfo?.hasNextPage || false;
+    after = posts?.pageInfo?.endCursor || null;
+  }
+
+  return all;
+}
+
 export const getStaticProps: GetStaticProps = async () => {
   try {
     const client = getClient();
 
-    const [postsResult, tagsResult, categoryResult] = await Promise.all([
-      client.query({ query: GET_ALL_POSTS, variables: { first: 100 } }),
+    const [posts, tagsResult, categoryResult] = await Promise.all([
+      fetchAllPosts(client),
       client.query({ query: GET_ALL_TAGS }),
       client.query({ query: GET_CATEGORY_BY_SLUG, variables: { slug: BLOG_CATEGORY_SLUG } }),
     ]);
 
     return {
       props: {
-        posts: postsResult.data?.posts?.nodes || [],
+        posts,
         allTags: tagsResult.data?.tags?.nodes || [],
         categoryTitle: categoryResult.data?.category?.name || '',
         categoryDescription: categoryResult.data?.category?.description || '',
