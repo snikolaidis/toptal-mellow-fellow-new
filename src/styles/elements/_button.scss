@@ -13,4 +13,11 @@
       color: #fff;
     }
   }
+
+  &.is-black {
+    &:hover {
+      background-color: #E6DABE;
+      color: #000000;
+    }
+  }
 }
