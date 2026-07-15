@@ -1,6 +1,7 @@
 import '../../../faust.config';
 import { WordPressTemplate, getWordPressProps } from '@faustwp/core';
 import { GetStaticPaths, GetStaticProps } from 'next';
+import { useRouter } from 'next/router';
 
 /**
  * Catch-all for WP content pages served under `/pages/<slug>` (Shopify-style
@@ -12,7 +13,8 @@ import { GetStaticPaths, GetStaticProps } from 'next';
  * the full `/pages/...` request path.
  */
 export default function Page(props: any) {
-  return <WordPressTemplate {...props} />;
+  const router = useRouter();
+  return <WordPressTemplate key={router.asPath} {...props} />;
 }
 
 export const getStaticProps: GetStaticProps = async (ctx) => {

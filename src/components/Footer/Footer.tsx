@@ -96,9 +96,17 @@ interface FooterMenuItem {
 // relative paths (/contact-us/), full frontend-domain URLs (the headless app on
 // *.up.railway.app) and true external links (e.g. affiliate URLs). Internal
 // targets get client-side Next navigation; everything else opens externally.
+// WordPress exposes the account page at /my-account; the headless app serves it
+// at /account. Remap so the footer link lands on the real route.
+function remapInternalPath(path: string): string {
+  const clean = path.replace(/\/$/, '') || '/';
+  if (clean === '/my-account') return '/account';
+  return path;
+}
+
 function footerHref(uri: string): { href: string; external: boolean } {
   if (!uri) return { href: '#', external: false };
-  if (uri.startsWith('/')) return { href: uri, external: false };
+  if (uri.startsWith('/')) return { href: remapInternalPath(uri), external: false };
   try {
     const u = new URL(uri);
     const wpHost = new URL(process.env.NEXT_PUBLIC_WORDPRESS_URL || '').host;
@@ -108,7 +116,7 @@ function footerHref(uri: string): { href: string; external: boolean } {
       (runtimeHost && u.host === runtimeHost) ||
       u.host.endsWith('.up.railway.app');
     return isInternal
-      ? { href: u.pathname + u.search + u.hash, external: false }
+      ? { href: remapInternalPath(u.pathname) + u.search + u.hash, external: false }
       : { href: uri, external: true };
   } catch {
     return { href: uri, external: true };

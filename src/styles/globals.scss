@@ -988,15 +988,3 @@ img {
   height: 28px !important;
 }
 
-/* ===================================
-   YOTPO REWARDS BANNER — MOBILE FIX
-   Only push up on pages that have the mobile filter bar (shop + collections)
-   =================================== */
-@media (max-width: 1023px) {
-  body.page-shop .yotpo-floater-widget-layout,
-  body.collection .yotpo-floater-widget-layout,
-  body.page-search .yotpo-floater-widget-layout {
-    bottom: 50px !important;
-    z-index: 49 !important;
-  }
-}
