@@ -87,6 +87,70 @@ export const GET_LOYALTY_PROGRAM = gql`
   }
 `;
 
+// Single order by database id, for the account order detail page. Fetched
+// directly (not through customer.orders) because the order query grants the
+// owner access to the restricted billing/shipping/payment fields, which the
+// customer.orders connection does not return.
+export const GET_ACCOUNT_ORDER = gql`
+  query GetAccountOrder($id: ID!) {
+    order(id: $id, idType: DATABASE_ID) {
+      id
+      databaseId
+      orderNumber
+      date
+      status
+      total
+      subtotal
+      shippingTotal
+      discountTotal
+      totalTax
+      paymentMethodTitle
+      billing {
+        firstName
+        lastName
+        company
+        email
+        phone
+        address1
+        address2
+        city
+        state
+        postcode
+        country
+      }
+      shipping {
+        firstName
+        lastName
+        company
+        address1
+        address2
+        city
+        state
+        postcode
+        country
+      }
+      couponLines {
+        nodes {
+          code
+          discount
+        }
+      }
+      lineItems {
+        nodes {
+          product {
+            node {
+              name
+              slug
+            }
+          }
+          quantity
+          total
+        }
+      }
+    }
+  }
+`;
+
 // Get customer data with billing/shipping and orders
 export const GET_CUSTOMER = gql`
   query GetCustomer {
@@ -129,41 +193,6 @@ export const GET_CUSTOMER = gql`
           date
           status
           total
-          subtotal
-          shippingTotal
-          discountTotal
-          totalTax
-          paymentMethodTitle
-          billing {
-            firstName
-            lastName
-            company
-            email
-            phone
-            address1
-            address2
-            city
-            state
-            postcode
-            country
-          }
-          shipping {
-            firstName
-            lastName
-            company
-            address1
-            address2
-            city
-            state
-            postcode
-            country
-          }
-          couponLines {
-            nodes {
-              code
-              discount
-            }
-          }
           lineItems {
             nodes {
               product {

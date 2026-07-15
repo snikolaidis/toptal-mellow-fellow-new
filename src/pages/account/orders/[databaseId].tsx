@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
 import AccountGuard from '@/components/account/AccountGuard';
-import { GET_CUSTOMER } from '@/graphql/queries/auth';
+import { GET_ACCOUNT_ORDER } from '@/graphql/queries/auth';
 
 interface LineItem {
   quantity: number;
@@ -108,11 +108,14 @@ function statusModifier(status: string): string {
 function OrderContent() {
   const router = useRouter();
   const client = getApolloAuthClient();
-  const { data, loading } = useQuery(GET_CUSTOMER, { client });
-
   const databaseId = Number(router.query.databaseId);
-  const orders: Order[] = data?.customer?.orders?.nodes || [];
-  const order = orders.find((o) => o.databaseId === databaseId);
+  const { data, loading } = useQuery(GET_ACCOUNT_ORDER, {
+    client,
+    variables: { id: String(databaseId) },
+    skip: !databaseId,
+  });
+
+  const order: Order | undefined = data?.order || undefined;
 
   if (loading) {
     return (
@@ -140,6 +143,13 @@ function OrderContent() {
 
   const items = order.lineItems?.nodes || [];
   const coupons = order.couponLines?.nodes || [];
+
+  const toNumber = (value?: string) =>
+    value ? parseFloat(value.replace(/[^0-9.-]/g, '')) || 0 : 0;
+  const couponDiscount = coupons.reduce((sum, c) => sum + toNumber(c.discount), 0);
+  const discountAmount = hasAmount(order.discountTotal)
+    ? toNumber(order.discountTotal)
+    : couponDiscount;
 
   return (
     <div className="account">
@@ -203,14 +213,14 @@ function OrderContent() {
             </tr>
           )}
 
-          {hasAmount(order.discountTotal) && (
+          {discountAmount > 0 && (
             <tr>
               <td>
                 Discount
                 {coupons.length > 0 && ` (${coupons.map((c) => c.code).join(', ')})`}
               </td>
               <td />
-              <td>-{order.discountTotal}</td>
+              <td>-${discountAmount.toFixed(2)}</td>
             </tr>
           )}
 
