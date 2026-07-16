@@ -185,7 +185,8 @@
     grid-template-columns: 1fr 1.5fr;
     grid-template-areas:
       "suggestions products"
-      "collections products";
+      "collections products"
+      "articles articles";
     column-gap: 2.5rem;
     row-gap: 0.5rem;
     align-items: start;
@@ -194,6 +195,7 @@
   .sectionSuggestions { grid-area: suggestions; }
   .sectionCollections { grid-area: collections; }
   .sectionProducts { grid-area: products; }
+  .sectionArticles { grid-area: articles; }
 }
 
 .section {

@@ -143,6 +143,9 @@ export default function SearchPage({
 
   const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
+  const noProductMatches = Boolean(query) && allProducts.length === 0;
+  const articlesOnly = noProductMatches && blogPosts.length > 0;
+
   return (
     <Layout
       title={query ? `Search: ${query}` : 'Search'}
@@ -161,6 +164,12 @@ export default function SearchPage({
           </h1>
         </header>
 
+        {articlesOnly ? (
+          <p className={styles.articlesLead}>
+            No products match &ldquo;{query}&rdquo;, but {blogPosts.length}{' '}
+            {blogPosts.length === 1 ? 'article' : 'articles'} did.
+          </p>
+        ) : (
         <div className={styles.layout}>
           <div className={styles.sidebarWrapper}>
             <ShopSidebar
@@ -227,10 +236,15 @@ export default function SearchPage({
             )}
           </main>
         </div>
+        )}
 
         {blogPosts.length > 0 && (
-          <section className={styles.blogSection}>
-            <h2 className={styles.blogTitle}>Related Articles</h2>
+          <section
+            className={articlesOnly ? `${styles.blogSection} ${styles.blogSectionOnly}` : styles.blogSection}
+          >
+            <h2 className={styles.blogTitle}>
+              {articlesOnly ? 'Articles' : 'Related Articles'}
+            </h2>
             <div className={styles.blogGrid}>
               {blogPosts.map((post) => (
                 <Link key={post.id} href={`/blogs/${post.slug}`} className={styles.blogCard}>
