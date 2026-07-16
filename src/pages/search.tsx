@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import { gql } from '@apollo/client';
+import DOMPurify from 'isomorphic-dompurify';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ShopSidebar from '@/components/shop/ShopSidebar';
@@ -49,6 +50,15 @@ interface BlogPost {
 function parsePrice(price?: string): number {
   if (!price) return 0;
   return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
+}
+
+function excerptText(html: string): string {
+  const node = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    RETURN_DOM: true,
+  });
+  return (node.textContent || '').trim().slice(0, 120) + '...';
 }
 
 /** Check if a product matches active filters */
@@ -261,9 +271,7 @@ export default function SearchPage({
                   )}
                   <div className={styles.blogInfo}>
                     <h3>{post.title}</h3>
-                    {post.excerpt && (
-                      <p dangerouslySetInnerHTML={{ __html: post.excerpt.replace(/<[^>]+>/g, '').slice(0, 120) + '...' }} />
-                    )}
+                    {post.excerpt && <p>{excerptText(post.excerpt)}</p>}
                     <span className={styles.blogDate}>
                       {new Date(post.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </span>
