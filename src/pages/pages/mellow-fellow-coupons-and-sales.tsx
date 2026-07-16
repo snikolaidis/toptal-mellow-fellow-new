@@ -33,11 +33,6 @@ const GET_DEALS_CARD_GRID = gql`
             title
             target
           }
-          collectionTarget {
-            nodes {
-              slug
-            }
-          }
         }
       }
     }
@@ -77,17 +72,12 @@ export const getStaticProps: GetStaticProps<DealsPageProps> = async () => {
     const rows = group?.dealCtas || [];
     const cards: DealCard[] = rows
       .filter((row: any) => row?.visible)
-      .filter((row: any) => row?.dealLink?.url || row?.collectionTarget?.nodes?.[0]?.slug)
+      .filter((row: any) => row?.dealLink?.url)
       .map((row: any) => {
         const imageNode = row.image?.node;
         const rawLink = row.dealLink?.url;
         const parsed = rawLink ? new URL(rawLink, 'https://x') : null;
-        const stripped = parsed ? parsed.pathname + parsed.search : null;
-        const href =
-          stripped ??
-          (row.collectionTarget?.nodes?.[0]?.slug
-            ? `/collections/${row.collectionTarget.nodes[0].slug}`
-            : null);
+        const href = parsed ? parsed.pathname + parsed.search : null;
         return {
           href,
           label: row.label,
