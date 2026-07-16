@@ -1,6 +1,6 @@
 import { GetStaticProps } from 'next';
 import { getClient } from '@/lib/apollo-client';
-import { GET_ALL_POSTS, GET_ALL_TAGS, GET_CATEGORY_BY_SLUG } from '@/graphql/queries/posts';
+import { GET_ALL_POSTS, GET_CATEGORY_BY_SLUG, fetchAllTags } from '@/graphql/queries/posts';
 import Layout from '@/components/Layout';
 import BlogIndex from '@/templates/blogs/BlogIndex';
 import { BlogPostCard, BlogTag } from '@/types/blog';
@@ -71,16 +71,16 @@ export const getStaticProps: GetStaticProps = async () => {
   try {
     const client = getClient();
 
-    const [posts, tagsResult, categoryResult] = await Promise.all([
+    const [posts, allTags, categoryResult] = await Promise.all([
       fetchAllPosts(client),
-      client.query({ query: GET_ALL_TAGS }),
+      fetchAllTags(client),
       client.query({ query: GET_CATEGORY_BY_SLUG, variables: { slug: BLOG_CATEGORY_SLUG } }),
     ]);
 
     return {
       props: {
         posts,
-        allTags: tagsResult.data?.tags?.nodes || [],
+        allTags,
         categoryTitle: categoryResult.data?.category?.name || '',
         categoryDescription: categoryResult.data?.category?.description || '',
       },

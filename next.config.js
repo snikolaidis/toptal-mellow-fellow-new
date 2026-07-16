@@ -12,6 +12,16 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/blogs',
+        has: [{ type: 'query', key: 'tag', value: '(?<tag>.*)' }],
+        destination: '/blogs/tag/:tag',
+        statusCode: 301,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.wpengine.com' },
