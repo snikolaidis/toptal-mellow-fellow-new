@@ -3,18 +3,37 @@ import { getBrowserClient } from '@/lib/apollo-client';
 import { SUBMIT_CONTACT_FORM } from '@/graphql/mutations/contact';
 import styles from '@/styles/pages/contact-form.module.css';
 
-const FORM_ID = process.env.NEXT_PUBLIC_PRESS_CONTACT_FORM_ID || '1';
-const FIELD = { name: 1, email: 3, message: 4 };
-const FIELD_BY_ID: Record<number, 'name' | 'email' | 'message'> = {
-  [FIELD.name]: 'name',
-  [FIELD.email]: 'email',
-  [FIELD.message]: 'message',
-};
+export type ContactFieldType = 'text' | 'email' | 'textarea' | 'select';
+
+export interface ContactFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface ContactFieldConfig {
+  id: number;
+  key: string;
+  type: ContactFieldType;
+  label: string;
+  required?: boolean;
+  autoComplete?: string;
+  placeholder?: string;
+  options?: ContactFieldOption[];
+  span?: 'half' | 'full';
+}
+
+const PRESS_FORM_ID = process.env.NEXT_PUBLIC_PRESS_CONTACT_FORM_ID || '1';
+
+const PRESS_FIELDS: ContactFieldConfig[] = [
+  { id: 1, key: 'name', type: 'text', label: 'Name', autoComplete: 'name' },
+  { id: 3, key: 'email', type: 'email', label: 'Email', required: true, autoComplete: 'email' },
+  { id: 4, key: 'message', type: 'textarea', label: 'Message', required: true },
+];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Status = 'idle' | 'submitting' | 'success' | 'error';
-type Values = { name: string; email: string; message: string };
+type Values = Record<string, string>;
 
 interface SubmitGfFormResult {
   submitGfForm: {
@@ -24,21 +43,40 @@ interface SubmitGfFormResult {
   };
 }
 
-export default function ContactForm() {
-  const [values, setValues] = useState<Values>({ name: '', email: '', message: '' });
+interface ContactFormProps {
+  formId?: string;
+  fields?: ContactFieldConfig[];
+  successMessage?: string;
+}
+
+export default function ContactForm({
+  formId = PRESS_FORM_ID,
+  fields = PRESS_FIELDS,
+  successMessage = 'Thanks, your message has been sent. We’ll be in touch.',
+}: ContactFormProps) {
+  const [values, setValues] = useState<Values>(() =>
+    Object.fromEntries(fields.map((field) => [field.key, '']))
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<Status>('idle');
 
-  const update = (field: keyof Values, value: string) =>
-    setValues((v) => ({ ...v, [field]: value }));
+  const update = (key: string, value: string) =>
+    setValues((v) => ({ ...v, [key]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const nextErrors: Record<string, string> = {};
-    if (!values.email.trim()) nextErrors.email = 'Email is required';
-    else if (!EMAIL_RE.test(values.email)) nextErrors.email = 'Email is invalid';
-    if (!values.message.trim()) nextErrors.message = 'Message is required';
+    fields.forEach((field) => {
+      const value = (values[field.key] || '').trim();
+      if (field.required && !value) {
+        nextErrors[field.key] = `${field.label} is required`;
+        return;
+      }
+      if (field.type === 'email' && value && !EMAIL_RE.test(value)) {
+        nextErrors[field.key] = `${field.label} is invalid`;
+      }
+    });
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       return;
@@ -46,23 +84,27 @@ export default function ContactForm() {
 
     setErrors({});
     setStatus('submitting');
-    const fieldValues = [
-      { id: FIELD.name, value: values.name },
-      { id: FIELD.email, emailValues: { value: values.email } },
-      { id: FIELD.message, value: values.message }
-    ];
+
+    const fieldValues = fields.map((field) => {
+      const value = values[field.key] || '';
+      if (field.type === 'email') {
+        return { id: field.id, emailValues: { value } };
+      }
+      return { id: field.id, value };
+    });
 
     try {
       const { data } = await getBrowserClient().mutate<SubmitGfFormResult>({
         mutation: SUBMIT_CONTACT_FORM,
-        variables: { formId: FORM_ID, fieldValues },
+        variables: { formId, fieldValues },
       });
 
       const gfErrors = data?.submitGfForm.errors ?? [];
       if (gfErrors.length) {
+        const keyById = new Map(fields.map((field) => [field.id, field.key]));
         const mapped: Record<string, string> = {};
         gfErrors.forEach((err) => {
-          mapped[FIELD_BY_ID[err.id] ?? 'form'] = err.message;
+          mapped[keyById.get(err.id) ?? 'form'] = err.message;
         });
         setErrors(mapped);
         setStatus('idle');
@@ -70,14 +112,14 @@ export default function ContactForm() {
       }
 
       setStatus('success');
-      setValues({ name: '', email: '', message: '' });
+      setValues(Object.fromEntries(fields.map((field) => [field.key, ''])));
     } catch {
       setStatus('error');
     }
   };
 
   if (status === 'success') {
-    return <p>Thanks, your message has been sent. We&rsquo;ll be in touch.</p>;
+    return <p>{successMessage}</p>;
   }
 
   return (
@@ -88,41 +130,57 @@ export default function ContactForm() {
         </p>
       )}
 
-      <div className="form-group">
-        <label htmlFor="contact-name">Name</label>
-        <input
-          type="text"
-          id="contact-name"
-          value={values.name}
-          onChange={(e) => update('name', e.target.value)}
-          autoComplete="name"
-        />
-      </div>
+      {fields.map((field) => {
+        const inputId = `contact-${field.key}`;
+        const errorClass = errors[field.key] ? 'error' : '';
 
-      <div className="form-group">
-        <label htmlFor="contact-email">Email *</label>
-        <input
-          type="email"
-          id="contact-email"
-          value={values.email}
-          onChange={(e) => update('email', e.target.value)}
-          autoComplete="email"
-          className={errors.email ? 'error' : ''}
-        />
-        {errors.email && <span className="error-text">{errors.email}</span>}
-      </div>
+        return (
+          <div className="form-group" data-span={field.span} key={field.key}>
+            <label htmlFor={inputId}>
+              {field.required ? `${field.label} *` : field.label}
+            </label>
 
-      <div className="form-group">
-        <label htmlFor="contact-message">Message *</label>
-        <textarea
-          id="contact-message"
-          value={values.message}
-          onChange={(e) => update('message', e.target.value)}
-          rows={5}
-          className={errors.message ? 'error' : ''}
-        />
-        {errors.message && <span className="error-text">{errors.message}</span>}
-      </div>
+            {field.type === 'textarea' && (
+              <textarea
+                id={inputId}
+                value={values[field.key] || ''}
+                onChange={(e) => update(field.key, e.target.value)}
+                rows={5}
+                className={errorClass}
+              />
+            )}
+
+            {field.type === 'select' && (
+              <select
+                id={inputId}
+                value={values[field.key] || ''}
+                onChange={(e) => update(field.key, e.target.value)}
+                className={errorClass}
+              >
+                <option value="">{field.placeholder || 'Please select'}</option>
+                {(field.options || []).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {(field.type === 'text' || field.type === 'email') && (
+              <input
+                type={field.type === 'email' ? 'email' : 'text'}
+                id={inputId}
+                value={values[field.key] || ''}
+                onChange={(e) => update(field.key, e.target.value)}
+                autoComplete={field.autoComplete}
+                className={errorClass}
+              />
+            )}
+
+            {errors[field.key] && <span className="error-text">{errors[field.key]}</span>}
+          </div>
+        );
+      })}
 
       {errors.form && <p className="error-text">{errors.form}</p>}
 
