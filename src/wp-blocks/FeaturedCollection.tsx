@@ -55,7 +55,7 @@ export default function FeaturedCollection(props: FeaturedCollectionProps) {
   const button = data?.button;
 
   return (
-    <section className="section featured-collection">
+    <section className="featured-collection">
       <div className="container">
         {title.length > 0 && <h3 className="section__title">{title}</h3>}
 

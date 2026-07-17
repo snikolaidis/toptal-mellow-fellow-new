@@ -88,7 +88,7 @@ export default function ResponsiveImage(props: ResponsiveImageProps) {
   const contained = data?.width === 'contained';
 
   return (
-    <section className={`responsive-banner${contained ? ' section' : ''}`} style={{ '--border-radius': `${data?.borderRadius ?? 0}px` } as CSSProperties}>
+    <section className="responsive-banner" style={{ '--border-radius': `${data?.borderRadius ?? 0}px` } as CSSProperties}>
       <div className={`responsive-banner__wrapper${contained ? ' container' : ''}`}>
         {url ? (
           <a

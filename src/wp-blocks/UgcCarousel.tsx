@@ -77,7 +77,7 @@ export default function UgcCarousel(props: UgcCarouselProps) {
   }
 
   return (
-    <section className="section ugc-carousel">
+    <section className="ugc-carousel">
       <h3 className="section__title">{title}</h3>
       <UGCGallery items={items} size="large" />
     </section>

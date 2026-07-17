@@ -34,44 +34,46 @@ export default function PromoSlider(props: PromoSliderProps) {
   }
 
   return (
-    <section className="section promo-slider">
-      <Swiper
-        className="promo-slider__track"
-        modules={[Navigation]}
-        navigation
-        slidesPerView={1}
-        loop={slides.length > 1}
-      >
-        {slides.map((slide, i) => (
-          <SwiperSlide key={i}>
-            <div className="promo-slider__panel">
-              <div className="promo-slider__media">
-                <Image
-                  src={slide.image!.node!.sourceUrl as string}
-                  alt={slide.image?.node?.altText || slide.heading || ''}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="promo-slider__image"
-                />
-              </div>
+    <section className="promo-slider">
+      <div className="container">
+        <Swiper
+          className="promo-slider__track"
+          modules={[Navigation]}
+          navigation
+          slidesPerView={1}
+          loop={slides.length > 1}
+        >
+          {slides.map((slide, i) => (
+            <SwiperSlide key={i}>
+              <div className="promo-slider__panel">
+                <div className="promo-slider__media">
+                  <Image
+                    src={slide.image!.node!.sourceUrl as string}
+                    alt={slide.image?.node?.altText || slide.heading || ''}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="promo-slider__image"
+                  />
+                </div>
 
-              <div className="promo-slider__content">
-                {slide.heading && <h2 className="promo-slider__heading">{slide.heading}</h2>}
-                {slide.subheading && <p className="promo-slider__subheading">{slide.subheading}</p>}
-                {slide.buttonText && slide.buttonLink?.url && (
-                  <Link
-                    href={slide.buttonLink.url}
-                    target={slide.buttonLink.target || undefined}
-                    className="promo-slider__button"
-                  >
-                    {slide.buttonText}
-                  </Link>
-                )}
+                <div className="promo-slider__content">
+                  {slide.heading && <h2 className="promo-slider__heading">{slide.heading}</h2>}
+                  {slide.subheading && <p className="promo-slider__subheading">{slide.subheading}</p>}
+                  {slide.buttonText && slide.buttonLink?.url && (
+                    <Link
+                      href={slide.buttonLink.url}
+                      target={slide.buttonLink.target || undefined}
+                      className="promo-slider__button"
+                    >
+                      {slide.buttonText}
+                    </Link>
+                  )}
+                </div>
               </div>
-            </div>
-          </SwiperSlide>
-        ))}
-      </Swiper>
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </div>
     </section>
   );
 }

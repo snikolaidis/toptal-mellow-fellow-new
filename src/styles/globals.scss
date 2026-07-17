@@ -1,3 +1,5 @@
+@use 'mixins' as *;
+
 @use 'bulma/sass' as * with (
   $primary: #e6dabe,
   $family-sans-serif: ("DM Sans", sans-serif),
@@ -118,6 +120,16 @@ img {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+.container {
+  padding-left: 1rem;
+  padding-right: 1rem;
+
+  @include large-up {
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
 
 .section__title {

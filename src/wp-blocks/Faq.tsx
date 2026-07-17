@@ -27,47 +27,49 @@ export default function Faq(props: FaqProps) {
   }
 
   return (
-    <section className="section faq">
-      <div className="faq__inner">
-        {groups.map((group, gi) => (
-          <div key={gi} className="faq__group">
-            {group.groupTitle && <h3 className="faq__group-title">{group.groupTitle}</h3>}
+    <section className="faq">
+      <div className="container">
+        <div className="faq__inner">
+          {groups.map((group, gi) => (
+            <div key={gi} className="faq__group">
+              {group.groupTitle && <h3 className="faq__group-title">{group.groupTitle}</h3>}
 
-            <ul className="faq__list">
-              {(group.questions ?? []).map((item, qi) => {
-                const id = `${gi}-${qi}`;
-                const isOpen = open === id;
-                return (
-                  <li key={id} className={`faq__item${isOpen ? ' faq__item--open' : ''}`}>
-                    <button
-                      type="button"
-                      className="faq__question"
-                      aria-expanded={isOpen}
-                      onClick={() => setOpen(isOpen ? null : id)}
-                    >
-                      <span>{item.question}</span>
-                      <span className="faq__icon" aria-hidden="true" />
-                    </button>
+              <ul className="faq__list">
+                {(group.questions ?? []).map((item, qi) => {
+                  const id = `${gi}-${qi}`;
+                  const isOpen = open === id;
+                  return (
+                    <li key={id} className={`faq__item${isOpen ? ' faq__item--open' : ''}`}>
+                      <button
+                        type="button"
+                        className="faq__question"
+                        aria-expanded={isOpen}
+                        onClick={() => setOpen(isOpen ? null : id)}
+                      >
+                        <span>{item.question}</span>
+                        <span className="faq__icon" aria-hidden="true" />
+                      </button>
 
-                    {isOpen && item.answer && (
-                      <div
-                        className="faq__answer"
-                        dangerouslySetInnerHTML={{ __html: item.answer }}
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+                      {isOpen && item.answer && (
+                        <div
+                          className="faq__answer"
+                          dangerouslySetInnerHTML={{ __html: item.answer }}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
 
-            {group.footerLinks && (
-              <div
-                className="faq__footer-links"
-                dangerouslySetInnerHTML={{ __html: group.footerLinks }}
-              />
-            )}
-          </div>
-        ))}
+              {group.footerLinks && (
+                <div
+                  className="faq__footer-links"
+                  dangerouslySetInnerHTML={{ __html: group.footerLinks }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

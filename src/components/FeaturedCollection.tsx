@@ -11,7 +11,7 @@ const button_text = "";
 
 export default function FeaturedCollection({ products, title }: FeaturedCollectionProps) {
   return (
-    <section className="section featured-collection">
+    <section className="featured-collection">
       <div className="container">
         {title.length > 0 &&
           <h3 className="section__title">
