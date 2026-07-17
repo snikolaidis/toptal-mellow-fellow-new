@@ -54,24 +54,13 @@ export default function FreeGiftWidget({ subtotal }: Props) {
     };
   }, [unlocked, gifts.length, freeGift.maxGiftPrice]);
 
-  const giftIds = new Set(gifts.map((g) => g.databaseId));
-  const giftInCart = cart?.items.find((i) => giftIds.has(i.product.databaseId));
-
   const pickGift = useCallback(
     async (gift: GiftProduct) => {
-      // Already selected — nothing to do.
-      if (giftInCart?.product.databaseId === gift.databaseId) return;
-      // An add/swap is already in flight — ignore.
-      if (addingId !== null) return;
-
+      // Already picking one (or one's already in the cart) — ignore.
+      if (pickedGiftId !== null) return;
+      setPickedGiftId(gift.databaseId);
       setAddingId(gift.databaseId);
       try {
-        // Swap out the previously chosen gift first, if any — only one at a time.
-        if (giftInCart) {
-          await removeFromCart(giftInCart.key);
-          await removeCoupon(giftCouponCode(giftInCart.product.databaseId)).catch(() => {});
-        }
-
         const res = await fetch('/api/shop/free-gift', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -81,28 +70,46 @@ export default function FreeGiftWidget({ subtotal }: Props) {
         recordWidgetSource(gift.databaseId, 'free_gift');
         await addToCart({ productId: gift.databaseId, quantity: 1 });
         if (data?.code) await applyCoupon(data.code);
+      } catch {
+        // Failed — let the user try again (with this or another gift).
+        setPickedGiftId(null);
       } finally {
         setAddingId(null);
       }
     },
-    [addToCart, applyCoupon, removeFromCart, removeCoupon, giftInCart, addingId]
+    [addToCart, applyCoupon, pickedGiftId]
   );
 
   if (!unlocked || gifts.length === 0) return null;
 
+  const giftIds = new Set(gifts.map((g) => g.databaseId));
+  const giftInCart = cart?.items.find((i) => giftIds.has(i.product.databaseId));
+
+  if (giftInCart || pickedGiftId !== null) {
+    const pickedName =
+      giftInCart?.product.name ?? gifts.find((g) => g.databaseId === pickedGiftId)?.name;
+    return (
+      <div className={styles.widget}>
+        <p className={styles.headingDone}>
+          {giftInCart ? (
+            <>Free gift added: <strong>{pickedName}</strong></>
+          ) : (
+            <>Adding your free gift{pickedName ? <>: <strong>{pickedName}</strong></> : '…'}</>
+          )}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.widget}>
-      <p className={styles.heading}>
-        {giftInCart ? 'Your free gift:' : 'You unlocked a free gift. Pick one:'}
-      </p>
+      <p className={styles.heading}>You unlocked a free gift. Pick one:</p>
       <div className={styles.grid}>
-        {gifts.map((gift) => {
-          const isSelected = giftInCart?.product.databaseId === gift.databaseId;
-          return (
+        {gifts.map((gift) => (
           <button
             key={gift.databaseId}
             type="button"
-            className={`${styles.gift} ${isSelected ? styles.giftSelected : ''}`}
+            className={styles.gift}
             onClick={() => pickGift(gift)}
             disabled={isMutating || addingId !== null}
           >
@@ -118,12 +125,9 @@ export default function FreeGiftWidget({ subtotal }: Props) {
               ) : null}
             </span>
             <span className={styles.giftName}>{gift.name}</span>
-            <span className={styles.giftAdd}>
-              {addingId === gift.databaseId ? 'Adding...' : isSelected ? 'Selected' : 'Add free'}
-            </span>
+            <span className={styles.giftAdd}>{addingId === gift.databaseId ? 'Adding...' : 'Add free'}</span>
           </button>
-          );
-        })}
+        ))}
       </div>
     </div>
   );
