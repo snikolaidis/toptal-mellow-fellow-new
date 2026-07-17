@@ -75,7 +75,7 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   if (wholeCarouselClickable) {
     return (
       <a
-        className="section featured-in featured-in--linked"
+        className="image-carousel image-carousel--linked"
         href={linkUrl!}
         target={link?.target || undefined}
         rel={link?.target === '_blank' ? 'noopener noreferrer' : undefined}
@@ -87,20 +87,22 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   }
 
   return (
-    <div className="section featured-in">
-      {title && <h3 className="section__title">{title}</h3>}
-      {carousel}
-      {linkUrl && (
-        <a
-          className="featured-in__learn-more btn-secondary"
-          href={linkUrl}
-          target={link?.target || undefined}
-          rel={link?.target === '_blank' ? 'noopener noreferrer' : undefined}
-        >
-          {link?.title || 'Learn more'}
-        </a>
-      )}
-    </div>
+    <section className="image-carousel">
+      <div className="container">
+        {title && <h3 className="section__title">{title}</h3>}
+        {carousel}
+        {linkUrl && (
+          <a
+            className="image-carousel__learn-more btn-secondary"
+            href={linkUrl}
+            target={link?.target || undefined}
+            rel={link?.target === '_blank' ? 'noopener noreferrer' : undefined}
+          >
+            {link?.title || 'Learn more'}
+          </a>
+        )}
+      </div>
+    </section>
   );
 }
 

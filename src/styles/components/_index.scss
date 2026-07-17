@@ -18,23 +18,3 @@
 @use 'responsive-banner';
 @use 'section-header';
 @use 'store-locator';
-
-.section.featured-in {
-  .swiper-wrapper {
-    align-items: center;
-  }
-
-  .featured-in__learn-more {
-    display: flex;
-    width: fit-content;
-    margin: 1.5rem auto 0;
-  }
-}
-
-// "Whole carousel clickable" mode — reset the anchor so it doesn't look
-// like a plain text link while wrapping the title + carousel.
-a.featured-in--linked {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-}

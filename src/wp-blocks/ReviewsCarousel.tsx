@@ -18,7 +18,7 @@ export default function ReviewsCarousel(props: ReviewsCarouselProps) {
   }
 
   return (
-    <section className="section reviews-carousel">
+    <section className="reviews-carousel">
       <div className="container">
         <h3 className="section__title">{title}</h3>
         <div id="klaviyo-featured-reviews-carousel" />

@@ -52,7 +52,7 @@ export default function BlogPosts(props: BlogPostsProps) {
   const [featured, ...rest] = posts;
 
   return (
-    <section className="section blog-posts">
+    <section className="blog-posts">
       <div className="container">
         <div className="blog-posts__header">
           <h3 className="blog-posts__title">{title}</h3>
