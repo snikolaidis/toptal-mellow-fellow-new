@@ -19,8 +19,15 @@ interface Props {
   subtotal: number;
 }
 
+// The backend mints one coupon per gift product at this fixed code shape
+// (see mellow-fellow-free-gift.php) — reconstructing it lets us remove the
+// previous gift's coupon without having to track it separately.
+function giftCouponCode(productId: number): string {
+  return `mf-free-gift-${productId}`;
+}
+
 export default function FreeGiftWidget({ subtotal }: Props) {
-  const { cart, addToCart, applyCoupon, isMutating } = useCart();
+  const { cart, addToCart, applyCoupon, removeFromCart, removeCoupon, isMutating } = useCart();
   const { freeGift } = useCartOffers();
   const [gifts, setGifts] = useState<GiftProduct[]>([]);
   const [addingId, setAddingId] = useState<number | null>(null);
@@ -47,10 +54,24 @@ export default function FreeGiftWidget({ subtotal }: Props) {
     };
   }, [unlocked, gifts.length, freeGift.maxGiftPrice]);
 
+  const giftIds = new Set(gifts.map((g) => g.databaseId));
+  const giftInCart = cart?.items.find((i) => giftIds.has(i.product.databaseId));
+
   const pickGift = useCallback(
     async (gift: GiftProduct) => {
+      // Already selected — nothing to do.
+      if (giftInCart?.product.databaseId === gift.databaseId) return;
+      // An add/swap is already in flight — ignore.
+      if (addingId !== null) return;
+
       setAddingId(gift.databaseId);
       try {
+        // Swap out the previously chosen gift first, if any — only one at a time.
+        if (giftInCart) {
+          await removeFromCart(giftInCart.key);
+          await removeCoupon(giftCouponCode(giftInCart.product.databaseId)).catch(() => {});
+        }
+
         const res = await fetch('/api/shop/free-gift', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -64,33 +85,24 @@ export default function FreeGiftWidget({ subtotal }: Props) {
         setAddingId(null);
       }
     },
-    [addToCart, applyCoupon]
+    [addToCart, applyCoupon, removeFromCart, removeCoupon, giftInCart, addingId]
   );
 
   if (!unlocked || gifts.length === 0) return null;
 
-  const giftIds = new Set(gifts.map((g) => g.databaseId));
-  const giftInCart = cart?.items.find((i) => giftIds.has(i.product.databaseId));
-
-  if (giftInCart) {
-    return (
-      <div className={styles.widget}>
-        <p className={styles.headingDone}>
-          Free gift added: <strong>{giftInCart.product.name}</strong>
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className={styles.widget}>
-      <p className={styles.heading}>You unlocked a free gift. Pick one:</p>
+      <p className={styles.heading}>
+        {giftInCart ? 'Your free gift:' : 'You unlocked a free gift. Pick one:'}
+      </p>
       <div className={styles.grid}>
-        {gifts.map((gift) => (
+        {gifts.map((gift) => {
+          const isSelected = giftInCart?.product.databaseId === gift.databaseId;
+          return (
           <button
             key={gift.databaseId}
             type="button"
-            className={styles.gift}
+            className={`${styles.gift} ${isSelected ? styles.giftSelected : ''}`}
             onClick={() => pickGift(gift)}
             disabled={isMutating || addingId !== null}
           >
@@ -106,9 +118,12 @@ export default function FreeGiftWidget({ subtotal }: Props) {
               ) : null}
             </span>
             <span className={styles.giftName}>{gift.name}</span>
-            <span className={styles.giftAdd}>{addingId === gift.databaseId ? 'Adding...' : 'Add free'}</span>
+            <span className={styles.giftAdd}>
+              {addingId === gift.databaseId ? 'Adding...' : isSelected ? 'Selected' : 'Add free'}
+            </span>
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
