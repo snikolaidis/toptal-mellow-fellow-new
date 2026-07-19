@@ -64,6 +64,21 @@ function extractCartErrorMessage(err: unknown, fallback: string): string {
   return decodeHtmlEntities(raw);
 }
 
+// The optimistic quantity bump only updated the quantity digit — the line's
+// own price and the cart subtotal/total stayed frozen at the pre-click value
+// until the round-trip finished, which is what actually read as "nothing
+// happening right away." Derive a unit price from the item's own
+// total/quantity and apply the delta locally so price figures move instantly
+// too; the authoritative server response still replaces all of this exactly
+// once it lands.
+function parseMoney(value: string | undefined): number {
+  return parseFloat((value || '').replace(/[^0-9.-]/g, '')) || 0;
+}
+
+function formatMoney(value: number): string {
+  return `$${value.toFixed(2)}`;
+}
+
 interface CartItem {
   key: string;
   quantity: number;
@@ -392,12 +407,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
           (input.variationId ? i.variation?.databaseId === input.variationId : !i.variation)
       );
       if (!existing) return prev;
+      const unitPrice = existing.quantity > 0 ? parseMoney(existing.total) / existing.quantity : 0;
+      const newQuantity = existing.quantity + input.quantity;
+      const newTotal = unitPrice * newQuantity;
+      const delta = newTotal - parseMoney(existing.total);
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.map((i) =>
-            i.key === existing.key ? { ...i, quantity: i.quantity + input.quantity } : i
+            i.key === existing.key ? { ...i, quantity: newQuantity, total: formatMoney(newTotal) } : i
           ),
+          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
+          total: formatMoney(parseMoney(prev.total) + delta),
         },
         bundleItemMapRef.current
       );
@@ -541,17 +562,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const seq = nextSeq();
     const snapshot = cartRef.current;
 
-    // Optimistic update — apply change immediately before server responds
+    // Optimistic update — apply change immediately before server responds.
+    // Derive a unit price from the item's own total/quantity so the line
+    // price and cart subtotal/total move instantly too, not just the digit.
     setCart((prev) => {
       if (!prev) return prev;
+      const item = prev.items.find((i) => i.key === key);
+      if (!item) return prev;
+      const unitPrice = item.quantity > 0 ? parseMoney(item.total) / item.quantity : 0;
+
       if (quantity <= 0) {
+        const delta = -parseMoney(item.total);
         return enrichCartItems(
-          { ...prev, items: prev.items.filter((i) => i.key !== key) },
+          {
+            ...prev,
+            items: prev.items.filter((i) => i.key !== key),
+            subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
+            total: formatMoney(parseMoney(prev.total) + delta),
+          },
           bundleItemMapRef.current
         );
       }
+
+      const newTotal = unitPrice * quantity;
+      const delta = newTotal - parseMoney(item.total);
       return enrichCartItems(
-        { ...prev, items: prev.items.map((i) => i.key === key ? { ...i, quantity } : i) },
+        {
+          ...prev,
+          items: prev.items.map((i) =>
+            i.key === key ? { ...i, quantity, total: formatMoney(newTotal) } : i
+          ),
+          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
+          total: formatMoney(parseMoney(prev.total) + delta),
+        },
         bundleItemMapRef.current
       );
     });
@@ -600,11 +643,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const seq = nextSeq();
     const snapshot = cartRef.current;
 
-    // Optimistic update — remove immediately, we already have the full item locally.
+    // Optimistic update — remove immediately, we already have the full item
+    // locally, and adjust subtotal/total by its price so those move too.
     setCart((prev) => {
       if (!prev) return prev;
+      const item = prev.items.find((i) => i.key === key);
+      const delta = item ? -parseMoney(item.total) : 0;
       return enrichCartItems(
-        { ...prev, items: prev.items.filter((i) => i.key !== key) },
+        {
+          ...prev,
+          items: prev.items.filter((i) => i.key !== key),
+          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
+          total: formatMoney(parseMoney(prev.total) + delta),
+        },
         bundleItemMapRef.current
       );
     });
