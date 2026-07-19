@@ -51,7 +51,7 @@ export default function CollectionSlider(props: CollectionSliderProps) {
   const title = data?.title || collection.name || '';
 
   return (
-    <section className="section collection-swiper">
+    <section className="collection-swiper">
       <div className="container">
         {title.length > 0 && <h3 className="section__title">{title}</h3>}
 
