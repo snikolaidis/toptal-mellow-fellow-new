@@ -18,6 +18,7 @@ export default function CartDrawer() {
     cart,
     isDrawerOpen,
     isMutating,
+    error,
     closeDrawer,
     updateQuantity,
     removeFromCart,
@@ -178,6 +179,8 @@ export default function CartDrawer() {
        
         {/* Mutating indicator — thin bar that appears during any cart operation */}
         {isMutating && <div className={styles.mutatingBar} />}
+
+        {error && <div className={styles.errorBanner}>{error}</div>}
 
         {/* Scrollable content */}
         <div className={styles.content}>

@@ -131,6 +131,17 @@
   100% { background-position: -200% 0; }
 }
 
+.errorBanner {
+  margin: 0.5rem 1.25rem 0;
+  padding: 0.6rem 0.85rem;
+  background: #fdecea;
+  color: #b3261e;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
 /* Scrollable content */
 .content {
   flex: 1;

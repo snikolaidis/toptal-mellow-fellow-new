@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getClient } from '@/lib/apollo-client';
 import { GET_COLLECTIONS } from '@/graphql/queries/collections';
 import Layout from '@/components/Layout';
+import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
 import { Collection } from '@/types/woocommerce';
 import styles from '@/styles/pages/collections.module.css';
 
@@ -67,6 +68,8 @@ export default function CollectionsPage({ collections }: CollectionsPageProps) {
           </div>
         )}
       </div>
+
+      <ReviewsCarousel />
     </Layout>
   );
 }
