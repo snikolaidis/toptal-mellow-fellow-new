@@ -79,7 +79,27 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
 
     (async () => {
       try {
+        const currentEmail = (customer?.email ?? '').trim().toLowerCase();
         let id = window.localStorage.getItem('real-id-check-id');
+
+        // The SDK shares this single, un-scoped key across anyone using this browser.
+        // Reusing it blindly would resume (and show as "verified") a check that belongs
+        // to a different email than the one currently in the checkout form. Confirm the
+        // cached check's own email actually matches before trusting it - otherwise treat
+        // it as absent and create a fresh check for the current customer instead.
+        if (id && currentEmail) {
+          try {
+            const res = await fetch(`${proxyRoot}real-id/v1/checks/${id}`);
+            const d = await res.json();
+            const cachedEmail = (d?.check?.email ?? d?.email ?? '').trim().toLowerCase();
+            if (cachedEmail !== currentEmail) id = null;
+          } catch {
+            id = null;
+          }
+        } else if (id && !currentEmail) {
+          id = null;
+        }
+
         if (!id) {
           const res = await fetch(`${proxyRoot}real-id/v1/checks`, {
             method: 'POST',
@@ -111,6 +131,7 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     if (!ENABLED || !checkId || typeof window === 'undefined') return;
     let active = true;
     const proxyRoot = `${window.location.origin}/api/realid/`;
+    const currentEmail = (customer?.email ?? '').trim().toLowerCase();
 
     const domShowsVerified = () => {
       const node = document.getElementById('real-id-check');
@@ -124,13 +145,18 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
       );
     };
 
-    const tick = async () => {
-      if (!active) return;
-      if (domShowsVerified()) {
-        onVerifiedRef.current?.(true, checkId);
-        active = false;
-        return;
-      }
+    // Stratos, 19 Jul 2026
+    // The Read ID library keeps its active check id in the 'real-id-check'
+    // localStorage entry; this can result in a serious compliance error where
+    // someone else can use this key to make any purchase; althoug in real life
+    // it's pretty hard to happen, still, we need to make sure we're fully covered.
+    // The problem is not in the library itself but how the data are being used;
+    // If I try to make a purcahse and complete the identification, I can go back and
+    // change the email and there's no identification process. This could be a serious
+    // gap; up to the point that I can easily bypass the whole identification process,
+    // just by creating the 'real-id-check' key.
+
+    const fetchCheck = async (): Promise<{ verified: boolean; email: string } | null> => {
       try {
         const r = await fetch(`${proxyRoot}real-id/v1/checks/${checkId}?_=${Date.now()}`, {
           cache: 'no-store',
@@ -138,14 +164,24 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
         const d = await r.json();
         const step = d?.check?.step ?? d?.step;
         const status = d?.check?.status ?? d?.status;
-        const verified = VERIFIED_STEPS.includes(step) || VERIFIED_STEPS.includes(status);
-        if (verified) {
-          onVerifiedRef.current?.(true, checkId);
-          active = false;
-        }
+        const email = (d?.check?.email ?? d?.email ?? '').trim().toLowerCase();
+        return { verified: VERIFIED_STEPS.includes(step) || VERIFIED_STEPS.includes(status), email };
       } catch {
-        void 0;
+        return null;
       }
+    };
+
+    const markVerifiedIfOwned = (verified: boolean, result: { verified: boolean; email: string } | null) => {
+      if (!active || !verified || !result || !currentEmail || result.email !== currentEmail) return;
+      onVerifiedRef.current?.(true, checkId);
+      active = false;
+    };
+
+    const tick = async () => {
+      if (!active) return;
+      const domVerified = domShowsVerified();
+      const result = await fetchCheck();
+      markVerifiedIfOwned(domVerified || !!result?.verified, result);
     };
 
     tick();
@@ -164,8 +200,7 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
 
     const onPassed = () => {
       if (!active) return;
-      onVerifiedRef.current?.(true, checkId);
-      active = false;
+      fetchCheck().then((result) => markVerifiedIfOwned(true, result));
     };
     const onLoaded = () => {
       if (active) tick();
@@ -180,7 +215,7 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
       window.removeEventListener('real-id-check-passed', onPassed);
       window.removeEventListener('real-id-check-loaded', onLoaded);
     };
-  }, [checkId]);
+  }, [checkId, customer?.email]);
 
   useEffect(() => {
     if (!ENABLED || typeof window === 'undefined') return;
