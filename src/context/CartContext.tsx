@@ -51,6 +51,34 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&amp;/g, '&');
 }
 
+/**
+ * WooCommerce surfaces specific, useful reasons for cart mutation failures
+ * (e.g. "You cannot add that amount, only 4 remaining" for a stock limit) as
+ * the GraphQL error message. Prefer that over a generic fallback so the user
+ * finds out *why*, not just that something failed.
+ */
+function extractCartErrorMessage(err: unknown, fallback: string): string {
+  const gqlMessage = (err as { graphQLErrors?: Array<{ message?: string }> })?.graphQLErrors?.[0]
+    ?.message;
+  const raw = gqlMessage || (err instanceof Error ? err.message : null) || fallback;
+  return decodeHtmlEntities(raw);
+}
+
+// The optimistic quantity bump only updated the quantity digit — the line's
+// own price and the cart subtotal/total stayed frozen at the pre-click value
+// until the round-trip finished, which is what actually read as "nothing
+// happening right away." Derive a unit price from the item's own
+// total/quantity and apply the delta locally so price figures move instantly
+// too; the authoritative server response still replaces all of this exactly
+// once it lands.
+function parseMoney(value: string | undefined): number {
+  return parseFloat((value || '').replace(/[^0-9.-]/g, '')) || 0;
+}
+
+function formatMoney(value: number): string {
+  return `$${value.toFixed(2)}`;
+}
+
 interface CartItem {
   key: string;
   quantity: number;
@@ -245,6 +273,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Always-current ref for optimistic rollback
   const cartRef = useRef<Cart | null>(null);
   cartRef.current = cart;
+  // Cart mutations round-trip through WooCommerce, so two overlapping calls
+  // (e.g. clicking "+" twice, or picking a free gift while a quantity change
+  // is still in flight) can resolve out of order. WooCommerce serializes
+  // writes to the same PHP session, so the LAST request fired always reflects
+  // every earlier one by the time it resolves — but the network responses can
+  // still arrive out of order. Bump this on every mutation and only apply a
+  // response's cart snapshot if no newer mutation has started since,
+  // otherwise a late, stale response can overwrite a newer state and make
+  // the cart appear to lose items.
+  const requestSeqRef = useRef(0);
+  const nextSeq = () => ++requestSeqRef.current;
+  const isStaleSeq = (seq: number) => seq !== requestSeqRef.current;
   // bundleNames and bundleDiscounts use localStorage so they survive tab closes and new sessions.
   // bundleItemMap stays in sessionStorage because it maps ephemeral cart item keys.
   const [bundleNames, setBundleNames] = useState<Record<number, string>>(() => {
@@ -291,6 +331,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const fetchCart = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    const seq = nextSeq();
 
     try {
       const client = getClient();
@@ -299,6 +340,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         fetchPolicy: 'network-only',
       });
 
+      if (isStaleSeq(seq)) return;
       const transformedCart = transformCartData(data);
       if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
     } catch (err) {
@@ -350,6 +392,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const addToCart = useCallback(async (input: AddToCartInput) => {
     setError(null);
+    const seq = nextSeq();
+    const snapshot = cartRef.current;
+
+    // Optimistic update — if this product/variation is already in the cart,
+    // bump its quantity immediately; we don't yet know the server-assigned
+    // key for a genuinely new line item, so that case just waits for the
+    // response (still guarded below so it can't be clobbered by a stale one).
+    setCart((prev) => {
+      if (!prev) return prev;
+      const existing = prev.items.find(
+        (i) =>
+          i.product.databaseId === input.productId &&
+          (input.variationId ? i.variation?.databaseId === input.variationId : !i.variation)
+      );
+      if (!existing) return prev;
+      const unitPrice = existing.quantity > 0 ? parseMoney(existing.total) / existing.quantity : 0;
+      const newQuantity = existing.quantity + input.quantity;
+      const newTotal = unitPrice * newQuantity;
+      const delta = newTotal - parseMoney(existing.total);
+      return enrichCartItems(
+        {
+          ...prev,
+          items: prev.items.map((i) =>
+            i.key === existing.key ? { ...i, quantity: newQuantity, total: formatMoney(newTotal) } : i
+          ),
+          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
+          total: formatMoney(parseMoney(prev.total) + delta),
+        },
+        bundleItemMapRef.current
+      );
+    });
     setIsMutating(true);
     try {
       const client = getClient();
@@ -362,16 +435,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
         },
       });
 
+      if (isStaleSeq(seq)) return;
       const transformedCart = transformCartData({ cart: data.addToCart.cart });
       if (transformedCart) {
         setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
         setIsDrawerOpen(true);
       }
     } catch (err) {
+      if (!isStaleSeq(seq)) setCart(snapshot); // rollback
       logError('CartContext.addToCart', err, { productId: input.productId });
-      const cartError = new CartError('Failed to add item to cart', ErrorCode.CART_ADD_FAILED);
-      setError(getUserMessage(cartError));
-      throw cartError;
+      const message = extractCartErrorMessage(
+        err,
+        getUserMessage(new CartError('Failed to add item to cart', ErrorCode.CART_ADD_FAILED))
+      );
+      setError(message);
+      throw new CartError(message, ErrorCode.CART_ADD_FAILED);
     } finally {
       setIsMutating(false);
     }
@@ -380,6 +458,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addBundleToCart = useCallback(
     async (bundleId: number, productIds: number[], bundleName: string, discountPercent = 0) => {
       setError(null);
+      const seq = nextSeq();
       setIsMutating(true);
       try {
         const client = getClient();
@@ -420,6 +499,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           query: GET_CART,
           fetchPolicy: 'network-only',
         });
+        if (isStaleSeq(seq)) return;
         const transformedCart = transformCartData(cartData);
         if (transformedCart) {
           setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
@@ -445,6 +525,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const removeBundleGroup = useCallback(
     async (groupKeys: string[]) => {
       setError(null);
+      const seq = nextSeq();
       setIsMutating(true);
       try {
         const client = getClient();
@@ -458,6 +539,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           query: GET_CART,
           fetchPolicy: 'network-only',
         });
+        if (isStaleSeq(seq)) return;
         const transformedCart = transformCartData(cartData);
         if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
       } catch (err) {
@@ -477,19 +559,42 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const updateQuantity = useCallback(async (key: string, quantity: number) => {
     setError(null);
+    const seq = nextSeq();
     const snapshot = cartRef.current;
 
-    // Optimistic update — apply change immediately before server responds
+    // Optimistic update — apply change immediately before server responds.
+    // Derive a unit price from the item's own total/quantity so the line
+    // price and cart subtotal/total move instantly too, not just the digit.
     setCart((prev) => {
       if (!prev) return prev;
+      const item = prev.items.find((i) => i.key === key);
+      if (!item) return prev;
+      const unitPrice = item.quantity > 0 ? parseMoney(item.total) / item.quantity : 0;
+
       if (quantity <= 0) {
+        const delta = -parseMoney(item.total);
         return enrichCartItems(
-          { ...prev, items: prev.items.filter((i) => i.key !== key) },
+          {
+            ...prev,
+            items: prev.items.filter((i) => i.key !== key),
+            subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
+            total: formatMoney(parseMoney(prev.total) + delta),
+          },
           bundleItemMapRef.current
         );
       }
+
+      const newTotal = unitPrice * quantity;
+      const delta = newTotal - parseMoney(item.total);
       return enrichCartItems(
-        { ...prev, items: prev.items.map((i) => i.key === key ? { ...i, quantity } : i) },
+        {
+          ...prev,
+          items: prev.items.map((i) =>
+            i.key === key ? { ...i, quantity, total: formatMoney(newTotal) } : i
+          ),
+          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
+          total: formatMoney(parseMoney(prev.total) + delta),
+        },
         bundleItemMapRef.current
       );
     });
@@ -503,6 +608,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           mutation: REMOVE_FROM_CART,
           variables: { keys: [key] },
         });
+        if (isStaleSeq(seq)) return;
         const transformedCart = transformCartData({ cart: data.removeItemsFromCart.cart });
         if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
         return;
@@ -512,14 +618,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
         mutation: UPDATE_CART_ITEM_QUANTITY,
         variables: { key, quantity },
       });
+      if (isStaleSeq(seq)) return;
       const transformedCart = transformCartData({ cart: data.updateItemQuantities.cart });
       if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
     } catch (err) {
-      setCart(snapshot); // rollback
+      if (!isStaleSeq(seq)) setCart(snapshot); // rollback
       logError('CartContext.updateQuantity', err, { key, quantity });
-      const cartError = new CartError('Failed to update cart', ErrorCode.CART_UPDATE_FAILED);
-      setError(getUserMessage(cartError));
-      throw cartError;
+      const message = extractCartErrorMessage(
+        err,
+        getUserMessage(new CartError('Failed to update cart', ErrorCode.CART_UPDATE_FAILED))
+      );
+      setError(message);
+      throw new CartError(message, ErrorCode.CART_UPDATE_FAILED);
     } finally {
       setIsMutating(false);
     }
@@ -530,6 +640,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const removeFromCart = useCallback(async (key: string) => {
     setError(null);
+    const seq = nextSeq();
+    const snapshot = cartRef.current;
+
+    // Optimistic update — remove immediately, we already have the full item
+    // locally, and adjust subtotal/total by its price so those move too.
+    setCart((prev) => {
+      if (!prev) return prev;
+      const item = prev.items.find((i) => i.key === key);
+      const delta = item ? -parseMoney(item.total) : 0;
+      return enrichCartItems(
+        {
+          ...prev,
+          items: prev.items.filter((i) => i.key !== key),
+          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
+          total: formatMoney(parseMoney(prev.total) + delta),
+        },
+        bundleItemMapRef.current
+      );
+    });
+
     setIsMutating(true);
     try {
       const client = getClient();
@@ -537,13 +667,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
         mutation: REMOVE_FROM_CART,
         variables: { keys: [key] },
       });
+      if (isStaleSeq(seq)) return;
       const transformedCart = transformCartData({ cart: data.removeItemsFromCart.cart });
       if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
     } catch (err) {
+      if (!isStaleSeq(seq)) setCart(snapshot); // rollback
       logError('CartContext.removeFromCart', err, { key });
-      const cartError = new CartError('Failed to remove item', ErrorCode.CART_REMOVE_FAILED);
-      setError(getUserMessage(cartError));
-      throw cartError;
+      const message = extractCartErrorMessage(
+        err,
+        getUserMessage(new CartError('Failed to remove item', ErrorCode.CART_REMOVE_FAILED))
+      );
+      setError(message);
+      throw new CartError(message, ErrorCode.CART_REMOVE_FAILED);
     } finally {
       setIsMutating(false);
     }
@@ -554,6 +689,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const clearCart = useCallback(async () => {
     setError(null);
+    const seq = nextSeq();
     setIsMutating(true);
     try {
       const client = getClient();
@@ -561,6 +697,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         mutation: CLEAR_CART,
       });
 
+      if (isStaleSeq(seq)) return;
       const transformedCart = transformCartData({ cart: data.emptyCart.cart });
       if (transformedCart) {
         setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
@@ -590,6 +727,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const applyCoupon = useCallback(async (code: string): Promise<boolean> => {
     setError(null);
+    const seq = nextSeq();
     setIsMutating(true);
     try {
       const client = getClient();
@@ -598,6 +736,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         variables: { code },
       });
 
+      if (isStaleSeq(seq)) return true;
       const transformedCart = transformCartData({ cart: data.applyCoupon.cart });
       if (transformedCart) {
         setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
@@ -625,6 +764,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const removeCoupon = useCallback(async (code: string) => {
     setError(null);
+    const seq = nextSeq();
     setIsMutating(true);
     try {
       const client = getClient();
@@ -633,6 +773,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         variables: { code },
       });
 
+      if (isStaleSeq(seq)) return;
       const transformedCart = transformCartData({ cart: data.removeCoupons.cart });
       if (transformedCart) {
         setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
@@ -652,6 +793,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const updateShippingMethod = useCallback(async (methodId: string) => {
     setError(null);
+    const seq = nextSeq();
     setIsMutating(true);
     try {
       const client = getClient();
@@ -660,6 +802,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         variables: { shippingMethods: [methodId] },
       });
 
+      if (isStaleSeq(seq)) return;
       const transformedCart = transformCartData({ cart: data.updateShippingMethod.cart });
       if (transformedCart) {
         setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
