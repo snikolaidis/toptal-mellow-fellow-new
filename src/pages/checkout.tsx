@@ -54,7 +54,8 @@ type CheckoutStep = 'billing' | 'shipping' | 'payment';
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, clearCart, isLoading: cartLoading } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isReady: authReady } = useAuth();
+  const prevAuthRef = useRef<boolean | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [realIdVerified, setRealIdVerified] = useState(!REALID_ENABLED);
   const [realIdCheckId, setRealIdCheckId] = useState<string | null>(null);
@@ -389,6 +390,32 @@ export default function CheckoutPage() {
       void 0;
     }
   }, [step, billing, shipping, sameAsBilling]);
+
+  // A logged-in customer's saved address (or a guest's own in-progress entry)
+  // must never carry over across an actual auth change — otherwise logging
+  // out in the same tab leaves the account's address sitting in the form for
+  // whoever checks out next. Only reacts to a real transition, not the
+  // initial auth check resolving.
+  useEffect(() => {
+    if (!authReady) return;
+    if (prevAuthRef.current === null) {
+      prevAuthRef.current = isAuthenticated;
+      return;
+    }
+    if (prevAuthRef.current !== isAuthenticated) {
+      prevAuthRef.current = isAuthenticated;
+      try {
+        window.sessionStorage.removeItem(CHECKOUT_PROGRESS_KEY);
+      } catch {
+        void 0;
+      }
+      setBilling(emptyAddress);
+      setShipping(emptyAddress);
+      setSameAsBilling(true);
+      setStep('billing');
+      setCustomerDataLoaded(false);
+    }
+  }, [isAuthenticated, authReady]);
 
   // Pre-fill form with customer data when available
   useEffect(() => {
