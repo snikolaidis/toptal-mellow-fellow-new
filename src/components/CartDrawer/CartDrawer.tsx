@@ -18,6 +18,7 @@ export default function CartDrawer() {
     cart,
     isDrawerOpen,
     isMutating,
+    error,
     closeDrawer,
     updateQuantity,
     removeFromCart,
@@ -175,14 +176,19 @@ export default function CartDrawer() {
         {/* Tiered offers progress */}
         <TieredProgressBar subtotal={subtotal} />
 
-        {/* Selectable Gift With Purchase */}
-        <FreeGiftWidget subtotal={subtotal} />
-
+       
         {/* Mutating indicator — thin bar that appears during any cart operation */}
         {isMutating && <div className={styles.mutatingBar} />}
 
+        {error && <div className={styles.errorBanner}>{error}</div>}
+
         {/* Scrollable content */}
         <div className={styles.content}>
+  
+           {/* Selectable Gift With Purchase */}
+          <FreeGiftWidget subtotal={subtotal} />
+
+
           {!cart || cart.items.length === 0 ? (
             <div className={styles.emptyCart}>
               <p>Your cart is empty</p>
