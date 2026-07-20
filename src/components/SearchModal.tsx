@@ -23,6 +23,12 @@ interface CollectionResult {
   count: number;
 }
 
+interface BlogResult {
+  id: string;
+  title: string;
+  slug: string;
+}
+
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -86,6 +92,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [collections, setCollections] = useState<CollectionResult[]>([]);
+  const [posts, setPosts] = useState<BlogResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -126,6 +133,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
       setQuery('');
       setResults([]);
       setCollections([]);
+      setPosts([]);
       setHasSearched(false);
       setLoading(false);
     }
@@ -151,7 +159,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   }, [isOpen, onClose]);
 
   // Client-side search cache — avoids re-fetching for repeat/similar queries
-  const searchCache = useRef<Map<string, { results: SearchResult[]; collections: CollectionResult[]; time: number }>>(new Map());
+  const searchCache = useRef<Map<string, { results: SearchResult[]; collections: CollectionResult[]; posts: BlogResult[]; time: number }>>(new Map());
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   // Debounced search
@@ -162,6 +170,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     if (searchQuery.length < 2) {
       setResults([]);
       setCollections([]);
+      setPosts([]);
       setHasSearched(false);
       setLoading(false);
       return;
@@ -172,6 +181,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     if (cached && Date.now() - cached.time < CACHE_TTL) {
       setResults(cached.results);
       setCollections(cached.collections);
+      setPosts(cached.posts);
       setHasSearched(true);
       setLoading(false);
       return;
@@ -184,23 +194,29 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     setHasSearched(true);
 
     try {
-      const [productsRes, collectionsRes] = await Promise.all([
+      const [productsRes, collectionsRes, blogsRes] = await Promise.all([
         fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`, {
           signal: controller.signal,
         }).then((r) => r.json()),
         fetch(`/api/search-collections?q=${encodeURIComponent(searchQuery)}`, {
           signal: controller.signal,
         }).then((r) => r.json()),
+        fetch(`/api/search-blogs?q=${encodeURIComponent(searchQuery)}`, {
+          signal: controller.signal,
+        }).then((r) => r.json()),
       ]);
 
       const nextResults: SearchResult[] = productsRes.success ? productsRes.products : [];
       const nextCollections: CollectionResult[] = collectionsRes.success ? collectionsRes.collections : [];
+      const nextPosts: BlogResult[] = blogsRes.success ? blogsRes.posts : [];
 
       setResults(nextResults);
       setCollections(nextCollections);
+      setPosts(nextPosts);
       searchCache.current.set(cacheKey, {
         results: nextResults,
         collections: nextCollections,
+        posts: nextPosts,
         time: Date.now(),
       });
     } catch (error) {
@@ -210,6 +226,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
       console.error('Search error:', error);
       setResults([]);
       setCollections([]);
+      setPosts([]);
     } finally {
       if (abortRef.current === controller) {
         setLoading(false);
@@ -235,7 +252,8 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
   if (!isOpen) return null;
 
-  const hasAny = results.length > 0 || collections.length > 0 || suggestions.length > 0;
+  const hasAny =
+    results.length > 0 || collections.length > 0 || posts.length > 0 || suggestions.length > 0;
 
   return (
     <div
@@ -287,7 +305,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
           {!loading && hasSearched && !hasAny && (
             <div className={styles.empty}>
-              <p className={styles.emptyTitle}>No products found for &ldquo;{query}&rdquo;</p>
+              <p className={styles.emptyTitle}>No results found for &ldquo;{query}&rdquo;</p>
               <span className={styles.emptySubtitle}>Try a different search term</span>
             </div>
           )}
@@ -366,6 +384,25 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                           onClick={onClose}
                         >
                           {c.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {posts.length > 0 && (
+                <div className={`${styles.section} ${styles.sectionArticles}`}>
+                  <h3 className={styles.sectionTitle}>Articles</h3>
+                  <ul className={styles.collectionList}>
+                    {posts.map((p) => (
+                      <li key={p.id}>
+                        <Link
+                          href={`/blogs/${p.slug}`}
+                          className={styles.collectionItem}
+                          onClick={onClose}
+                        >
+                          {p.title}
                         </Link>
                       </li>
                     ))}
