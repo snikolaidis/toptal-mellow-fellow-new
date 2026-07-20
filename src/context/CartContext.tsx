@@ -423,6 +423,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         bundleItemMapRef.current
       );
     });
+    setIsDrawerOpen(true);
     setIsMutating(true);
     try {
       const client = getClient();
@@ -439,7 +440,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const transformedCart = transformCartData({ cart: data.addToCart.cart });
       if (transformedCart) {
         setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
-        setIsDrawerOpen(true);
       }
     } catch (err) {
       if (!isStaleSeq(seq)) setCart(snapshot); // rollback
