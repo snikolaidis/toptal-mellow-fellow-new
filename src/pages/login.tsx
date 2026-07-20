@@ -29,10 +29,15 @@ export default function LoginPage() {
   }, [isReady, isAuthenticated, router, redirectUrl]);
 
   useEffect(() => {
+    // A hard navigation, not router.push — Faust's useAuth() only checks
+    // authorization once per mount (no reactive update after login()
+    // resolves), so every other place reading isAuthenticated (CartContext
+    // included) would keep believing you're a guest until something forces
+    // a real reload. logout() already does this; mirror it here.
     if (data?.generateAuthorizationCode?.code) {
-      router.push(redirectUrl);
+      window.location.assign(redirectUrl);
     }
-  }, [data, router, redirectUrl]);
+  }, [data, redirectUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
