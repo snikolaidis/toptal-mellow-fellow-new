@@ -139,6 +139,24 @@ export const GET_COLLECTION_META = gql`
           }
         }
         warningMessage
+        relatedCollectionTitle
+        relatedCollections {
+          nodes {
+            ... on Collection {
+              id
+              name
+              slug
+              collectionFields {
+                thumbnailImage {
+                  node {
+                    sourceUrl
+                    altText
+                  }
+                }
+              }
+            }
+          }
+        }
       }
       seo {
         title

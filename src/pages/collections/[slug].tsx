@@ -12,6 +12,7 @@ import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
 import { GET_ALL_TAGS, GET_LATEST_POSTS } from '@/graphql/queries/posts';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
+import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
 import BlogPostsCarousel from '@/components/BlogPostsCarousel';
 import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
@@ -353,6 +354,39 @@ export default function CollectionsPage({
             )}
           </main>
         </div>
+
+        <div className={styles.reviewsSection}>
+          <ReviewsCarousel />
+        </div>
+
+        {(() => {
+          const related = collection.collectionFields?.relatedCollections?.nodes || [];
+          if (related.length === 0) return null;
+          const relatedTitle = collection.collectionFields?.relatedCollectionTitle || 'Related Collections';
+          return (
+            <section className={styles.relatedCollections}>
+              <h2 className={styles.relatedCollectionsTitle}>{relatedTitle}</h2>
+              <div className={styles.relatedCollectionsTiles}>
+                {related.map((rc) => (
+                  <Link key={rc.id} href={`/collections/${rc.slug}`} className={styles.relatedCollectionTile}>
+                    {rc.collectionFields?.thumbnailImage?.node?.sourceUrl && (
+                      <span className={styles.relatedCollectionImageWrap}>
+                        <Image
+                          src={rc.collectionFields.thumbnailImage.node.sourceUrl}
+                          alt={rc.collectionFields.thumbnailImage.node.altText || rc.name}
+                          fill
+                          sizes="(max-width: 640px) 40vw, 200px"
+                          className={styles.relatedCollectionImage}
+                        />
+                      </span>
+                    )}
+                    <span className={styles.relatedCollectionLabel}>{rc.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
 
         <div className={styles.blogPostsSection}>
           <BlogPostsCarousel title="Learn About Our Products" posts={relatedPosts} />

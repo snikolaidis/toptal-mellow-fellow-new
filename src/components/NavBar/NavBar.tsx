@@ -148,26 +148,30 @@ export default function Navbar() {
               {isReady && (
                 <Link
                   href={isAuthenticated ? '/account' : '/login'}
-                  className="is-flex"
+                  className={`is-flex ${styles.navIconLink}`}
                   aria-label="Account"
                 >
                   <UserIcon />
+                  <span className={styles.navIconLabel}>Account</span>
                 </Link>
               )}
 
               {/* Cart */}
               <button
                 type="button"
-                className={`is-flex ${styles.cartBtn}`}
+                className={`is-flex ${styles.navIconLink}`}
                 aria-label="Toggle cart"
                 onClick={toggleDrawer}
               >
-                <CartIcon />
-                {cart && cart.itemsCount > 0 && (
-                  <span className={styles.cartBadge}>
-                    {cart.itemsCount}
-                  </span>
-                )}
+                <span className={styles.cartBtn}>
+                  <CartIcon />
+                  {cart && cart.itemsCount > 0 && (
+                    <span className={styles.cartBadge}>
+                      {cart.itemsCount}
+                    </span>
+                  )}
+                </span>
+                <span className={styles.navIconLabel}>Cart</span>
               </button>
             </div>
           </div>
