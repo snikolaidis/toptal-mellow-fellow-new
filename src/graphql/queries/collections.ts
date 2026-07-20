@@ -138,6 +138,7 @@ export const GET_COLLECTION_META = gql`
             altText
           }
         }
+        warningMessage
       }
       seo {
         title

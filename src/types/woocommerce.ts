@@ -21,6 +21,7 @@ export interface CollectionFields {
   collectionHeroDesktop?: { node?: { sourceUrl: string; altText?: string } };
   collectionHeroMobile?: { node?: { sourceUrl: string; altText?: string } };
   thumbnailImage?: { node?: { sourceUrl: string; altText?: string } };
+  warningMessage?: string | null;
 }
 
 export interface Collection {

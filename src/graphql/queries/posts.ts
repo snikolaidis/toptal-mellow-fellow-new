@@ -64,14 +64,16 @@ export const GET_CATEGORY_BY_SLUG = gql`
 `;
 
 export const GET_LATEST_POSTS = gql`
-  query GetLatestPosts($first: Int) {
-    posts(first: $first, where: { orderby: { field: DATE, order: DESC } }) {
+  query GetLatestPosts($first: Int, $tagSlugIn: [String]) {
+    posts(first: $first, where: { orderby: { field: DATE, order: DESC }, tagSlugIn: $tagSlugIn }) {
       nodes {
         id
         databaseId
         title
         slug
         date
+        excerpt
+        content
         featuredImage {
           node {
             sourceUrl

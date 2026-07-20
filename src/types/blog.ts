@@ -38,6 +38,7 @@ export interface BlogPostCard {
   title: string;
   slug: string;
   excerpt: string;
+  content?: string;
   date: string;
   featuredImage?: {
     node: BlogFeaturedImage;

@@ -1,6 +1,7 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import {
@@ -8,12 +9,15 @@ import {
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
 import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
+import { GET_ALL_TAGS, GET_LATEST_POSTS } from '@/graphql/queries/posts';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
+import BlogPostsCarousel from '@/components/BlogPostsCarousel';
 import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Collection, Product } from '@/types/woocommerce';
+import { BlogPostCard, BlogTag } from '@/types/blog';
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
@@ -21,6 +25,67 @@ import {
   deriveFilterGroups,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
+
+const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
+
+const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'your', 'our', 'a', 'an', 'of', 'to', 'in', 'on']);
+
+function toWordSet(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+      // naive singularization (e.g. "blunts" -> "blunt") so a pluralized
+      // collection name still matches a singular tag, and vice versa
+      .map((w) => w.replace(/s$/, ''))
+  );
+}
+
+function wordOverlapScore(a: Set<string>, b: Set<string>): number {
+  let score = 0;
+  Array.from(a).forEach((word) => {
+    if (b.has(word)) score++;
+  });
+  return score;
+}
+
+// Best-effort match between a collection and a blog tag — prefers an exact
+// name/slug match, falls back to word overlap (e.g. collection "Vape
+// Cartridges" matching tag "vape").
+function findMatchingTag(collectionName: string, tags: BlogTag[]): BlogTag | null {
+  const normalizedName = collectionName.toLowerCase().trim();
+  const exact = tags.find(
+    (t) => t.name.toLowerCase().trim() === normalizedName || t.slug === normalizedName.replace(/\s+/g, '-')
+  );
+  if (exact) return exact;
+
+  const nameWords = toWordSet(collectionName);
+  if (nameWords.size === 0) return null;
+
+  let best: BlogTag | null = null;
+  let bestScore = 0;
+  for (const tag of tags) {
+    const score = wordOverlapScore(nameWords, toWordSet(tag.name));
+    if (score > bestScore) {
+      bestScore = score;
+      best = tag;
+    }
+  }
+  return bestScore > 0 ? best : null;
+}
+
+// Fallback when no tag matches — score post titles by word overlap with the
+// collection name instead.
+function rankPostsByTitle(collectionName: string, posts: BlogPostCard[]): BlogPostCard[] {
+  const nameWords = toWordSet(collectionName);
+  if (nameWords.size === 0) return [];
+  return posts
+    .map((post) => ({ post, score: wordOverlapScore(nameWords, toWordSet(post.title)) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.post);
+}
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
@@ -61,11 +126,13 @@ function sortProducts(products: Product[], sort: string): Product[] {
 interface CollectionsPageProps {
   collection: Collection;
   allProducts: Product[];
+  relatedPosts: BlogPostCard[];
 }
 
 export default function CollectionsPage({
   collection,
   allProducts,
+  relatedPosts,
 }: CollectionsPageProps) {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
@@ -210,6 +277,11 @@ export default function CollectionsPage({
                 )}
               </>
             )}
+            {collection.collectionFields?.warningMessage && (
+              <p className={styles.warningMessage}>
+                <span aria-hidden="true">⚠️</span> {collection.collectionFields.warningMessage}
+              </p>
+            )}
           </div>
         </header>
 
@@ -281,6 +353,12 @@ export default function CollectionsPage({
             )}
           </main>
         </div>
+
+        <div className={styles.blogPostsSection}>
+          <BlogPostsCarousel title="Learn About Our Products" posts={relatedPosts} />
+        </div>
+
+        <RecentlyViewed currentSlug="" />
       </div>
     </Layout>
   );
@@ -304,7 +382,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   try {
     const client = getClient();
-    const [metaRes, productsRes] = await Promise.all([
+    const [metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
       client.query({
         query: GET_COLLECTION_META,
         variables: { slug },
@@ -314,16 +392,58 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         variables: { first: 500, collectionFilterIn: [slug] },
         fetchPolicy: 'no-cache',
       }),
+      client.query({ query: GET_ALL_TAGS }).catch(() => null),
+      client.query({ query: GET_LATEST_POSTS, variables: { first: 60 } }).catch(() => null),
     ]);
 
     if (!metaRes.data?.collection) {
       return { notFound: true };
     }
 
+    const collection = metaRes.data.collection;
+    const tags: BlogTag[] = tagsRes?.data?.tags?.nodes || [];
+    const latestPosts: BlogPostCard[] = latestPostsRes?.data?.posts?.nodes || [];
+
+    // Prefer a matching blog tag (precise); fall back to title word-overlap
+    // against the broader recent-posts pool. Either way, if that doesn't add
+    // up to 12, top up the remainder with the latest posts (deduplicated)
+    // rather than leaving the carousel short.
+    const RELATED_POSTS_TARGET = 12;
+    let relatedPosts: BlogPostCard[] = [];
+    const matchingTag = tags.length ? findMatchingTag(collection.name, tags) : null;
+    if (matchingTag) {
+      const tagPostsRes = await client
+        .query({
+          query: GET_LATEST_POSTS,
+          variables: { first: RELATED_POSTS_TARGET, tagSlugIn: [matchingTag.slug] },
+        })
+        .catch(() => null);
+      relatedPosts = tagPostsRes?.data?.posts?.nodes || [];
+    }
+    if (relatedPosts.length < RELATED_POSTS_TARGET) {
+      const usedIds = new Set(relatedPosts.map((p) => p.id));
+      const byTitle = rankPostsByTitle(collection.name, latestPosts).filter((p) => !usedIds.has(p.id));
+      for (const post of byTitle) {
+        if (relatedPosts.length >= RELATED_POSTS_TARGET) break;
+        relatedPosts.push(post);
+        usedIds.add(post.id);
+      }
+    }
+    if (relatedPosts.length < RELATED_POSTS_TARGET) {
+      const usedIds = new Set(relatedPosts.map((p) => p.id));
+      for (const post of latestPosts) {
+        if (relatedPosts.length >= RELATED_POSTS_TARGET) break;
+        if (usedIds.has(post.id)) continue;
+        relatedPosts.push(post);
+        usedIds.add(post.id);
+      }
+    }
+
     return {
       props: {
-        collection: metaRes.data.collection,
+        collection,
         allProducts: productsRes.data?.products?.nodes || [],
+        relatedPosts,
       },
       revalidate: 120,
     };

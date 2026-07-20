@@ -154,6 +154,14 @@
   cursor: pointer;
 }
 
+.warningMessage {
+  margin-top: 0.75rem;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 0.9375rem;
+  color: var(--color-state-error);
+}
+
 /* Layout: sidebar + main */
 .layout {
   display: flex;
@@ -344,4 +352,8 @@
 .notFound p {
   color: var(--color-text-secondary);
   margin-bottom: 2rem;
+}
+
+.blogPostsSection {
+  margin-top: 3rem;
 }
