@@ -3,6 +3,28 @@
     "title": "Collection Links Fields",
     "fields": [
         {
+            "key": "field_cl_section_heading",
+            "label": "Section heading",
+            "name": "section_heading",
+            "type": "text",
+            "instructions": "Optional. Rendered as a heading above the links (used for the Collections\/Catalog page sections).",
+            "required": 0,
+            "wrapper": { "width": "60" }
+        },
+        {
+            "key": "field_cl_layout",
+            "label": "Layout",
+            "name": "layout",
+            "type": "button_group",
+            "instructions": "Track = horizontal scrolling row (homepage). Grid = wrapping grid, 6 per row desktop \/ 3 per row mobile (Collections page).",
+            "choices": {
+                "track": "Track",
+                "grid": "Grid"
+            },
+            "default_value": "track",
+            "wrapper": { "width": "40" }
+        },
+        {
             "key": "field_cl_links",
             "label": "Collections",
             "name": "links",
