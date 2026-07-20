@@ -118,13 +118,18 @@ export async function fetchAllTags(
   let after: string | null = null;
 
   for (;;) {
-    const result: any = await client.query({ query: GET_ALL_TAGS, variables: { after } });
-    const page = result.data?.tags;
-    tags.push(
-      ...(page?.nodes || []).filter((tag: { count?: number | null }) => (tag.count ?? 0) > 0)
-    );
-    if (!page?.pageInfo?.hasNextPage) break;
-    after = page.pageInfo.endCursor;
+    try {
+      const result: any = await client.query({ query: GET_ALL_TAGS, variables: { after } });
+      const page = result.data?.tags;
+      tags.push(
+        ...(page?.nodes || []).filter((tag: { count?: number | null }) => (tag.count ?? 0) > 0)
+      );
+      if (!page?.pageInfo?.hasNextPage) break;
+      after = page.pageInfo.endCursor;
+    } catch (err) {
+      console.error('[fetchAllTags] Failed to fetch tags page, returning partial results:', err);
+      break;
+    }
   }
 
   return tags;
