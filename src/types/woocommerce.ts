@@ -16,11 +16,21 @@ export interface ProductCategory {
   count?: number;
 }
 
+export interface RelatedCollection {
+  id: string;
+  name: string;
+  slug: string;
+  collectionFields?: { thumbnailImage?: { node?: { sourceUrl: string; altText?: string } } };
+}
+
 export interface CollectionFields {
   collectionImage?: { node?: { sourceUrl: string; altText?: string } };
   collectionHeroDesktop?: { node?: { sourceUrl: string; altText?: string } };
   collectionHeroMobile?: { node?: { sourceUrl: string; altText?: string } };
   thumbnailImage?: { node?: { sourceUrl: string; altText?: string } };
+  warningMessage?: string | null;
+  relatedCollectionTitle?: string | null;
+  relatedCollections?: { nodes: RelatedCollection[] };
 }
 
 export interface Collection {

@@ -585,6 +585,40 @@
   overflow: hidden;
 }
 
+/* Blog-posts carousel card — fixed height so cards stay uniform even when a
+   post has no featured image or no excerpt (the body just fills the extra
+   space via flex: 1 on .postCardBody, which already exists on the base
+   class). Scoped as an addition on top of .postCard so the blog index
+   page's own cards (which reuse the same base class) are unaffected. */
+.carouselPostCard {
+  height: 350px;
+}
+
+.carouselPostCard .postCardImage {
+  flex-shrink: 0;
+}
+
+.carouselPostCard .postCardBody {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* clamp title/excerpt to a fixed number of lines so slides stay a
+   consistent height regardless of post length */
+.carouselPostTitle {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.carouselPostExcerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .faqSection {
   margin-bottom: 3.5rem;
 }
