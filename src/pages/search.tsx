@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import { gql } from '@apollo/client';
+import DOMPurify from 'isomorphic-dompurify';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ShopSidebar from '@/components/shop/ShopSidebar';
@@ -49,6 +50,15 @@ interface BlogPost {
 function parsePrice(price?: string): number {
   if (!price) return 0;
   return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
+}
+
+function excerptText(html: string): string {
+  const node = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    RETURN_DOM: true,
+  });
+  return (node.textContent || '').trim().slice(0, 120) + '...';
 }
 
 /** Check if a product matches active filters */
@@ -143,6 +153,9 @@ export default function SearchPage({
 
   const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
+  const noProductMatches = Boolean(query) && allProducts.length === 0;
+  const articlesOnly = noProductMatches && blogPosts.length > 0;
+
   return (
     <Layout
       title={query ? `Search: ${query}` : 'Search'}
@@ -161,6 +174,12 @@ export default function SearchPage({
           </h1>
         </header>
 
+        {articlesOnly ? (
+          <p className={styles.articlesLead}>
+            No products match &ldquo;{query}&rdquo;, but {blogPosts.length}{' '}
+            {blogPosts.length === 1 ? 'article' : 'articles'} did.
+          </p>
+        ) : (
         <div className={styles.layout}>
           <div className={styles.sidebarWrapper}>
             <ShopSidebar
@@ -227,10 +246,15 @@ export default function SearchPage({
             )}
           </main>
         </div>
+        )}
 
         {blogPosts.length > 0 && (
-          <section className={styles.blogSection}>
-            <h2 className={styles.blogTitle}>Related Articles</h2>
+          <section
+            className={articlesOnly ? `${styles.blogSection} ${styles.blogSectionOnly}` : styles.blogSection}
+          >
+            <h2 className={styles.blogTitle}>
+              {articlesOnly ? 'Articles' : 'Related Articles'}
+            </h2>
             <div className={styles.blogGrid}>
               {blogPosts.map((post) => (
                 <Link key={post.id} href={`/blogs/${post.slug}`} className={styles.blogCard}>
@@ -247,9 +271,7 @@ export default function SearchPage({
                   )}
                   <div className={styles.blogInfo}>
                     <h3>{post.title}</h3>
-                    {post.excerpt && (
-                      <p dangerouslySetInnerHTML={{ __html: post.excerpt.replace(/<[^>]+>/g, '').slice(0, 120) + '...' }} />
-                    )}
+                    {post.excerpt && <p>{excerptText(post.excerpt)}</p>}
                     <span className={styles.blogDate}>
                       {new Date(post.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </span>
