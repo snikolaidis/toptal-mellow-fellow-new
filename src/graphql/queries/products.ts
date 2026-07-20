@@ -95,6 +95,8 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    bbLinkedBundleId
+    bbFromPrice
     uniqueSellingProps {
       nodes {
         id
@@ -248,6 +250,8 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    bbLinkedBundleId
+    bbFromPrice
     uniqueSellingProps {
       nodes {
         id
@@ -359,6 +363,8 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    bbLinkedBundleId
+    bbFromPrice
     uniqueSellingProps {
       nodes {
         id
@@ -466,6 +472,8 @@ export const GROUP_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    bbLinkedBundleId
+    bbFromPrice
     uniqueSellingProps {
       nodes {
         id
@@ -650,6 +658,8 @@ export const GET_COLLECTION_PRODUCTS = gql`
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
           uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
+          bbLinkedBundleId
+          bbFromPrice
         }
         ... on VariableProduct {
           id
@@ -673,6 +683,8 @@ export const GET_COLLECTION_PRODUCTS = gql`
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
           uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
+          bbLinkedBundleId
+          bbFromPrice
         }
         ... on ExternalProduct {
           id

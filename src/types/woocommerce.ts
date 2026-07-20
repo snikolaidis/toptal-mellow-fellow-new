@@ -96,6 +96,13 @@ export interface Product {
   price?: string;
   regularPrice?: string;
   salePrice?: string;
+  // Bundle Builder plugin fields — set only on products that are actually a
+  // "build your own bundle" entry point. bbLinkedBundleId points at the
+  // BundleBuilder post (fetch via bundleBuilder(id, idType: DATABASE_ID));
+  // bbFromPrice is the bundle's starting-from price since a bundle has no
+  // single fixed price.
+  bbLinkedBundleId?: number | null;
+  bbFromPrice?: number | null;
   stockStatus?: 'IN_STOCK' | 'OUT_OF_STOCK' | 'ON_BACKORDER';
   stockQuantity?: number;
   externalUrl?: string;
