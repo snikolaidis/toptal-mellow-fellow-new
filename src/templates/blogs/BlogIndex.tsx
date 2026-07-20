@@ -9,6 +9,8 @@ interface BlogIndexProps {
   allTags: BlogTag[];
   title?: string;
   description?: string;
+  activeTag?: string;
+  basePath?: string;
 }
 
 const PAGE_SIZE = 30;
@@ -76,9 +78,9 @@ function PostCard({ post }: { post: BlogPostCard }) {
   );
 }
 
-export default function BlogIndex({ posts, allTags, title, description }: BlogIndexProps) {
+export default function BlogIndex({ posts, allTags, title, description, activeTag: activeTagProp, basePath = '/blogs' }: BlogIndexProps) {
   const router = useRouter();
-  const activeTag = (router.query.tag as string) || null;
+  const activeTag = activeTagProp ?? ((router.query.tag as string) || null);
   const page = Math.max(1, parseInt((router.query.page as string) || '1', 10) || 1);
 
   const filteredPosts = activeTag
@@ -86,19 +88,15 @@ export default function BlogIndex({ posts, allTags, title, description }: BlogIn
     : posts;
 
   function handleTagClick(slug: string) {
-    router.push(
-      { pathname: '/blogs', query: activeTag === slug ? {} : { tag: slug } },
-      undefined,
-      { shallow: true }
-    );
+    router.push(activeTag === slug ? '/blogs' : `/blogs/tag/${slug}`);
   }
 
   function goToPage(p: number) {
     router.push(
       {
-        pathname: '/blogs',
+        pathname: basePath,
         query: {
-          ...(activeTag ? { tag: activeTag } : {}),
+          ...(activeTagProp === undefined && activeTag ? { tag: activeTag } : {}),
           ...(p > 1 ? { page: p } : {}),
         },
       },

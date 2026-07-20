@@ -4,7 +4,7 @@ import {
   GET_POST_BY_SLUG,
   GET_ALL_POST_SLUGS,
   GET_LATEST_POSTS,
-  GET_ALL_TAGS,
+  fetchAllTags,
 } from '@/graphql/queries/posts';
 import { GET_PRODUCTS_BY_IDS } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
@@ -109,10 +109,10 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   try {
     const client = getClient();
 
-    const [postResult, latestResult, tagsResult] = await Promise.all([
+    const [postResult, latestResult, allTags] = await Promise.all([
       client.query({ query: GET_POST_BY_SLUG, variables: { slug: params?.slug } }),
       client.query({ query: GET_LATEST_POSTS, variables: { first: 4 } }),
-      client.query({ query: GET_ALL_TAGS }),
+      fetchAllTags(client),
     ]);
 
     if (!postResult.data?.post) {
@@ -146,7 +146,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       props: {
         post,
         latestPosts: latestResult.data?.posts?.nodes || [],
-        allTags: tagsResult.data?.tags?.nodes || [],
+        allTags,
         relatedProducts,
       },
       revalidate: 60,

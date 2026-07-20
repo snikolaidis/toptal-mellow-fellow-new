@@ -102,7 +102,7 @@ export default function BlogPostTemplate({ post, latestPosts, allTags, relatedPr
         {tags.length > 0 && (
           <div className={styles.postCategories}>
             {tags.map((tag) => (
-              <Link key={tag.id} href={`/blogs?tag=${tag.slug}`} className={styles.categoryPill}>
+              <Link key={tag.id} href={`/blogs/tag/${tag.slug}`} className={styles.categoryPill}>
                 {tag.name}
               </Link>
             ))}
@@ -239,7 +239,7 @@ export default function BlogPostTemplate({ post, latestPosts, allTags, relatedPr
               <h3 className={styles.sidebarTitle}>Explore more</h3>
               <div className={styles.tagCloud}>
                 {allTags.map((tag) => (
-                  <Link key={tag.id} href={`/blogs?tag=${tag.slug}`} className={styles.tagPill}>
+                  <Link key={tag.id} href={`/blogs/tag/${tag.slug}`} className={styles.tagPill}>
                     {tag.name}
                   </Link>
                 ))}

@@ -81,7 +81,7 @@ export default function HighlightsGroup(props: HighlightsGroupProps) {
   }
 
   return (
-    <section className="section highlights-group">
+    <section className="highlights-group">
       <div className="container">
         <div className="highlights-group__box">
           <div className="highlights-group__header">
