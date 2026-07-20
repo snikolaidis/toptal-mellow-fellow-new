@@ -93,11 +93,9 @@ interface FooterMenuItem {
 }
 
 // Resolve a WordPress menu item URL to an app-appropriate href. WP items mix
-// relative paths (/contact-us/), full frontend-domain URLs (the headless app on
-// *.up.railway.app) and true external links (e.g. affiliate URLs). Internal
-// targets get client-side Next navigation; everything else opens externally.
-// WordPress exposes the account page at /my-account; the headless app serves it
-// at /account. Remap so the footer link lands on the real route.
+// relative paths (/contact-us/), full frontend-domain URLs (the headless app)
+// and true external links (e.g. affiliate URLs). Internal targets get
+// client-side Next navigation; everything else opens externally.
 function remapInternalPath(path: string): string {
   const clean = path.replace(/\/$/, '') || '/';
   if (clean === '/my-account') return '/account';
@@ -114,7 +112,8 @@ function footerHref(uri: string): { href: string; external: boolean } {
     const isInternal =
       u.host === wpHost ||
       (runtimeHost && u.host === runtimeHost) ||
-      u.host.endsWith('.up.railway.app');
+      u.host.endsWith('.wpengine.com') ||
+      u.host.endsWith('.wpenginepowered.com');
     return isInternal
       ? { href: remapInternalPath(u.pathname) + u.search + u.hash, external: false }
       : { href: uri, external: true };

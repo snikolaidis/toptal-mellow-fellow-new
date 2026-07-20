@@ -1,0 +1,12 @@
+{
+  "name": "mellow-fellow",
+  "repo": "C0ding-K1D/Mellow-Fellow",
+  "region": "US-C",
+  "environments": [
+    {
+      "name": "Production",
+      "branch": "main",
+      "wp_environment_name": "mellowfellow1"
+    }
+  ]
+}
