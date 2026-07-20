@@ -2,6 +2,20 @@
   margin-top: 50px;
   margin-bottom: 50px;
 
+  .collection-links__heading {
+    font-family: "MrEavesSanOT";
+    font-size: 26px;
+    line-height: 100%;
+    text-align: center;
+    margin: 0 0 24px;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .collection-links__heading {
+      font-size: 32px;
+    }
+  }
+
   .collection-links__track {
     overflow-x: scroll;
     overflow-y: hidden;
@@ -69,6 +83,66 @@
 
     .collection-links__link:hover .collection-links__link-title {
       text-decoration: underline;
+    }
+  }
+}
+
+// Grid layout: wrapping catalog grid (Collections page), 3 per row on mobile
+// and 6 per row on desktop, mirroring the old Shopify page (data-view="6-3").
+.collection-links--grid {
+  margin-top: 30px;
+  margin-bottom: 30px;
+
+  .collection-links__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .collection-links__grid {
+      grid-template-columns: repeat(6, 1fr);
+      gap: 30px 24px;
+    }
+  }
+
+  .collection-links__link {
+    display: flex;
+    width: auto;
+    margin: 0;
+  }
+
+  .collection-links__link a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .collection-links__link-image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: #f4f4f4;
+    margin: 0 0 12px;
+  }
+
+  .collection-links__link-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .collection-links__link-title {
+    font-size: 18px;
+    text-align: center;
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .collection-links__link-title {
+      font-size: 20px;
     }
   }
 }

@@ -28,6 +28,10 @@
     "migrate:pull-collection-products": "tsx migration/scripts/pull-collection-products.ts",
     "migrate:validate": "tsx migration/scripts/validate.ts"
   },
+  "overrides": {
+    "jsdom": "27.0.0",
+    "cssstyle": "4.1.0"
+  },
   "dependencies": {
     "@apollo/client": "^3.13.9",
     "@faustwp/blocks": "^3.0.0",

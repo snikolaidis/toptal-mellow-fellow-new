@@ -40,6 +40,9 @@ export default function ProductCard({ product, badge, priority = false, source }
   const productType = product.__typename || product.type;
   const isSimpleProduct = productType === 'SimpleProduct' || product.type === 'SIMPLE';
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
+  // Bundle Builder entry-point product — can't be added to cart directly,
+  // has no fixed price, and needs its own bundle-picker page.
+  const isBundle = product.bbLinkedBundleId != null;
 
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);
@@ -236,7 +239,11 @@ export default function ProductCard({ product, badge, priority = false, source }
             </div>
 
             <div className="product__price">
-              {product.salePrice ? (
+              {isBundle ? (
+                product.bbFromPrice != null && (
+                  <span>From ${product.bbFromPrice.toFixed(2)}</span>
+                )
+              ) : product.salePrice ? (
                 <>
                   <span className="product__price--sale">{product.salePrice}</span>
                   <span className="product__price--regular">{product.regularPrice}</span>
@@ -251,7 +258,7 @@ export default function ProductCard({ product, badge, priority = false, source }
         {/* Action Buttons */}
         {isInStock && (
           <div className="is-flex">
-            {/* Quick View Button 
+            {/* Quick View Button
             <button
               onClick={handleQuickView}
               className="button is-small is-fullwidth"
@@ -260,8 +267,20 @@ export default function ProductCard({ product, badge, priority = false, source }
               Quick view
             </button>*/}
 
+            {/* Bundle products can't be added to cart directly — send to the PDP,
+                which routes into the actual bundle builder. */}
+            {isBundle && (
+              <Link
+                href={`/product/${product.slug}`}
+                className="button is-small add-to-cart is-fullwidth"
+                aria-label={`Create a bundle from ${product.name}`}
+              >
+                Create Bundle
+              </Link>
+            )}
+
             {/* Quick Add Button (Simple Products Only) */}
-            {isSimpleProduct && (
+            {isSimpleProduct && !isBundle && (
               <button
                 onClick={handleQuickAdd}
                 disabled={isAdding}
@@ -273,7 +292,7 @@ export default function ProductCard({ product, badge, priority = false, source }
             )}
 
             {/* View Options for Variable Products */}
-            {!isSimpleProduct && (
+            {!isSimpleProduct && !isBundle && (
               <div className="flex h-10 items-center justify-center bg-white text-black border border-black px-3">
                 <span className="text-[10px] font-semibold uppercase tracking-wider">Options</span>
               </div>

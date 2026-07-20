@@ -3,7 +3,7 @@
 	"apiVersion": 3,
 	"name": "acf/collection-links",
 	"title": "Collection Links",
-	"description": "A horizontal row of collection links. Pick collections (ordered); each link uses the collection's thumbnail image, name (or an optional override), and URL. Rendered on the headless frontend.",
+	"description": "A row or grid of collection links with an optional section heading. Pick collections (ordered); each link uses the collection's thumbnail image, name (or an optional override), and URL. Track layout is a horizontal scrolling row (homepage); Grid layout wraps 6-across desktop / 3-across mobile (Collections page). Rendered on the headless frontend.",
 	"category": "headless-blocks",
 	"icon": "grid-view",
 	"keywords": [ "collection", "links", "categories", "navigation" ],

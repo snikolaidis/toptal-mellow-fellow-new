@@ -138,6 +138,25 @@ export const GET_COLLECTION_META = gql`
             altText
           }
         }
+        warningMessage
+        relatedCollectionTitle
+        relatedCollections {
+          nodes {
+            ... on Collection {
+              id
+              name
+              slug
+              collectionFields {
+                thumbnailImage {
+                  node {
+                    sourceUrl
+                    altText
+                  }
+                }
+              }
+            }
+          }
+        }
       }
       seo {
         title

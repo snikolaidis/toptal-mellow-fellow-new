@@ -3,13 +3,18 @@
 nav.navbar {
 background-image:linear-gradient(180deg,#dbcaa9 -10%,#f0e6d0 50%,#dbcaa9 100%);
 
+.navbar-brand{
+  padding-top:10px;
+  padding-bottom:5px;
+}
   // Invisible wrapper by default — no layout effect, so normal (non-scrolled)
   // desktop nav is untouched. Becomes a real flex box only while scrolled,
   // so the grid row below has a single measurable child to animate against.
+  
+
   .navbar-menu-inner {
     display: contents;
   }
-
 
   &.is-scrolled {
     position: fixed;
@@ -151,7 +156,8 @@ background-image:linear-gradient(180deg,#dbcaa9 -10%,#f0e6d0 50%,#dbcaa9 100%);
   .navbar-controls {
     display: flex;
     justify-content: center;
-    gap: 5px;
+    gap: 15px;
+        align-items: center;
 
     svg {
       width: 25px;

@@ -154,6 +154,14 @@
   cursor: pointer;
 }
 
+.warningMessage {
+  margin-top: 0.75rem;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 0.9375rem;
+  color: var(--color-state-error);
+}
+
 /* Layout: sidebar + main */
 .layout {
   display: flex;
@@ -344,4 +352,76 @@
 .notFound p {
   color: var(--color-text-secondary);
   margin-bottom: 2rem;
+}
+
+.reviewsSection {
+  margin-top: 60px;
+  margin-bottom: 60px;
+}
+
+/* Related Collections */
+.relatedCollections {
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.relatedCollectionsTitle {
+  margin: 0 0 2rem;
+  font-family: var(--font-family-display);
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.relatedCollectionsTiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.relatedCollectionTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 200px;
+  text-decoration: none;
+}
+
+.relatedCollectionImageWrap {
+  position: relative;
+  display: block;
+  width: 200px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-surface-muted);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.relatedCollectionTile:hover .relatedCollectionImageWrap {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.relatedCollectionImage {
+  object-fit: cover;
+}
+
+.relatedCollectionLabel {
+  margin-top: 0.75rem;
+  font-size: 1.0625rem;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .relatedCollectionTile,
+  .relatedCollectionImageWrap {
+    width: 40vw;
+  }
+}
+
+.blogPostsSection {
+  margin-top: 3rem;
 }
