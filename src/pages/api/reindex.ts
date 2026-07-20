@@ -35,6 +35,9 @@ const PRODUCT_QUERY = `
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
+          bbLinkedBundleId
+          bbFromPrice
+          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
         }
         ... on VariableProduct {
           id databaseId name slug type date
@@ -56,6 +59,9 @@ const PRODUCT_QUERY = `
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
+          bbLinkedBundleId
+          bbFromPrice
+          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
         }
       }
     }
@@ -72,6 +78,11 @@ const TAXONOMY_FIELDS: Array<{ source: string; key: string }> = [
   { source: 'mG', key: 'mg' },
   { source: 'pieces', key: 'pieces' },
   { source: 'collections', key: 'collection' },
+];
+
+const DISPLAY_TAXONOMY_FIELDS: Array<{ source: string; key: string }> = [
+  { source: 'strainNames', key: 'strainName' },
+  { source: 'productLines', key: 'productLine' },
 ];
 
 const SEARCHABLE_ATTRIBUTES = [
@@ -94,11 +105,18 @@ const DISPLAYED_ATTRIBUTES = [
   'id',
   'name',
   'slug',
+  'type',
+  'date',
   'price',
   'regularPrice',
   'salePrice',
   'stockStatus',
   'image',
+  'bbLinkedBundleId',
+  'bbFromPrice',
+  'uniqueSellingProps',
+  ...TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
+  ...DISPLAY_TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
 ];
 
 interface TaxonomyNode {
@@ -171,6 +189,7 @@ function toDocument(product: WooProduct): ProductDocument {
     id: product.id ?? null,
     name: product.name ?? '',
     slug: product.slug ?? '',
+    type: (product.type as string | null | undefined) ?? null,
     date: product.date ?? null,
     sku: product.sku ?? null,
     description: stripHtml(product.description),
@@ -184,9 +203,12 @@ function toDocument(product: WooProduct): ProductDocument {
       sourceUrl: product.image?.sourceUrl ?? null,
       altText: product.image?.altText ?? null,
     },
+    bbLinkedBundleId: (product.bbLinkedBundleId as number | null | undefined) ?? null,
+    bbFromPrice: (product.bbFromPrice as number | null | undefined) ?? null,
+    uniqueSellingProps: (product.uniqueSellingProps as unknown) ?? null,
   };
 
-  for (const { source, key } of TAXONOMY_FIELDS) {
+  for (const { source, key } of [...TAXONOMY_FIELDS, ...DISPLAY_TAXONOMY_FIELDS]) {
     const connection = product[source] as TaxonomyConnection | null | undefined;
     const nodes = connection?.nodes || [];
     doc[`${key}Slugs`] = nodes.map((n) => n?.slug).filter((s): s is string => !!s);
