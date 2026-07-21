@@ -11,6 +11,7 @@ import {
 import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
+import RichText from '@/components/RichText';
 import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
 import BlogPostsCarousel from '@/components/BlogPostsCarousel';
 import ShopSidebar from '@/components/shop/ShopSidebar';
@@ -342,7 +343,7 @@ export default function CollectionsPage({
               {faqs.map((faq) => (
                 <details key={faq.id} className={styles.faqItem}>
                   <summary>{faq.title}</summary>
-                  <div className={styles.faqAnswer} dangerouslySetInnerHTML={{ __html: faq.content }} />
+                  <RichText as="div" className={styles.faqAnswer} html={faq.content} />
                 </details>
               ))}
             </section>
