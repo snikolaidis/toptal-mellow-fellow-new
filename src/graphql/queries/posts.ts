@@ -94,6 +94,34 @@ export const GET_LATEST_POSTS = gql`
   }
 `;
 
+export const GET_LATEST_POSTS_LITE = gql`
+  query GetLatestPostsLite($first: Int, $tagSlugIn: [String]) {
+    posts(first: $first, where: { orderby: { field: DATE, order: DESC }, tagSlugIn: $tagSlugIn }) {
+      nodes {
+        id
+        databaseId
+        title
+        slug
+        date
+        excerpt
+        featuredImage {
+          node {
+            sourceUrl
+            altText
+          }
+        }
+        tags {
+          nodes {
+            id
+            name
+            slug
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_ALL_TAGS = gql`
   query GetAllTags($after: String) {
     tags(first: 100, after: $after) {

@@ -266,7 +266,7 @@ function enrichCartItems(
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -304,6 +304,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   bundleItemMapRef.current = bundleItemMap;
   const { isAuthenticated, isReady } = useAuth();
   const prevAuthState = useRef<boolean | null>(null);
+  const hasFetchedRef = useRef(false);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
@@ -341,6 +342,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
 
       if (isStaleSeq(seq)) return;
+      hasFetchedRef.current = true;
       const transformedCart = transformCartData(data);
       if (transformedCart) setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
     } catch (err) {
@@ -359,17 +361,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     await fetchCart();
   }, [fetchCart]);
 
-  // Initial cart load
+  // Lazy cart fetch — load cart only when the drawer opens for the first time.
+  // Avoids acquiring the PHP session lock on page load, which would block
+  // any add-to-cart mutation fired before the fetch completes.
   useEffect(() => {
-    if (!isReady) return;
-    fetchCart();
-  }, [isReady, fetchCart]);
+    if (isDrawerOpen && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchCart();
+    }
+  }, [isDrawerOpen, fetchCart]);
 
   // Handle auth state changes - reload cart for new user
   useEffect(() => {
     if (!isReady) return;
 
-    // Skip on initial load
+    // Track initial state without fetching
     if (prevAuthState.current === null) {
       prevAuthState.current = isAuthenticated;
       return;
@@ -383,6 +389,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       resetBrowserClient();
 
       // Reload cart for new user
+      hasFetchedRef.current = true;
       fetchCart();
     }
   }, [isAuthenticated, isReady, fetchCart]);
@@ -423,6 +430,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         bundleItemMapRef.current
       );
     });
+    hasFetchedRef.current = true;
     setIsDrawerOpen(true);
     setIsMutating(true);
     try {
@@ -437,6 +445,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
 
       if (isStaleSeq(seq)) return;
+      hasFetchedRef.current = true;
       const transformedCart = transformCartData({ cart: data.addToCart.cart });
       if (transformedCart) {
         setCart(enrichCartItems(transformedCart, bundleItemMapRef.current));
@@ -459,6 +468,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     async (bundleId: number, productIds: number[], bundleName: string, discountPercent = 0) => {
       setError(null);
       const seq = nextSeq();
+      hasFetchedRef.current = true;
       setIsMutating(true);
       try {
         const client = getClient();
