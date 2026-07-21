@@ -10,15 +10,15 @@ import {
 import { useAuth, getApolloAuthClient } from '@faustwp/core';
 import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
 import {
-  GET_CART,
-  ADD_TO_CART,
+  GET_CART_LITE,
+  ADD_TO_CART_LITE,
   ADD_BUNDLE_TO_CART,
   REMOVE_BUNDLE_FROM_CART,
-  UPDATE_CART_ITEM_QUANTITY,
-  REMOVE_FROM_CART,
-  CLEAR_CART,
-  APPLY_COUPON,
-  REMOVE_COUPON,
+  UPDATE_CART_ITEM_QUANTITY_LITE,
+  REMOVE_FROM_CART_LITE,
+  CLEAR_CART_LITE,
+  APPLY_COUPON_LITE,
+  REMOVE_COUPON_LITE,
   UPDATE_SHIPPING_METHOD,
 } from '@/graphql/queries/cart';
 import { ShippingPackage, AppliedCoupon } from '@/types/checkout';
@@ -336,7 +336,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const client = getClient();
       const { data } = await client.query({
-        query: GET_CART,
+        query: GET_CART_LITE,
         fetchPolicy: 'network-only',
       });
 
@@ -428,7 +428,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const client = getClient();
       const { data } = await client.mutate({
-        mutation: ADD_TO_CART,
+        mutation: ADD_TO_CART_LITE,
         variables: {
           productId: input.productId,
           quantity: input.quantity,
@@ -496,7 +496,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
         // Refetch cart since the payload doesn't return cart data
         const { data: cartData } = await client.query({
-          query: GET_CART,
+          query: GET_CART_LITE,
           fetchPolicy: 'network-only',
         });
         if (isStaleSeq(seq)) return;
@@ -536,7 +536,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         }
         const { data: cartData } = await client.query({
-          query: GET_CART,
+          query: GET_CART_LITE,
           fetchPolicy: 'network-only',
         });
         if (isStaleSeq(seq)) return;
@@ -605,7 +605,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       if (quantity <= 0) {
         const { data } = await client.mutate({
-          mutation: REMOVE_FROM_CART,
+          mutation: REMOVE_FROM_CART_LITE,
           variables: { keys: [key] },
         });
         if (isStaleSeq(seq)) return;
@@ -615,7 +615,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
 
       const { data } = await client.mutate({
-        mutation: UPDATE_CART_ITEM_QUANTITY,
+        mutation: UPDATE_CART_ITEM_QUANTITY_LITE,
         variables: { key, quantity },
       });
       if (isStaleSeq(seq)) return;
@@ -664,7 +664,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const client = getClient();
       const { data } = await client.mutate({
-        mutation: REMOVE_FROM_CART,
+        mutation: REMOVE_FROM_CART_LITE,
         variables: { keys: [key] },
       });
       if (isStaleSeq(seq)) return;
@@ -694,7 +694,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const client = getClient();
       const { data } = await client.mutate({
-        mutation: CLEAR_CART,
+        mutation: CLEAR_CART_LITE,
       });
 
       if (isStaleSeq(seq)) return;
@@ -732,7 +732,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const client = getClient();
       const { data } = await client.mutate({
-        mutation: APPLY_COUPON,
+        mutation: APPLY_COUPON_LITE,
         variables: { code },
       });
 
@@ -769,7 +769,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const client = getClient();
       const { data } = await client.mutate({
-        mutation: REMOVE_COUPON,
+        mutation: REMOVE_COUPON_LITE,
         variables: { code },
       });
 

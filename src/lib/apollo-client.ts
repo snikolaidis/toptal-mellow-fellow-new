@@ -92,8 +92,18 @@ export function getClient() {
 }
 
 // Browser-only client for mutations and cart operations
-// Uses the /api/graphql proxy to avoid CORS issues
 let browserClient: ApolloClient<any> | null = null;
+
+const browserRetryLink = new RetryLink({
+  delay: (count) => Math.min(1000 * 2 ** (count - 1), 8000),
+  attempts: {
+    max: 3,
+    retryIf: (error) => {
+      const status = (error as { statusCode?: number }).statusCode;
+      return typeof status === 'number' && (status === 502 || status === 503 || status === 504);
+    },
+  },
+});
 
 // Custom fetch that ensures credentials are always included
 const fetchWithCredentials = (
@@ -112,9 +122,6 @@ export function getBrowserClient() {
   }
 
   if (!browserClient) {
-    // Use the proxy endpoint to avoid CORS issues
-    // When switching to production with WordPress CORS config,
-    // change this back to: `${wordpressUrl}${graphqlEndpoint}`
     const browserHttpLink = createHttpLink({
       uri: '/api/graphql',
       credentials: 'include',
@@ -122,7 +129,7 @@ export function getBrowserClient() {
     });
 
     browserClient = new ApolloClient({
-      link: from([errorLink, browserHttpLink]),
+      link: from([errorLink, browserRetryLink, browserHttpLink]),
       cache: new InMemoryCache(),
       defaultOptions: {
         watchQuery: {

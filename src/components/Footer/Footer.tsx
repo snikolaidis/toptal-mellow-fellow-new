@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { gql, useQuery } from '@apollo/client';
-import { getClient, getBrowserClient } from '@/lib/apollo-client';
 import {
   EmailIcon,
   FacebookIcon,
@@ -123,17 +122,15 @@ function footerHref(uri: string): { href: string; external: boolean } {
 }
 
 export default function Footer() {
-  const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
-  const { data } = useQuery(GET_FOOTER_MENU, { client });
+  const { data } = useQuery(GET_FOOTER_MENU);
   const footerMenu = data?.menus?.nodes?.[0];
   const footerItems: FooterMenuItem[] = footerMenu?.menuItems?.nodes ?? [];
 
-  const { data: data2 } = useQuery(GET_FOOTER_MENU_2, { client });
+  const { data: data2 } = useQuery(GET_FOOTER_MENU_2);
   const footerMenu2 = data2?.menus?.nodes?.[0];
   const footerItems2: FooterMenuItem[] = footerMenu2?.menuItems?.nodes ?? [];
 
   const { data: socialData } = useQuery(GET_SOCIAL_LINKS, {
-    client,
     errorPolicy: 'ignore',
   });
   const socialLinks: SocialLinks | undefined =

@@ -73,6 +73,76 @@ export const CART_FIELDS = gql`
   }
 `;
 
+export const CART_FIELDS_LITE = gql`
+  fragment CartFieldsLite on Cart {
+    contents {
+      itemCount
+      nodes {
+        key
+        quantity
+        total
+        bbBundleId
+        bbGroupKey
+        bbLocked
+        bbUnitPrice
+        product {
+          node {
+            id
+            databaseId
+            name
+            slug
+            ... on SimpleProduct {
+              price
+            }
+            ... on VariableProduct {
+              price
+            }
+            image {
+              sourceUrl
+              altText
+            }
+            ... on SimpleProduct {
+              mfproductTypes {
+                nodes {
+                  name
+                  slug
+                }
+              }
+            }
+          }
+        }
+        variation {
+          node {
+            id
+            databaseId
+            name
+            price
+          }
+        }
+      }
+    }
+    subtotal
+    total
+    discountTotal
+    shippingTotal
+    isEmpty
+    appliedCoupons {
+      code
+      discountAmount
+      discountTax
+    }
+  }
+`;
+
+export const GET_CART_LITE = gql`
+  ${CART_FIELDS_LITE}
+  query GetCartLite {
+    cart {
+      ...CartFieldsLite
+    }
+  }
+`;
+
 export const GET_CART = gql`
   ${CART_FIELDS}
   query GetCart {
@@ -168,6 +238,74 @@ export const REMOVE_COUPON = gql`
     removeCoupons(input: { codes: [$code] }) {
       cart {
         ...CartFields
+      }
+    }
+  }
+`;
+
+export const ADD_TO_CART_LITE = gql`
+  ${CART_FIELDS_LITE}
+  mutation AddToCartLite($productId: Int!, $quantity: Int = 1, $variationId: Int) {
+    addToCart(
+      input: { productId: $productId, quantity: $quantity, variationId: $variationId }
+    ) {
+      cart {
+        ...CartFieldsLite
+      }
+    }
+  }
+`;
+
+export const UPDATE_CART_ITEM_QUANTITY_LITE = gql`
+  ${CART_FIELDS_LITE}
+  mutation UpdateCartItemQuantityLite($key: ID!, $quantity: Int!) {
+    updateItemQuantities(input: { items: [{ key: $key, quantity: $quantity }] }) {
+      cart {
+        ...CartFieldsLite
+      }
+    }
+  }
+`;
+
+export const REMOVE_FROM_CART_LITE = gql`
+  ${CART_FIELDS_LITE}
+  mutation RemoveFromCartLite($keys: [ID!]!) {
+    removeItemsFromCart(input: { keys: $keys }) {
+      cart {
+        ...CartFieldsLite
+      }
+    }
+  }
+`;
+
+export const CLEAR_CART_LITE = gql`
+  ${CART_FIELDS_LITE}
+  mutation ClearCartLite {
+    emptyCart(input: {}) {
+      cart {
+        ...CartFieldsLite
+      }
+    }
+  }
+`;
+
+export const APPLY_COUPON_LITE = gql`
+  ${CART_FIELDS_LITE}
+  mutation ApplyCouponLite($code: String!) {
+    applyCoupon(input: { code: $code }) {
+      cart {
+        ...CartFieldsLite
+      }
+    }
+  }
+`;
+
+export const REMOVE_COUPON_LITE = gql`
+  ${CART_FIELDS_LITE}
+  mutation RemoveCouponLite($code: String!) {
+    removeCoupons(input: { codes: [$code] }) {
+      cart {
+        ...CartFieldsLite
       }
     }
   }
