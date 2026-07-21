@@ -9,7 +9,6 @@ import {
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
 import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
-import { GET_ALL_TAGS, GET_LATEST_POSTS_LITE } from '@/graphql/queries/posts';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
@@ -377,7 +376,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   try {
     const client = getClient();
-    const [menuClient, metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+    const [menuClient, metaRes, productsRes] = await Promise.all([
       prefetchMenus(),
       client.query({
         query: GET_COLLECTION_META,
@@ -387,8 +386,6 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         query: GET_COLLECTION_PRODUCTS,
         variables: { first: 500, collectionFilterIn: [slug] },
       }),
-      client.query({ query: GET_ALL_TAGS }).catch(() => null),
-      client.query({ query: GET_LATEST_POSTS_LITE, variables: { first: 20 } }).catch(() => null),
     ]);
 
     if (!metaRes.data?.collection) {
