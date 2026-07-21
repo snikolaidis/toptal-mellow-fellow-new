@@ -29,6 +29,8 @@ export interface CollectionFields {
   collectionHeroMobile?: { node?: { sourceUrl: string; altText?: string } };
   thumbnailImage?: { node?: { sourceUrl: string; altText?: string } };
   warningMessage?: string | null;
+  faqSectionTitle?: string | null;
+  faqs?: { nodes: Array<{ id: string; title: string; content: string }> };
   relatedCollectionTitle?: string | null;
   relatedCollections?: { nodes: RelatedCollection[] };
 }

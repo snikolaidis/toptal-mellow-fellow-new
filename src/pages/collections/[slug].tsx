@@ -9,7 +9,6 @@ import {
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
 import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
-import { GET_ALL_TAGS, GET_LATEST_POSTS } from '@/graphql/queries/posts';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
@@ -18,7 +17,7 @@ import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Collection, Product } from '@/types/woocommerce';
-import { BlogPostCard, BlogTag } from '@/types/blog';
+import { BlogPostCard } from '@/types/blog';
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
@@ -28,65 +27,6 @@ import {
 import styles from '@/styles/pages/collection.module.css';
 
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
-
-const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'your', 'our', 'a', 'an', 'of', 'to', 'in', 'on']);
-
-function toWordSet(text: string): Set<string> {
-  return new Set(
-    text
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
-      // naive singularization (e.g. "blunts" -> "blunt") so a pluralized
-      // collection name still matches a singular tag, and vice versa
-      .map((w) => w.replace(/s$/, ''))
-  );
-}
-
-function wordOverlapScore(a: Set<string>, b: Set<string>): number {
-  let score = 0;
-  Array.from(a).forEach((word) => {
-    if (b.has(word)) score++;
-  });
-  return score;
-}
-
-// Best-effort match between a collection and a blog tag — prefers an exact
-// name/slug match, falls back to word overlap (e.g. collection "Vape
-// Cartridges" matching tag "vape").
-function findMatchingTag(collectionName: string, tags: BlogTag[]): BlogTag | null {
-  const normalizedName = collectionName.toLowerCase().trim();
-  const exact = tags.find(
-    (t) => t.name.toLowerCase().trim() === normalizedName || t.slug === normalizedName.replace(/\s+/g, '-')
-  );
-  if (exact) return exact;
-
-  const nameWords = toWordSet(collectionName);
-  if (nameWords.size === 0) return null;
-
-  let best: BlogTag | null = null;
-  let bestScore = 0;
-  for (const tag of tags) {
-    const score = wordOverlapScore(nameWords, toWordSet(tag.name));
-    if (score > bestScore) {
-      bestScore = score;
-      best = tag;
-    }
-  }
-  return bestScore > 0 ? best : null;
-}
-
-// Fallback when no tag matches — score post titles by word overlap with the
-// collection name instead.
-function rankPostsByTitle(collectionName: string, posts: BlogPostCard[]): BlogPostCard[] {
-  const nameWords = toWordSet(collectionName);
-  if (nameWords.size === 0) return [];
-  return posts
-    .map((post) => ({ post, score: wordOverlapScore(nameWords, toWordSet(post.title)) }))
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map((entry) => entry.post);
-}
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
@@ -392,7 +332,24 @@ export default function CollectionsPage({
           <BlogPostsCarousel title="Learn About Our Products" posts={relatedPosts} />
         </div>
 
-        <RecentlyViewed currentSlug="" />
+        {(() => {
+          const faqs = collection.collectionFields?.faqs?.nodes || [];
+          if (faqs.length === 0) return null;
+          const faqTitle = collection.collectionFields?.faqSectionTitle || 'Frequently Asked Questions';
+          return (
+            <section className={styles.faqSection}>
+              <h2 className={styles.faqTitle}>{faqTitle}</h2>
+              {faqs.map((faq) => (
+                <details key={faq.id} className={styles.faqItem}>
+                  <summary>{faq.title}</summary>
+                  <div className={styles.faqAnswer} dangerouslySetInnerHTML={{ __html: faq.content }} />
+                </details>
+              ))}
+            </section>
+          );
+        })()}
+
+        <RecentlyViewed currentSlug="" titleClassName={styles.recentlyViewedTitle} />
       </div>
     </Layout>
   );
@@ -406,7 +363,8 @@ export const getStaticPaths: GetStaticPaths = async () => {
       params: { slug: c.slug },
     })) || [];
     return { paths, fallback: 'blocking' };
-  } catch {
+  } catch (err) {
+    console.error('Failed to fetch collection slugs:', err);
     return { paths: [], fallback: 'blocking' };
   }
 };
@@ -416,7 +374,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   try {
     const client = getClient();
-    const [metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+    const [metaRes, productsRes] = await Promise.all([
       client.query({
         query: GET_COLLECTION_META,
         variables: { slug },
@@ -426,8 +384,6 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         variables: { first: 500, collectionFilterIn: [slug] },
         fetchPolicy: 'no-cache',
       }),
-      client.query({ query: GET_ALL_TAGS }).catch(() => null),
-      client.query({ query: GET_LATEST_POSTS, variables: { first: 60 } }).catch(() => null),
     ]);
 
     if (!metaRes.data?.collection) {
@@ -435,43 +391,10 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     }
 
     const collection = metaRes.data.collection;
-    const tags: BlogTag[] = tagsRes?.data?.tags?.nodes || [];
-    const latestPosts: BlogPostCard[] = latestPostsRes?.data?.posts?.nodes || [];
-
-    // Prefer a matching blog tag (precise); fall back to title word-overlap
-    // against the broader recent-posts pool. Either way, if that doesn't add
-    // up to 12, top up the remainder with the latest posts (deduplicated)
-    // rather than leaving the carousel short.
-    const RELATED_POSTS_TARGET = 12;
-    let relatedPosts: BlogPostCard[] = [];
-    const matchingTag = tags.length ? findMatchingTag(collection.name, tags) : null;
-    if (matchingTag) {
-      const tagPostsRes = await client
-        .query({
-          query: GET_LATEST_POSTS,
-          variables: { first: RELATED_POSTS_TARGET, tagSlugIn: [matchingTag.slug] },
-        })
-        .catch(() => null);
-      relatedPosts = tagPostsRes?.data?.posts?.nodes || [];
-    }
-    if (relatedPosts.length < RELATED_POSTS_TARGET) {
-      const usedIds = new Set(relatedPosts.map((p) => p.id));
-      const byTitle = rankPostsByTitle(collection.name, latestPosts).filter((p) => !usedIds.has(p.id));
-      for (const post of byTitle) {
-        if (relatedPosts.length >= RELATED_POSTS_TARGET) break;
-        relatedPosts.push(post);
-        usedIds.add(post.id);
-      }
-    }
-    if (relatedPosts.length < RELATED_POSTS_TARGET) {
-      const usedIds = new Set(relatedPosts.map((p) => p.id));
-      for (const post of latestPosts) {
-        if (relatedPosts.length >= RELATED_POSTS_TARGET) break;
-        if (usedIds.has(post.id)) continue;
-        relatedPosts.push(post);
-        usedIds.add(post.id);
-      }
-    }
+    // Matching (tag overlap, falling back to title overlap) now happens
+    // server-side via the Collection.relatedPosts GraphQL field — see
+    // mellow-fellow-related-posts.php in the WP mu-plugins.
+    const relatedPosts = collection.relatedPosts || [];
 
     return {
       props: {
@@ -481,7 +404,8 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       },
       revalidate: 120,
     };
-  } catch {
+  } catch (err) {
+    console.error(`Failed to build collection page for slug "${slug}":`, err);
     return { notFound: true };
   }
 };

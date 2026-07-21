@@ -6,6 +6,7 @@ import styles from './PdpProductRow.module.css';
 
 interface Props {
   currentSlug: string;
+  titleClassName?: string;
 }
 
 function toProduct(r: RecentProduct): Product {
@@ -24,7 +25,7 @@ function toProduct(r: RecentProduct): Product {
   } as Product;
 }
 
-export default function RecentlyViewed({ currentSlug }: Props) {
+export default function RecentlyViewed({ currentSlug, titleClassName }: Props) {
   const [items, setItems] = useState<RecentProduct[]>([]);
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function RecentlyViewed({ currentSlug }: Props) {
 
   return (
     <section className={styles.section}>
-      <h2 className={styles.title}>Recently viewed</h2>
+      <h2 className={`${styles.title} ${titleClassName || ''}`}>Recently viewed</h2>
       <div className="products-grid">
         {items.map((r) => (
           <ProductCard key={r.slug} product={toProduct(r)} source="recently_viewed" />
