@@ -20,6 +20,13 @@ const nextConfig = {
         destination: '/blogs/tag/:tag',
         statusCode: 301,
       },
+      // The WP "Collections" page also resolves through the /pages/ Faust
+      // catch-all; its canonical home is the hardcoded /collections route.
+      {
+        source: '/pages/collections',
+        destination: '/collections',
+        statusCode: 301,
+      },
     ];
   },
   images: {

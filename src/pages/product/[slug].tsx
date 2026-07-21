@@ -4,7 +4,9 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getClient } from '@/lib/apollo-client';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_PRODUCT_BY_SLUG, GET_ALL_PRODUCT_SLUGS, GET_PRODUCTS_BY_COLLECTION } from '@/graphql/queries/products';
+import { GET_BUNDLE_SLUG_BY_ID } from '@/graphql/queries/bundles';
 import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
 import ProductFaqs from '@/components/pdp/ProductFaqs';
@@ -27,6 +29,7 @@ interface ProductPageProps {
   collectionSlug: string | null;
   availableOptions: Product[];
   availableOptionsBase: string;
+  bundleSlug: string | null;
 }
 
 function formatEvery(period: string, interval: number) {
@@ -48,6 +51,7 @@ export default function ProductPage({
   collectionSlug,
   availableOptions,
   availableOptionsBase,
+  bundleSlug,
 }: ProductPageProps) {
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
@@ -205,6 +209,9 @@ export default function ProductPage({
 
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
   const hasVariations = product.variations?.nodes && product.variations.nodes.length > 0;
+  // Bundle Builder entry-point product — no fixed price, can't be added to
+  // cart directly; "Create Bundle" routes into the actual bundle picker.
+  const isBundle = product.bbLinkedBundleId != null;
   const categories = product.productCategories?.nodes || [];
 
   // Get selected variation details
@@ -339,17 +346,26 @@ export default function ProductPage({
               />
             )}
 
-            {/* Price */}
-            <div className={styles.price}>
-              {displaySalePrice ? (
-                <>
-                  <span className={styles.salePrice}>{scalePrice(displaySalePrice)}</span>
-                  <span className={styles.regularPrice}>{scalePrice(displayRegularPrice)}</span>
-                </>
-              ) : (
-                <span>{scalePrice(displayPrice)}</span>
-              )}
-            </div>
+            {/* Price — bundles have no fixed price, they're priced by selection,
+                so show a "starting from" price instead */}
+            {isBundle ? (
+              product.bbFromPrice != null && (
+                <div className={styles.price}>
+                  <span>From ${product.bbFromPrice.toFixed(2)}</span>
+                </div>
+              )
+            ) : (
+              <div className={styles.price}>
+                {displaySalePrice ? (
+                  <>
+                    <span className={styles.salePrice}>{scalePrice(displaySalePrice)}</span>
+                    <span className={styles.regularPrice}>{scalePrice(displayRegularPrice)}</span>
+                  </>
+                ) : (
+                  <span>{scalePrice(displayPrice)}</span>
+                )}
+              </div>
+            )}
 
             {/* Available Options */}
             {availableOptions.length > 1 && (
@@ -426,7 +442,7 @@ export default function ProductPage({
             )}
 
             {/* Quantity Selector */}
-            {isInStock && (
+            {isInStock && !isBundle && (
               <div className={styles.quantitySelector}>
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -634,6 +650,18 @@ export default function ProductPage({
 
             {/* Add to Cart Section */}
             {isInStock ? (
+              isBundle ? (
+                <div className={styles.addToCartSection}>
+                  {/* Bundles are priced/added via the bundle builder, not a
+                      direct add-to-cart — this routes into that flow. */}
+                  <Link
+                    href={bundleSlug ? `/bundle/${bundleSlug}` : '#'}
+                    className="button is-black is-fullwidth"
+                  >
+                    Create Bundle
+                  </Link>
+                </div>
+              ) : (
               <div className={styles.addToCartSection}>
                 {/* Add to Cart Button */}
                 <button
@@ -661,6 +689,7 @@ export default function ProductPage({
                   )}
                 </button>
               </div>
+              )
             ) : (
               <div className={styles.soldOut}>
                 <span>Currently Unavailable</span>
@@ -790,6 +819,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   try {
     const client = getClient();
+    const menuClientPromise = prefetchMenus();
     const { data } = await client.query({
       query: GET_PRODUCT_BY_SLUG,
       variables: { slug: params?.slug },
@@ -857,16 +887,33 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       }
     }
 
-    return {
+    let bundleSlug: string | null = null;
+    if (product.bbLinkedBundleId != null) {
+      try {
+        const { data: bundleData } = await client.query({
+          query: GET_BUNDLE_SLUG_BY_ID,
+          variables: { id: String(product.bbLinkedBundleId) },
+        });
+        bundleSlug = bundleData?.bundleBuilder?.slug || null;
+      } catch (bundleError) {
+        console.error('Error fetching bundle slug:', bundleError);
+      }
+    }
+
+    const menuClient = await menuClientPromise;
+    const result = {
       props: {
         product,
         collectionName,
         collectionSlug,
         availableOptions,
         availableOptionsBase,
-      },
+        bundleSlug,
+      } as Record<string, any>,
       revalidate: 60,
     };
+    mergeMenuState(result.props, menuClient);
+    return result;
   } catch (error) {
     console.error('Error fetching product:', error);
     return { notFound: true };

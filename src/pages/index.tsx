@@ -1,6 +1,7 @@
 import '../../faust.config';
 import { WordPressTemplate, getWordPressProps } from '@faustwp/core';
 import { GetStaticProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 
 /**
  * Front-page route. Faust resolves `/` to the WP static front page (seed node)
@@ -14,7 +15,12 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   const maxAttempts = 4;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      return await getWordPressProps({ ctx, revalidate: 60 });
+      const [menuClient, result] = await Promise.all([
+        prefetchMenus(),
+        getWordPressProps({ ctx, revalidate: 60 }),
+      ]);
+      if ('props' in result && result.props) mergeMenuState(result.props, menuClient);
+      return result;
     } catch (err) {
       if (attempt === maxAttempts) {
         console.error('[Home] getWordPressProps failed after retries, serving fallback', err);

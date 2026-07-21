@@ -1,6 +1,7 @@
 import { GetStaticProps } from 'next';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { gql } from '@apollo/client';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
@@ -350,6 +351,7 @@ export default function ShopPage({ allProducts, taxMap }: ShopPageProps) {
 
 export const getStaticProps: GetStaticProps = async () => {
   try {
+    const menuClientPromise = prefetchMenus();
     // Try Postgres first (fast, <20ms for all products)
     const pgProducts = await getAllProductsFromDb();
 
@@ -359,10 +361,13 @@ export const getStaticProps: GetStaticProps = async () => {
       // Build taxonomy map from the products' raw data
       const taxMap = buildTaxMapFromProducts(pgProducts);
 
-      return {
-        props: { allProducts: pgProducts, taxMap },
+      const menuClient = await menuClientPromise;
+      const result = {
+        props: { allProducts: pgProducts, taxMap } as Record<string, any>,
         revalidate: 120,
       };
+      mergeMenuState(result.props, menuClient);
+      return result;
     }
 
     // Fallback: GraphQL batched fetch (slow, may 504)
@@ -404,10 +409,13 @@ export const getStaticProps: GetStaticProps = async () => {
       console.error('Failed to fetch taxonomy map');
     }
 
-    return {
-      props: { allProducts, taxMap },
+    const menuClient = await menuClientPromise;
+    const result = {
+      props: { allProducts, taxMap } as Record<string, any>,
       revalidate: 120,
     };
+    mergeMenuState(result.props, menuClient);
+    return result;
   } catch (error) {
     console.error('Error fetching shop data:', error);
     return {

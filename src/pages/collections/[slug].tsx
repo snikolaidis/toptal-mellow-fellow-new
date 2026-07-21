@@ -9,6 +9,8 @@ import {
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
 import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
+import { GET_ALL_TAGS, GET_LATEST_POSTS_LITE } from '@/graphql/queries/posts';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import RichText from '@/components/RichText';
@@ -375,7 +377,8 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   try {
     const client = getClient();
-    const [metaRes, productsRes] = await Promise.all([
+    const [menuClient, metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+      prefetchMenus(),
       client.query({
         query: GET_COLLECTION_META,
         variables: { slug },
@@ -383,8 +386,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       client.query({
         query: GET_COLLECTION_PRODUCTS,
         variables: { first: 500, collectionFilterIn: [slug] },
-        fetchPolicy: 'no-cache',
       }),
+      client.query({ query: GET_ALL_TAGS }).catch(() => null),
+      client.query({ query: GET_LATEST_POSTS_LITE, variables: { first: 20 } }).catch(() => null),
     ]);
 
     if (!metaRes.data?.collection) {
@@ -397,16 +401,17 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     // mellow-fellow-related-posts.php in the WP mu-plugins.
     const relatedPosts = collection.relatedPosts || [];
 
-    return {
+    const result = {
       props: {
         collection,
         allProducts: productsRes.data?.products?.nodes || [],
         relatedPosts,
-      },
-      revalidate: 120,
+      } as Record<string, any>,
+      revalidate: 600,
     };
-  } catch (err) {
-    console.error(`Failed to build collection page for slug "${slug}":`, err);
+    mergeMenuState(result.props, menuClient);
+    return result;
+  } catch {
     return { notFound: true };
   }
 };

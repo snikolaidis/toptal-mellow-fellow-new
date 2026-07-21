@@ -8,6 +8,9 @@
 import http from 'http';
 import https from 'https';
 
+const keepAliveAgent = new https.Agent({ keepAlive: true });
+const keepAliveAgentHttp = new http.Agent({ keepAlive: true });
+
 // WooGraphQL session header name
 export const WC_SESSION_HEADER = 'woocommerce-session';
 
@@ -65,6 +68,7 @@ export async function makeHttpRequest(options: HttpRequestOptions): Promise<Http
       path: url.pathname + url.search,
       method: 'POST',
       headers,
+      agent: isHttps ? keepAliveAgent : keepAliveAgentHttp,
     };
 
     const req = lib.request(requestOptions, (res) => {
@@ -121,6 +125,7 @@ export async function makeHttpGetRequest(
       path: parsedUrl.pathname + parsedUrl.search,
       method: 'GET',
       headers,
+      agent: isHttps ? keepAliveAgent : keepAliveAgentHttp,
     };
 
     const req = lib.request(requestOptions, (res) => {

@@ -1,9 +1,8 @@
-import { getClient, getBrowserClient } from '@/lib/apollo-client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@faustwp/core';
-import { 
+import {
   MellowFellowLogo,
   SearchIcon,
   UserIcon,
@@ -13,7 +12,7 @@ import SearchModal from '@/components/SearchModal';
 import styles from './NavBar.module.css';
 import { gql, useQuery } from '@apollo/client';
 
-const GET_NAV = gql`
+export const GET_NAV = gql`
   query {
     menuItems(where: { location: PRIMARY, parentId: 0 }, first: 100) {
       nodes {
@@ -59,8 +58,7 @@ interface MenuItem {
 }
 
 export default function Navbar() {
-  const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
-  const { data } = useQuery(GET_NAV, { client });
+  const { data } = useQuery(GET_NAV);
 
   const { cart, toggleDrawer } = useCart();
   const { isAuthenticated, isReady } = useAuth();

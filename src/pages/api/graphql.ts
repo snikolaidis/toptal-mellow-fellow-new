@@ -49,6 +49,7 @@ function exceedsComplexity(query: unknown): boolean {
   if (typeof query !== 'string' || query.length === 0) {
     return false;
   }
+  if (query.length < 3000) return false;
   const document = parse(query);
   let aliases = 0;
   for (const definition of document.definitions) {

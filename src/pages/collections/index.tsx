@@ -1,5 +1,8 @@
 import { GetStaticProps } from 'next';
 import Link from 'next/link';
+import { gql } from '@apollo/client';
+import { WordPressBlocksViewer } from '@faustwp/blocks';
+import blocks from '@/wp-blocks';
 import { getClient } from '@/lib/apollo-client';
 import { GET_COLLECTIONS } from '@/graphql/queries/collections';
 import Layout from '@/components/Layout';
@@ -7,15 +10,75 @@ import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
 import { Collection } from '@/types/woocommerce';
 import styles from '@/styles/pages/collections.module.css';
 
-interface CollectionsPageProps {
-  collections: Collection[];
+/**
+ * /collections — the "Catalog" page (Shopify parity). Content is managed in
+ * the WP page with slug `collections`: an ordered set of `acf/collection-links`
+ * blocks (grid layout + section heading) rendered via WordPressBlocksViewer,
+ * like the front page. Until that page exists (or if the query fails), we fall
+ * back to the auto-generated product-category listing so the route never 404s.
+ */
+
+interface CatalogPageData {
+  title?: string | null;
+  editorBlocks?: any[] | null;
+  seo?: { title?: string | null; metaDesc?: string | null } | null;
 }
 
-export default function CollectionsPage({ collections }: CollectionsPageProps) {
+interface CollectionsPageProps {
+  page: CatalogPageData | null;
+  collections: Collection[] | null;
+}
+
+// Only the blocks this page supports are spread here (contained blast radius):
+// collection-links sections, an optional reviews carousel, and paragraphs for
+// intro copy. CoreHeading is deliberately excluded (known textAlign/align
+// schema mismatch in the bundled fragment) — the h1 is hardcoded instead.
+const GET_COLLECTIONS_CATALOG_PAGE = gql`
+  ${blocks.AcfCollectionLinks.fragments.entry}
+  ${blocks.AcfReviewsCarousel.fragments.entry}
+  ${blocks.CoreParagraph.fragments.entry}
+  query CollectionsCatalogPage($uri: ID!) {
+    page(id: $uri, idType: URI) {
+      title
+      editorBlocks(flat: false) {
+        name
+        __typename
+        id: clientId
+        parentClientId
+        ...${blocks.AcfCollectionLinks.fragments.key}
+        ...${blocks.AcfReviewsCarousel.fragments.key}
+        ...${blocks.CoreParagraph.fragments.key}
+      }
+      seo {
+        title
+        metaDesc
+      }
+    }
+  }
+`;
+
+export default function CollectionsPage({ page, collections }: CollectionsPageProps) {
+  if (page?.editorBlocks?.length) {
+    const seo = {
+      title: page.seo?.title ?? undefined,
+      metaDesc: page.seo?.metaDesc ?? undefined,
+    };
+    return (
+      <Layout title="Collections" seo={seo}>
+        <div className={styles.page}>
+          <header className={styles.catalogHeader}>
+            <h1 className={styles.catalogTitle}>Catalog</h1>
+          </header>
+        </div>
+        <WordPressBlocksViewer blocks={page.editorBlocks} />
+      </Layout>
+    );
+  }
+
+  // Temporary fallback until the WP "Collections" page is created and deployed.
   return (
     <Layout title="Collections">
       <div className={styles.page}>
-        {/* Header */}
         <header className={styles.header}>
           <h1 className={styles.title}>collections</h1>
           <p className={styles.subtitle}>
@@ -23,9 +86,8 @@ export default function CollectionsPage({ collections }: CollectionsPageProps) {
           </p>
         </header>
 
-        {/* Collections Grid */}
         <div className={styles.grid}>
-          {collections.map((collection) => (
+          {(collections ?? []).map((collection) => (
             <Link
               key={collection.id}
               href={`/collection/${collection.slug}`}
@@ -62,7 +124,7 @@ export default function CollectionsPage({ collections }: CollectionsPageProps) {
           ))}
         </div>
 
-        {collections.length === 0 && (
+        {(collections ?? []).length === 0 && (
           <div className={styles.empty}>
             <p>No collections available yet.</p>
           </div>
@@ -75,17 +137,34 @@ export default function CollectionsPage({ collections }: CollectionsPageProps) {
 }
 
 export const getStaticProps: GetStaticProps = async () => {
+  const client = getClient();
+
   try {
-    const client = getClient();
     const { data } = await client.query({
-      query: GET_COLLECTIONS,
+      query: GET_COLLECTIONS_CATALOG_PAGE,
+      variables: { uri: '/collections' },
     });
 
-    const collections = data?.collections?.nodes || [];
+    if (data?.page?.editorBlocks?.length) {
+      return {
+        props: {
+          page: data.page,
+          collections: null,
+        },
+        revalidate: 60,
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching collections catalog page:', error);
+  }
+
+  try {
+    const { data } = await client.query({ query: GET_COLLECTIONS });
 
     return {
       props: {
-        collections,
+        page: null,
+        collections: data?.productCategories?.nodes || [],
       },
       revalidate: 60,
     };
@@ -93,6 +172,7 @@ export const getStaticProps: GetStaticProps = async () => {
     console.error('Error fetching collections:', error);
     return {
       props: {
+        page: null,
         collections: [],
       },
       revalidate: 60,
