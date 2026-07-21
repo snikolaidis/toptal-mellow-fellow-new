@@ -10,6 +10,7 @@ import {
 } from '@/graphql/queries/collections';
 import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
 import { GET_ALL_TAGS, GET_LATEST_POSTS } from '@/graphql/queries/posts';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
@@ -416,7 +417,8 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   try {
     const client = getClient();
-    const [metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+    const [menuClient, metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+      prefetchMenus(),
       client.query({
         query: GET_COLLECTION_META,
         variables: { slug },
@@ -473,14 +475,16 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       }
     }
 
-    return {
+    const result = {
       props: {
         collection,
         allProducts: productsRes.data?.products?.nodes || [],
         relatedPosts,
-      },
+      } as Record<string, any>,
       revalidate: 120,
     };
+    mergeMenuState(result.props, menuClient);
+    return result;
   } catch {
     return { notFound: true };
   }

@@ -9,7 +9,7 @@ import {
   YouTubeIcon,
 } from '@/components/icons';
 
-const GET_FOOTER_MENU = gql`
+export const GET_FOOTER_MENU = gql`
   query GetFooterMenu {
     menus(where: { location: FOOTER_1 }, first: 1) {
       nodes {
@@ -27,7 +27,7 @@ const GET_FOOTER_MENU = gql`
   }
 `;
 
-const GET_FOOTER_MENU_2 = gql`
+export const GET_FOOTER_MENU_2 = gql`
   query GetFooterMenu2 {
     menus(where: { location: FOOTER_2 }, first: 1) {
       nodes {
@@ -50,7 +50,7 @@ const GET_FOOTER_MENU_2 = gql`
 // GET_FOOTER_MENU: if the mu-plugin isn't deployed yet, siteSettings is an
 // unknown field and GraphQL rejects the whole document — a combined query
 // would take the footer menu down with it.
-const GET_SOCIAL_LINKS = gql`
+export const GET_SOCIAL_LINKS = gql`
   query GetSocialLinks {
     siteSettings {
       socialLinks {

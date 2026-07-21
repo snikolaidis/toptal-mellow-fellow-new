@@ -12,7 +12,7 @@ import SearchModal from '@/components/SearchModal';
 import styles from './NavBar.module.css';
 import { gql, useQuery } from '@apollo/client';
 
-const GET_NAV = gql`
+export const GET_NAV = gql`
   query {
     menuItems(where: { location: PRIMARY, parentId: 0 }, first: 100) {
       nodes {
