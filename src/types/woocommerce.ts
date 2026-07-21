@@ -100,6 +100,7 @@ export interface Product {
   name: string;
   slug: string;
   type?: 'SIMPLE' | 'VARIABLE' | 'GROUPED' | 'EXTERNAL';
+  date?: string | null;
   description?: string;
   shortDescription?: string;
   sku?: string;

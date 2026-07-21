@@ -1,107 +1,24 @@
-/**
- * Product Search API Endpoint
- *
- * Searches WooCommerce products via GraphQL and returns matching results
- * for the predictive search modal.
- */
-
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getClient } from '@/lib/apollo-client';
-import { gql } from '@apollo/client';
+import { Meilisearch } from 'meilisearch';
 import { withRateLimitOnly } from '@/lib/middleware';
-import { cachedQuery } from '@/lib/cache';
-import { boostTitleMatches, SEARCH_RANK_WINDOW } from '@/lib/searchRanking';
 
-// Search query - uses WPGraphQL WooCommerce search parameter
-const SEARCH_PRODUCTS = gql`
-  query SearchProducts($search: String!, $first: Int = 8, $after: String) {
-    products(
-      first: $first
-      after: $after
-      where: { search: $search, status: "publish" }
-    ) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      nodes {
-        __typename
-        ... on SimpleProduct {
-          id
-          databaseId
-          name
-          slug
-          price
-          regularPrice
-          salePrice
-          stockStatus
-          description
-          image {
-            sourceUrl
-            altText
-          }
-        }
-        ... on VariableProduct {
-          id
-          databaseId
-          name
-          slug
-          price
-          regularPrice
-          salePrice
-          stockStatus
-          description
-          image {
-            sourceUrl
-            altText
-          }
-        }
-        ... on ExternalProduct {
-          id
-          databaseId
-          name
-          slug
-          price
-          description
-          image {
-            sourceUrl
-            altText
-          }
-        }
-        ... on GroupProduct {
-          id
-          databaseId
-          name
-          slug
-          price
-          description
-          image {
-            sourceUrl
-            altText
-          }
-        }
-      }
-    }
-  }
-`;
+const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
+const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
+const PRODUCTS_INDEX = 'products';
 
-interface SearchResult {
-  id: string;
-  databaseId: number;
-  name: string;
-  slug: string;
-  price: string;
-  description: string;
-  image: {
-    sourceUrl: string;
-    altText: string;
-  } | null;
+interface ProductHit {
+  id?: string | null;
+  databaseId?: number | null;
+  name?: string | null;
+  slug?: string | null;
+  price?: string | null;
+  regularPrice?: string | null;
+  salePrice?: string | null;
+  stockStatus?: string | null;
+  image?: { sourceUrl?: string | null; altText?: string | null } | null;
 }
 
-async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
@@ -118,55 +35,54 @@ async function handler(
 
   const firstRaw = typeof req.query.first === 'string' ? parseInt(req.query.first, 10) : 8;
   const first = Math.max(1, Math.min(48, Number.isFinite(firstRaw) ? firstRaw : 8));
-  const after = typeof req.query.after === 'string' ? req.query.after : undefined;
+
+  if (!MEILI_HOST || !MEILI_SEARCH_KEY) {
+    return res.status(503).json({ success: false, message: 'Search is not configured', products: [] });
+  }
 
   try {
-    const client = getClient();
-    const { data } = await cachedQuery(client, {
-      query: SEARCH_PRODUCTS,
-      variables: { search: q, first: SEARCH_RANK_WINDOW, after: after || null },
-    }, { ttl: 300 });
+    const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
+    const result = await client.index(PRODUCTS_INDEX).search<ProductHit>(q, {
+      limit: first,
+      attributesToRetrieve: [
+        'databaseId',
+        'id',
+        'name',
+        'slug',
+        'price',
+        'regularPrice',
+        'salePrice',
+        'stockStatus',
+        'image',
+      ],
+    });
 
-    const products: SearchResult[] = (data?.products?.nodes || []).map((product: any) => ({
-      id: product.id,
-      databaseId: product.databaseId,
-      name: product.name,
-      slug: product.slug,
-      price: product.price || '',
-      regularPrice: product.regularPrice || '',
-      salePrice: product.salePrice || '',
-      stockStatus: product.stockStatus || 'IN_STOCK',
-      description: product.description || '',
-      image: product.image
-        ? {
-            sourceUrl: product.image.sourceUrl,
-            altText: product.image.altText || product.name,
-          }
+    const products = result.hits.map((hit) => ({
+      id: hit.id,
+      databaseId: hit.databaseId,
+      name: hit.name,
+      slug: hit.slug,
+      price: hit.price || '',
+      regularPrice: hit.regularPrice || '',
+      salePrice: hit.salePrice || '',
+      stockStatus: hit.stockStatus || 'IN_STOCK',
+      image: hit.image?.sourceUrl
+        ? { sourceUrl: hit.image.sourceUrl, altText: hit.image.altText || hit.name || '' }
         : null,
     }));
-
-    const ranked = boostTitleMatches(products, q);
-    const topResults = ranked.slice(0, first);
-
-    const pageInfo = data?.products?.pageInfo || {};
 
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
 
     return res.status(200).json({
       success: true,
-      products: topResults,
+      products,
       query: q,
-      hasNextPage: ranked.length > first || pageInfo.hasNextPage || false,
-      endCursor: pageInfo.endCursor || null,
+      hasNextPage: (result.estimatedTotalHits ?? 0) > first,
+      endCursor: null,
     });
   } catch (error) {
     console.error('[Search API] Query failed');
-
-    return res.status(500).json({
-      success: false,
-      message: 'Search failed',
-      products: [],
-    });
+    return res.status(500).json({ success: false, message: 'Search failed', products: [] });
   }
 }
 
