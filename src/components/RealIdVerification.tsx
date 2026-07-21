@@ -184,27 +184,30 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
       markVerifiedIfOwned(domVerified || !!result?.verified, result);
     };
 
-    tick();
-    const interval = window.setInterval(() => {
-      if (active) tick();
-    }, 2000);
+    // Stratos, 19 Jul 2026
+    // The tick validating the identification is coming from the getverdict library;
+    // there's no need to run it ourselves at the same time, creating a nonstop loop
+    // tick();
+    // const interval = window.setInterval(() => {
+    //   if (active) tick();
+    // }, 2000);
 
-    let observer: MutationObserver | null = null;
-    const el = document.getElementById('real-id-check');
-    if (el && typeof MutationObserver !== 'undefined') {
-      observer = new MutationObserver(() => {
-        if (active) tick();
-      });
-      observer.observe(el, { childList: true, subtree: true, characterData: true });
-    }
+    // let observer: MutationObserver | null = null;
+    // const el = document.getElementById('real-id-check');
+    // if (el && typeof MutationObserver !== 'undefined') {
+    //   observer = new MutationObserver(() => {
+    //     if (active) tick();
+    //   });
+    //   observer.observe(el, { childList: true, subtree: true, characterData: true });
+    // }
 
     const onPassed = () => {
       if (!active) return;
       fetchCheck().then((result) => markVerifiedIfOwned(true, result));
     };
-    const onLoaded = () => {
-      if (active) tick();
-    };
+    // const onLoaded = () => {
+    //   if (active) tick();
+    // };
     window.addEventListener('real-id-check-passed', onPassed);
     window.addEventListener('real-id-check-loaded', onLoaded);
 
