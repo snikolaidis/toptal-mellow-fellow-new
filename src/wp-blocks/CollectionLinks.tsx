@@ -108,6 +108,8 @@ CollectionLinks.fragments = {
   entry: gql`
     fragment AcfCollectionLinksFragment on AcfCollectionLinks {
       collectionLinks {
+        sectionHeading
+        layout
         links {
           titleOverride
           collection {
@@ -116,6 +118,7 @@ CollectionLinks.fragments = {
               ... on Collection {
                 name
                 uri
+                slug
                 collectionFields {
                   thumbnailImage {
                     node {
