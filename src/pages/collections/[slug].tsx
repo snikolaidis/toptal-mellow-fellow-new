@@ -408,7 +408,8 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     };
     mergeMenuState(result.props, menuClient);
     return result;
-  } catch {
+  } catch (err) {
+    console.error('Failed to fetch collection:', err);
     return { notFound: true };
   }
 };
