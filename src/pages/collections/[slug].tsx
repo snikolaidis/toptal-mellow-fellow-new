@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
 import {
-  GET_COLLECTION_META,
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
@@ -478,15 +477,13 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   const slug = typeof params?.slug === 'string' ? params.slug : '';
 
   try {
-    const client = getClient();
     const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 
     const [menuClient, metaRes, facetsRes, productsRes] = await Promise.all([
       prefetchMenus(),
-      client.query({
-        query: GET_COLLECTION_META,
-        variables: { slug },
-      }),
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-meta?slug=${encodeURIComponent(slug)}`)
+        .then((r) => r.json())
+        .catch(() => null),
       fetch(`${wpUrl}/wp-json/mf/v1/collection-facets?slug=${encodeURIComponent(slug)}`)
         .then((r) => r.json())
         .catch(() => null),
@@ -495,11 +492,11 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         .catch(() => null),
     ]);
 
-    if (!metaRes.data?.collection) {
+    if (!metaRes?.success || !metaRes?.collection) {
       return { notFound: true };
     }
 
-    const collection = metaRes.data.collection;
+    const collection = metaRes.collection;
 
     // Facets from REST endpoint (single SQL query, ~10ms)
     const facetTerms = facetsRes?.success ? facetsRes.terms : {};
