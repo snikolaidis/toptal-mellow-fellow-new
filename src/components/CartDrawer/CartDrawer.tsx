@@ -497,7 +497,8 @@ export default function CartDrawer() {
                 const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
                 return sum + Math.max(0, original - discounted);
               }, 0);
-              const effectiveSubtotal = parsePrice(cart.subtotal);
+              const couponDiscount = parsePrice(cart.discountTotal);
+              const effectiveSubtotal = parsePrice(cart.subtotal) - couponDiscount;
 
               return (
                 <>
@@ -506,6 +507,14 @@ export default function CartDrawer() {
                       <span className={styles.discountLabel}>Bundle Discount</span>
                       <span className={styles.discountValue}>
                         -${totalBundleDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {couponDiscount > 0 && (
+                    <div className={styles.subtotalRow}>
+                      <span className={styles.discountLabel}>Coupon Discount</span>
+                      <span className={styles.discountValue}>
+                        -${couponDiscount.toFixed(2)}
                       </span>
                     </div>
                   )}

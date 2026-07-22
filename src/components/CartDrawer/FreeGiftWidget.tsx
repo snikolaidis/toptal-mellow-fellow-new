@@ -29,7 +29,7 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   const unlocked = freeGift.enabled && subtotal >= freeGift.threshold;
 
   useEffect(() => {
-    if (unlocked || removing || !freeGift.enabled || !cart) return;
+    if (unlocked || removing || isMutating || !freeGift.enabled || !cart) return;
     const giftCoupon = cart.appliedCoupons?.find((c) => c.code.startsWith('mf-free-gift-'));
     const giftProductId = giftCoupon ? parseInt(giftCoupon.code.replace('mf-free-gift-', ''), 10) : null;
     const giftItem = giftProductId
@@ -39,21 +39,17 @@ export default function FreeGiftWidget({ subtotal }: Props) {
     setRemoving(true);
     (async () => {
       try {
-        // Only do one operation per render — removing the item updates the
-        // cart from the server, which may also auto-remove the coupon.
-        // The next effect run will handle whatever is left.
         if (giftItem) {
           await removeFromCart(giftItem.key);
         } else if (giftCoupon) {
           await removeCoupon(giftCoupon.code);
         }
       } catch {
-        // Cart state may be stale — don't retry, let the next render re-evaluate
       } finally {
         setRemoving(false);
       }
     })();
-  }, [unlocked, removing, freeGift.enabled, cart, removeFromCart, removeCoupon]);
+  }, [unlocked, removing, isMutating, freeGift.enabled, cart, removeFromCart, removeCoupon]);
 
   useEffect(() => {
     if (!unlocked || gifts.length > 0) return;

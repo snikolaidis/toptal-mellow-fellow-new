@@ -1,15 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getClient } from '@/lib/apollo-client';
-import { gql } from '@apollo/client';
 import { withRateLimitOnly } from '@/lib/middleware';
-import { cachedQuery } from '@/lib/cache';
-
-/**
- * Cross-sell Recommendations API
- *
- * Uses GraphQL with custom taxonomy filters (via mellow-fellow-graphql-filters mu-plugin).
- * Smart rules based on the FBT Pairings Map CSVs.
- */
 
 const FREE_SHIPPING_THRESHOLD = 80;
 
@@ -65,78 +55,6 @@ function canonicalType(slug: string): string {
   return TYPE_ALIASES[slug] || slug;
 }
 
-// GraphQL query to fetch products filtered by product-type taxonomy (single slug)
-const GET_PRODUCTS_BY_TYPE = gql`
-  query GetProductsByType($mfProductType: String!, $first: Int = 4) {
-    products(first: $first, where: { status: "publish", mfProductType: $mfProductType }) {
-      nodes {
-        __typename
-        ... on SimpleProduct {
-          id
-          databaseId
-          name
-          slug
-          price
-          regularPrice
-          salePrice
-          stockStatus
-          image { id sourceUrl altText }
-          mfproductTypes { nodes { name } }
-          productLines { nodes { name } }
-          cannabinoids { nodes { name } }
-        }
-      }
-    }
-  }
-`;
-
-// Batched query using mfProductTypeIn array filter — 1 query instead of N
-const GET_PRODUCTS_BY_TYPES = gql`
-  query GetProductsByTypes($mfProductTypeIn: [String]!, $first: Int = 8) {
-    products(first: $first, where: { status: "publish", mfProductTypeIn: $mfProductTypeIn }) {
-      nodes {
-        __typename
-        ... on SimpleProduct {
-          id
-          databaseId
-          name
-          slug
-          price
-          regularPrice
-          salePrice
-          stockStatus
-          image { id sourceUrl altText }
-          mfproductTypes { nodes { name } }
-          productLines { nodes { name } }
-          cannabinoids { nodes { name } }
-        }
-      }
-    }
-  }
-`;
-
-const GET_PRODUCT_BY_SLUG = gql`
-  query GetProductBySlugForRecommendations($slug: ID!) {
-    product(id: $slug, idType: SLUG) {
-      __typename
-      ... on SimpleProduct {
-        id
-        databaseId
-        name
-        slug
-        price
-        regularPrice
-        salePrice
-        stockStatus
-        image { id sourceUrl altText }
-        mfproductTypes { nodes { name } }
-        productLines { nodes { name } }
-        cannabinoids { nodes { name } }
-      }
-    }
-  }
-`;
-
 function parseIds(raw: string | undefined): number[] {
   if (!raw) return [];
   return raw.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0);
@@ -152,28 +70,67 @@ function parsePrice(price: string | undefined): number {
   return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
 }
 
+const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+
+async function fetchRecsProducts(params: {
+  types?: string[];
+  slugs?: string[];
+  exclude?: number[];
+  limit?: number;
+}): Promise<any[]> {
+  const qs = new URLSearchParams();
+  if (params.types?.length) qs.set('types', params.types.join(','));
+  if (params.slugs?.length) qs.set('slugs', params.slugs.join(','));
+  if (params.exclude?.length) qs.set('exclude', params.exclude.join(','));
+  if (params.limit) qs.set('limit', String(params.limit));
+
+  try {
+    const res = await fetch(`${wpUrl}/wp-json/mf/v1/recs-products?${qs}`);
+    const data = await res.json();
+    return data?.success ? data.products || [] : [];
+  } catch {
+    return [];
+  }
+}
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const cartTypeSlugs = Array.from(
+  let cartTypeSlugs = Array.from(
     new Set(
       parseSlugs(typeof req.query.productTypes === 'string' ? req.query.productTypes : undefined).map(canonicalType)
     )
   );
   const cartProductSlugs = parseSlugs(typeof req.query.cartProductSlugs === 'string' ? req.query.cartProductSlugs : undefined);
+  const cartProductIds = parseIds(typeof req.query.cartProductIds === 'string' ? req.query.cartProductIds : undefined);
   const cartTotal = parseFloat(typeof req.query.cartTotal === 'string' ? req.query.cartTotal : '0') || 0;
   const excludeIds = parseIds(typeof req.query.excludeProductIds === 'string' ? req.query.excludeProductIds : undefined);
   const limitRaw = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : 4;
   const limit = Math.max(1, Math.min(10, Number.isFinite(limitRaw) ? limitRaw : 4));
+
+  if (cartTypeSlugs.length === 0 && cartProductIds.length > 0) {
+    try {
+      const typesRes = await fetch(
+        `${wpUrl}/wp-json/mf/v1/product-types?ids=${cartProductIds.join(',')}`
+      );
+      const typesData = await typesRes.json();
+      if (typesData?.success && typesData.types) {
+        const allSlugs: string[] = [];
+        for (const slugs of Object.values(typesData.types) as string[][]) {
+          allSlugs.push(...slugs);
+        }
+        cartTypeSlugs = Array.from(new Set(allSlugs.map(canonicalType)));
+      }
+    } catch {}
+  }
 
   if (cartTypeSlugs.length === 0) {
     return res.status(200).json({ success: true, products: [], count: 0 });
   }
 
   try {
-    const client = getClient();
     const excludeSet = new Set(excludeIds);
     const excludeSlugSet = new Set(cartProductSlugs);
     const gap = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotal);
@@ -186,78 +143,57 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const hasTHCp = cartProductSlugs.some((s) => s.includes('thcp'));
 
     const addResult = (product: any): boolean => {
-      if (!product || seenIds.has(product.databaseId) || excludeSet.has(product.databaseId)) return false;
+      if (!product || !product.databaseId || seenIds.has(product.databaseId) || excludeSet.has(product.databaseId)) return false;
       if (excludeSlugSet.has(product.slug)) return false;
       seenIds.add(product.databaseId);
       results.push(product);
       return true;
     };
 
-    const fetchBySlug = async (slug: string): Promise<any | null> => {
-      try {
-        const { data } = await cachedQuery(client, {
-          query: GET_PRODUCT_BY_SLUG,
-          variables: { slug },
-        }, { ttl: 300 });
-        return data?.product || null;
-      } catch { return null; }
-    };
-
-    const fetchByType = async (typeSlug: string, first = 4): Promise<any[]> => {
-      try {
-        const { data } = await cachedQuery(client, {
-          query: GET_PRODUCTS_BY_TYPE,
-          variables: { mfProductType: typeSlug, first },
-        }, { ttl: 300 });
-        return data?.products?.nodes || [];
-      } catch { return []; }
-    };
-
-    const fetchByCategory = async (category: string, first = 4): Promise<any[]> => {
-      const slugs = CATEGORY_SLUGS[category] || [category];
-      try {
-        const { data } = await cachedQuery(client, {
-          query: GET_PRODUCTS_BY_TYPES,
-          variables: { mfProductTypeIn: slugs, first },
-        }, { ttl: 300 });
-        return data?.products?.nodes || [];
-      } catch { return []; }
-    };
-
-    // RULE 1 & 2: Fetch specific products in parallel
-    const specificFetches: Promise<any>[] = [];
+    // RULE 1 & 2: Fetch specific products (concentrates → Terp Pen, cartridges → Airflow Battery)
+    const specificSlugs: string[] = [];
     if (hasConcentrates && !excludeSlugSet.has(TERP_PEN_SLUG)) {
-      specificFetches.push(fetchBySlug(TERP_PEN_SLUG).then((p) => p && addResult(p)));
+      specificSlugs.push(TERP_PEN_SLUG);
     }
     if (hasCartridges && !excludeSlugSet.has(AIRFLOW_BATTERY_SLUG)) {
-      specificFetches.push(fetchBySlug(AIRFLOW_BATTERY_SLUG).then((p) => p && addResult(p)));
+      specificSlugs.push(AIRFLOW_BATTERY_SLUG);
     }
-    await Promise.all(specificFetches);
+    if (specificSlugs.length > 0) {
+      const specificProducts = await fetchRecsProducts({
+        slugs: specificSlugs,
+        exclude: excludeIds,
+      });
+      for (const p of specificProducts) {
+        addResult(p);
+      }
+    }
 
     // RULE 3: Build cross-sell categories with exclusion rules
     const recCategories: string[] = [];
     for (const cartType of cartTypeSlugs) {
       for (const rec of (CROSS_SELL_MAP[cartType] || [])) {
-        // Never recommend disposables to cart buyers or vice versa
         if (hasCartridges && rec === 'disposable-vape') continue;
         if (hasDisposables && rec === 'vape-cartridge') continue;
         if (!recCategories.includes(rec)) recCategories.push(rec);
       }
     }
 
-    // RULE 4: Fetch from all categories in parallel via GraphQL
+    // RULE 4: Fetch from categories via REST SQL
     const categoriesToFetch = recCategories.slice(0, 4);
-    const fetchPromises = categoriesToFetch.map((category) => fetchByCategory(category, 4));
+    const allExcludeIds = [...excludeIds, ...Array.from(seenIds)];
+    const fetchPromises = categoriesToFetch.map((category) => {
+      const typeSlugs = CATEGORY_SLUGS[category] || [category];
+      return fetchRecsProducts({ types: typeSlugs, limit: 4, exclude: allExcludeIds });
+    });
     const fetchResults = await Promise.all(fetchPromises);
 
     const categoryProducts: Record<string, any[]> = {};
     for (let i = 0; i < categoriesToFetch.length; i++) {
       const slug = categoriesToFetch[i];
       let valid = (fetchResults[i] || []).filter((p: any) =>
-        !excludeSet.has(p.databaseId) && !seenIds.has(p.databaseId) && !excludeSlugSet.has(p.slug)
+        p.databaseId && !excludeSet.has(p.databaseId) && !seenIds.has(p.databaseId) && !excludeSlugSet.has(p.slug)
       );
 
-      // THCp isolation: prefer THCp products if cart has THCp
       if (hasTHCp) {
         const thcpProducts = valid.filter((p: any) =>
           p.name?.toLowerCase().includes('thcp') || p.slug?.includes('thcp')
@@ -265,7 +201,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (thcpProducts.length > 0) valid = thcpProducts;
       }
 
-      // Sort by price proximity to free shipping gap
       if (gap > 0) {
         valid.sort((a: any, b: any) =>
           Math.abs(parsePrice(a.price) - gap) - Math.abs(parsePrice(b.price) - gap)
@@ -288,23 +223,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       round++;
     }
 
-    // Transform to consistent format
-    const transformed = results.slice(0, limit).map((p: any) => {
-      const cannabinoidNames = (p.cannabinoids?.nodes || []).map((c: any) => c.name).filter(Boolean);
-      return {
-        id: p.id,
-        databaseId: p.databaseId,
-        name: p.name,
-        slug: p.slug,
-        price: p.price || '',
-        regularPrice: p.regularPrice || undefined,
-        salePrice: p.salePrice || undefined,
-        stockStatus: p.stockStatus || 'IN_STOCK',
-        image: p.image || undefined,
-        typeLabel: p.mfproductTypes?.nodes?.[0]?.name || '',
-        subtitle: p.productLines?.nodes?.[0]?.name || cannabinoidNames.join(' + ') || '',
-      };
-    });
+    // REST endpoint already returns the right shape — just pass through
+    const transformed = results.slice(0, limit).map((p: any) => ({
+      id: p.id,
+      databaseId: p.databaseId,
+      name: p.name,
+      slug: p.slug,
+      price: p.price || '',
+      regularPrice: p.regularPrice || undefined,
+      salePrice: p.salePrice || undefined,
+      stockStatus: p.stockStatus || 'IN_STOCK',
+      image: p.image || undefined,
+      typeLabel: p.typeLabel || p.mfproductTypes?.nodes?.[0]?.name || '',
+      subtitle: p.subtitle || '',
+    }));
 
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     return res.status(200).json({ success: true, products: transformed, count: transformed.length });
