@@ -116,17 +116,7 @@ export default function BlogTagPage({ tag, posts, allTags }: BlogTagPageProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  try {
-    const tags = await fetchAllTags(getClient());
-
-    return {
-      paths: tags.map((tag) => ({ params: { slug: tag.slug } })),
-      fallback: 'blocking',
-    };
-  } catch (error) {
-    console.error('Error fetching tag slugs:', error);
-    return { paths: [], fallback: 'blocking' };
-  }
+  return { paths: [], fallback: 'blocking' };
 };
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {

@@ -632,8 +632,12 @@ export const GET_PRODUCTS_BY_COLLECTION = gql`
 `;
 
 export const GET_COLLECTION_PRODUCTS = gql`
-  query GetCollectionProducts($first: Int = 500, $collectionFilterIn: [String]) {
+  query GetCollectionProducts($first: Int = 24, $collectionFilterIn: [String]) {
     products(first: $first, where: { status: "publish", collectionFilterIn: $collectionFilterIn }) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         __typename
         ... on SimpleProduct {
@@ -657,7 +661,6 @@ export const GET_COLLECTION_PRODUCTS = gql`
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
-          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
           bbLinkedBundleId
           bbFromPrice
         }
@@ -682,26 +685,40 @@ export const GET_COLLECTION_PRODUCTS = gql`
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
-          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
           bbLinkedBundleId
           bbFromPrice
         }
-        ... on ExternalProduct {
-          id
+      }
+    }
+  }
+`;
+
+export const GET_COLLECTION_FACETS = gql`
+  query GetCollectionFacets($collectionFilterIn: [String], $first: Int = 500) {
+    products(first: $first, where: { status: "publish", collectionFilterIn: $collectionFilterIn }) {
+      nodes {
+        __typename
+        ... on SimpleProduct {
           databaseId
-          name
-          slug
-          type
-          price
-          image { id sourceUrl altText }
+          strainTypes { nodes { name slug } }
+          blendTypes { nodes { name slug } }
+          mfproductTypes { nodes { name slug } }
+          cannabinoids { nodes { name slug } }
+          singleCannabinoid { nodes { name slug } }
+          size { nodes { name slug } }
+          mG { nodes { name slug } }
+          pieces { nodes { name slug } }
         }
-        ... on GroupProduct {
-          id
+        ... on VariableProduct {
           databaseId
-          name
-          slug
-          type
-          image { id sourceUrl altText }
+          strainTypes { nodes { name slug } }
+          blendTypes { nodes { name slug } }
+          mfproductTypes { nodes { name slug } }
+          cannabinoids { nodes { name slug } }
+          singleCannabinoid { nodes { name slug } }
+          size { nodes { name slug } }
+          mG { nodes { name slug } }
+          pieces { nodes { name slug } }
         }
       }
     }

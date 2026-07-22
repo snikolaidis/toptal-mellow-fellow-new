@@ -422,6 +422,12 @@
   }
 }
 
+.gridLoading {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
 .blogPostsSection {
   margin-top: 3rem;
 }

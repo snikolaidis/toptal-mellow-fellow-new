@@ -90,19 +90,10 @@ export default function BlogPostPage({ post, latestPosts, allTags, relatedProduc
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  try {
-    const client = getClient();
-    const { data } = await client.query({ query: GET_ALL_POST_SLUGS });
-
-    const paths = data?.posts?.nodes?.map((post: { slug: string }) => ({
-      params: { slug: post.slug },
-    })) || [];
-
-    return { paths, fallback: 'blocking' };
-  } catch (error) {
-    console.error('Error fetching post slugs:', error);
-    return { paths: [], fallback: 'blocking' };
-  }
+  // Don't pre-render blog posts at build time — hundreds of posts overwhelm
+  // WordPress with concurrent requests, causing 120s build timeouts.
+  // Posts generate on first visit via fallback: 'blocking' and cache with ISR.
+  return { paths: [], fallback: 'blocking' };
 };
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
