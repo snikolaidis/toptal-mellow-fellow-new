@@ -139,6 +139,16 @@ export const GET_COLLECTION_META = gql`
           }
         }
         warningMessage
+        faqSectionTitle
+        faqs {
+          nodes {
+            id
+            ... on FAQ {
+              title
+              content
+            }
+          }
+        }
         relatedCollectionTitle
         relatedCollections {
           nodes {
@@ -155,6 +165,20 @@ export const GET_COLLECTION_META = gql`
                 }
               }
             }
+          }
+        }
+      }
+      relatedPosts(first: 12) {
+        id
+        databaseId
+        title
+        slug
+        date
+        excerpt
+        featuredImage {
+          node {
+            sourceUrl
+            altText
           }
         }
       }
