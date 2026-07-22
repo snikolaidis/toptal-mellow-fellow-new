@@ -65,10 +65,35 @@ function canonicalType(slug: string): string {
   return TYPE_ALIASES[slug] || slug;
 }
 
-// GraphQL query to fetch products filtered by product-type taxonomy
+// GraphQL query to fetch products filtered by product-type taxonomy (single slug)
 const GET_PRODUCTS_BY_TYPE = gql`
   query GetProductsByType($mfProductType: String!, $first: Int = 4) {
     products(first: $first, where: { status: "publish", mfProductType: $mfProductType }) {
+      nodes {
+        __typename
+        ... on SimpleProduct {
+          id
+          databaseId
+          name
+          slug
+          price
+          regularPrice
+          salePrice
+          stockStatus
+          image { id sourceUrl altText }
+          mfproductTypes { nodes { name } }
+          productLines { nodes { name } }
+          cannabinoids { nodes { name } }
+        }
+      }
+    }
+  }
+`;
+
+// Batched query using mfProductTypeIn array filter — 1 query instead of N
+const GET_PRODUCTS_BY_TYPES = gql`
+  query GetProductsByTypes($mfProductTypeIn: [String]!, $first: Int = 8) {
+    products(first: $first, where: { status: "publish", mfProductTypeIn: $mfProductTypeIn }) {
       nodes {
         __typename
         ... on SimpleProduct {
@@ -190,18 +215,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const fetchByCategory = async (category: string, first = 4): Promise<any[]> => {
       const slugs = CATEGORY_SLUGS[category] || [category];
-      const lists = await Promise.all(slugs.map((s) => fetchByType(s, first)));
-      const merged: any[] = [];
-      const localSeen = new Set<number>();
-      for (const list of lists) {
-        for (const p of list) {
-          if (p && !localSeen.has(p.databaseId)) {
-            localSeen.add(p.databaseId);
-            merged.push(p);
-          }
-        }
-      }
-      return merged;
+      try {
+        const { data } = await cachedQuery(client, {
+          query: GET_PRODUCTS_BY_TYPES,
+          variables: { mfProductTypeIn: slugs, first },
+        }, { ttl: 300 });
+        return data?.products?.nodes || [];
+      } catch { return []; }
     };
 
     // RULE 1 & 2: Fetch specific products in parallel

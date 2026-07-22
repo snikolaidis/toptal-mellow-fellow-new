@@ -11,10 +11,6 @@ add_filter( 'graphql_connection_max_query_amount', function() {
     return 500;
 });
 
-// Disable the query complexity/depth analyzer so large product queries
-// with nested taxonomy fields don't get rejected.
 add_filter( 'graphql_max_query_depth', function() {
     return 20;
 });
-
-add_filter( 'graphql_query_analyzer_enabled', '__return_false' );
