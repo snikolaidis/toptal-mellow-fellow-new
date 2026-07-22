@@ -102,6 +102,7 @@ export default function CartDrawer() {
     const subtotal = parsePrice(cart.subtotal);
 
     const params = new URLSearchParams({
+      context: 'cart',
       cartTotal: String(subtotal),
       excludeProductIds: excludeIds.join(','),
       cartProductSlugs: productSlugs.join(','),

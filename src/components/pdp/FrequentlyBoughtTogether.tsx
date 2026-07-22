@@ -78,6 +78,7 @@ export default function FrequentlyBoughtTogether({
     }
     let cancelled = false;
     const params = new URLSearchParams({
+      context: 'fbt',
       productTypes: typeKey,
       excludeProductIds: String(productId),
       cartProductSlugs: productSlug,

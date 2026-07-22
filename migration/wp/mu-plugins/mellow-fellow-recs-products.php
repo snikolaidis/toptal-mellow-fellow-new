@@ -6,10 +6,13 @@
  * Replaces the GraphQL queries in the recommendations API route.
  *
  * Params:
- *   types    — comma-separated mf_product_type (product-type taxonomy) slugs
- *   slugs    — comma-separated product slugs (for specific products like terp-pens)
- *   exclude  — comma-separated product IDs to exclude
- *   limit    — max products to return (default 8, max 20)
+ *   types     — comma-separated product-type taxonomy slugs
+ *   slugs     — comma-separated product slugs (prefix-matched)
+ *   exclude   — comma-separated product IDs to exclude
+ *   limit     — max products to return (default 8, max 20)
+ *   price_min — minimum _price filter (inclusive)
+ *   price_max — maximum _price filter (inclusive)
+ *   slug_like — product slug must contain this string
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -27,16 +30,24 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
     $slugs_raw   = $request->get_param( 'slugs' );
     $exclude_raw = $request->get_param( 'exclude' );
     $limit       = max( 1, min( 20, absint( $request->get_param( 'limit' ) ?: 8 ) ) );
+    $price_min   = floatval( $request->get_param( 'price_min' ) ?: 0 );
+    $price_max   = floatval( $request->get_param( 'price_max' ) ?: 0 );
+    $slug_like   = sanitize_text_field( $request->get_param( 'slug_like' ) ?: '' );
 
-    $type_slugs   = ! empty( $types_raw )   ? array_filter( array_map( 'sanitize_title', explode( ',', $types_raw ) ) )   : [];
+    $type_slugs    = ! empty( $types_raw )   ? array_filter( array_map( 'sanitize_title', explode( ',', $types_raw ) ) )   : [];
     $product_slugs = ! empty( $slugs_raw )   ? array_filter( array_map( 'sanitize_title', explode( ',', $slugs_raw ) ) )   : [];
-    $exclude_ids  = ! empty( $exclude_raw ) ? array_filter( array_map( 'absint', explode( ',', $exclude_raw ) ) )       : [];
+    $exclude_ids   = ! empty( $exclude_raw ) ? array_filter( array_map( 'absint', explode( ',', $exclude_raw ) ) )         : [];
 
     if ( empty( $type_slugs ) && empty( $product_slugs ) ) {
         return new WP_REST_Response( [ 'success' => true, 'products' => [] ], 200 );
     }
 
-    $cache_key = 'mf_rp_' . md5( implode( '|', $type_slugs ) . '_' . implode( '|', $product_slugs ) . '_' . implode( '|', $exclude_ids ) . '_' . $limit );
+    $cache_key = 'mf_rp_' . md5(
+        implode( '|', $type_slugs ) . '_' .
+        implode( '|', $product_slugs ) . '_' .
+        implode( '|', $exclude_ids ) . '_' .
+        $limit . '_' . $price_min . '_' . $price_max . '_' . $slug_like
+    );
     $cached = get_transient( $cache_key );
     if ( $cached !== false ) {
         return new WP_REST_Response( $cached, 200 );
@@ -49,9 +60,7 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
     // -----------------------------------------------------------------------
     $product_ids = [];
 
-    // Fetch by product slugs (for specific products like terp-pens)
-    // Uses prefix matching so import-appended SKU suffixes don't break lookups
-    // (e.g. "terp-pens" matches "terp-pens-ab00000015")
+    // Fetch by product slugs (prefix-matched for import SKU suffixes)
     if ( ! empty( $product_slugs ) ) {
         $like_clauses = [];
         $like_args    = [];
@@ -70,12 +79,33 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
         $product_ids = array_merge( $product_ids, $slug_ids );
     }
 
-    // Fetch by product-type taxonomy (only in-stock products)
+    // Fetch by product-type taxonomy with optional price/slug filters
     if ( ! empty( $type_slugs ) ) {
         $type_placeholders = implode( ',', array_fill( 0, count( $type_slugs ), '%s' ) );
 
-        $exclude_clause = '';
-        $prepare_args = $type_slugs;
+        $price_join      = '';
+        $price_clause    = '';
+        $slug_like_clause = '';
+        $exclude_clause  = '';
+        $prepare_args    = $type_slugs;
+
+        if ( $price_min > 0 || $price_max > 0 ) {
+            $price_join = "INNER JOIN {$wpdb->postmeta} price_meta ON p.ID = price_meta.post_id AND price_meta.meta_key = '_price'";
+            if ( $price_min > 0 ) {
+                $price_clause .= ' AND CAST(price_meta.meta_value AS DECIMAL(10,2)) >= %f';
+                $prepare_args[] = $price_min;
+            }
+            if ( $price_max > 0 ) {
+                $price_clause .= ' AND CAST(price_meta.meta_value AS DECIMAL(10,2)) <= %f';
+                $prepare_args[] = $price_max;
+            }
+        }
+
+        if ( ! empty( $slug_like ) ) {
+            $slug_like_clause = ' AND p.post_name LIKE %s';
+            $prepare_args[] = '%' . $wpdb->esc_like( $slug_like ) . '%';
+        }
+
         if ( ! empty( $exclude_ids ) || ! empty( $product_ids ) ) {
             $all_exclude = array_unique( array_merge( $exclude_ids, $product_ids ) );
             $excl_placeholders = implode( ',', array_fill( 0, count( $all_exclude ), '%d' ) );
@@ -92,11 +122,14 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
              INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
              INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
              INNER JOIN {$wpdb->postmeta} stock ON p.ID = stock.post_id AND stock.meta_key = '_stock_status'
+             {$price_join}
              WHERE p.post_type = 'product'
                AND p.post_status = 'publish'
                AND tt.taxonomy = 'product-type'
                AND t.slug IN ({$type_placeholders})
                AND stock.meta_value != 'outofstock'
+               {$price_clause}
+               {$slug_like_clause}
                {$exclude_clause}
              ORDER BY p.post_date DESC
              LIMIT %d",
