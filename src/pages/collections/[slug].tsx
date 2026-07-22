@@ -9,7 +9,7 @@ import {
   GET_COLLECTION_META,
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
-import { GET_COLLECTION_PRODUCTS, GET_COLLECTION_FACETS } from '@/graphql/queries/products';
+import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
 import { GET_ALL_TAGS, GET_LATEST_POSTS_LITE } from '@/graphql/queries/posts';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
@@ -23,9 +23,10 @@ import { Collection, Product } from '@/types/woocommerce';
 import { BlogPostCard, BlogTag } from '@/types/blog';
 import {
   SORT_OPTIONS,
+  FILTER_GROUPS,
   ActiveFilters,
   FilterGroup,
-  deriveFilterGroups,
+  isHiddenTerm,
   parseFilterParams,
   filtersToQueryParams,
 } from '@/lib/shopFilters';
@@ -91,8 +92,9 @@ const PAGE_SIZE = 24;
 interface CollectionsPageProps {
   collection: Collection;
   initialProducts: Product[];
-  filterGroups: FilterGroup[];
+  initialFilterGroups: FilterGroup[];
   totalProducts: number;
+  initialHasNextPage: boolean;
   initialEndCursor: string | null;
   collectionSlug: string;
   relatedPosts: BlogPostCard[];
@@ -101,25 +103,25 @@ interface CollectionsPageProps {
 export default function CollectionsPage({
   collection,
   initialProducts,
-  filterGroups,
+  initialFilterGroups,
   totalProducts,
+  initialHasNextPage,
   initialEndCursor,
   collectionSlug,
   relatedPosts,
 }: CollectionsPageProps) {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [filterGroups, setFilterGroups] = useState<FilterGroup[]>(initialFilterGroups);
   const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(totalProducts > PAGE_SIZE);
+  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
   const descRef = useRef<HTMLDivElement>(null);
 
-  // pageCursors[n] = the `after` cursor to start page n.
-  // Page 1 = null (beginning). Page 2 = endCursor from page 1 response.
   const pageCursors = useRef<Map<number, string | null>>(
     new Map<number, string | null>([
       [1, null],
@@ -169,10 +171,11 @@ export default function CollectionsPage({
   // and apply any URL filter/sort params
   useEffect(() => {
     setProducts(initialProducts);
+    setFilterGroups(initialFilterGroups);
     setActiveFilters({});
     setSelectedSort('default');
     setPage(1);
-    setHasNextPage(totalProducts > PAGE_SIZE);
+    setHasNextPage(initialHasNextPage);
     setLoading(false);
     pageCursors.current = new Map<number, string | null>([
       [1, null],
@@ -201,9 +204,9 @@ export default function CollectionsPage({
 
         const noFilters = Object.keys(next).length === 0 && selectedSort === 'default';
         if (noFilters && usingInitialData.current === false) {
-          // Reset to ISR data — no API call needed
           setProducts(initialProducts);
-          setHasNextPage(totalProducts > PAGE_SIZE);
+          setFilterGroups(initialFilterGroups);
+          setHasNextPage(initialHasNextPage);
           pageCursors.current = new Map<number, string | null>([
             [1, null],
             [2, initialEndCursor],
@@ -227,7 +230,7 @@ export default function CollectionsPage({
         return next;
       });
     },
-    [selectedSort, fetchPage, initialProducts, totalProducts, initialEndCursor, router]
+    [selectedSort, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialEndCursor, router]
   );
 
   const handleSortChange = useCallback(
@@ -242,7 +245,8 @@ export default function CollectionsPage({
       const noFilters = Object.keys(activeFilters).length === 0 && newSort === 'default';
       if (noFilters) {
         setProducts(initialProducts);
-        setHasNextPage(totalProducts > PAGE_SIZE);
+        setFilterGroups(initialFilterGroups);
+        setHasNextPage(initialHasNextPage);
         pageCursors.current.set(2, initialEndCursor);
         usingInitialData.current = true;
       } else {
@@ -256,7 +260,7 @@ export default function CollectionsPage({
         { shallow: true }
       );
     },
-    [activeFilters, fetchPage, initialProducts, totalProducts, initialEndCursor, router]
+    [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialEndCursor, router]
   );
 
   const goToNextPage = useCallback(() => {
@@ -276,7 +280,7 @@ export default function CollectionsPage({
       // Go back to ISR page 1 without an API call
       setPage(1);
       setProducts(initialProducts);
-      setHasNextPage(totalProducts > PAGE_SIZE);
+      setHasNextPage(initialHasNextPage);
       usingInitialData.current = true;
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -286,7 +290,7 @@ export default function CollectionsPage({
     setPage(prevPage);
     fetchPage(activeFilters, selectedSort, prevPage, cursor);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, totalProducts]);
+  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, initialHasNextPage]);
 
   const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
   const displayCount = isFiltered ? products.length : totalProducts;
@@ -526,16 +530,17 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   try {
     const client = getClient();
+    const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+
     const [menuClient, metaRes, facetsRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
       prefetchMenus(),
       client.query({
         query: GET_COLLECTION_META,
         variables: { slug },
       }),
-      client.query({
-        query: GET_COLLECTION_FACETS,
-        variables: { collectionFilterIn: [slug] },
-      }).catch(() => null),
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-facets?slug=${encodeURIComponent(slug)}`)
+        .then((r) => r.json())
+        .catch(() => null),
       client.query({
         query: GET_COLLECTION_PRODUCTS,
         variables: { first: PAGE_SIZE, collectionFilterIn: [slug] },
@@ -549,11 +554,22 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     }
 
     const collection = metaRes.data.collection;
-    const facetNodes = facetsRes?.data?.products?.nodes || [];
-    const filterGroupsData = deriveFilterGroups(facetNodes);
-    const totalProducts = facetNodes.length;
+
+    // Facets from REST endpoint (single SQL query, ~10ms)
+    const facetTerms = facetsRes?.success ? facetsRes.terms : {};
+    const totalProducts = facetsRes?.success ? facetsRes.totalProducts : 0;
+    const filterGroupsData: FilterGroup[] = FILTER_GROUPS.map((fg) => {
+      const terms = facetTerms[fg.key] || [];
+      return {
+        key: fg.key,
+        label: fg.label,
+        terms: terms.filter((t: { name: string; slug: string }) => !isHiddenTerm(fg.key, t)),
+      };
+    });
+
     const initialProducts = productsRes?.data?.products?.nodes || [];
     const initialEndCursor = productsRes?.data?.products?.pageInfo?.endCursor || null;
+    const initialHasNextPage = productsRes?.data?.products?.pageInfo?.hasNextPage || false;
 
     const tags: BlogTag[] = tagsRes?.data?.tags?.nodes || [];
     const latestPosts: BlogPostCard[] = latestPostsRes?.data?.posts?.nodes || [];
@@ -593,8 +609,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       props: {
         collection,
         initialProducts,
-        filterGroups: filterGroupsData,
+        initialFilterGroups: filterGroupsData,
         totalProducts,
+        initialHasNextPage,
         initialEndCursor,
         collectionSlug: slug,
         relatedPosts,
