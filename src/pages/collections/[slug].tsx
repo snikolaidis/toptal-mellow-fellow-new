@@ -165,8 +165,21 @@ export default function CollectionsPage({
     [collectionSlug]
   );
 
-  // On mount: apply URL filter/sort params if present
+  // Reset state when navigating between collections (React reuses the component)
+  // and apply any URL filter/sort params
   useEffect(() => {
+    setProducts(initialProducts);
+    setActiveFilters({});
+    setSelectedSort('default');
+    setPage(1);
+    setHasNextPage(totalProducts > PAGE_SIZE);
+    setLoading(false);
+    pageCursors.current = new Map<number, string | null>([
+      [1, null],
+      [2, initialEndCursor],
+    ]);
+    usingInitialData.current = true;
+
     if (!router.isReady) return;
     const urlFilters = parseFilterParams(router.query as Record<string, string | string[] | undefined>);
     const urlSort = typeof router.query.sort === 'string' ? router.query.sort : 'default';
@@ -176,7 +189,7 @@ export default function CollectionsPage({
       fetchPage(urlFilters, urlSort, 1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady]);
+  }, [collectionSlug]);
 
   const handleFilterChange = useCallback(
     (key: string, slugs: string[]) => {
