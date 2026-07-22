@@ -3,7 +3,6 @@
   margin-bottom: 50px;
 
   .collection-links__heading {
-    font-family: "MrEavesSanOT";
     font-size: 26px;
     line-height: 100%;
     text-align: center;
@@ -90,8 +89,6 @@
 // Grid layout: wrapping catalog grid (Collections page), 3 per row on mobile
 // and 6 per row on desktop, mirroring the old Shopify page (data-view="6-3").
 .collection-links--grid {
-  margin-top: 30px;
-  margin-bottom: 30px;
 
   .collection-links__grid {
     display: grid;
@@ -99,7 +96,6 @@
     gap: 24px 16px;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 16px;
   }
 
   @media only screen and (min-width: 1024px) {
