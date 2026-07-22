@@ -17,6 +17,7 @@ export default function CartDrawer() {
   const {
     cart,
     isDrawerOpen,
+    isLoading,
     isMutating,
     error,
     closeDrawer,
@@ -189,7 +190,11 @@ export default function CartDrawer() {
           <FreeGiftWidget subtotal={subtotal} />
 
 
-          {!cart || cart.items.length === 0 ? (
+          {isLoading && !cart ? (
+            <div className={styles.emptyCart}>
+              <p>Loading your cart...</p>
+            </div>
+          ) : !cart || cart.items.length === 0 ? (
             <div className={styles.emptyCart}>
               <p>Your cart is empty</p>
               <button onClick={closeDrawer} className={styles.emptyShopBtn}>

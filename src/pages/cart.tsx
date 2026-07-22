@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Layout from '@/components/Layout';
@@ -6,7 +6,13 @@ import { useCart, groupCartItems } from '@/context/CartContext';
 import styles from '@/styles/pages/cart.module.css';
 
 export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, bundleNames, bundleDiscounts } = useCart();
+  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, bundleNames, bundleDiscounts, refreshCart } = useCart();
+
+  useEffect(() => {
+    if (!cart && !isLoading) {
+      refreshCart();
+    }
+  }, []);
   const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
 
   if (isLoading) {

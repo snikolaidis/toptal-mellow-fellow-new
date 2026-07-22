@@ -28,7 +28,6 @@ import { getStorage } from '@/lib/storage';
 import {
   makeHttpRequest,
   makeHttpGetRequest,
-  extractWcSessionToken,
   getWordPressGraphQLUrl,
 } from '@/lib/http';
 import { CheckoutError, ErrorCode, logError } from '@/lib/errors';
@@ -180,41 +179,52 @@ function parseMoney(value: string | number | undefined | null): number {
   return parseFloat(String(value).replace(/[^0-9.]/g, ''));
 }
 
+function extractCartToken(cookies: string): string | null {
+  const match = cookies.match(/wc_cart_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function storeApiFetch(
+  path: string,
+  cartToken: string | null,
+  options: { method?: string; body?: Record<string, unknown> } = {}
+): Promise<{ status: number; data: any }> {
+  const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+  const url = `${wordpressUrl}/wp-json/wc/store/v1/${path}`;
+  const headers: Record<string, string> = { 'Accept': 'application/json' };
+  if (cartToken) headers['Cart-Token'] = cartToken;
+  if (options.body) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(url, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const data = await res.json().catch(() => null);
+  return { status: res.status, data };
+}
+
 async function applyCouponsToSession(
   req: NextApiRequest,
   codes: string[],
-  authToken?: string
+  _authToken?: string
 ): Promise<void> {
   if (!codes || codes.length === 0) return;
 
-  const graphqlUrl = getWordPressGraphQLUrl();
   const cookies = req.headers.cookie || '';
-  const wcSessionToken = extractWcSessionToken(cookies);
-
-  const mutation = `
-    mutation ApplyCoupon($code: String!) {
-      applyCoupon(input: { code: $code }) {
-        cart { total discountTotal }
-      }
-    }
-  `;
+  const cartToken = extractCartToken(cookies);
 
   for (const code of codes) {
     if (!code) continue;
     try {
-      const response = await makeHttpRequest({
-        url: graphqlUrl,
-        body: JSON.stringify({ query: mutation, variables: { code } }),
-        cookies,
-        wcSessionToken: wcSessionToken || undefined,
-        authToken,
+      const response = await storeApiFetch('cart/apply-coupon', cartToken, {
+        method: 'POST',
+        body: { code },
       });
-
-      if (response.data?.errors) {
-        const msg = response.data.errors[0]?.message || 'unknown error';
-        console.log(`[Checkout] applyCoupon "${code}": ${msg}`);
+      if (response.status >= 400) {
+        console.log(`[Checkout] applyCoupon "${code}": ${response.data?.message || 'unknown error'}`);
       } else {
-        console.log(`[Checkout] Coupon "${code}" ensured on server session`);
+        console.log(`[Checkout] Coupon "${code}" applied via Store API`);
       }
     } catch (err) {
       console.error(`[Checkout] Failed to apply coupon "${code}":`, err);
@@ -224,51 +234,40 @@ async function applyCouponsToSession(
 
 async function getServerCartTotal(
   req: NextApiRequest,
-  authToken?: string
+  _authToken?: string
 ): Promise<{ total: number; discountTotal: number; shipping: number } | null> {
-  const graphqlUrl = getWordPressGraphQLUrl();
   const cookies = req.headers.cookie || '';
-  const wcSessionToken = extractWcSessionToken(cookies);
-
-  const query = `
-    query CartTotals {
-      cart {
-        total
-        subtotal
-        discountTotal
-        shippingTotal
-        isEmpty
-      }
-    }
-  `;
+  const cartToken = extractCartToken(cookies);
 
   try {
-    const response = await makeHttpRequest({
-      url: graphqlUrl,
-      body: JSON.stringify({ query }),
-      cookies,
-      wcSessionToken: wcSessionToken || undefined,
-      authToken,
-    });
+    const response = await storeApiFetch('cart', cartToken);
 
-    const cart = response.data?.data?.cart;
-    if (!cart || cart.isEmpty) {
-      console.warn('[Checkout] Server cart empty or unavailable when reading total');
+    if (response.status >= 400 || !response.data) {
+      console.warn('[Checkout] Store API cart unavailable:', response.status);
       return null;
     }
 
-    const total = parseMoney(cart.total);
-    if (isNaN(total)) return null;
+    const cart = response.data;
+    if (!cart.items || cart.items.length === 0) {
+      console.warn('[Checkout] Store API cart is empty');
+      return null;
+    }
 
-    const discountTotal = parseMoney(cart.discountTotal);
-    const shipping = parseMoney(cart.shippingTotal);
+    const minorUnit = cart.totals?.currency_minor_unit ?? 2;
+    const divisor = Math.pow(10, minorUnit);
+    const total = (parseInt(String(cart.totals?.total_price ?? '0'), 10) || 0) / divisor;
+    if (isNaN(total) || total <= 0) return null;
+
+    const discountTotal = (parseInt(String(cart.totals?.total_discount ?? '0'), 10) || 0) / divisor;
+    const shipping = (parseInt(String(cart.totals?.total_shipping ?? '0'), 10) || 0) / divisor;
+
     return {
       total,
       discountTotal: isNaN(discountTotal) ? 0 : discountTotal,
       shipping: isNaN(shipping) ? 0 : shipping,
     };
   } catch (err) {
-    console.error('[Checkout] Failed to read server cart total:', err);
+    console.error('[Checkout] Failed to read Store API cart total:', err);
     return null;
   }
 }
@@ -472,8 +471,9 @@ async function createSubscriptionOrder(
 }
 
 /**
- * Create order in WooCommerce via GraphQL with payment already processed
- * This creates the order with isPaid=true and transactionId set
+ * Create order in WooCommerce via REST endpoint with payment already processed.
+ * Uses the /mf/v1/create-order endpoint which accepts explicit line items,
+ * decoupling order creation from any specific cart session mechanism.
  */
 async function createOrderWithPayment(
   req: NextApiRequest,
@@ -481,116 +481,105 @@ async function createOrderWithPayment(
   transactionId: string,
   authToken?: string
 ): Promise<PendingOrder> {
-  const graphqlUrl = getWordPressGraphQLUrl();
-  const cookies = req.headers.cookie || '';
-  const wcSessionToken = extractWcSessionToken(cookies);
+  const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+  const faustSecret = process.env.FAUST_SECRET_KEY;
 
-  console.log('[Checkout] Session info:', {
-    hasWcSessionToken: !!wcSessionToken,
-    wcSessionTokenPreview: wcSessionToken ? wcSessionToken.substring(0, 30) + '...' : 'none',
-    hasAuthToken: !!authToken,
-    cookieCount: cookies.split(';').length,
-    cookieNames: cookies.split(';').map(c => c.trim().split('=')[0]),
-  });
-
-  // Warn if no session for guest checkout
-  if (!wcSessionToken && !authToken) {
-    console.error('[Checkout] WARNING: No WC session token and no auth token - guest cart may not be found!');
+  if (!faustSecret) {
+    throw new CheckoutError('Server configuration error', ErrorCode.ORDER_CREATION_FAILED);
   }
 
-  // Use the checkout mutation which processes the cart
-  const mutation = `
-    mutation Checkout($input: CheckoutInput!) {
-      checkout(input: $input) {
-        result
-        order {
-          id
-          databaseId
-          orderNumber
-          status
-          total
+  // Resolve WP customer ID for authenticated users
+  let customerId = 0;
+  if (authToken) {
+    try {
+      const graphqlUrl = getWordPressGraphQLUrl();
+      const viewerRes = await makeHttpRequest({
+        url: graphqlUrl,
+        body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
+        authToken,
+      });
+      customerId = viewerRes.data?.data?.viewer?.databaseId || 0;
+    } catch {
+      console.warn('[Checkout] Could not resolve WP user ID; proceeding as guest');
+    }
+  }
+
+  // Build shipping lines from Store API cart
+  const cookies = req.headers.cookie || '';
+  const cartToken = extractCartToken(cookies);
+  let shippingLines: Array<{ methodTitle: string; methodId: string; total: number }> = [];
+  if (cartToken) {
+    try {
+      const cartRes = await storeApiFetch('cart', cartToken);
+      const shippingRates = cartRes.data?.shipping_rates || [];
+      const minorUnit = cartRes.data?.totals?.currency_minor_unit ?? 2;
+      const divisor = Math.pow(10, minorUnit);
+      for (const pkg of shippingRates) {
+        const selected = (pkg.shipping_rates || []).find((r: any) => r.selected);
+        if (selected) {
+          shippingLines.push({
+            methodTitle: selected.name || 'Shipping',
+            methodId: selected.rate_id || 'flat_rate',
+            total: (parseInt(String(selected.price ?? '0'), 10) || 0) / divisor,
+          });
         }
       }
+    } catch (err) {
+      console.warn('[Checkout] Could not read shipping from Store API:', err);
     }
-  `;
+  }
 
-  const variables = {
-    input: {
-      billing: {
-        firstName: body.billing.firstName,
-        lastName: body.billing.lastName,
-        email: body.billing.email,
-        phone: body.billing.phone || '',
-        address1: body.billing.address1,
-        address2: body.billing.address2 || '',
-        city: body.billing.city,
-        state: body.billing.state,
-        postcode: body.billing.postcode,
-        country: body.billing.country,
-      },
-      shipping: {
-        firstName: body.shipping?.firstName || body.billing.firstName,
-        lastName: body.shipping?.lastName || body.billing.lastName,
-        address1: body.shipping?.address1 || body.billing.address1,
-        address2: body.shipping?.address2 || body.billing.address2 || '',
-        city: body.shipping?.city || body.billing.city,
-        state: body.shipping?.state || body.billing.state,
-        postcode: body.shipping?.postcode || body.billing.postcode,
-        country: body.shipping?.country || body.billing.country,
-      },
-      paymentMethod: 'authorize_net',
-      isPaid: true,
-      transactionId: transactionId,
-      metaData: [
-        { key: '_transaction_id', value: transactionId },
-        { key: '_authorize_net_transaction_id', value: transactionId },
-        { key: '_payment_method', value: 'authnet' },
-        { key: '_payment_method_title', value: 'Credit Card (Authorize.net)' },
-      ],
-    },
+  console.log('[Checkout] Creating order via /mf/v1/create-order...', authToken ? '(authenticated)' : '(guest)');
+
+  const orderPayload = {
+    billing: body.billing,
+    shipping: body.shipping || body.billing,
+    items: (body.items || []).map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      variationId: (item as any).variationId || undefined,
+      unitPrice: (item as any).unitPrice || undefined,
+    })),
+    transactionId,
+    paymentMethod: 'authorize_net',
+    couponCodes: body.coupons || [],
+    shippingLines,
+    customerId,
+    metaData: [
+      { key: '_transaction_id', value: transactionId },
+      { key: '_authorize_net_transaction_id', value: transactionId },
+      { key: '_payment_method', value: 'authnet' },
+      { key: '_payment_method_title', value: 'Credit Card (Authorize.net)' },
+    ],
   };
 
-  console.log('[Checkout] Creating order with payment...', authToken ? '(authenticated)' : '(guest)');
-
-  const response = await makeHttpRequest({
-    url: graphqlUrl,
-    body: JSON.stringify({ query: mutation, variables }),
-    cookies,
-    wcSessionToken: wcSessionToken || undefined,
-    authToken,
+  const response = await fetch(`${wpBaseUrl}/wp-json/mf/v1/create-order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${faustSecret}`,
+    },
+    body: JSON.stringify(orderPayload),
   });
 
-  // Log full response for debugging
-  console.log('[Checkout] GraphQL response status:', response.status);
-  console.log('[Checkout] GraphQL response data:', JSON.stringify(response.data, null, 2).substring(0, 1000));
+  const data = await response.json().catch(() => null);
 
-  if (response.data?.errors) {
-    console.error('[Checkout] GraphQL errors:', JSON.stringify(response.data.errors, null, 2));
-    throw new CheckoutError(
-      response.data.errors[0]?.message || 'Failed to create order',
-      ErrorCode.ORDER_CREATION_FAILED,
-      { graphqlErrors: response.data.errors, transactionId }
-    );
+  console.log('[Checkout] Order endpoint response:', response.status, JSON.stringify(data).substring(0, 500));
+
+  if (!data?.success || !data?.orderId) {
+    const msg = data?.message || `Order creation failed (${response.status})`;
+    console.error('[Checkout] Order creation failed:', msg);
+    throw new CheckoutError(msg, ErrorCode.ORDER_CREATION_FAILED, { transactionId });
   }
 
-  const order = response.data?.data?.checkout?.order;
-  if (!order) {
-    console.error('[Checkout] No order in response. Full data:', JSON.stringify(response.data, null, 2));
-    throw new CheckoutError(
-      'No order returned from checkout',
-      ErrorCode.ORDER_CREATION_FAILED,
-      { transactionId, checkoutResult: response.data?.data?.checkout?.result }
-    );
-  }
-
-  console.log(`[Checkout] Order created: ${order.orderNumber} (ID: ${order.databaseId}) with transaction ${transactionId}`);
+  console.log(`[Checkout] Order created: ${data.orderNumber} (ID: ${data.orderId}) with transaction ${transactionId}`);
 
   return {
-    id: order.id,
-    databaseId: order.databaseId,
-    orderNumber: order.orderNumber,
-    status: order.status,
-    total: order.total,
+    id: String(data.orderId),
+    databaseId: Number(data.orderId),
+    orderNumber: String(data.orderNumber || data.orderId),
+    status: data.status || 'processing',
+    total: String(data.total || body.amount),
   };
 }
 
