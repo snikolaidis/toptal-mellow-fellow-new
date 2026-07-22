@@ -1,28 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getClient } from '@/lib/apollo-client';
-import { gql } from '@apollo/client';
 import { withRateLimitOnly } from '@/lib/middleware';
-import { cachedQuery } from '@/lib/cache';
 
-const SEARCH_BLOGS = gql`
-  query SearchBlogs($search: String!, $first: Int!) {
-    posts(first: $first, where: { search: $search }) {
-      nodes {
-        id
-        title
-        slug
-        date
-        excerpt
-        featuredImage {
-          node {
-            sourceUrl
-            altText
-          }
-        }
-      }
-    }
-  }
-`;
+const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -39,28 +18,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const first = Math.max(1, Math.min(12, Number.isFinite(firstRaw) ? firstRaw : 4));
 
   try {
-    const client = getClient();
-    const { data } = await cachedQuery(client, {
-      query: SEARCH_BLOGS,
-      variables: { search: q, first },
-    }, { ttl: 300 });
-
-    const posts = (data?.posts?.nodes || []).map((post: any) => ({
-      id: post.id,
-      title: post.title,
-      slug: post.slug,
-      date: post.date,
-      excerpt: post.excerpt || '',
-      featuredImage: post.featuredImage?.node?.sourceUrl
-        ? { sourceUrl: post.featuredImage.node.sourceUrl, altText: post.featuredImage.node.altText || '' }
-        : null,
-    }));
+    const url = `${WP_URL}/wp-json/mf/v1/search-blogs?q=${encodeURIComponent(q)}&first=${first}`;
+    const wpRes = await fetch(url);
+    const data = await wpRes.json();
 
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-
-    return res.status(200).json({ success: true, posts });
+    return res.status(200).json(data);
   } catch (error) {
-    console.error('[Search Blogs API] Query failed');
+    console.error('[Search Blogs API] REST query failed');
     return res.status(500).json({ success: false, posts: [] });
   }
 }

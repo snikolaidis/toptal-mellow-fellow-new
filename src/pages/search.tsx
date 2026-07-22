@@ -1,7 +1,7 @@
 import { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import DOMPurify from 'isomorphic-dompurify';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
@@ -22,6 +22,8 @@ import styles from '@/styles/pages/search.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
+
+const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 
 interface BlogPost {
   id: string;
@@ -84,26 +86,17 @@ function sortProducts(products: Product[], sort: string): Product[] {
 interface SearchPageProps {
   query: string;
   allProducts: Product[];
+  blogPosts: BlogPost[];
 }
 
 export default function SearchPage({
   query,
   allProducts,
+  blogPosts,
 }: SearchPageProps) {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
-  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
-
-  useEffect(() => {
-    if (!query) return;
-    fetch(`/api/search-blogs?q=${encodeURIComponent(query)}&first=6`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success) setBlogPosts(data.posts || []);
-      })
-      .catch(() => {});
-  }, [query]);
 
   // Filter → sort → paginate — all client-side, instant
   const filteredProducts = useMemo(() => {
@@ -338,6 +331,14 @@ async function searchProducts(query: string): Promise<Product[]> {
   return result.hits.map(meiliHitToProduct);
 }
 
+async function searchBlogPosts(query: string): Promise<BlogPost[]> {
+  if (!WP_URL) return [];
+  const url = `${WP_URL}/wp-json/mf/v1/search-blogs?q=${encodeURIComponent(query)}&first=6`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.success ? data.posts : [];
+}
+
 export const getServerSideProps: GetServerSideProps = async ({ query: params, res }) => {
   res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
 
@@ -345,23 +346,27 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
 
   if (!query) {
     return {
-      props: { query: '', allProducts: [] },
+      props: { query: '', allProducts: [], blogPosts: [] },
     };
   }
 
   try {
-    const products = await searchProducts(query);
+    const [products, blogPosts] = await Promise.all([
+      searchProducts(query),
+      searchBlogPosts(query).catch(() => []),
+    ]);
 
     return {
       props: {
         query,
         allProducts: products,
+        blogPosts,
       },
     };
   } catch (error) {
     console.error('[Search Page] Query failed:', error);
     return {
-      props: { query, allProducts: [] },
+      props: { query, allProducts: [], blogPosts: [] },
     };
   }
 };
