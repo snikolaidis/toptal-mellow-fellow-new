@@ -1,9 +1,7 @@
 import { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
-import { getClient } from '@/lib/apollo-client';
-import { gql } from '@apollo/client';
+import { useEffect, useMemo, useState } from 'react';
 import DOMPurify from 'isomorphic-dompurify';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
@@ -11,7 +9,6 @@ import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
-import { cachedQuery } from '@/lib/cache';
 import { Meilisearch } from 'meilisearch';
 import {
   SORT_OPTIONS,
@@ -26,24 +23,13 @@ import styles from '@/styles/pages/search.module.css';
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
 
-const SEARCH_BLOG_POSTS = gql`
-  query SearchBlogPosts($search: String!) {
-    posts(first: 6, where: { search: $search }) {
-      nodes {
-        id title slug excerpt date
-        featuredImage { node { sourceUrl altText } }
-      }
-    }
-  }
-`;
-
 interface BlogPost {
   id: string;
   title: string;
   slug: string;
   excerpt: string;
   date: string;
-  featuredImage?: { node: { sourceUrl: string; altText: string } } | null;
+  featuredImage?: { sourceUrl: string; altText: string } | null;
 }
 
 function parsePrice(price?: string): number {
@@ -98,17 +84,26 @@ function sortProducts(products: Product[], sort: string): Product[] {
 interface SearchPageProps {
   query: string;
   allProducts: Product[];
-  blogPosts: BlogPost[];
 }
 
 export default function SearchPage({
   query,
   allProducts,
-  blogPosts,
 }: SearchPageProps) {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+
+  useEffect(() => {
+    if (!query) return;
+    fetch(`/api/search-blogs?q=${encodeURIComponent(query)}&first=6`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setBlogPosts(data.posts || []);
+      })
+      .catch(() => {});
+  }, [query]);
 
   // Filter → sort → paginate — all client-side, instant
   const filteredProducts = useMemo(() => {
@@ -260,11 +255,11 @@ export default function SearchPage({
             <div className={styles.blogGrid}>
               {blogPosts.map((post) => (
                 <Link key={post.id} href={`/blogs/${post.slug}`} className={styles.blogCard}>
-                  {post.featuredImage?.node?.sourceUrl && (
+                  {post.featuredImage?.sourceUrl && (
                     <div className={styles.blogImage}>
                       <Image
-                        src={post.featuredImage.node.sourceUrl}
-                        alt={post.featuredImage.node.altText || post.title}
+                        src={post.featuredImage.sourceUrl}
+                        alt={post.featuredImage.altText || post.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
                         style={{ objectFit: 'cover' }}
@@ -350,32 +345,23 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
 
   if (!query) {
     return {
-      props: { query: '', allProducts: [], blogPosts: [] },
+      props: { query: '', allProducts: [] },
     };
   }
 
   try {
-    const client = getClient();
-
-    const [products, blogRes] = await Promise.all([
-      searchProducts(query),
-      cachedQuery(client, {
-        query: SEARCH_BLOG_POSTS,
-        variables: { search: query },
-      }, { ttl: 300 }).catch(() => ({ data: null })),
-    ]);
+    const products = await searchProducts(query);
 
     return {
       props: {
         query,
         allProducts: products,
-        blogPosts: blogRes?.data?.posts?.nodes || [],
       },
     };
   } catch (error) {
     console.error('[Search Page] Query failed:', error);
     return {
-      props: { query, allProducts: [], blogPosts: [] },
+      props: { query, allProducts: [] },
     };
   }
 };
