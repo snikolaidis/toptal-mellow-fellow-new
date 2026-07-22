@@ -36,7 +36,7 @@ function mf_product_types_handler(WP_REST_Request $request) {
          FROM {$wpdb->term_relationships} tr
          JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
          JOIN {$wpdb->terms} t ON t.term_id = tt.term_id
-         WHERE tt.taxonomy = 'mf_product_type'
+         WHERE tt.taxonomy = 'product-type'
            AND tr.object_id IN ($placeholders)",
         ...$ids
     );
