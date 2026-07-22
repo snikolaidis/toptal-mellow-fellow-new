@@ -2,13 +2,14 @@ import { GetStaticProps, GetStaticPaths } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
 import {
   GET_COLLECTION_META,
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
-import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
+import { GET_COLLECTION_PRODUCTS, GET_COLLECTION_FACETS } from '@/graphql/queries/products';
 import { GET_ALL_TAGS, GET_LATEST_POSTS_LITE } from '@/graphql/queries/posts';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
@@ -22,9 +23,11 @@ import { Collection, Product } from '@/types/woocommerce';
 import { BlogPostCard, BlogTag } from '@/types/blog';
 import {
   SORT_OPTIONS,
-  FACET_PRODUCT_CONNECTION,
   ActiveFilters,
+  FilterGroup,
   deriveFilterGroups,
+  parseFilterParams,
+  filtersToQueryParams,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 
@@ -38,8 +41,6 @@ function toWordSet(text: string): Set<string> {
       .toLowerCase()
       .split(/[^a-z0-9]+/)
       .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
-      // naive singularization (e.g. "blunts" -> "blunt") so a pluralized
-      // collection name still matches a singular tag, and vice versa
       .map((w) => w.replace(/s$/, ''))
   );
 }
@@ -52,9 +53,6 @@ function wordOverlapScore(a: Set<string>, b: Set<string>): number {
   return score;
 }
 
-// Best-effort match between a collection and a blog tag — prefers an exact
-// name/slug match, falls back to word overlap (e.g. collection "Vape
-// Cartridges" matching tag "vape").
 function findMatchingTag(collectionName: string, tags: BlogTag[]): BlogTag | null {
   const normalizedName = collectionName.toLowerCase().trim();
   const exact = tags.find(
@@ -77,8 +75,6 @@ function findMatchingTag(collectionName: string, tags: BlogTag[]): BlogTag | nul
   return bestScore > 0 ? best : null;
 }
 
-// Fallback when no tag matches — score post titles by word overlap with the
-// collection name instead.
 function rankPostsByTitle(collectionName: string, posts: BlogPostCard[]): BlogPostCard[] {
   const nameWords = toWordSet(collectionName);
   if (nameWords.size === 0) return [];
@@ -92,101 +88,197 @@ function rankPostsByTitle(collectionName: string, posts: BlogPostCard[]): BlogPo
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
 
-function parsePrice(price?: string): number {
-  if (!price) return 0;
-  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
-}
-
-function productMatchesFilters(product: Product, filters: ActiveFilters): boolean {
-  for (const [key, slugs] of Object.entries(filters)) {
-    if (slugs.length === 0) continue;
-    const connection = FACET_PRODUCT_CONNECTION[key];
-    if (!connection) continue;
-    const productTerms: Array<{ slug?: string }> = (product as any)?.[connection]?.nodes || [];
-    const productSlugs = productTerms.map((t) => t.slug).filter(Boolean);
-    if (!slugs.some((s) => productSlugs.includes(s))) return false;
-  }
-  return true;
-}
-
-function sortProducts(products: Product[], sort: string): Product[] {
-  const sorted = [...products];
-  switch (sort) {
-    case 'price-low':
-      return sorted.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
-    case 'price-high':
-      return sorted.sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
-    case 'name-asc':
-      return sorted.sort((a, b) => a.name.localeCompare(b.name));
-    case 'name-desc':
-      return sorted.sort((a, b) => b.name.localeCompare(a.name));
-    default:
-      return sorted;
-  }
-}
-
 interface CollectionsPageProps {
   collection: Collection;
-  allProducts: Product[];
+  initialProducts: Product[];
+  filterGroups: FilterGroup[];
+  totalProducts: number;
+  initialEndCursor: string | null;
+  collectionSlug: string;
   relatedPosts: BlogPostCard[];
 }
 
 export default function CollectionsPage({
   collection,
-  allProducts,
+  initialProducts,
+  filterGroups,
+  totalProducts,
+  initialEndCursor,
+  collectionSlug,
   relatedPosts,
 }: CollectionsPageProps) {
+  const router = useRouter();
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(totalProducts > PAGE_SIZE);
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
   const descRef = useRef<HTMLDivElement>(null);
+
+  // pageCursors[n] = the `after` cursor to start page n.
+  // Page 1 = null (beginning). Page 2 = endCursor from page 1 response.
+  const pageCursors = useRef<Map<number, string | null>>(
+    new Map<number, string | null>([
+      [1, null],
+      [2, initialEndCursor],
+    ])
+  );
+  const usingInitialData = useRef(true);
 
   useEffect(() => {
     if (!descRef.current) return;
     setDescTruncatable(descRef.current.scrollHeight > descRef.current.clientHeight + 1);
   }, [collection?.description]);
 
-  const filteredProducts = useMemo(() => {
-    let result = allProducts;
-    if (Object.keys(activeFilters).length > 0) {
-      result = result.filter((p) => productMatchesFilters(p, activeFilters));
-    }
-    return sortProducts(result, selectedSort);
-  }, [allProducts, activeFilters, selectedSort]);
+  const fetchPage = useCallback(
+    async (filters: ActiveFilters, sort: string, targetPage: number, after?: string | null) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set('first', String(PAGE_SIZE));
+        params.set('collection', collectionSlug);
+        if (sort !== 'default') params.set('sort', sort);
+        if (after) params.set('after', after);
 
-  const filterGroups = useMemo(() => deriveFilterGroups(filteredProducts as any[]), [filteredProducts]);
+        for (const [key, slugs] of Object.entries(filters)) {
+          if (slugs.length > 0) params.set(key, slugs.join(','));
+        }
 
-  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
-  const startIdx = (page - 1) * PAGE_SIZE;
-  const pageProducts = filteredProducts.slice(startIdx, startIdx + PAGE_SIZE);
-  const hasMore = page < totalPages;
-  const hasPrev = page > 1;
-  const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
+        const res = await fetch(`/api/shop/products?${params.toString()}`);
+        const data = await res.json();
 
-  const goToPage = (p: number) => {
-    setPage(p);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleFilterChange = (key: string, slugs: string[]) => {
-    setActiveFilters((prev) => {
-      const next = { ...prev, [key]: slugs };
-      for (const k of Object.keys(next)) {
-        if (next[k].length === 0) delete next[k];
+        if (data.success) {
+          setProducts(data.products || []);
+          setHasNextPage(data.hasNextPage || false);
+          pageCursors.current.set(targetPage + 1, data.endCursor || null);
+          usingInitialData.current = false;
+        }
+      } catch {
+        // keep current products on network error
+      } finally {
+        setLoading(false);
       }
-      return next;
-    });
-    setPage(1);
-  };
+    },
+    [collectionSlug]
+  );
 
-  const handleSortChange = (option: SelectOption | null) => {
-    if (option) {
-      setSelectedSort(option.value);
-      setPage(1);
+  // On mount: apply URL filter/sort params if present
+  useEffect(() => {
+    if (!router.isReady) return;
+    const urlFilters = parseFilterParams(router.query as Record<string, string | string[] | undefined>);
+    const urlSort = typeof router.query.sort === 'string' ? router.query.sort : 'default';
+    if (Object.keys(urlFilters).length > 0 || urlSort !== 'default') {
+      setActiveFilters(urlFilters);
+      setSelectedSort(urlSort);
+      fetchPage(urlFilters, urlSort, 1);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
+  const handleFilterChange = useCallback(
+    (key: string, slugs: string[]) => {
+      setActiveFilters((prev) => {
+        const next = { ...prev, [key]: slugs };
+        for (const k of Object.keys(next)) {
+          if (next[k].length === 0) delete next[k];
+        }
+
+        const noFilters = Object.keys(next).length === 0 && selectedSort === 'default';
+        if (noFilters && usingInitialData.current === false) {
+          // Reset to ISR data — no API call needed
+          setProducts(initialProducts);
+          setHasNextPage(totalProducts > PAGE_SIZE);
+          pageCursors.current = new Map<number, string | null>([
+            [1, null],
+            [2, initialEndCursor],
+          ]);
+          usingInitialData.current = true;
+        } else if (!noFilters) {
+          pageCursors.current.clear();
+          pageCursors.current.set(1, null);
+          fetchPage(next, selectedSort, 1);
+        }
+
+        setPage(1);
+
+        const queryParams = filtersToQueryParams(next, selectedSort);
+        router.push(
+          { pathname: router.pathname, query: { slug: router.query.slug, ...queryParams } },
+          undefined,
+          { shallow: true }
+        );
+
+        return next;
+      });
+    },
+    [selectedSort, fetchPage, initialProducts, totalProducts, initialEndCursor, router]
+  );
+
+  const handleSortChange = useCallback(
+    (option: SelectOption | null) => {
+      if (!option) return;
+      const newSort = option.value;
+      setSelectedSort(newSort);
+      setPage(1);
+      pageCursors.current.clear();
+      pageCursors.current.set(1, null);
+
+      const noFilters = Object.keys(activeFilters).length === 0 && newSort === 'default';
+      if (noFilters) {
+        setProducts(initialProducts);
+        setHasNextPage(totalProducts > PAGE_SIZE);
+        pageCursors.current.set(2, initialEndCursor);
+        usingInitialData.current = true;
+      } else {
+        fetchPage(activeFilters, newSort, 1);
+      }
+
+      const queryParams = filtersToQueryParams(activeFilters, newSort);
+      router.push(
+        { pathname: router.pathname, query: { slug: router.query.slug, ...queryParams } },
+        undefined,
+        { shallow: true }
+      );
+    },
+    [activeFilters, fetchPage, initialProducts, totalProducts, initialEndCursor, router]
+  );
+
+  const goToNextPage = useCallback(() => {
+    if (!hasNextPage || loading) return;
+    const nextPage = page + 1;
+    const cursor = pageCursors.current.get(nextPage) ?? null;
+    setPage(nextPage);
+    fetchPage(activeFilters, selectedSort, nextPage, cursor);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page, hasNextPage, loading, activeFilters, selectedSort, fetchPage]);
+
+  const goToPrevPage = useCallback(() => {
+    if (page <= 1 || loading) return;
+    const prevPage = page - 1;
+
+    if (prevPage === 1 && Object.keys(activeFilters).length === 0 && selectedSort === 'default') {
+      // Go back to ISR page 1 without an API call
+      setPage(1);
+      setProducts(initialProducts);
+      setHasNextPage(totalProducts > PAGE_SIZE);
+      usingInitialData.current = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const cursor = pageCursors.current.get(prevPage) ?? null;
+    setPage(prevPage);
+    fetchPage(activeFilters, selectedSort, prevPage, cursor);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, totalProducts]);
+
+  const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
+  const displayCount = isFiltered ? products.length : totalProducts;
+  const totalPages = !isFiltered ? Math.ceil(totalProducts / PAGE_SIZE) : undefined;
+  const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
   if (!collection) {
     return (
@@ -299,7 +391,9 @@ export default function CollectionsPage({
           <main className={styles.main}>
             <div className={styles.controls}>
               <span className={styles.productCount}>
-                {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
+                {isFiltered
+                  ? `${displayCount}${hasNextPage ? '+' : ''} ${displayCount === 1 ? 'product' : 'products'}`
+                  : `${totalProducts} ${totalProducts === 1 ? 'product' : 'products'}`}
               </span>
               <div className={styles.sortWrapper}>
                 <span className={styles.sortLabel}>Sort by</span>
@@ -318,12 +412,12 @@ export default function CollectionsPage({
               filterGroups={filterGroups}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
-              productCount={filteredProducts.length}
+              productCount={displayCount}
             />
 
-            <div className='products-grid'>
-              {pageProducts.length > 0 ? (
-                pageProducts.map((product, index) => (
+            <div className={`products-grid ${loading ? styles.gridLoading : ''}`}>
+              {products.length > 0 ? (
+                products.map((product, index) => (
                   <ProductCard key={product.id} product={product} priority={index < 12} />
                 ))
               ) : (
@@ -331,23 +425,25 @@ export default function CollectionsPage({
               )}
             </div>
 
-            {totalPages > 1 && (
+            {(page > 1 || hasNextPage) && (
               <div className={styles.pagination}>
-                {hasPrev ? (
-                  <button onClick={() => goToPage(page - 1)} className={styles.pageBtn}>
+                {page > 1 ? (
+                  <button onClick={goToPrevPage} className={styles.pageBtn} disabled={loading}>
                     &larr; Previous
                   </button>
                 ) : <span />}
-                <span className={styles.pageNum}>Page {page} of {totalPages}</span>
-                {hasMore ? (
-                  <button onClick={() => goToPage(page + 1)} className={styles.pageBtn}>
+                <span className={styles.pageNum}>
+                  Page {page}{totalPages ? ` of ${totalPages}` : ''}
+                </span>
+                {hasNextPage ? (
+                  <button onClick={goToNextPage} className={styles.pageBtn} disabled={loading}>
                     Next &rarr;
                   </button>
                 ) : <span />}
               </div>
             )}
 
-            {allProducts.length === 0 && (
+            {totalProducts === 0 && (
               <div className={styles.empty}>
                 <p>No products in this collection yet.</p>
                 <Link href="/shop" className="btn-secondary">Browse All Products</Link>
@@ -417,16 +513,20 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   try {
     const client = getClient();
-    const [menuClient, metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+    const [menuClient, metaRes, facetsRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
       prefetchMenus(),
       client.query({
         query: GET_COLLECTION_META,
         variables: { slug },
       }),
       client.query({
+        query: GET_COLLECTION_FACETS,
+        variables: { collectionFilterIn: [slug] },
+      }).catch(() => null),
+      client.query({
         query: GET_COLLECTION_PRODUCTS,
-        variables: { first: 500, collectionFilterIn: [slug] },
-      }),
+        variables: { first: PAGE_SIZE, collectionFilterIn: [slug] },
+      }).catch(() => null),
       client.query({ query: GET_ALL_TAGS }).catch(() => null),
       client.query({ query: GET_LATEST_POSTS_LITE, variables: { first: 20 } }).catch(() => null),
     ]);
@@ -436,13 +536,15 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     }
 
     const collection = metaRes.data.collection;
+    const facetNodes = facetsRes?.data?.products?.nodes || [];
+    const filterGroupsData = deriveFilterGroups(facetNodes);
+    const totalProducts = facetNodes.length;
+    const initialProducts = productsRes?.data?.products?.nodes || [];
+    const initialEndCursor = productsRes?.data?.products?.pageInfo?.endCursor || null;
+
     const tags: BlogTag[] = tagsRes?.data?.tags?.nodes || [];
     const latestPosts: BlogPostCard[] = latestPostsRes?.data?.posts?.nodes || [];
 
-    // Prefer a matching blog tag (precise); fall back to title word-overlap
-    // against the broader recent-posts pool. Either way, if that doesn't add
-    // up to 12, top up the remainder with the latest posts (deduplicated)
-    // rather than leaving the carousel short.
     const RELATED_POSTS_TARGET = 12;
     let relatedPosts: BlogPostCard[] = [];
     const matchingTag = tags.length ? findMatchingTag(collection.name, tags) : null;
@@ -477,7 +579,11 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const result = {
       props: {
         collection,
-        allProducts: productsRes.data?.products?.nodes || [],
+        initialProducts,
+        filterGroups: filterGroupsData,
+        totalProducts,
+        initialEndCursor,
+        collectionSlug: slug,
         relatedPosts,
       } as Record<string, any>,
       revalidate: 600,
