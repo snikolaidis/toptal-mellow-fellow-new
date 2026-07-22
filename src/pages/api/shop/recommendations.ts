@@ -4,6 +4,7 @@ import { withRateLimitOnly } from '@/lib/middleware';
 const FREE_SHIPPING_THRESHOLD = 80;
 
 const TERP_PEN_SLUG = 'terp-pens';
+const FILLABLE_DEVICE_SLUG = 'fillable-2ml-device-kit';
 const AIRFLOW_BATTERY_SLUG = 'airflow-battery';
 
 const CROSS_SELL_MAP: Record<string, string[]> = {
@@ -31,21 +32,25 @@ const TYPE_ALIASES: Record<string, string> = {
   '2ml-disposable-vapes': 'disposable-vape',
   '1ml-disposable-vapes': 'disposable-vape',
   '0-5ml-disposable-vapes': 'disposable-vape',
+  '4ml-disposable-vapes': 'disposable-vape',
+  '5ml-disposable-vapes': 'disposable-vape',
   'vape-cartridges': 'vape-cartridge',
   '2ml-vape-cartridges': 'vape-cartridge',
+  '0-5ml-vape-cartridges': 'vape-cartridge',
   'concentrate': 'concentrates',
+  'gel-capsules': 'capsules',
 };
 
 const CATEGORY_SLUGS: Record<string, string[]> = {
-  'disposable-vape': ['disposable-vape', 'disposable-vapes', '2ml-disposable-vapes', '1ml-disposable-vapes', '0-5ml-disposable-vapes'],
-  'vape-cartridge': ['vape-cartridge', 'vape-cartridges', '2ml-vape-cartridges'],
+  'disposable-vape': ['disposable-vape', 'disposable-vapes', '2ml-disposable-vapes', '1ml-disposable-vapes', '0-5ml-disposable-vapes', '4ml-disposable-vapes', '5ml-disposable-vapes'],
+  'vape-cartridge': ['vape-cartridge', 'vape-cartridges', '2ml-vape-cartridges', '0-5ml-vape-cartridges'],
   'edible': ['edible', 'edibles'],
   'beverage': ['beverage', 'beverages'],
   'bundle': ['bundle', 'bundles'],
   'flower': ['flower'],
   'prerolls': ['prerolls', 'preroll', 'pre-rolls'],
   'accessories': ['accessories'],
-  'capsules': ['capsules'],
+  'capsules': ['capsules', 'gel-capsules'],
   'concentrates': ['concentrates', 'concentrate'],
   'syringes': ['syringes'],
   'roll-on': ['roll-on'],
@@ -150,10 +155,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return true;
     };
 
-    // RULE 1 & 2: Fetch specific products (concentrates → Terp Pen, cartridges → Airflow Battery)
+    // RULE 1 & 2: Fetch specific products (concentrates → Terp Pen + Fillable Device, cartridges → Airflow Battery)
     const specificSlugs: string[] = [];
-    if (hasConcentrates && !excludeSlugSet.has(TERP_PEN_SLUG)) {
-      specificSlugs.push(TERP_PEN_SLUG);
+    if (hasConcentrates) {
+      if (!excludeSlugSet.has(TERP_PEN_SLUG)) specificSlugs.push(TERP_PEN_SLUG);
+      if (!excludeSlugSet.has(FILLABLE_DEVICE_SLUG)) specificSlugs.push(FILLABLE_DEVICE_SLUG);
     }
     if (hasCartridges && !excludeSlugSet.has(AIRFLOW_BATTERY_SLUG)) {
       specificSlugs.push(AIRFLOW_BATTERY_SLUG);

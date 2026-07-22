@@ -50,20 +50,27 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
     $product_ids = [];
 
     // Fetch by product slugs (for specific products like terp-pens)
+    // Uses prefix matching so import-appended SKU suffixes don't break lookups
+    // (e.g. "terp-pens" matches "terp-pens-ab00000015")
     if ( ! empty( $product_slugs ) ) {
-        $slug_placeholders = implode( ',', array_fill( 0, count( $product_slugs ), '%s' ) );
+        $like_clauses = [];
+        $like_args    = [];
+        foreach ( $product_slugs as $s ) {
+            $like_clauses[] = 'post_name LIKE %s';
+            $like_args[]    = $wpdb->esc_like( $s ) . '%';
+        }
         $slug_sql = $wpdb->prepare(
             "SELECT ID FROM {$wpdb->posts}
-             WHERE post_name IN ({$slug_placeholders})
+             WHERE (" . implode( ' OR ', $like_clauses ) . ")
                AND post_type = 'product'
                AND post_status = 'publish'",
-            ...$product_slugs
+            ...$like_args
         );
         $slug_ids = array_map( 'intval', $wpdb->get_col( $slug_sql ) );
         $product_ids = array_merge( $product_ids, $slug_ids );
     }
 
-    // Fetch by product-type taxonomy
+    // Fetch by product-type taxonomy (only in-stock products)
     if ( ! empty( $type_slugs ) ) {
         $type_placeholders = implode( ',', array_fill( 0, count( $type_slugs ), '%s' ) );
 
@@ -84,10 +91,12 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
              INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
              INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
              INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+             INNER JOIN {$wpdb->postmeta} stock ON p.ID = stock.post_id AND stock.meta_key = '_stock_status'
              WHERE p.post_type = 'product'
                AND p.post_status = 'publish'
                AND tt.taxonomy = 'product-type'
                AND t.slug IN ({$type_placeholders})
+               AND stock.meta_value != 'outofstock'
                {$exclude_clause}
              ORDER BY p.post_date DESC
              LIMIT %d",
@@ -207,15 +216,17 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
         $m    = $meta_map[ $pid ] ?? [];
         $t    = $tax_map[ $pid ] ?? [];
 
+        $stock_raw = $m['_stock_status'] ?? 'instock';
+        if ( $stock_raw === 'outofstock' ) continue;
+
+        $stock_map = [ 'instock' => 'IN_STOCK', 'outofstock' => 'OUT_OF_STOCK', 'onbackorder' => 'ON_BACKORDER' ];
+        $stock_status = $stock_map[ $stock_raw ] ?? 'IN_STOCK';
+
         $price         = isset( $m['_price'] )         ? '$' . number_format( (float) $m['_price'], 2 )         : null;
         $regular_price = isset( $m['_regular_price'] ) ? '$' . number_format( (float) $m['_regular_price'], 2 ) : null;
         $sale_price    = isset( $m['_sale_price'] ) && $m['_sale_price'] !== ''
                          ? '$' . number_format( (float) $m['_sale_price'], 2 )
                          : null;
-
-        $stock_raw = $m['_stock_status'] ?? 'instock';
-        $stock_map = [ 'instock' => 'IN_STOCK', 'outofstock' => 'OUT_OF_STOCK', 'onbackorder' => 'ON_BACKORDER' ];
-        $stock_status = $stock_map[ $stock_raw ] ?? 'IN_STOCK';
 
         $type_terms   = $t['product-type'] ?? [];
         $line_terms   = $t['product-line'] ?? [];
