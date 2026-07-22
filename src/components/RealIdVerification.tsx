@@ -177,14 +177,14 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
       active = false;
     };
 
-    const tick = async () => {
-      if (!active) return;
-      const domVerified = domShowsVerified();
-      const result = await fetchCheck();
-      markVerifiedIfOwned(domVerified || !!result?.verified, result);
-    };
-
     // Stratos, 19 Jul 2026
+    // const tick = async () => {
+    //   if (!active) return;
+    //   const domVerified = domShowsVerified();
+    //   const result = await fetchCheck();
+    //   markVerifiedIfOwned(domVerified || !!result?.verified, result);
+    // };
+
     // The tick validating the identification is coming from the getverdict library;
     // there's no need to run it ourselves at the same time, creating a nonstop loop
     // tick();
@@ -202,19 +202,22 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     // }
 
     const onPassed = () => {
+      console.log('real-id-check-passed', {active});
       if (!active) return;
       fetchCheck().then((result) => markVerifiedIfOwned(true, result));
     };
-    // const onLoaded = () => {
-    //   if (active) tick();
-    // };
+    const onLoaded = () => {
+      console.log('real-id-check-loaded');
+      fetchCheck().then((result) => markVerifiedIfOwned(true, result));
+    };
+    // const onLoaded = () => {};
     window.addEventListener('real-id-check-passed', onPassed);
     window.addEventListener('real-id-check-loaded', onLoaded);
 
     return () => {
       active = false;
-      window.clearInterval(interval);
-      if (observer) observer.disconnect();
+      // window.clearInterval(interval);
+      // if (observer) observer.disconnect();
       window.removeEventListener('real-id-check-passed', onPassed);
       window.removeEventListener('real-id-check-loaded', onLoaded);
     };

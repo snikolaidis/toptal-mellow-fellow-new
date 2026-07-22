@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type RefObject } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import { useCart } from '@/context/CartContext';
@@ -59,6 +59,7 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [realIdVerified, setRealIdVerified] = useState(!REALID_ENABLED);
   const [realIdCheckId, setRealIdCheckId] = useState<string | null>(null);
+  const paymentFormRef = useRef<HTMLFormElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<CheckoutStep>('billing');
   const [customerDataLoaded, setCustomerDataLoaded] = useState(false);
@@ -776,11 +777,17 @@ export default function CheckoutPage() {
                     lastName: billing.lastName,
                   }}
                   onVerifiedChange={(verified, cid) => {
-                    setRealIdVerified(verified);
+                    setRealIdVerified((wasVerified) => {
+                      if (verified && !wasVerified) {
+                        paymentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                      return verified;
+                    });
                     if (cid) setRealIdCheckId(cid);
                   }}
                 />
                 <PaymentForm
+                  formRef={paymentFormRef}
                   onSubmit={handlePayment}
                   onBack={() => setStep('shipping')}
                   isProcessing={isProcessing}
@@ -808,6 +815,7 @@ export default function CheckoutPage() {
 
 // Payment form component using Authorize.net Accept.js
 function PaymentForm({
+  formRef,
   onSubmit,
   onBack,
   isProcessing,
@@ -816,6 +824,7 @@ function PaymentForm({
   realIdBlocked = false,
   isAuthenticated = false,
 }: {
+  formRef?: RefObject<HTMLFormElement>;
   onSubmit: (data: PaymentData) => void;
   onBack: () => void;
   isProcessing: boolean;
@@ -940,7 +949,7 @@ function PaymentForm({
         />
       )}
 
-      <form onSubmit={handleSubmit} className={styles.paymentForm}>
+      <form ref={formRef} onSubmit={handleSubmit} className={styles.paymentForm}>
         {cardError && (
           <div className={styles.cardError} role="alert">
             {cardError}
@@ -1043,7 +1052,7 @@ function PaymentForm({
             type="button"
             className={styles.formActionsSecondary}
             onClick={onBack}
-            disabled={isDisabled}
+            // disabled={isDisabled}
           >
             Back
           </button>
