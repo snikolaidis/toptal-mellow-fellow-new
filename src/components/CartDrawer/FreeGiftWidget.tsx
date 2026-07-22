@@ -39,8 +39,16 @@ export default function FreeGiftWidget({ subtotal }: Props) {
     setRemoving(true);
     (async () => {
       try {
-        if (giftItem) await removeFromCart(giftItem.key);
-        if (giftCoupon) await removeCoupon(giftCoupon.code);
+        // Only do one operation per render — removing the item updates the
+        // cart from the server, which may also auto-remove the coupon.
+        // The next effect run will handle whatever is left.
+        if (giftItem) {
+          await removeFromCart(giftItem.key);
+        } else if (giftCoupon) {
+          await removeCoupon(giftCoupon.code);
+        }
+      } catch {
+        // Cart state may be stale — don't retry, let the next render re-evaluate
       } finally {
         setRemoving(false);
       }

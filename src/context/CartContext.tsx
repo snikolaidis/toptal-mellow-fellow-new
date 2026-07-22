@@ -649,6 +649,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (err instanceof StoreApiError && (err.status === 409 || err.status === 400)) {
+        // Coupon already removed or deleted server-side — sync local state
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+          }
+        } catch {}
+        return;
+      }
       logError('CartContext.removeCoupon', err, { code });
       const cartError = new CartError('Failed to remove coupon', ErrorCode.CART_UPDATE_FAILED);
       setError(getUserMessage(cartError));
