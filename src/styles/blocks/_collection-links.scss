@@ -91,24 +91,33 @@
 .collection-links--grid {
 
   .collection-links__grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 24px 16px;
     max-width: 1200px;
     margin: 0 auto;
-  }
-
-  @media only screen and (min-width: 1024px) {
-    .collection-links__grid {
-      grid-template-columns: repeat(6, 1fr);
-      gap: 30px 24px;
-    }
+    padding: 0 1rem;
   }
 
   .collection-links__link {
     display: flex;
     width: auto;
     margin: 0;
+    // 3 per row on mobile; fixed basis (no grow) so rows with fewer than a
+    // full row of links stay centered rather than left-aligned.
+    flex: 0 0 calc((100% - 2 * 16px) / 3);
+  }
+
+  @media only screen and (min-width: 1024px) {
+    .collection-links__grid {
+      gap: 30px 24px;
+    }
+
+    // 6 per row on desktop.
+    .collection-links__link {
+      flex-basis: calc((100% - 5 * 24px) / 6);
+    }
   }
 
   .collection-links__link a {
