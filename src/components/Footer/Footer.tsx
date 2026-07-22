@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { gql, useQuery } from '@apollo/client';
-import { getClient, getBrowserClient } from '@/lib/apollo-client';
 import {
   EmailIcon,
   FacebookIcon,
@@ -10,7 +9,7 @@ import {
   YouTubeIcon,
 } from '@/components/icons';
 
-const GET_FOOTER_MENU = gql`
+export const GET_FOOTER_MENU = gql`
   query GetFooterMenu {
     menus(where: { location: FOOTER_1 }, first: 1) {
       nodes {
@@ -28,7 +27,7 @@ const GET_FOOTER_MENU = gql`
   }
 `;
 
-const GET_FOOTER_MENU_2 = gql`
+export const GET_FOOTER_MENU_2 = gql`
   query GetFooterMenu2 {
     menus(where: { location: FOOTER_2 }, first: 1) {
       nodes {
@@ -51,7 +50,7 @@ const GET_FOOTER_MENU_2 = gql`
 // GET_FOOTER_MENU: if the mu-plugin isn't deployed yet, siteSettings is an
 // unknown field and GraphQL rejects the whole document — a combined query
 // would take the footer menu down with it.
-const GET_SOCIAL_LINKS = gql`
+export const GET_SOCIAL_LINKS = gql`
   query GetSocialLinks {
     siteSettings {
       socialLinks {
@@ -93,11 +92,9 @@ interface FooterMenuItem {
 }
 
 // Resolve a WordPress menu item URL to an app-appropriate href. WP items mix
-// relative paths (/contact-us/), full frontend-domain URLs (the headless app on
-// *.up.railway.app) and true external links (e.g. affiliate URLs). Internal
-// targets get client-side Next navigation; everything else opens externally.
-// WordPress exposes the account page at /my-account; the headless app serves it
-// at /account. Remap so the footer link lands on the real route.
+// relative paths (/contact-us/), full frontend-domain URLs (the headless app)
+// and true external links (e.g. affiliate URLs). Internal targets get
+// client-side Next navigation; everything else opens externally.
 function remapInternalPath(path: string): string {
   const clean = path.replace(/\/$/, '') || '/';
   if (clean === '/my-account') return '/account';
@@ -114,7 +111,8 @@ function footerHref(uri: string): { href: string; external: boolean } {
     const isInternal =
       u.host === wpHost ||
       (runtimeHost && u.host === runtimeHost) ||
-      u.host.endsWith('.up.railway.app');
+      u.host.endsWith('.wpengine.com') ||
+      u.host.endsWith('.wpenginepowered.com');
     return isInternal
       ? { href: remapInternalPath(u.pathname) + u.search + u.hash, external: false }
       : { href: uri, external: true };
@@ -124,17 +122,15 @@ function footerHref(uri: string): { href: string; external: boolean } {
 }
 
 export default function Footer() {
-  const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
-  const { data } = useQuery(GET_FOOTER_MENU, { client });
+  const { data } = useQuery(GET_FOOTER_MENU);
   const footerMenu = data?.menus?.nodes?.[0];
   const footerItems: FooterMenuItem[] = footerMenu?.menuItems?.nodes ?? [];
 
-  const { data: data2 } = useQuery(GET_FOOTER_MENU_2, { client });
+  const { data: data2 } = useQuery(GET_FOOTER_MENU_2);
   const footerMenu2 = data2?.menus?.nodes?.[0];
   const footerItems2: FooterMenuItem[] = footerMenu2?.menuItems?.nodes ?? [];
 
   const { data: socialData } = useQuery(GET_SOCIAL_LINKS, {
-    client,
     errorPolicy: 'ignore',
   });
   const socialLinks: SocialLinks | undefined =

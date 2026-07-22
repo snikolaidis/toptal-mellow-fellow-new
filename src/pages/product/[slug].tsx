@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getClient } from '@/lib/apollo-client';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_PRODUCT_BY_SLUG, GET_ALL_PRODUCT_SLUGS, GET_PRODUCTS_BY_COLLECTION } from '@/graphql/queries/products';
 import { GET_BUNDLE_SLUG_BY_ID } from '@/graphql/queries/bundles';
 import Layout from '@/components/Layout';
@@ -818,6 +819,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   try {
     const client = getClient();
+    const menuClientPromise = prefetchMenus();
     const { data } = await client.query({
       query: GET_PRODUCT_BY_SLUG,
       variables: { slug: params?.slug },
@@ -898,7 +900,8 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       }
     }
 
-    return {
+    const menuClient = await menuClientPromise;
+    const result = {
       props: {
         product,
         collectionName,
@@ -906,9 +909,11 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         availableOptions,
         availableOptionsBase,
         bundleSlug,
-      },
+      } as Record<string, any>,
       revalidate: 60,
     };
+    mergeMenuState(result.props, menuClient);
+    return result;
   } catch (error) {
     console.error('Error fetching product:', error);
     return { notFound: true };

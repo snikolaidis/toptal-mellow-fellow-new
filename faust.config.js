@@ -23,11 +23,8 @@ class GraphqlEndpointPlugin {
  */
 export default setConfig({
   templates,
-  experimentalPlugins: [new GraphqlEndpointPlugin()],
+  plugins: [new GraphqlEndpointPlugin()],
   possibleTypes,
-  usePersistedQueries: false,
-  // POST queries instead of Faust's default GET. Large queries (e.g. the
-  // homepage product query + fragments) overflow the URL length as GET and our
-  // WP Engine host returns 503.
-  useGETForQueries: false,
+  usePersistedQueries: true,
+  useGETForQueries: true,
 });

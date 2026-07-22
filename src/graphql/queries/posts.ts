@@ -94,6 +94,34 @@ export const GET_LATEST_POSTS = gql`
   }
 `;
 
+export const GET_LATEST_POSTS_LITE = gql`
+  query GetLatestPostsLite($first: Int, $tagSlugIn: [String]) {
+    posts(first: $first, where: { orderby: { field: DATE, order: DESC }, tagSlugIn: $tagSlugIn }) {
+      nodes {
+        id
+        databaseId
+        title
+        slug
+        date
+        excerpt
+        featuredImage {
+          node {
+            sourceUrl
+            altText
+          }
+        }
+        tags {
+          nodes {
+            id
+            name
+            slug
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_ALL_TAGS = gql`
   query GetAllTags($after: String) {
     tags(first: 100, after: $after) {
@@ -118,13 +146,18 @@ export async function fetchAllTags(
   let after: string | null = null;
 
   for (;;) {
-    const result: any = await client.query({ query: GET_ALL_TAGS, variables: { after } });
-    const page = result.data?.tags;
-    tags.push(
-      ...(page?.nodes || []).filter((tag: { count?: number | null }) => (tag.count ?? 0) > 0)
-    );
-    if (!page?.pageInfo?.hasNextPage) break;
-    after = page.pageInfo.endCursor;
+    try {
+      const result: any = await client.query({ query: GET_ALL_TAGS, variables: { after } });
+      const page = result.data?.tags;
+      tags.push(
+        ...(page?.nodes || []).filter((tag: { count?: number | null }) => (tag.count ?? 0) > 0)
+      );
+      if (!page?.pageInfo?.hasNextPage) break;
+      after = page.pageInfo.endCursor;
+    } catch (err) {
+      console.error('[fetchAllTags] Failed to fetch tags page, returning partial results:', err);
+      break;
+    }
   }
 
   return tags;

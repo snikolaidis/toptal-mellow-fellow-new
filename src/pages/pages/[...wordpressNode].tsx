@@ -2,6 +2,7 @@ import '../../../faust.config';
 import { WordPressTemplate, getWordPressProps } from '@faustwp/core';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 
 /**
  * Catch-all for WP content pages served under `/pages/<slug>` (Shopify-style
@@ -21,7 +22,12 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   const maxAttempts = 4;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      return await getWordPressProps({ ctx, revalidate: 60 });
+      const [menuClient, result] = await Promise.all([
+        prefetchMenus(),
+        getWordPressProps({ ctx, revalidate: 60 }),
+      ]);
+      if ('props' in result && result.props) mergeMenuState(result.props, menuClient);
+      return result;
     } catch (err) {
       if (attempt === maxAttempts) {
         console.error('[Page] getWordPressProps failed after retries, serving fallback', err);

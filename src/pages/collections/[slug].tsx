@@ -9,7 +9,8 @@ import {
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
 import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
-import { GET_ALL_TAGS, GET_LATEST_POSTS } from '@/graphql/queries/posts';
+import { GET_ALL_TAGS, GET_LATEST_POSTS_LITE } from '@/graphql/queries/posts';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
@@ -416,7 +417,8 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
   try {
     const client = getClient();
-    const [metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+    const [menuClient, metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+      prefetchMenus(),
       client.query({
         query: GET_COLLECTION_META,
         variables: { slug },
@@ -424,10 +426,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       client.query({
         query: GET_COLLECTION_PRODUCTS,
         variables: { first: 500, collectionFilterIn: [slug] },
-        fetchPolicy: 'no-cache',
       }),
       client.query({ query: GET_ALL_TAGS }).catch(() => null),
-      client.query({ query: GET_LATEST_POSTS, variables: { first: 60 } }).catch(() => null),
+      client.query({ query: GET_LATEST_POSTS_LITE, variables: { first: 20 } }).catch(() => null),
     ]);
 
     if (!metaRes.data?.collection) {
@@ -448,7 +449,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     if (matchingTag) {
       const tagPostsRes = await client
         .query({
-          query: GET_LATEST_POSTS,
+          query: GET_LATEST_POSTS_LITE,
           variables: { first: RELATED_POSTS_TARGET, tagSlugIn: [matchingTag.slug] },
         })
         .catch(() => null);
@@ -473,14 +474,16 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       }
     }
 
-    return {
+    const result = {
       props: {
         collection,
         allProducts: productsRes.data?.products?.nodes || [],
         relatedPosts,
-      },
-      revalidate: 120,
+      } as Record<string, any>,
+      revalidate: 600,
     };
+    mergeMenuState(result.props, menuClient);
+    return result;
   } catch {
     return { notFound: true };
   }
