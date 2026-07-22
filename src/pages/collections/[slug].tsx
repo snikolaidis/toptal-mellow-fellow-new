@@ -2,7 +2,7 @@ import { GetStaticProps, GetStaticPaths } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
 import {
@@ -34,57 +34,6 @@ import styles from '@/styles/pages/collection.module.css';
 
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
-const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'your', 'our', 'a', 'an', 'of', 'to', 'in', 'on']);
-
-function toWordSet(text: string): Set<string> {
-  return new Set(
-    text
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
-      .map((w) => w.replace(/s$/, ''))
-  );
-}
-
-function wordOverlapScore(a: Set<string>, b: Set<string>): number {
-  let score = 0;
-  Array.from(a).forEach((word) => {
-    if (b.has(word)) score++;
-  });
-  return score;
-}
-
-function findMatchingTag(collectionName: string, tags: BlogTag[]): BlogTag | null {
-  const normalizedName = collectionName.toLowerCase().trim();
-  const exact = tags.find(
-    (t) => t.name.toLowerCase().trim() === normalizedName || t.slug === normalizedName.replace(/\s+/g, '-')
-  );
-  if (exact) return exact;
-
-  const nameWords = toWordSet(collectionName);
-  if (nameWords.size === 0) return null;
-
-  let best: BlogTag | null = null;
-  let bestScore = 0;
-  for (const tag of tags) {
-    const score = wordOverlapScore(nameWords, toWordSet(tag.name));
-    if (score > bestScore) {
-      bestScore = score;
-      best = tag;
-    }
-  }
-  return bestScore > 0 ? best : null;
-}
-
-function rankPostsByTitle(collectionName: string, posts: BlogPostCard[]): BlogPostCard[] {
-  const nameWords = toWordSet(collectionName);
-  if (nameWords.size === 0) return [];
-  return posts
-    .map((post) => ({ post, score: wordOverlapScore(nameWords, toWordSet(post.title)) }))
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map((entry) => entry.post);
-}
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
@@ -550,7 +499,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const client = getClient();
     const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 
-    const [menuClient, metaRes, facetsRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+    const [menuClient, metaRes, facetsRes, productsRes] = await Promise.all([
       prefetchMenus(),
       client.query({
         query: GET_COLLECTION_META,
@@ -563,8 +512,6 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         query: GET_COLLECTION_PRODUCTS,
         variables: { first: PAGE_SIZE, collectionFilterIn: [slug] },
       }).catch(() => null),
-      client.query({ query: GET_ALL_TAGS }).catch(() => null),
-      client.query({ query: GET_LATEST_POSTS_LITE, variables: { first: 20 } }).catch(() => null),
     ]);
 
     if (!metaRes.data?.collection) {
@@ -589,39 +536,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const initialEndCursor = productsRes?.data?.products?.pageInfo?.endCursor || null;
     const initialHasNextPage = productsRes?.data?.products?.pageInfo?.hasNextPage || false;
 
-    const tags: BlogTag[] = tagsRes?.data?.tags?.nodes || [];
-    const latestPosts: BlogPostCard[] = latestPostsRes?.data?.posts?.nodes || [];
-
-    const RELATED_POSTS_TARGET = 12;
-    let relatedPosts: BlogPostCard[] = [];
-    const matchingTag = tags.length ? findMatchingTag(collection.name, tags) : null;
-    if (matchingTag) {
-      const tagPostsRes = await client
-        .query({
-          query: GET_LATEST_POSTS_LITE,
-          variables: { first: RELATED_POSTS_TARGET, tagSlugIn: [matchingTag.slug] },
-        })
-        .catch(() => null);
-      relatedPosts = tagPostsRes?.data?.posts?.nodes || [];
-    }
-    if (relatedPosts.length < RELATED_POSTS_TARGET) {
-      const usedIds = new Set(relatedPosts.map((p) => p.id));
-      const byTitle = rankPostsByTitle(collection.name, latestPosts).filter((p) => !usedIds.has(p.id));
-      for (const post of byTitle) {
-        if (relatedPosts.length >= RELATED_POSTS_TARGET) break;
-        relatedPosts.push(post);
-        usedIds.add(post.id);
-      }
-    }
-    if (relatedPosts.length < RELATED_POSTS_TARGET) {
-      const usedIds = new Set(relatedPosts.map((p) => p.id));
-      for (const post of latestPosts) {
-        if (relatedPosts.length >= RELATED_POSTS_TARGET) break;
-        if (usedIds.has(post.id)) continue;
-        relatedPosts.push(post);
-        usedIds.add(post.id);
-      }
-    }
+    // Related posts are matched server-side via the mu-plugin (mellow-fellow-related-posts.php)
+    // and exposed on the Collection type as `relatedPosts`.
+    const relatedPosts: BlogPostCard[] = collection.relatedPosts || [];
 
     const result = {
       props: {
