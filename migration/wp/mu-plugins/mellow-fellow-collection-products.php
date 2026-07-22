@@ -312,10 +312,10 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         $wc_type = $taxes['product_type'][0]['slug'] ?? 'simple';
         $type_info = $type_map[ $wc_type ] ?? $type_map['simple'];
 
-        // Price formatting
-        $price        = isset( $meta['_price'] )         ? wc_price( (float) $meta['_price'] )         : null;
-        $regularPrice = isset( $meta['_regular_price'] ) ? wc_price( (float) $meta['_regular_price'] ) : null;
-        $salePrice    = ! empty( $meta['_sale_price'] )  ? wc_price( (float) $meta['_sale_price'] )    : null;
+        // Plain formatted prices (no HTML) — ProductCard renders as text content
+        $price        = isset( $meta['_price'] )         ? '$' . number_format( (float) $meta['_price'], 2 )         : null;
+        $regularPrice = isset( $meta['_regular_price'] ) ? '$' . number_format( (float) $meta['_regular_price'], 2 ) : null;
+        $salePrice    = ! empty( $meta['_sale_price'] )  ? '$' . number_format( (float) $meta['_sale_price'], 2 )    : null;
 
         // Build taxonomy node arrays
         $tax_fields = [];
