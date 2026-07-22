@@ -9,7 +9,6 @@ import {
   GET_COLLECTION_META,
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
-import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
@@ -44,7 +43,7 @@ interface CollectionsPageProps {
   initialFilterGroups: FilterGroup[];
   totalProducts: number;
   initialHasNextPage: boolean;
-  initialEndCursor: string | null;
+  initialTotalPages: number;
   collectionSlug: string;
   relatedPosts: BlogPostCard[];
 }
@@ -55,7 +54,7 @@ export default function CollectionsPage({
   initialFilterGroups,
   totalProducts,
   initialHasNextPage,
-  initialEndCursor,
+  initialTotalPages,
   collectionSlug,
   relatedPosts,
 }: CollectionsPageProps) {
@@ -67,16 +66,11 @@ export default function CollectionsPage({
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
+  const [currentTotalPages, setCurrentTotalPages] = useState(initialTotalPages);
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
   const descRef = useRef<HTMLDivElement>(null);
 
-  const pageCursors = useRef<Map<number, string | null>>(
-    new Map<number, string | null>([
-      [1, null],
-      [2, initialEndCursor],
-    ])
-  );
   const usingInitialData = useRef(true);
 
   useEffect(() => {
@@ -85,14 +79,14 @@ export default function CollectionsPage({
   }, [collection?.description]);
 
   const fetchPage = useCallback(
-    async (filters: ActiveFilters, sort: string, targetPage: number, after?: string | null) => {
+    async (filters: ActiveFilters, sort: string, targetPage: number) => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
         params.set('first', String(PAGE_SIZE));
         params.set('collection', collectionSlug);
+        params.set('page', String(targetPage));
         if (sort !== 'default') params.set('sort', sort);
-        if (after) params.set('after', after);
 
         for (const [key, slugs] of Object.entries(filters)) {
           if (slugs.length > 0) params.set(key, slugs.join(','));
@@ -104,7 +98,7 @@ export default function CollectionsPage({
         if (data.success) {
           setProducts(data.products || []);
           setHasNextPage(data.hasNextPage || false);
-          pageCursors.current.set(targetPage + 1, data.endCursor || null);
+          setCurrentTotalPages(data.totalPages || 1);
           usingInitialData.current = false;
         }
       } catch {
@@ -125,11 +119,8 @@ export default function CollectionsPage({
     setSelectedSort('default');
     setPage(1);
     setHasNextPage(initialHasNextPage);
+    setCurrentTotalPages(initialTotalPages);
     setLoading(false);
-    pageCursors.current = new Map<number, string | null>([
-      [1, null],
-      [2, initialEndCursor],
-    ]);
     usingInitialData.current = true;
 
     if (!router.isReady) return;
@@ -156,14 +147,9 @@ export default function CollectionsPage({
           setProducts(initialProducts);
           setFilterGroups(initialFilterGroups);
           setHasNextPage(initialHasNextPage);
-          pageCursors.current = new Map<number, string | null>([
-            [1, null],
-            [2, initialEndCursor],
-          ]);
+          setCurrentTotalPages(initialTotalPages);
           usingInitialData.current = true;
         } else if (!noFilters) {
-          pageCursors.current.clear();
-          pageCursors.current.set(1, null);
           fetchPage(next, selectedSort, 1);
         }
 
@@ -179,7 +165,7 @@ export default function CollectionsPage({
         return next;
       });
     },
-    [selectedSort, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialEndCursor, router]
+    [selectedSort, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
   );
 
   const handleSortChange = useCallback(
@@ -188,15 +174,13 @@ export default function CollectionsPage({
       const newSort = option.value;
       setSelectedSort(newSort);
       setPage(1);
-      pageCursors.current.clear();
-      pageCursors.current.set(1, null);
 
       const noFilters = Object.keys(activeFilters).length === 0 && newSort === 'default';
       if (noFilters) {
         setProducts(initialProducts);
         setFilterGroups(initialFilterGroups);
         setHasNextPage(initialHasNextPage);
-        pageCursors.current.set(2, initialEndCursor);
+        setCurrentTotalPages(initialTotalPages);
         usingInitialData.current = true;
       } else {
         fetchPage(activeFilters, newSort, 1);
@@ -209,15 +193,14 @@ export default function CollectionsPage({
         { shallow: true }
       );
     },
-    [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialEndCursor, router]
+    [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
   );
 
   const goToNextPage = useCallback(() => {
     if (!hasNextPage || loading) return;
     const nextPage = page + 1;
-    const cursor = pageCursors.current.get(nextPage) ?? null;
     setPage(nextPage);
-    fetchPage(activeFilters, selectedSort, nextPage, cursor);
+    fetchPage(activeFilters, selectedSort, nextPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [page, hasNextPage, loading, activeFilters, selectedSort, fetchPage]);
 
@@ -226,24 +209,23 @@ export default function CollectionsPage({
     const prevPage = page - 1;
 
     if (prevPage === 1 && Object.keys(activeFilters).length === 0 && selectedSort === 'default') {
-      // Go back to ISR page 1 without an API call
       setPage(1);
       setProducts(initialProducts);
       setHasNextPage(initialHasNextPage);
+      setCurrentTotalPages(initialTotalPages);
       usingInitialData.current = true;
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    const cursor = pageCursors.current.get(prevPage) ?? null;
     setPage(prevPage);
-    fetchPage(activeFilters, selectedSort, prevPage, cursor);
+    fetchPage(activeFilters, selectedSort, prevPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, initialHasNextPage]);
+  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, initialHasNextPage, initialTotalPages]);
 
   const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
   const displayCount = isFiltered ? products.length : totalProducts;
-  const totalPages = !isFiltered ? Math.ceil(totalProducts / PAGE_SIZE) : undefined;
+  const totalPages = currentTotalPages;
   const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
   if (!collection) {
@@ -399,7 +381,7 @@ export default function CollectionsPage({
                   </button>
                 ) : <span />}
                 <span className={styles.pageNum}>
-                  Page {page}{totalPages ? ` of ${totalPages}` : ''}
+                  Page {page}{totalPages > 1 ? ` of ${totalPages}` : ''}
                 </span>
                 {hasNextPage ? (
                   <button onClick={goToNextPage} className={styles.pageBtn} disabled={loading}>
@@ -508,10 +490,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       fetch(`${wpUrl}/wp-json/mf/v1/collection-facets?slug=${encodeURIComponent(slug)}`)
         .then((r) => r.json())
         .catch(() => null),
-      client.query({
-        query: GET_COLLECTION_PRODUCTS,
-        variables: { first: PAGE_SIZE, collectionFilterIn: [slug] },
-      }).catch(() => null),
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?slug=${encodeURIComponent(slug)}&per_page=${PAGE_SIZE}`)
+        .then((r) => r.json())
+        .catch(() => null),
     ]);
 
     if (!metaRes.data?.collection) {
@@ -532,9 +513,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       };
     });
 
-    const initialProducts = productsRes?.data?.products?.nodes || [];
-    const initialEndCursor = productsRes?.data?.products?.pageInfo?.endCursor || null;
-    const initialHasNextPage = productsRes?.data?.products?.pageInfo?.hasNextPage || false;
+    const initialProducts = productsRes?.products || [];
+    const initialHasNextPage = productsRes?.hasNextPage || false;
+    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / PAGE_SIZE) : 0);
 
     // Related posts are matched server-side via the mu-plugin (mellow-fellow-related-posts.php)
     // and exposed on the Collection type as `relatedPosts`.
@@ -547,7 +528,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         initialFilterGroups: filterGroupsData,
         totalProducts,
         initialHasNextPage,
-        initialEndCursor,
+        initialTotalPages,
         collectionSlug: slug,
         relatedPosts,
       } as Record<string, any>,

@@ -8,16 +8,46 @@ import {
   getSortVariables,
 } from '@/lib/shopFilters';
 
-/**
- * Shop Products API
- *
- * Handles paginated product loading for the "Load More" button.
- * Supports taxonomy filtering and sorting via query params.
- */
+const COLLECTION_FILTER_KEYS = [
+  'productType', 'strainType', 'blendType', 'cannabinoid',
+  'singleCannabinoid', 'size', 'mg', 'pieces',
+];
+
+async function handleCollectionProducts(req: NextApiRequest, res: NextApiResponse) {
+  const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+  const collection = req.query.collection as string;
+  const page = typeof req.query.page === 'string' ? req.query.page : '1';
+  const perPage = typeof req.query.first === 'string' ? req.query.first : '24';
+  const sort = typeof req.query.sort === 'string' ? req.query.sort : 'default';
+
+  const params = new URLSearchParams({
+    slug: collection,
+    page,
+    per_page: perPage,
+    sort,
+  });
+
+  const filters = parseFilterParams(req.query);
+  for (const key of COLLECTION_FILTER_KEYS) {
+    if (filters[key]?.length) {
+      params.set(key, filters[key].join(','));
+    }
+  }
+
+  const upstream = await fetch(`${wpUrl}/wp-json/mf/v1/collection-products?${params.toString()}`);
+  const data = await upstream.json();
+
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  return res.status(upstream.ok ? 200 : 502).json(data);
+}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
+  if (typeof req.query.collection === 'string' && req.query.collection) {
+    return handleCollectionProducts(req, res);
   }
 
   const after = typeof req.query.after === 'string' ? req.query.after : undefined;
