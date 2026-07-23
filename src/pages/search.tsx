@@ -2,8 +2,6 @@ import { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
-import { getClient } from '@/lib/apollo-client';
-import { gql } from '@apollo/client';
 import DOMPurify from 'isomorphic-dompurify';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
@@ -11,9 +9,7 @@ import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
-import { GET_PRODUCTS } from '@/graphql/queries/products';
-import { cachedQuery } from '@/lib/cache';
-import { boostTitleMatches, SEARCH_RANK_WINDOW } from '@/lib/searchRanking';
+import { Meilisearch } from 'meilisearch';
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
@@ -27,16 +23,7 @@ import styles from '@/styles/pages/search.module.css';
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
 
-const SEARCH_BLOG_POSTS = gql`
-  query SearchBlogPosts($search: String!) {
-    posts(first: 6, where: { search: $search }) {
-      nodes {
-        id title slug excerpt date
-        featuredImage { node { sourceUrl altText } }
-      }
-    }
-  }
-`;
+const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 
 interface BlogPost {
   id: string;
@@ -44,7 +31,7 @@ interface BlogPost {
   slug: string;
   excerpt: string;
   date: string;
-  featuredImage?: { node: { sourceUrl: string; altText: string } } | null;
+  featuredImage?: { sourceUrl: string; altText: string } | null;
 }
 
 function parsePrice(price?: string): number {
@@ -78,8 +65,11 @@ function sortProducts(products: Product[], sort: string): Product[] {
   const sorted = [...products];
   switch (sort) {
     case 'newest':
-      // Products don't have a date field exposed, keep original order
-      return sorted;
+      return sorted.sort((a, b) => {
+        const da = a.date ? new Date(a.date).getTime() : 0;
+        const db = b.date ? new Date(b.date).getTime() : 0;
+        return db - da;
+      });
     case 'price-low':
       return sorted.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
     case 'price-high':
@@ -258,11 +248,11 @@ export default function SearchPage({
             <div className={styles.blogGrid}>
               {blogPosts.map((post) => (
                 <Link key={post.id} href={`/blogs/${post.slug}`} className={styles.blogCard}>
-                  {post.featuredImage?.node?.sourceUrl && (
+                  {post.featuredImage?.sourceUrl && (
                     <div className={styles.blogImage}>
                       <Image
-                        src={post.featuredImage.node.sourceUrl}
-                        alt={post.featuredImage.node.altText || post.title}
+                        src={post.featuredImage.sourceUrl}
+                        alt={post.featuredImage.altText || post.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
                         style={{ objectFit: 'cover' }}
@@ -286,6 +276,69 @@ export default function SearchPage({
   );
 }
 
+const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
+const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
+const PRODUCTS_INDEX = 'products';
+const SEARCH_RESULT_WINDOW = 100;
+
+const MEILI_TAXONOMY: Array<{ meili: string; woo: string }> = [
+  { meili: 'productType', woo: 'mfproductTypes' },
+  { meili: 'size', woo: 'size' },
+  { meili: 'strainType', woo: 'strainTypes' },
+  { meili: 'blendType', woo: 'blendTypes' },
+  { meili: 'cannabinoid', woo: 'cannabinoids' },
+  { meili: 'singleCannabinoid', woo: 'singleCannabinoid' },
+  { meili: 'mg', woo: 'mG' },
+  { meili: 'pieces', woo: 'pieces' },
+  { meili: 'collection', woo: 'collections' },
+  { meili: 'strainName', woo: 'strainNames' },
+  { meili: 'productLine', woo: 'productLines' },
+];
+
+function meiliHitToProduct(hit: Record<string, any>): Product {
+  const product: Record<string, unknown> = {
+    id: hit.id,
+    databaseId: hit.databaseId,
+    name: hit.name ?? '',
+    slug: hit.slug ?? '',
+    type: hit.type ?? undefined,
+    date: hit.date ?? null,
+    price: hit.price ?? '',
+    regularPrice: hit.regularPrice ?? '',
+    salePrice: hit.salePrice ?? '',
+    stockStatus: hit.stockStatus ?? 'IN_STOCK',
+    image: hit.image?.sourceUrl
+      ? { sourceUrl: hit.image.sourceUrl, altText: hit.image.altText ?? hit.name ?? '' }
+      : undefined,
+    bbLinkedBundleId: hit.bbLinkedBundleId ?? null,
+    bbFromPrice: hit.bbFromPrice ?? null,
+    uniqueSellingProps: hit.uniqueSellingProps ?? undefined,
+  };
+  for (const { meili, woo } of MEILI_TAXONOMY) {
+    const slugs: string[] = hit[`${meili}Slugs`] || [];
+    const names: string[] = hit[`${meili}Names`] || [];
+    product[woo] = { nodes: slugs.map((slug, i) => ({ slug, name: names[i] ?? slug })) };
+  }
+  return product as unknown as Product;
+}
+
+async function searchProducts(query: string): Promise<Product[]> {
+  if (!MEILI_HOST || !MEILI_SEARCH_KEY) return [];
+  const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
+  const result = await client
+    .index(PRODUCTS_INDEX)
+    .search<Record<string, any>>(query, { limit: SEARCH_RESULT_WINDOW });
+  return result.hits.map(meiliHitToProduct);
+}
+
+async function searchBlogPosts(query: string): Promise<BlogPost[]> {
+  if (!WP_URL) return [];
+  const url = `${WP_URL}/wp-json/mf/v1/search-blogs?q=${encodeURIComponent(query)}&first=6`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.success ? data.posts : [];
+}
+
 export const getServerSideProps: GetServerSideProps = async ({ query: params, res }) => {
   res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
 
@@ -298,28 +351,16 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
   }
 
   try {
-    const client = getClient();
-
-    // One product query (100 max from WPGraphQL) + blog query in parallel
-    const [searchRes, blogRes] = await Promise.all([
-      cachedQuery(client, {
-        query: GET_PRODUCTS,
-        variables: { first: SEARCH_RANK_WINDOW, search: query },
-      }, { ttl: 300 }),
-      cachedQuery(client, {
-        query: SEARCH_BLOG_POSTS,
-        variables: { search: query },
-      }, { ttl: 300 }).catch(() => ({ data: null })),
+    const [products, blogPosts] = await Promise.all([
+      searchProducts(query),
+      searchBlogPosts(query).catch(() => []),
     ]);
-
-    let products = searchRes.data?.products?.nodes || [];
-    products = boostTitleMatches(products, query);
 
     return {
       props: {
         query,
         allProducts: products,
-        blogPosts: blogRes?.data?.posts?.nodes || [],
+        blogPosts,
       },
     };
   } catch (error) {

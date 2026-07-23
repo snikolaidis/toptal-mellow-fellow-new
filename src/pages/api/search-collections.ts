@@ -1,30 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getClient } from '@/lib/apollo-client';
-import { gql } from '@apollo/client';
 import { withRateLimitOnly } from '@/lib/middleware';
-import { cachedQuery } from '@/lib/cache';
 
-const SEARCH_COLLECTIONS = gql`
-  query SearchCollections($search: String!) {
-    collections(first: 12, where: { search: $search }) {
-      nodes {
-        name
-        slug
-        count
-      }
-    }
-  }
-`;
-
-interface CollectionResult {
-  name: string;
-  slug: string;
-  count: number;
-}
-
-function isReadableName(name: string): boolean {
-  return /\s/.test(name) || !name.includes('-');
-}
+const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -38,22 +15,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const client = getClient();
-    const { data } = await cachedQuery(client, {
-      query: SEARCH_COLLECTIONS,
-      variables: { search: q },
-    }, { ttl: 300 });
-
-    const collections: CollectionResult[] = (data?.collections?.nodes || [])
-      .filter((c: CollectionResult) => c.count > 0 && isReadableName(c.name))
-      .slice(0, 4)
-      .map((c: CollectionResult) => ({ name: c.name, slug: c.slug, count: c.count }));
+    const url = `${WP_URL}/wp-json/mf/v1/search-collections?q=${encodeURIComponent(q)}`;
+    const wpRes = await fetch(url);
+    const data = await wpRes.json();
 
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-
-    return res.status(200).json({ success: true, collections });
+    return res.status(200).json(data);
   } catch (error) {
-    console.error('[Search Collections API] Query failed');
+    console.error('[Search Collections API] REST query failed');
     return res.status(500).json({ success: false, collections: [] });
   }
 }

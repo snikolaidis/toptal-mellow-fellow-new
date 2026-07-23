@@ -31,6 +31,37 @@ function mf_scg_cart_has_real_subscription() {
     return false;
 }
 
+add_action('graphql_init', function () {
+    if (!class_exists('WC_Subscriptions_Cart_Validator')) {
+        return;
+    }
+    remove_filter('woocommerce_add_to_cart_validation', array('WC_Subscriptions_Cart_Validator', 'maybe_empty_cart'), 10);
+    remove_filter('woocommerce_add_to_cart_validation', array('WC_Subscriptions_Cart_Validator', 'can_add_product_to_cart'), 10);
+
+    if (class_exists('WCS_ATT_Cart')) {
+        remove_action('woocommerce_add_to_cart', array('WCS_ATT_Cart', 'apply_subscription_schemes_on_add_to_cart'), 19);
+        remove_action('woocommerce_before_calculate_totals', array('WCS_ATT_Cart', 'apply_subscription_scheme_prices'), 10);
+    }
+
+    if (class_exists('WC_Subscriptions_Cart')) {
+        remove_action('woocommerce_before_calculate_totals', array('WC_Subscriptions_Cart', 'add_calculation_price_filter'), 10);
+        remove_action('woocommerce_before_calculate_totals', array('WC_Subscriptions_Cart', 'set_recurring_cart_key_before_calculate_totals'), 1);
+    }
+
+    if (class_exists('WC_Subscriptions_Coupon')) {
+        remove_action('woocommerce_before_calculate_totals', array('WC_Subscriptions_Coupon', 'remove_coupons'), 10);
+    }
+
+    if (class_exists('WC_Subscriptions_Synchroniser')) {
+        remove_action('woocommerce_before_calculate_totals', array('WC_Subscriptions_Synchroniser', 'maybe_set_free_trial'), 0);
+    }
+
+    if (class_exists('WC_Subscriptions_Switcher')) {
+        remove_action('woocommerce_before_calculate_totals', array('WC_Subscriptions_Switcher', 'calculate_prorated_totals'), 99);
+        remove_filter('woocommerce_add_to_cart_validation', array('WC_Subscriptions_Switcher', 'validate_switch_request'), 10);
+    }
+});
+
 add_filter('wcsatt_product_subscription_schemes', function ($schemes, $product) {
     if (mf_scg_is_graphql_context()) {
         return array();

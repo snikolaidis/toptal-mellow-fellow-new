@@ -20,12 +20,36 @@ interface Props {
 }
 
 export default function FreeGiftWidget({ subtotal }: Props) {
-  const { cart, addToCart, applyCoupon, isMutating } = useCart();
+  const { cart, addToCart, applyCoupon, removeCoupon, removeFromCart, isMutating } = useCart();
   const { freeGift } = useCartOffers();
   const [gifts, setGifts] = useState<GiftProduct[]>([]);
   const [addingId, setAddingId] = useState<number | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const unlocked = freeGift.enabled && subtotal >= freeGift.threshold;
+
+  useEffect(() => {
+    if (unlocked || removing || isMutating || !freeGift.enabled || !cart) return;
+    const giftCoupon = cart.appliedCoupons?.find((c) => c.code.startsWith('mf-free-gift-'));
+    const giftProductId = giftCoupon ? parseInt(giftCoupon.code.replace('mf-free-gift-', ''), 10) : null;
+    const giftItem = giftProductId
+      ? cart.items.find((i) => i.product.databaseId === giftProductId)
+      : null;
+    if (!giftCoupon && !giftItem) return;
+    setRemoving(true);
+    (async () => {
+      try {
+        if (giftItem) {
+          await removeFromCart(giftItem.key);
+        } else if (giftCoupon) {
+          await removeCoupon(giftCoupon.code);
+        }
+      } catch {
+      } finally {
+        setRemoving(false);
+      }
+    })();
+  }, [unlocked, removing, isMutating, freeGift.enabled, cart, removeFromCart, removeCoupon]);
 
   useEffect(() => {
     if (!unlocked || gifts.length > 0) return;

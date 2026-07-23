@@ -17,6 +17,7 @@ export default function CartDrawer() {
   const {
     cart,
     isDrawerOpen,
+    isLoading,
     isMutating,
     error,
     closeDrawer,
@@ -101,6 +102,7 @@ export default function CartDrawer() {
     const subtotal = parsePrice(cart.subtotal);
 
     const params = new URLSearchParams({
+      context: 'cart',
       cartTotal: String(subtotal),
       excludeProductIds: excludeIds.join(','),
       cartProductSlugs: productSlugs.join(','),
@@ -189,7 +191,11 @@ export default function CartDrawer() {
           <FreeGiftWidget subtotal={subtotal} />
 
 
-          {!cart || cart.items.length === 0 ? (
+          {isLoading && !cart ? (
+            <div className={styles.emptyCart}>
+              <p>Loading your cart...</p>
+            </div>
+          ) : !cart || cart.items.length === 0 ? (
             <div className={styles.emptyCart}>
               <p>Your cart is empty</p>
               <button onClick={closeDrawer} className={styles.emptyShopBtn}>
@@ -492,7 +498,8 @@ export default function CartDrawer() {
                 const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
                 return sum + Math.max(0, original - discounted);
               }, 0);
-              const effectiveSubtotal = parsePrice(cart.subtotal);
+              const couponDiscount = parsePrice(cart.discountTotal);
+              const effectiveSubtotal = parsePrice(cart.subtotal) - couponDiscount;
 
               return (
                 <>
@@ -501,6 +508,14 @@ export default function CartDrawer() {
                       <span className={styles.discountLabel}>Bundle Discount</span>
                       <span className={styles.discountValue}>
                         -${totalBundleDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {couponDiscount > 0 && (
+                    <div className={styles.subtotalRow}>
+                      <span className={styles.discountLabel}>Coupon Discount</span>
+                      <span className={styles.discountValue}>
+                        -${couponDiscount.toFixed(2)}
                       </span>
                     </div>
                   )}

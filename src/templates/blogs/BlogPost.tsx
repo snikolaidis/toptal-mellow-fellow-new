@@ -4,6 +4,7 @@ import { BlogPost, BlogTag, LatestPostCard } from '@/types/blog';
 import { Product } from '@/types/woocommerce';
 import TableOfContents from '@/components/TableOfContents';
 import RelatedProductsCarousel from '@/components/RelatedProductsCarousel';
+import RichText from '@/components/RichText';
 import styles from '@/styles/pages/blogs.module.css';
 
 interface BlogPostProps {
@@ -155,10 +156,7 @@ export default function BlogPostTemplate({ post, latestPosts, allTags, relatedPr
                 {faqs.map((faq) => (
                   <details key={faq.id} className={styles.faqItem}>
                     <summary>{faq.title}</summary>
-                    <div
-                      className={styles.faqAnswer}
-                      dangerouslySetInnerHTML={{ __html: faq.content }}
-                    />
+                    <RichText as="div" className={styles.faqAnswer} html={faq.content} />
                   </details>
                 ))}
               </section>

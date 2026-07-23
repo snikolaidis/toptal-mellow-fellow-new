@@ -22,13 +22,6 @@ function truncateWords(html: string, wordLimit: number): string {
   return `${words.slice(0, wordLimit).join(' ')}...`;
 }
 
-// Some posts have no manually-set excerpt (returns blank rather than an
-// auto-generated summary) — fall back to the post content in that case.
-function postSummary(post: BlogPostCard): string {
-  const excerptText = (post.excerpt || '').replace(/<[^>]*>/g, '').trim();
-  return excerptText || post.content || '';
-}
-
 export default function BlogPostsCarousel({ title = 'Learn About Our Products', posts }: Props) {
   const [paginationEl, setPaginationEl] = useState<HTMLDivElement | null>(null);
 
@@ -42,7 +35,7 @@ export default function BlogPostsCarousel({ title = 'Learn About Our Products', 
         pagination={paginationEl ? { clickable: true, el: paginationEl } : false}
         autoplay={{ delay: 3000, disableOnInteraction: false, pauseOnMouseEnter: true }}
         speed={1000}
-        loop
+        loop={posts.length > 4}
         slidesPerView={1.2}
         spaceBetween={16}
         breakpoints={{
@@ -67,14 +60,11 @@ export default function BlogPostsCarousel({ title = 'Learn About Our Products', 
               )}
               <div className={styles.postCardBody}>
                 <h3 className={`${styles.postCardTitle} ${styles.carouselPostTitle}`}>{post.title}</h3>
-                {(() => {
-                  const summary = postSummary(post);
-                  return summary ? (
-                    <p className={`${styles.postCardExcerpt} ${styles.carouselPostExcerpt}`}>
-                      {truncateWords(summary, 16)}
-                    </p>
-                  ) : null;
-                })()}
+                {post.excerpt && (
+                  <p className={`${styles.postCardExcerpt} ${styles.carouselPostExcerpt}`}>
+                    {truncateWords(post.excerpt, 16)}
+                  </p>
+                )}
               </div>
             </Link>
           </SwiperSlide>

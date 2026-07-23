@@ -78,6 +78,7 @@ export default function FrequentlyBoughtTogether({
     }
     let cancelled = false;
     const params = new URLSearchParams({
+      context: 'fbt',
       productTypes: typeKey,
       excludeProductIds: String(productId),
       cartProductSlugs: productSlug,
@@ -168,7 +169,7 @@ export default function FrequentlyBoughtTogether({
     setAddingAll(true);
     try {
       for (const item of items) {
-        if (!checked.has(item.databaseId)) continue;
+        if (item.isCurrent || !checked.has(item.databaseId)) continue;
         recordWidgetSource(item.databaseId, 'fbt');
         await addToCart({ productId: item.databaseId, quantity: 1 });
       }

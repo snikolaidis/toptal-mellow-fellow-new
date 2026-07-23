@@ -1,5 +1,6 @@
 import { gql } from '@apollo/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import { Mousewheel } from 'swiper/modules';
 import 'swiper/css';
 
 /**
@@ -92,11 +93,13 @@ export default function ImageSlider(props: ImageSliderProps) {
       )}
 
       <Swiper
+        modules={[Mousewheel]}
         className="image-slider__track"
         slidesPerView={1.33}
         spaceBetween={20}
         loop
         grabCursor
+        mousewheel={{ enabled: true, forceToAxis: true, thresholdDelta: 5 }}
         breakpoints={{
           600: { slidesPerView: 2 },
           900: { slidesPerView: 2.5 },

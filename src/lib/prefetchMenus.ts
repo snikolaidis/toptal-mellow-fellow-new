@@ -6,14 +6,29 @@ import { GET_FOOTER_MENU, GET_FOOTER_MENU_2, GET_SOCIAL_LINKS } from '@/componen
 
 const STATE_KEY = '__APOLLO_STATE__';
 
+let menuCacheState: NormalizedCacheObject | null = null;
+let menuCacheExpiry = 0;
+const MENU_CACHE_TTL = 300_000; // 5 minutes
+
 export async function prefetchMenus() {
   const client: ApolloClient<NormalizedCacheObject> = getApolloClient();
+
+  const now = Date.now();
+  if (menuCacheState && now < menuCacheExpiry) {
+    client.cache.restore(menuCacheState);
+    return client;
+  }
+
   await Promise.all([
     client.query({ query: GET_NAV }).catch(() => null),
     client.query({ query: GET_FOOTER_MENU }).catch(() => null),
     client.query({ query: GET_FOOTER_MENU_2 }).catch(() => null),
     client.query({ query: GET_SOCIAL_LINKS }).catch(() => null),
   ]);
+
+  menuCacheState = client.cache.extract();
+  menuCacheExpiry = now + MENU_CACHE_TTL;
+
   return client;
 }
 

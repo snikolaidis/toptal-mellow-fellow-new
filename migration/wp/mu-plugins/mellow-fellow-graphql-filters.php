@@ -27,25 +27,30 @@ define('MF_GRAPHQL_TAX_FILTERS', [
 ]);
 
 /**
- * 1. Register the where args on the products connection.
+ * 1. Register the where args on both product connection types.
+ *    v1.0.3 of wp-graphql-woocommerce uses "products" (non-union) and
+ *    "productsWithVariations" (union) — custom filters must be on both.
  */
 add_action('graphql_register_types', function () {
-    $where_type = 'RootQueryToProductUnionConnectionWhereArgs';
+    $where_types = [
+        'RootQueryToProductConnectionWhereArgs',
+        'RootQueryToProductUnionConnectionWhereArgs',
+    ];
 
-    foreach (MF_GRAPHQL_TAX_FILTERS as $base => $taxonomy) {
-        $label = ucfirst(preg_replace('/([A-Z])/', ' $1', $base));
+    foreach ($where_types as $where_type) {
+        foreach (MF_GRAPHQL_TAX_FILTERS as $base => $taxonomy) {
+            $label = ucfirst(preg_replace('/([A-Z])/', ' $1', $base));
 
-        // Single slug filter
-        register_graphql_field($where_type, $base, [
-            'type'        => 'String',
-            'description' => "Filter products by {$label} taxonomy slug.",
-        ]);
+            register_graphql_field($where_type, $base, [
+                'type'        => 'String',
+                'description' => "Filter products by {$label} taxonomy slug.",
+            ]);
 
-        // Multiple slugs filter (IN)
-        register_graphql_field($where_type, $base . 'In', [
-            'type'        => ['list_of' => 'String'],
-            'description' => "Filter products by multiple {$label} taxonomy slugs.",
-        ]);
+            register_graphql_field($where_type, $base . 'In', [
+                'type'        => ['list_of' => 'String'],
+                'description' => "Filter products by multiple {$label} taxonomy slugs.",
+            ]);
+        }
     }
 });
 

@@ -105,15 +105,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     query
   );
 
-  const visibleResults = (() => {
-    const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    if (tokens.length === 0) return results;
-    const matched = results.filter((r) => {
-      const name = (r.name || '').toLowerCase();
-      return tokens.every((t) => name.includes(t));
-    });
-    return matched.length > 0 ? matched : results;
-  })();
+  const visibleResults = results;
 
   const goToSearchPage = () => {
     if (query.trim().length >= 2) {

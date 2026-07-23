@@ -16,10 +16,10 @@ export default async function handler(
 
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
 
-  // Clear the WooCommerce session cookie by setting it to empty with immediate expiry
   res.setHeader('Set-Cookie', [
     `wc_session_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
     `wp_woocommerce_session=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
+    `wc_cart_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
   ]);
 
   return res.status(200).json({ success: true, message: 'Session cleared' });

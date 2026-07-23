@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
-import { GET_PRODUCT_BY_SLUG, GET_ALL_PRODUCT_SLUGS, GET_PRODUCTS_BY_COLLECTION } from '@/graphql/queries/products';
-import { GET_BUNDLE_SLUG_BY_ID } from '@/graphql/queries/bundles';
+import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
 import ProductFaqs from '@/components/pdp/ProductFaqs';
@@ -14,7 +13,7 @@ import PdpTrustBadges from '@/components/pdp/PdpTrustBadges';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
-import { Product, Collection } from '@/types/woocommerce';
+import { Product } from '@/types/woocommerce';
 import styles from '@/styles/pages/product.module.css';
 
 const YouMayAlsoLike = dynamic(() => import('@/components/pdp/YouMayAlsoLike'), { ssr: false });
@@ -818,97 +817,28 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   try {
-    const client = getClient();
-    const menuClientPromise = prefetchMenus();
-    const { data } = await client.query({
-      query: GET_PRODUCT_BY_SLUG,
-      variables: { slug: params?.slug },
-    });
+    const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+    const slug = typeof params?.slug === 'string' ? params.slug : '';
 
-    if (!data?.product) {
+    const [menuClient, productRes] = await Promise.all([
+      prefetchMenus(),
+      fetch(`${wpUrl}/wp-json/mf/v1/product?slug=${encodeURIComponent(slug)}`)
+        .then((r) => r.json())
+        .catch(() => null),
+    ]);
+
+    if (!productRes?.success || !productRes?.product) {
       return { notFound: true };
     }
 
-    const product = data.product;
-    let collectionName: string | null = null;
-    let collectionSlug: string | null = null;
-
-    if (product.collections?.nodes && product.collections.nodes.length > 0) {
-      const firstCollection = product.collections.nodes[0];
-      collectionName = firstCollection.name;
-      collectionSlug = firstCollection.slug;
-    }
-
-    let availableOptions: Product[] = [];
-    let availableOptionsBase = '';
-    const nameParts = (product.name || '').split(' - ').map((s: string) => s.trim());
-    if (nameParts.length >= 3) {
-      availableOptionsBase = nameParts.slice(1, -1).join(' - ');
-    } else if (nameParts.length === 2) {
-      availableOptionsBase = nameParts[0];
-    }
-    const productWords = new Set(
-      (product.name || '')
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter(Boolean)
-        .map((w: string) => w.replace(/s$/, ''))
-    );
-    const collections = (product.collections?.nodes || []) as Array<{ slug?: string; count?: number }>;
-    let bestSlug = '';
-    let bestScore = -1;
-    let bestCount = Infinity;
-    for (const col of collections) {
-      const count = col.count ?? 0;
-      if (!col.slug || count < 2 || count > 40) continue;
-      const score = col.slug
-        .split('-')
-        .filter(Boolean)
-        .reduce((acc: number, w: string) => (productWords.has(w.replace(/s$/, '')) ? acc + 1 : acc), 0);
-      if (score > bestScore || (score === bestScore && count < bestCount)) {
-        bestScore = score;
-        bestCount = count;
-        bestSlug = col.slug;
-      }
-    }
-
-    if (bestSlug && bestScore >= 2) {
-      try {
-        const { data: colData } = await client.query({
-          query: GET_PRODUCTS_BY_COLLECTION,
-          variables: { collectionFilter: bestSlug, first: 40 },
-        });
-        const siblings = (colData?.products?.nodes || []).filter((p: Product) => p?.databaseId);
-        if (siblings.length > 1) {
-          availableOptions = siblings;
-        }
-      } catch (colError) {
-        console.error('Error fetching available options:', colError);
-      }
-    }
-
-    let bundleSlug: string | null = null;
-    if (product.bbLinkedBundleId != null) {
-      try {
-        const { data: bundleData } = await client.query({
-          query: GET_BUNDLE_SLUG_BY_ID,
-          variables: { id: String(product.bbLinkedBundleId) },
-        });
-        bundleSlug = bundleData?.bundleBuilder?.slug || null;
-      } catch (bundleError) {
-        console.error('Error fetching bundle slug:', bundleError);
-      }
-    }
-
-    const menuClient = await menuClientPromise;
     const result = {
       props: {
-        product,
-        collectionName,
-        collectionSlug,
-        availableOptions,
-        availableOptionsBase,
-        bundleSlug,
+        product: productRes.product,
+        collectionName: productRes.collectionName || null,
+        collectionSlug: productRes.collectionSlug || null,
+        availableOptions: productRes.availableOptions || [],
+        availableOptionsBase: productRes.availableOptionsBase || '',
+        bundleSlug: productRes.bundleSlug || null,
       } as Record<string, any>,
       revalidate: 60,
     };

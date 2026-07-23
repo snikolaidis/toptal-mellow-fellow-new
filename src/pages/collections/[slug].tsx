@@ -2,191 +2,230 @@ import { GetStaticProps, GetStaticPaths } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
 import {
-  GET_COLLECTION_META,
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
-import { GET_COLLECTION_PRODUCTS } from '@/graphql/queries/products';
-import { GET_ALL_TAGS, GET_LATEST_POSTS_LITE } from '@/graphql/queries/posts';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
+import RichText from '@/components/RichText';
 import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
 import BlogPostsCarousel from '@/components/BlogPostsCarousel';
 import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Collection, Product } from '@/types/woocommerce';
-import { BlogPostCard, BlogTag } from '@/types/blog';
+import { BlogPostCard } from '@/types/blog';
 import {
   SORT_OPTIONS,
-  FACET_PRODUCT_CONNECTION,
+  FILTER_GROUPS,
   ActiveFilters,
-  deriveFilterGroups,
+  FilterGroup,
+  isHiddenTerm,
+  parseFilterParams,
+  filtersToQueryParams,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
-const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'your', 'our', 'a', 'an', 'of', 'to', 'in', 'on']);
-
-function toWordSet(text: string): Set<string> {
-  return new Set(
-    text
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
-      // naive singularization (e.g. "blunts" -> "blunt") so a pluralized
-      // collection name still matches a singular tag, and vice versa
-      .map((w) => w.replace(/s$/, ''))
-  );
-}
-
-function wordOverlapScore(a: Set<string>, b: Set<string>): number {
-  let score = 0;
-  Array.from(a).forEach((word) => {
-    if (b.has(word)) score++;
-  });
-  return score;
-}
-
-// Best-effort match between a collection and a blog tag — prefers an exact
-// name/slug match, falls back to word overlap (e.g. collection "Vape
-// Cartridges" matching tag "vape").
-function findMatchingTag(collectionName: string, tags: BlogTag[]): BlogTag | null {
-  const normalizedName = collectionName.toLowerCase().trim();
-  const exact = tags.find(
-    (t) => t.name.toLowerCase().trim() === normalizedName || t.slug === normalizedName.replace(/\s+/g, '-')
-  );
-  if (exact) return exact;
-
-  const nameWords = toWordSet(collectionName);
-  if (nameWords.size === 0) return null;
-
-  let best: BlogTag | null = null;
-  let bestScore = 0;
-  for (const tag of tags) {
-    const score = wordOverlapScore(nameWords, toWordSet(tag.name));
-    if (score > bestScore) {
-      bestScore = score;
-      best = tag;
-    }
-  }
-  return bestScore > 0 ? best : null;
-}
-
-// Fallback when no tag matches — score post titles by word overlap with the
-// collection name instead.
-function rankPostsByTitle(collectionName: string, posts: BlogPostCard[]): BlogPostCard[] {
-  const nameWords = toWordSet(collectionName);
-  if (nameWords.size === 0) return [];
-  return posts
-    .map((post) => ({ post, score: wordOverlapScore(nameWords, toWordSet(post.title)) }))
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map((entry) => entry.post);
-}
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
 
-function parsePrice(price?: string): number {
-  if (!price) return 0;
-  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
-}
-
-function productMatchesFilters(product: Product, filters: ActiveFilters): boolean {
-  for (const [key, slugs] of Object.entries(filters)) {
-    if (slugs.length === 0) continue;
-    const connection = FACET_PRODUCT_CONNECTION[key];
-    if (!connection) continue;
-    const productTerms: Array<{ slug?: string }> = (product as any)?.[connection]?.nodes || [];
-    const productSlugs = productTerms.map((t) => t.slug).filter(Boolean);
-    if (!slugs.some((s) => productSlugs.includes(s))) return false;
-  }
-  return true;
-}
-
-function sortProducts(products: Product[], sort: string): Product[] {
-  const sorted = [...products];
-  switch (sort) {
-    case 'price-low':
-      return sorted.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
-    case 'price-high':
-      return sorted.sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
-    case 'name-asc':
-      return sorted.sort((a, b) => a.name.localeCompare(b.name));
-    case 'name-desc':
-      return sorted.sort((a, b) => b.name.localeCompare(a.name));
-    default:
-      return sorted;
-  }
-}
-
 interface CollectionsPageProps {
   collection: Collection;
-  allProducts: Product[];
+  initialProducts: Product[];
+  initialFilterGroups: FilterGroup[];
+  totalProducts: number;
+  initialHasNextPage: boolean;
+  initialTotalPages: number;
+  collectionSlug: string;
   relatedPosts: BlogPostCard[];
 }
 
 export default function CollectionsPage({
   collection,
-  allProducts,
+  initialProducts,
+  initialFilterGroups,
+  totalProducts,
+  initialHasNextPage,
+  initialTotalPages,
+  collectionSlug,
   relatedPosts,
 }: CollectionsPageProps) {
+  const router = useRouter();
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [filterGroups, setFilterGroups] = useState<FilterGroup[]>(initialFilterGroups);
+  const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
+  const [currentTotalPages, setCurrentTotalPages] = useState(initialTotalPages);
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
   const descRef = useRef<HTMLDivElement>(null);
+
+  const usingInitialData = useRef(true);
 
   useEffect(() => {
     if (!descRef.current) return;
     setDescTruncatable(descRef.current.scrollHeight > descRef.current.clientHeight + 1);
   }, [collection?.description]);
 
-  const filteredProducts = useMemo(() => {
-    let result = allProducts;
-    if (Object.keys(activeFilters).length > 0) {
-      result = result.filter((p) => productMatchesFilters(p, activeFilters));
-    }
-    return sortProducts(result, selectedSort);
-  }, [allProducts, activeFilters, selectedSort]);
+  const fetchPage = useCallback(
+    async (filters: ActiveFilters, sort: string, targetPage: number) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set('first', String(PAGE_SIZE));
+        params.set('collection', collectionSlug);
+        params.set('page', String(targetPage));
+        if (sort !== 'default') params.set('sort', sort);
 
-  const filterGroups = useMemo(() => deriveFilterGroups(filteredProducts as any[]), [filteredProducts]);
+        for (const [key, slugs] of Object.entries(filters)) {
+          if (slugs.length > 0) params.set(key, slugs.join(','));
+        }
 
-  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
-  const startIdx = (page - 1) * PAGE_SIZE;
-  const pageProducts = filteredProducts.slice(startIdx, startIdx + PAGE_SIZE);
-  const hasMore = page < totalPages;
-  const hasPrev = page > 1;
-  const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
+        const res = await fetch(`/api/shop/products?${params.toString()}`);
+        const data = await res.json();
 
-  const goToPage = (p: number) => {
-    setPage(p);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleFilterChange = (key: string, slugs: string[]) => {
-    setActiveFilters((prev) => {
-      const next = { ...prev, [key]: slugs };
-      for (const k of Object.keys(next)) {
-        if (next[k].length === 0) delete next[k];
+        if (data.success) {
+          setProducts(data.products || []);
+          setHasNextPage(data.hasNextPage || false);
+          setCurrentTotalPages(data.totalPages || 1);
+          usingInitialData.current = false;
+        }
+      } catch {
+        // keep current products on network error
+      } finally {
+        setLoading(false);
       }
-      return next;
-    });
-    setPage(1);
-  };
+    },
+    [collectionSlug]
+  );
 
-  const handleSortChange = (option: SelectOption | null) => {
-    if (option) {
-      setSelectedSort(option.value);
-      setPage(1);
+  // Reset state when navigating between collections (React reuses the component)
+  // and apply any URL filter/sort params
+  useEffect(() => {
+    setProducts(initialProducts);
+    setFilterGroups(initialFilterGroups);
+    setActiveFilters({});
+    setSelectedSort('default');
+    setPage(1);
+    setHasNextPage(initialHasNextPage);
+    setCurrentTotalPages(initialTotalPages);
+    setLoading(false);
+    usingInitialData.current = true;
+
+    if (!router.isReady) return;
+    const urlFilters = parseFilterParams(router.query as Record<string, string | string[] | undefined>);
+    const urlSort = typeof router.query.sort === 'string' ? router.query.sort : 'default';
+    if (Object.keys(urlFilters).length > 0 || urlSort !== 'default') {
+      setActiveFilters(urlFilters);
+      setSelectedSort(urlSort);
+      fetchPage(urlFilters, urlSort, 1);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionSlug]);
+
+  const handleFilterChange = useCallback(
+    (key: string, slugs: string[]) => {
+      setActiveFilters((prev) => {
+        const next = { ...prev, [key]: slugs };
+        for (const k of Object.keys(next)) {
+          if (next[k].length === 0) delete next[k];
+        }
+
+        const noFilters = Object.keys(next).length === 0 && selectedSort === 'default';
+        if (noFilters && usingInitialData.current === false) {
+          setProducts(initialProducts);
+          setFilterGroups(initialFilterGroups);
+          setHasNextPage(initialHasNextPage);
+          setCurrentTotalPages(initialTotalPages);
+          usingInitialData.current = true;
+        } else if (!noFilters) {
+          fetchPage(next, selectedSort, 1);
+        }
+
+        setPage(1);
+
+        const queryParams = filtersToQueryParams(next, selectedSort);
+        router.push(
+          { pathname: router.pathname, query: { slug: router.query.slug, ...queryParams } },
+          undefined,
+          { shallow: true }
+        );
+
+        return next;
+      });
+    },
+    [selectedSort, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
+  );
+
+  const handleSortChange = useCallback(
+    (option: SelectOption | null) => {
+      if (!option) return;
+      const newSort = option.value;
+      setSelectedSort(newSort);
+      setPage(1);
+
+      const noFilters = Object.keys(activeFilters).length === 0 && newSort === 'default';
+      if (noFilters) {
+        setProducts(initialProducts);
+        setFilterGroups(initialFilterGroups);
+        setHasNextPage(initialHasNextPage);
+        setCurrentTotalPages(initialTotalPages);
+        usingInitialData.current = true;
+      } else {
+        fetchPage(activeFilters, newSort, 1);
+      }
+
+      const queryParams = filtersToQueryParams(activeFilters, newSort);
+      router.push(
+        { pathname: router.pathname, query: { slug: router.query.slug, ...queryParams } },
+        undefined,
+        { shallow: true }
+      );
+    },
+    [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
+  );
+
+  const goToNextPage = useCallback(() => {
+    if (!hasNextPage || loading) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchPage(activeFilters, selectedSort, nextPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page, hasNextPage, loading, activeFilters, selectedSort, fetchPage]);
+
+  const goToPrevPage = useCallback(() => {
+    if (page <= 1 || loading) return;
+    const prevPage = page - 1;
+
+    if (prevPage === 1 && Object.keys(activeFilters).length === 0 && selectedSort === 'default') {
+      setPage(1);
+      setProducts(initialProducts);
+      setHasNextPage(initialHasNextPage);
+      setCurrentTotalPages(initialTotalPages);
+      usingInitialData.current = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    setPage(prevPage);
+    fetchPage(activeFilters, selectedSort, prevPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, initialHasNextPage, initialTotalPages]);
+
+  const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
+  const displayCount = isFiltered ? products.length : totalProducts;
+  const totalPages = currentTotalPages;
+  const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
   if (!collection) {
     return (
@@ -299,7 +338,9 @@ export default function CollectionsPage({
           <main className={styles.main}>
             <div className={styles.controls}>
               <span className={styles.productCount}>
-                {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
+                {isFiltered
+                  ? `${displayCount}${hasNextPage ? '+' : ''} ${displayCount === 1 ? 'product' : 'products'}`
+                  : `${totalProducts} ${totalProducts === 1 ? 'product' : 'products'}`}
               </span>
               <div className={styles.sortWrapper}>
                 <span className={styles.sortLabel}>Sort by</span>
@@ -318,12 +359,12 @@ export default function CollectionsPage({
               filterGroups={filterGroups}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
-              productCount={filteredProducts.length}
+              productCount={displayCount}
             />
 
-            <div className='products-grid'>
-              {pageProducts.length > 0 ? (
-                pageProducts.map((product, index) => (
+            <div className={`products-grid ${loading ? styles.gridLoading : ''}`}>
+              {products.length > 0 ? (
+                products.map((product, index) => (
                   <ProductCard key={product.id} product={product} priority={index < 12} />
                 ))
               ) : (
@@ -331,23 +372,25 @@ export default function CollectionsPage({
               )}
             </div>
 
-            {totalPages > 1 && (
+            {(page > 1 || hasNextPage) && (
               <div className={styles.pagination}>
-                {hasPrev ? (
-                  <button onClick={() => goToPage(page - 1)} className={styles.pageBtn}>
+                {page > 1 ? (
+                  <button onClick={goToPrevPage} className={styles.pageBtn} disabled={loading}>
                     &larr; Previous
                   </button>
                 ) : <span />}
-                <span className={styles.pageNum}>Page {page} of {totalPages}</span>
-                {hasMore ? (
-                  <button onClick={() => goToPage(page + 1)} className={styles.pageBtn}>
+                <span className={styles.pageNum}>
+                  Page {page}{totalPages > 1 ? ` of ${totalPages}` : ''}
+                </span>
+                {hasNextPage ? (
+                  <button onClick={goToNextPage} className={styles.pageBtn} disabled={loading}>
                     Next &rarr;
                   </button>
                 ) : <span />}
               </div>
             )}
 
-            {allProducts.length === 0 && (
+            {totalProducts === 0 && (
               <div className={styles.empty}>
                 <p>No products in this collection yet.</p>
                 <Link href="/shop" className="btn-secondary">Browse All Products</Link>
@@ -393,7 +436,24 @@ export default function CollectionsPage({
           <BlogPostsCarousel title="Learn About Our Products" posts={relatedPosts} />
         </div>
 
-        <RecentlyViewed currentSlug="" />
+        {(() => {
+          const faqs = collection.collectionFields?.faqs?.nodes || [];
+          if (faqs.length === 0) return null;
+          const faqTitle = collection.collectionFields?.faqSectionTitle || 'Frequently Asked Questions';
+          return (
+            <section className={styles.faqSection}>
+              <h2 className={styles.faqTitle}>{faqTitle}</h2>
+              {faqs.map((faq) => (
+                <details key={faq.id} className={styles.faqItem}>
+                  <summary>{faq.title}</summary>
+                  <RichText as="div" className={styles.faqAnswer} html={faq.content} />
+                </details>
+              ))}
+            </section>
+          );
+        })()}
+
+        <RecentlyViewed currentSlug="" titleClassName={styles.recentlyViewedTitle} />
       </div>
     </Layout>
   );
@@ -407,7 +467,8 @@ export const getStaticPaths: GetStaticPaths = async () => {
       params: { slug: c.slug },
     })) || [];
     return { paths, fallback: 'blocking' };
-  } catch {
+  } catch (err) {
+    console.error('Failed to fetch collection slugs:', err);
     return { paths: [], fallback: 'blocking' };
   }
 };
@@ -416,75 +477,64 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   const slug = typeof params?.slug === 'string' ? params.slug : '';
 
   try {
-    const client = getClient();
-    const [menuClient, metaRes, productsRes, tagsRes, latestPostsRes] = await Promise.all([
+    const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+
+    const [menuClient, metaRes, facetsRes, productsRes] = await Promise.all([
       prefetchMenus(),
-      client.query({
-        query: GET_COLLECTION_META,
-        variables: { slug },
-      }),
-      client.query({
-        query: GET_COLLECTION_PRODUCTS,
-        variables: { first: 500, collectionFilterIn: [slug] },
-      }),
-      client.query({ query: GET_ALL_TAGS }).catch(() => null),
-      client.query({ query: GET_LATEST_POSTS_LITE, variables: { first: 20 } }).catch(() => null),
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-meta?slug=${encodeURIComponent(slug)}`)
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-facets?slug=${encodeURIComponent(slug)}`)
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?slug=${encodeURIComponent(slug)}&per_page=${PAGE_SIZE}`)
+        .then((r) => r.json())
+        .catch(() => null),
     ]);
 
-    if (!metaRes.data?.collection) {
+    if (!metaRes?.success || !metaRes?.collection) {
       return { notFound: true };
     }
 
-    const collection = metaRes.data.collection;
-    const tags: BlogTag[] = tagsRes?.data?.tags?.nodes || [];
-    const latestPosts: BlogPostCard[] = latestPostsRes?.data?.posts?.nodes || [];
+    const collection = metaRes.collection;
 
-    // Prefer a matching blog tag (precise); fall back to title word-overlap
-    // against the broader recent-posts pool. Either way, if that doesn't add
-    // up to 12, top up the remainder with the latest posts (deduplicated)
-    // rather than leaving the carousel short.
-    const RELATED_POSTS_TARGET = 12;
-    let relatedPosts: BlogPostCard[] = [];
-    const matchingTag = tags.length ? findMatchingTag(collection.name, tags) : null;
-    if (matchingTag) {
-      const tagPostsRes = await client
-        .query({
-          query: GET_LATEST_POSTS_LITE,
-          variables: { first: RELATED_POSTS_TARGET, tagSlugIn: [matchingTag.slug] },
-        })
-        .catch(() => null);
-      relatedPosts = tagPostsRes?.data?.posts?.nodes || [];
-    }
-    if (relatedPosts.length < RELATED_POSTS_TARGET) {
-      const usedIds = new Set(relatedPosts.map((p) => p.id));
-      const byTitle = rankPostsByTitle(collection.name, latestPosts).filter((p) => !usedIds.has(p.id));
-      for (const post of byTitle) {
-        if (relatedPosts.length >= RELATED_POSTS_TARGET) break;
-        relatedPosts.push(post);
-        usedIds.add(post.id);
-      }
-    }
-    if (relatedPosts.length < RELATED_POSTS_TARGET) {
-      const usedIds = new Set(relatedPosts.map((p) => p.id));
-      for (const post of latestPosts) {
-        if (relatedPosts.length >= RELATED_POSTS_TARGET) break;
-        if (usedIds.has(post.id)) continue;
-        relatedPosts.push(post);
-        usedIds.add(post.id);
-      }
-    }
+    // Facets from REST endpoint (single SQL query, ~10ms)
+    const facetTerms = facetsRes?.success ? facetsRes.terms : {};
+    const totalProducts = facetsRes?.success ? facetsRes.totalProducts : 0;
+    const filterGroupsData: FilterGroup[] = FILTER_GROUPS.map((fg) => {
+      const terms = facetTerms[fg.key] || [];
+      return {
+        key: fg.key,
+        label: fg.label,
+        terms: terms.filter((t: { name: string; slug: string }) => !isHiddenTerm(fg.key, t)),
+      };
+    });
+
+    const initialProducts = productsRes?.products || [];
+    const initialHasNextPage = productsRes?.hasNextPage || false;
+    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / PAGE_SIZE) : 0);
+
+    // Related posts are matched server-side via the mu-plugin (mellow-fellow-related-posts.php)
+    // and exposed on the Collection type as `relatedPosts`.
+    const relatedPosts: BlogPostCard[] = collection.relatedPosts || [];
 
     const result = {
       props: {
         collection,
-        allProducts: productsRes.data?.products?.nodes || [],
+        initialProducts,
+        initialFilterGroups: filterGroupsData,
+        totalProducts,
+        initialHasNextPage,
+        initialTotalPages,
+        collectionSlug: slug,
         relatedPosts,
       } as Record<string, any>,
       revalidate: 600,
     };
     mergeMenuState(result.props, menuClient);
     return result;
-  } catch {
+  } catch (err) {
+    console.error('Failed to fetch collection:', err);
     return { notFound: true };
   }
 };

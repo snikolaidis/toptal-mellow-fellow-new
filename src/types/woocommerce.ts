@@ -29,6 +29,8 @@ export interface CollectionFields {
   collectionHeroMobile?: { node?: { sourceUrl: string; altText?: string } };
   thumbnailImage?: { node?: { sourceUrl: string; altText?: string } };
   warningMessage?: string | null;
+  faqSectionTitle?: string | null;
+  faqs?: { nodes: Array<{ id: string; title: string; content: string }> };
   relatedCollectionTitle?: string | null;
   relatedCollections?: { nodes: RelatedCollection[] };
 }
@@ -100,6 +102,7 @@ export interface Product {
   name: string;
   slug: string;
   type?: 'SIMPLE' | 'VARIABLE' | 'GROUPED' | 'EXTERNAL';
+  date?: string | null;
   description?: string;
   shortDescription?: string;
   sku?: string;
