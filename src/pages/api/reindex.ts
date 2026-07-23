@@ -119,11 +119,17 @@ const DISPLAYED_ATTRIBUTES = [
   ...DISPLAY_TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
 ];
 
-const SYNONYM_PAIRS: Array<[string, string]> = [['butter', 'budder']];
+const SYNONYM_GROUPS: string[][] = [
+  ['butter', 'budder', 'badder', 'dab', 'dabs'],
+  ['ingestable', 'edible', 'edibles'],
+  ['510', 'eliquid', 'cartridge', 'cartridges'],
+  ['baterry', 'battery'],
+];
 
-const SYNONYMS = SYNONYM_PAIRS.reduce<Record<string, string[]>>((acc, [left, right]) => {
-  acc[left] = [...(acc[left] || []), right];
-  acc[right] = [...(acc[right] || []), left];
+const SYNONYMS = SYNONYM_GROUPS.reduce<Record<string, string[]>>((acc, group) => {
+  for (const term of group) {
+    acc[term] = [...(acc[term] || []), ...group.filter((other) => other !== term)];
+  }
   return acc;
 }, {});
 
