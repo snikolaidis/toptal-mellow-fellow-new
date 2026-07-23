@@ -238,13 +238,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     await fetchCart();
   }, [fetchCart]);
 
-  // Lazy cart fetch — load cart only when the drawer opens for the first time
+  // Fetch cart on page load so the counter and cart page are accurate on reload.
+  // Safe now that all cart ops use the Store API (database sessions, no PHP file-lock contention).
   useEffect(() => {
-    if (isDrawerOpen && !hasFetchedRef.current) {
-      hasFetchedRef.current = true;
+    if (isReady && !hasFetchedRef.current) {
       fetchCart();
     }
-  }, [isDrawerOpen, fetchCart]);
+  }, [isReady, fetchCart]);
 
   // Handle auth state changes
   useEffect(() => {
