@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Layout from '@/components/Layout';
@@ -6,7 +6,9 @@ import { useCart, groupCartItems } from '@/context/CartContext';
 import styles from '@/styles/pages/cart.module.css';
 
 export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, bundleNames, bundleDiscounts, refreshCart } = useCart();
+  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, bundleNames, bundleDiscounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
+  const [couponCode, setCouponCode] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     if (!cart && !isLoading) {
@@ -218,11 +220,59 @@ export default function CartPage() {
 
           <div className={styles.summary}>
             <h2 className={styles.summaryTitle}>Order Summary</h2>
+
+            <form
+              className={styles.couponForm}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!couponCode.trim()) return;
+                setIsApplying(true);
+                const ok = await applyCoupon(couponCode.trim());
+                if (ok) setCouponCode('');
+                setIsApplying(false);
+              }}
+            >
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value)}
+                placeholder="Discount code"
+                disabled={isApplying}
+                className={styles.couponInput}
+              />
+              <button
+                type="submit"
+                disabled={isApplying || !couponCode.trim()}
+                className={styles.couponBtn}
+              >
+                {isApplying ? 'Applying...' : 'Apply'}
+              </button>
+            </form>
+            {cartError && <p className={styles.couponError}>{cartError}</p>}
+
+            {cart.appliedCoupons && cart.appliedCoupons.length > 0 && (
+              <div className={styles.appliedCoupons}>
+                {cart.appliedCoupons.map((coupon) => (
+                  <span key={coupon.code} className={styles.appliedCoupon}>
+                    {coupon.code}
+                    <button
+                      type="button"
+                      onClick={() => removeCoupon(coupon.code)}
+                      className={styles.couponRemoveBtn}
+                      aria-label={`Remove coupon ${coupon.code}`}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
             <div className={styles.summaryRow}>
               <span>Subtotal</span>
               <span>{cart.subtotal}</span>
             </div>
-            {cart.discountTotal && parseFloat(cart.discountTotal) > 0 && (
+            {cart.discountTotal && parseFloat(cart.discountTotal.replace(/[^0-9.-]/g, '')) > 0 && (
               <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
                 <span>Discount</span>
                 <span>-{cart.discountTotal}</span>

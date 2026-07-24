@@ -51,7 +51,6 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
   const { bundles, standalone } = groupCartItems(cart.items as any[], bundleNames);
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
-  const [couponError, setCouponError] = useState<string | null>(null);
   const [mutatingKey, setMutatingKey] = useState<string | null>(null);
 
   const handleUpdateQuantity = useCallback(async (key: string, quantity: number) => {
@@ -80,13 +79,10 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
     if (!couponCode.trim()) return;
 
     setIsApplying(true);
-    setCouponError(null);
 
     const success = await applyCoupon(couponCode.trim());
     if (success) {
       setCouponCode('');
-    } else {
-      setCouponError('Invalid coupon code');
     }
 
     setIsApplying(false);
@@ -262,7 +258,7 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             onChange={(e) => setCouponCode(e.target.value)}
             placeholder="Discount code"
             disabled={isApplying}
-            className={couponError ? 'error' : ''}
+            className={cartError ? 'error' : ''}
           />
           <button
             type="submit"
@@ -272,9 +268,6 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             {isApplying ? 'Applying...' : 'Apply'}
           </button>
         </form>
-        {couponError && (
-          <p className={styles.couponError}>{couponError}</p>
-        )}
         {cartError && (
           <p className={styles.couponError}>{cartError}</p>
         )}
