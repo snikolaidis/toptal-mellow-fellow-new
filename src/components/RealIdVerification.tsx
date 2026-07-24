@@ -204,11 +204,11 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     const onPassed = () => {
       console.log('real-id-check-passed', {active});
       if (!active) return;
-      fetchCheck().then((result) => markVerifiedIfOwned(true, result));
+      fetchCheck().then((result) => markVerifiedIfOwned(!!result?.verified, result));
     };
     const onLoaded = () => {
       console.log('real-id-check-loaded');
-      fetchCheck().then((result) => markVerifiedIfOwned(true, result));
+      fetchCheck().then((result) => markVerifiedIfOwned(!!result?.verified, result));
     };
     // const onLoaded = () => {};
     window.addEventListener('real-id-check-passed', onPassed);
