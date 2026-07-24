@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
+import { fetchCartFromStore } from '@/lib/store-api';
 import { recordWidgetSource } from '@/lib/widgetAttribution';
 import { getBrowserClient } from '@/lib/apollo-client';
 import { GET_GIFT_PRODUCTS } from '@/graphql/queries/products';
@@ -105,12 +106,21 @@ export default function FreeGiftWidget({ subtotal }: Props) {
         giftIdRef.current = gift.databaseId;
         writeStoredGiftId(gift.databaseId);
         await addToCart({ productId: gift.databaseId, quantity: 1 });
-        if (data?.code) await applyCoupon(data.code);
+        if (data?.code) {
+          const couponOk = await applyCoupon(data.code);
+          if (!couponOk) {
+            const freshCart = await fetchCartFromStore();
+            const addedItem = freshCart?.items.find((i) => i.product.databaseId === gift.databaseId);
+            if (addedItem) await removeFromCart(addedItem.key);
+            giftIdRef.current = null;
+            writeStoredGiftId(null);
+          }
+        }
       } finally {
         setAddingId(null);
       }
     },
-    [addToCart, applyCoupon]
+    [addToCart, applyCoupon, removeFromCart]
   );
 
   // Re-apply the coupon when the cart crosses back above the threshold

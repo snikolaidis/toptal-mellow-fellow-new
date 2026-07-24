@@ -8,6 +8,7 @@ export interface CartItem {
   key: string;
   quantity: number;
   total: string;
+  subtotal?: string;
   bbBundleId?: number;
   bbGroupKey?: string;
   bbLocked?: boolean;
@@ -81,7 +82,9 @@ export function transformStoreApiCart(data: any): Cart | null {
   const items: CartItem[] = (data.items || []).map((item: any) => {
     const decimals = item.prices?.currency_minor_unit ?? 2;
     const price = minorToFormatted(item.prices?.price, decimals);
-    const lineTotal = minorToFormatted(item.totals?.line_total, item.totals?.currency_minor_unit ?? decimals);
+    const totalsDecimals = item.totals?.currency_minor_unit ?? decimals;
+    const lineTotal = minorToFormatted(item.totals?.line_total, totalsDecimals);
+    const lineSubtotal = minorToFormatted(item.totals?.line_subtotal, totalsDecimals);
 
     const image = item.images?.[0];
 
@@ -92,6 +95,7 @@ export function transformStoreApiCart(data: any): Cart | null {
       key: item.key,
       quantity: item.quantity,
       total: lineTotal,
+      subtotal: lineSubtotal,
       product: {
         databaseId: item.id,
         name: decodeHtmlEntities(item.name || ''),

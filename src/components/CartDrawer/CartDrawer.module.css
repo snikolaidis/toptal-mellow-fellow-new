@@ -651,3 +651,94 @@
 .continueBtn:hover {
   opacity: 0.6;
 }
+
+/* Coupon form */
+.couponForm {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.couponInput {
+  flex: 1;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #e0e0e0;
+  font-size: 0.8125rem;
+  font-family: var(--font-family-body, inherit);
+  background: #fff;
+  min-width: 0;
+}
+
+.couponInput:focus {
+  outline: none;
+  border-color: #354654;
+}
+
+.couponApplyBtn {
+  padding: 0.5rem 0.75rem;
+  background: #354654;
+  color: #fff;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.couponApplyBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.couponError {
+  color: #b91c1c;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.appliedCoupons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.appliedCoupon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  background: #f5f5f0;
+  border: 1px solid #e0e0e0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.couponRemoveBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  line-height: 1;
+  color: #8A8683;
+  padding: 0;
+}
+
+.couponRemoveBtn:hover {
+  color: #b91c1c;
+}
+
+/* Per-item strikethrough pricing */
+.itemPrices {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.itemOriginalPrice {
+  font-size: 0.75rem;
+  color: #8A8683;
+  text-decoration: line-through;
+}

@@ -202,7 +202,14 @@ export default function CartPage() {
                         </button>
                       </div>
                     </td>
-                    <td>{item.total}</td>
+                    <td>
+                      {item.subtotal && parseFloat(item.subtotal.replace(/[^0-9.]/g, '')) > parseFloat(item.total.replace(/[^0-9.]/g, '')) + 0.005 && (
+                        <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
+                          {item.subtotal}
+                        </span>
+                      )}
+                      {item.total}
+                    </td>
                     <td>
                       <button
                         className={styles.removeBtn}

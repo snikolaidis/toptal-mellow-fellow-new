@@ -26,6 +26,8 @@ export default function CartDrawer() {
     removeBundleGroup,
     addBundleToCart,
     addToCart,
+    applyCoupon,
+    removeCoupon,
     bundleNames,
     bundleDiscounts,
   } = useCart();
@@ -33,6 +35,8 @@ export default function CartDrawer() {
   const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
+  const [couponCode, setCouponCode] = useState('');
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [recsLoading, setRecsLoading] = useState(false);
   const [addingProductId, setAddingProductId] = useState<number | null>(null);
   // removingKey  → the cart item key being deleted (triggers fade + spinner)
@@ -420,7 +424,12 @@ export default function CartDrawer() {
                               +
                             </button>
                           </div>
-                          <span className={styles.itemPrice}>{item.total}</span>
+                          <div className={styles.itemPrices}>
+                            {item.subtotal && parsePrice(item.subtotal) > parsePrice(item.total) + 0.005 && (
+                              <span className={styles.itemOriginalPrice}>{item.subtotal}</span>
+                            )}
+                            <span className={styles.itemPrice}>{item.total}</span>
+                          </div>
                         </div>
                       </div>
                     </li>
@@ -491,6 +500,52 @@ export default function CartDrawer() {
         {/* Footer */}
         {cart && cart.items.length > 0 && (
           <div className={styles.footer}>
+            <form
+              className={styles.couponForm}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!couponCode.trim()) return;
+                setIsApplyingCoupon(true);
+                const ok = await applyCoupon(couponCode.trim());
+                if (ok) setCouponCode('');
+                setIsApplyingCoupon(false);
+              }}
+            >
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value)}
+                placeholder="Discount code"
+                disabled={isApplyingCoupon}
+                className={styles.couponInput}
+              />
+              <button
+                type="submit"
+                disabled={isApplyingCoupon || !couponCode.trim()}
+                className={styles.couponApplyBtn}
+              >
+                {isApplyingCoupon ? '...' : 'Apply'}
+              </button>
+            </form>
+
+            {cart.appliedCoupons && cart.appliedCoupons.length > 0 && (
+              <div className={styles.appliedCoupons}>
+                {cart.appliedCoupons.map((coupon) => (
+                  <span key={coupon.code} className={styles.appliedCoupon}>
+                    {coupon.code}
+                    <button
+                      type="button"
+                      onClick={() => removeCoupon(coupon.code)}
+                      className={styles.couponRemoveBtn}
+                      aria-label={`Remove coupon ${coupon.code}`}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
             {(() => {
               const totalBundleDiscount = bundles.reduce((sum, group) => {
                 const allItems = group.instances.flatMap((inst) => inst.items);
