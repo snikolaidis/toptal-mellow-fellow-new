@@ -1,8 +1,10 @@
 import { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/router';
 import { useMemo, useState } from 'react';
 import DOMPurify from 'isomorphic-dompurify';
+import { SearchIcon } from '@/components/icons';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import ShopSidebar from '@/components/shop/ShopSidebar';
@@ -94,9 +96,19 @@ export default function SearchPage({
   allProducts,
   blogPosts,
 }: SearchPageProps) {
+  const router = useRouter();
+  const [searchInput, setSearchInput] = useState(query);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = searchInput.trim();
+    if (trimmed.length >= 2) {
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    }
+  };
 
   // Filter → sort → paginate — all client-side, instant
   const filteredProducts = useMemo(() => {
@@ -162,9 +174,26 @@ export default function SearchPage({
           <h1 className={styles.title}>
             {query ? <>Search results for &ldquo;{query}&rdquo;</> : 'Search'}
           </h1>
+          <form className={styles.searchBar} onSubmit={handleSearch}>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search products, collections, articles..."
+              className={styles.searchInput}
+              autoComplete="off"
+            />
+            <button type="submit" className={styles.searchButton} aria-label="Search">
+              <SearchIcon />
+            </button>
+          </form>
         </header>
 
-        {articlesOnly ? (
+        {!query ? (
+          <div className={styles.emptySearch}>
+            <p>Search for products, collections, and articles across the store.</p>
+          </div>
+        ) : articlesOnly ? (
           <p className={styles.articlesLead}>
             No products match &ldquo;{query}&rdquo;, but {blogPosts.length}{' '}
             {blogPosts.length === 1 ? 'article' : 'articles'} did.
