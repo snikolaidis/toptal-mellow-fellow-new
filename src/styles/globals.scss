@@ -24,6 +24,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap');
 @import url('https://cdn-widgetsrepository.yotpo.com/brandkit/custom-fonts/NECygl2mcY0cFEQNcmZCyjQNcNTUSfynQ2wTTcdM/georgiapro/georgiapro_n4.8627e4332da2bd0ce4ceb6f91d3dd90e0888cdbb-400.css');
 
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 :root {
   /* ===================
       BRAND COLORS - Mellow Fellow Identity

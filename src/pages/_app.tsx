@@ -39,6 +39,14 @@ export default function App({ Component, pageProps }: AppProps) {
     prevBodyClass.current = next;
   }, [router.asPath]);
 
+  useEffect(() => {
+    const block = (e: MouseEvent) => {
+      if (e.target instanceof HTMLImageElement) e.preventDefault();
+    };
+    document.addEventListener('contextmenu', block);
+    return () => document.removeEventListener('contextmenu', block);
+  }, []);
+
   return (
     <FaustProvider pageProps={pageProps}>
       <WordPressBlocksProvider
