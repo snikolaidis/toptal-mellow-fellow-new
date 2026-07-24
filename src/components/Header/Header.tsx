@@ -69,15 +69,13 @@ export default function Header() {
             </button>
 
             {/* Account */}
-            {isReady && (
-              <Link
-                href={isAuthenticated ? '/account' : '/login'}
-                className={styles.iconBtn}
-                aria-label="Account"
-              >
-                <UserIcon />
-              </Link>
-            )}
+            <Link
+              href={isReady && isAuthenticated ? '/account' : '/login'}
+              className={styles.iconBtn}
+              aria-label="Account"
+            >
+              <UserIcon />
+            </Link>
 
             {/* Cart */}
             <Link
