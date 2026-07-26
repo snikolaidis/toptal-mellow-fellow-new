@@ -111,23 +111,34 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
     if (isTransitioning.current) return;
     isTransitioning.current = true;
 
-    // Clear any pending wrap polls
     if (wrapPollRef.current) { clearInterval(wrapPollRef.current); wrapPollRef.current = null; }
     if (wrapGuard.current) { clearTimeout(wrapGuard.current); wrapGuard.current = null; }
 
     setDisplayIndex((prev) => {
       const next = prev + delta;
-      // Clamp to cloned array bounds
       const clamped = Math.max(0, Math.min(cloned.length - 1, next));
-      const corrected = (clamped % N) + N; // equivalent middle-zone position
+      const corrected = (clamped % N) + N;
 
       smoothScrollTo(clamped, () => {
-        // Animation done — silently snap to middle zone if we stepped into a clone
         if (clamped !== corrected) {
-          setScrollCenter(corrected);
-          setDisplayIndex(corrected);
+          const track = trackRef.current;
+          if (track) {
+            const cards = Array.from(track.children) as HTMLElement[];
+            cards.forEach(c => { c.style.transition = 'none'; });
+            setScrollCenter(corrected);
+            setDisplayIndex(corrected);
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                cards.forEach(c => { c.style.transition = ''; });
+                isTransitioning.current = false;
+              });
+            });
+          } else {
+            isTransitioning.current = false;
+          }
+        } else {
+          isTransitioning.current = false;
         }
-        isTransitioning.current = false;
       });
 
       return clamped;

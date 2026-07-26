@@ -51,7 +51,6 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
   const [mounted, setMounted] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
-  const [couponError, setCouponError] = useState<string | null>(null);
   const [mutatingKey, setMutatingKey] = useState<string | null>(null);
 
   const handleUpdateQuantity = useCallback(async (key: string, quantity: number) => {
@@ -80,12 +79,9 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
     e.preventDefault();
     if (!couponCode.trim()) return;
     setIsApplying(true);
-    setCouponError(null);
     const success = await applyCoupon(couponCode.trim());
     if (success) {
       setCouponCode('');
-    } else {
-      setCouponError('Invalid coupon code');
     }
     setIsApplying(false);
   };
@@ -205,7 +201,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                 onChange={(e) => setCouponCode(e.target.value)}
                 placeholder="Discount code"
                 disabled={isApplying}
-                className={couponError ? 'error' : ''}
+                className={cartError ? 'error' : ''}
               />
               <button
                 type="submit"
@@ -215,7 +211,6 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                 {isApplying ? 'Applying...' : 'Apply'}
               </button>
             </form>
-            {couponError && <p className={styles.couponError}>{couponError}</p>}
             {cartError && <p className={styles.couponError}>{cartError}</p>}
             {cart.appliedCoupons && cart.appliedCoupons.length > 0 && (
               <div className={styles.appliedCoupons}>

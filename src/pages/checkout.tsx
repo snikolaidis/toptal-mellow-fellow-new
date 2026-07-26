@@ -695,11 +695,55 @@ export default function CheckoutPage() {
   if (cartLoading && (!cart || cart.items.length === 0)) {
     return (
       <Layout title="Checkout">
+        <div className={styles.splitBg} aria-hidden="true" />
         <div className={styles.page}>
-          <h1 className={styles.pageTitle}>Checkout</h1>
-          <div className={styles.emptyCart}>
-            <p>Loading your cart...</p>
+          <div className={styles.formSection}>
+            <h1 className={styles.pageTitle}>checkout</h1>
+            <div className={styles.steps}>
+              <div className={`${styles.step} ${styles.stepActive}`}>
+                <span className={`${styles.stepNumber} ${styles.stepNumberActive}`}>1</span>
+                <span>Billing</span>
+              </div>
+              <div className={styles.stepDivider} />
+              <div className={styles.step}>
+                <span className={styles.stepNumber}>2</span>
+                <span>Shipping</span>
+              </div>
+              <div className={styles.stepDivider} />
+              <div className={styles.step}>
+                <span className={styles.stepNumber}>3</span>
+                <span>Payment</span>
+              </div>
+            </div>
+            <div className={styles.skeletonForm}>
+              <div className={styles.skeletonLine} style={{ width: '40%', height: 14 }} />
+              <div className={styles.skeletonRow}>
+                <div className={styles.skeletonInput} />
+                <div className={styles.skeletonInput} />
+              </div>
+              <div className={styles.skeletonLine} style={{ width: '30%', height: 14 }} />
+              <div className={styles.skeletonRow}>
+                <div className={styles.skeletonInput} />
+                <div className={styles.skeletonInput} />
+              </div>
+              <div className={styles.skeletonLine} style={{ width: '25%', height: 14 }} />
+              <div className={styles.skeletonInput} />
+            </div>
           </div>
+          <aside className={styles.summarySection}>
+            <div className={styles.skeletonSummary}>
+              <div className={styles.skeletonLine} style={{ width: '50%', height: 18 }} />
+              {[1, 2, 3].map((i) => (
+                <div key={i} className={styles.skeletonItemRow}>
+                  <div className={styles.skeletonThumb} />
+                  <div className={styles.skeletonItemInfo}>
+                    <div className={styles.skeletonLine} style={{ width: '80%', height: 12 }} />
+                    <div className={styles.skeletonLine} style={{ width: '30%', height: 12 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </aside>
         </div>
       </Layout>
     );

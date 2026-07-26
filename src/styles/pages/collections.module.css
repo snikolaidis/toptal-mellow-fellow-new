@@ -5,12 +5,6 @@
   padding: 2rem 1rem 4rem;
 }
 
-@media (min-width: 768px) {
-  .page {
-    padding: 3rem 2rem 6rem;
-  }
-}
-
 /* Catalog header (WP-managed blocks path) */
 .catalogHeader {
   text-align: center;

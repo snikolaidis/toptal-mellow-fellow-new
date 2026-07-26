@@ -36,8 +36,9 @@ import type { Cart as StoreCart, CartItem as StoreCartItem } from '@/lib/store-a
 
 function decodeHtmlEntities(text: string): string {
   return text
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
     .replace(/&apos;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -165,8 +166,28 @@ function enrichCartItems(
   return { ...cart, items };
 }
 
+const CART_CACHE_KEY = 'mf_cart_cache';
+
+function readCachedCart(): Cart | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(CART_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.items)) return parsed as Cart;
+  } catch {}
+  return null;
+}
+
+function writeCachedCart(cart: Cart | null) {
+  try {
+    if (cart && cart.items.length > 0) sessionStorage.setItem(CART_CACHE_KEY, JSON.stringify(cart));
+    else sessionStorage.removeItem(CART_CACHE_KEY);
+  } catch {}
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<Cart | null>(null);
+  const [cart, setCart] = useState<Cart | null>(readCachedCart);
   const [isLoading, setIsLoading] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,7 +246,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const storeCart = await fetchCartFromStore();
       if (isStaleSeq(seq)) return;
       hasFetchedRef.current = true;
-      if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
+      if (storeCart) {
+        const enriched = enrichCartItems(storeCart, bundleItemMapRef.current);
+        setCart(enriched);
+        writeCachedCart(enriched);
+      }
     } catch (err) {
       logError('CartContext.fetchCart', err);
       const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
@@ -239,13 +264,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     await fetchCart();
   }, [fetchCart]);
 
-  // Lazy cart fetch — load cart only when the drawer opens for the first time
+  // Fetch cart on page load so the counter and cart page are accurate on reload.
+  // Safe now that all cart ops use the Store API (database sessions, no PHP file-lock contention).
   useEffect(() => {
-    if (isDrawerOpen && !hasFetchedRef.current) {
-      hasFetchedRef.current = true;
+    if (isReady && !hasFetchedRef.current) {
       fetchCart();
     }
-  }, [isDrawerOpen, fetchCart]);
+  }, [isReady, fetchCart]);
 
   // Handle auth state changes
   useEffect(() => {
@@ -597,8 +622,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) {
         setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       }
+      writeCachedCart(null);
     } catch (err) {
       logError('CartContext.clearCart', err);
+      writeCachedCart(null);
       setCart({
         items: [],
         subtotal: '$0.00',

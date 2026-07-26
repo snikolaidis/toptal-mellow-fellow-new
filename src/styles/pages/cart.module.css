@@ -111,6 +111,84 @@
   color: #047857;
 }
 
+.couponForm {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.couponInput {
+  flex: 1;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #D5D0C9;
+  font-size: 0.875rem;
+  font-family: var(--font-family-body, inherit);
+  background: #fff;
+}
+
+.couponInput:focus {
+  outline: none;
+  border-color: #354654;
+}
+
+.couponBtn {
+  padding: 0.625rem 1rem;
+  background: #354654;
+  color: #fff;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.couponBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.couponError {
+  color: #b91c1c;
+  font-size: 0.8125rem;
+  margin: -0.5rem 0 0.75rem;
+}
+
+.appliedCoupons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.appliedCoupon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  background: #fff;
+  border: 1px solid #D5D0C9;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.couponRemoveBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  color: #8A8683;
+  padding: 0;
+}
+
+.couponRemoveBtn:hover {
+  color: #b91c1c;
+}
+
 .actions {
   display: flex;
   flex-direction: row;

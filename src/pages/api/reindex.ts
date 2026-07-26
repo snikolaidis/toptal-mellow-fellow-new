@@ -119,6 +119,14 @@ const DISPLAYED_ATTRIBUTES = [
   ...DISPLAY_TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
 ];
 
+const SYNONYM_PAIRS: Array<[string, string]> = [['butter', 'budder']];
+
+const SYNONYMS = SYNONYM_PAIRS.reduce<Record<string, string[]>>((acc, [left, right]) => {
+  acc[left] = [...(acc[left] || []), right];
+  acc[right] = [...(acc[right] || []), left];
+  return acc;
+}, {});
+
 interface TaxonomyNode {
   name?: string | null;
   slug?: string | null;
@@ -330,6 +338,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       filterableAttributes: FILTERABLE_ATTRIBUTES,
       sortableAttributes: SORTABLE_ATTRIBUTES,
       displayedAttributes: DISPLAYED_ATTRIBUTES,
+      synonyms: SYNONYMS,
     });
     await client.tasks.waitForTask(settingsTask.taskUid);
 

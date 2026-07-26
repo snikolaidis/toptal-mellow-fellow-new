@@ -143,16 +143,14 @@ export default function Navbar() {
               </button>
 
               {/* Account */}
-              {isReady && (
-                <Link
-                  href={isAuthenticated ? '/account' : '/login'}
-                  className={`is-flex ${styles.navIconLink}`}
-                  aria-label="Account"
-                >
-                  <UserIcon />
-                  <span className={styles.navIconLabel}>Account</span>
-                </Link>
-              )}
+              <Link
+                href={isReady && isAuthenticated ? '/account' : '/login'}
+                className={`is-flex ${styles.navIconLink}`}
+                aria-label="Account"
+              >
+                <UserIcon />
+                <span className={styles.navIconLabel}>Account</span>
+              </Link>
 
               {/* Cart */}
               <button

@@ -32,8 +32,13 @@ export default function ShippingForm({
   const [methodError, setMethodError] = useState<string | null>(null);
 
   // Get available shipping methods from cart
-  const shippingMethods = cart?.availableShippingMethods?.[0]?.rates || [];
+  const allShippingMethods = cart?.availableShippingMethods?.[0]?.rates || [];
   const chosenMethod = cart?.chosenShippingMethods?.[0] || null;
+
+  const freeMethod = allShippingMethods.find(
+    (m) => parseFloat((m.cost || '').replace(/[^0-9.]/g, '')) === 0
+  );
+  const shippingMethods = freeMethod ? [freeMethod] : allShippingMethods;
 
   // Determine the actual shipping address to use
   const shippingAddress = sameAsBilling ? billing : shipping;
@@ -45,19 +50,18 @@ export default function ShippingForm({
     shippingAddress.postcode &&
     shippingAddress.postcode.length >= 5;
 
-  // Sync local state with chosen method from cart
+  // Auto-select: always pick free shipping when available, otherwise sync with cart
   useEffect(() => {
-    if (chosenMethod && !selectedShippingMethod) {
+    if (freeMethod) {
+      if (selectedShippingMethod !== freeMethod.id) {
+        handleSelectShippingMethod(freeMethod.id);
+      }
+    } else if (chosenMethod && !selectedShippingMethod) {
       setSelectedShippingMethod(chosenMethod);
-    }
-  }, [chosenMethod, selectedShippingMethod]);
-
-  // Auto-select first shipping method if available and none selected
-  useEffect(() => {
-    if (shippingMethods.length > 0 && !selectedShippingMethod && !chosenMethod) {
+    } else if (shippingMethods.length > 0 && !selectedShippingMethod && !chosenMethod) {
       handleSelectShippingMethod(shippingMethods[0].id);
     }
-  }, [shippingMethods, selectedShippingMethod, chosenMethod]);
+  }, [freeMethod, shippingMethods, selectedShippingMethod, chosenMethod]);
 
   const handleSelectShippingMethod = useCallback(async (methodId: string) => {
     setSelectedShippingMethod(methodId);
