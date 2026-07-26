@@ -66,6 +66,7 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<ValidationErrors>({});
   const skipFirstSaveRef = useRef(true);
   const submittingRef = useRef(false);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
 
   // Address state
   const [billing, setBilling] = useState<AddressData>(emptyAddress);
@@ -461,16 +462,45 @@ export default function CheckoutPage() {
   }, [customerData, customerDataLoaded]);
 
   // Update billing field
-  const updateBilling = (field: keyof AddressData, value: string) => {
-    setBilling((prev) => ({ ...prev, [field]: value }));
-    if (errors[`billing.${field}`]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[`billing.${field}`];
-        return newErrors;
-      });
+  // const updateBilling = (field: keyof AddressData, value: string) => {
+  //   setBilling((prev) => ({ ...prev, [field]: value }));
+  //   if (errors[`billing.${field}`]) {
+  //     setErrors((prev) => {
+  //       const newErrors = { ...prev };
+  //       delete newErrors[`billing.${field}`];
+  //       return newErrors;
+  //     });
+  //   }
+  // };
+
+  // Update billing field
+const updateBilling = (field: keyof AddressData, value: string) => {
+  setBilling((prev) => {
+    const next = { ...prev, [field]: value };
+
+    if (
+      field === 'email' &&
+      value.trim().toLowerCase() !== verifiedEmail?.trim().toLowerCase()
+    ) {
+      setRealIdVerified(false);
+    } else if (
+      field === 'email' &&
+      value.trim().toLowerCase() === verifiedEmail?.trim().toLowerCase()
+    ) {
+      setRealIdVerified(true);
     }
-  };
+
+    return next;
+  });
+
+  if (errors[`billing.${field}`]) {
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[`billing.${field}`];
+      return newErrors;
+    });
+  }
+};
 
   // Update shipping field
   const updateShipping = (field: keyof AddressData, value: string) => {
@@ -776,15 +806,19 @@ export default function CheckoutPage() {
                     firstName: billing.firstName,
                     lastName: billing.lastName,
                   }}
-                  onVerifiedChange={(verified, cid) => {
-                    setRealIdVerified((wasVerified) => {
-                      if (verified && !wasVerified) {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }
-                      return verified;
+                 onVerifiedChange={(verified, cid) => {
+                  if (verified) {
+                    setRealIdVerified(true);
+                    setVerifiedEmail(billing.email);
+
+                    window.scrollTo({
+                      top: 0,
+                      behavior: 'smooth',
                     });
-                    if (cid) setRealIdCheckId(cid);
-                  }}
+                  }
+
+                  if (cid) setRealIdCheckId(cid);
+                }}
                 />
                 <PaymentForm
                   onSubmit={handlePayment}

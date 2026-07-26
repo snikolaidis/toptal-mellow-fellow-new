@@ -220,6 +220,14 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
       // if (observer) observer.disconnect();
       window.removeEventListener('real-id-check-passed', onPassed);
       window.removeEventListener('real-id-check-loaded', onLoaded);
+       // Remove old RealID UI
+        document.querySelectorAll('.real-id-flow').forEach((el) => el.remove());
+
+        // Clear container
+        const container = document.getElementById('real-id-check');
+        if (container) {
+          container.innerHTML = '';
+        }
     };
   }, [checkId, customer?.email]);
 
