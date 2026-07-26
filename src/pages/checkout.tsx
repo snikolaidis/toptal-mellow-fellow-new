@@ -462,45 +462,33 @@ export default function CheckoutPage() {
   }, [customerData, customerDataLoaded]);
 
   // Update billing field
-  // const updateBilling = (field: keyof AddressData, value: string) => {
-  //   setBilling((prev) => ({ ...prev, [field]: value }));
-  //   if (errors[`billing.${field}`]) {
-  //     setErrors((prev) => {
-  //       const newErrors = { ...prev };
-  //       delete newErrors[`billing.${field}`];
-  //       return newErrors;
-  //     });
-  //   }
-  // };
+  const updateBilling = (field: keyof AddressData, value: string) => {
+    setBilling((prev) => {
+      const next = { ...prev, [field]: value };
 
-  // Update billing field
-const updateBilling = (field: keyof AddressData, value: string) => {
-  setBilling((prev) => {
-    const next = { ...prev, [field]: value };
+      if (
+        field === 'email' &&
+        value.trim().toLowerCase() !== verifiedEmail?.trim().toLowerCase()
+      ) {
+        setRealIdVerified(false);
+      } else if (
+        field === 'email' &&
+        value.trim().toLowerCase() === verifiedEmail?.trim().toLowerCase()
+      ) {
+        setRealIdVerified(true);
+      }
 
-    if (
-      field === 'email' &&
-      value.trim().toLowerCase() !== verifiedEmail?.trim().toLowerCase()
-    ) {
-      setRealIdVerified(false);
-    } else if (
-      field === 'email' &&
-      value.trim().toLowerCase() === verifiedEmail?.trim().toLowerCase()
-    ) {
-      setRealIdVerified(true);
-    }
-
-    return next;
-  });
-
-  if (errors[`billing.${field}`]) {
-    setErrors((prev) => {
-      const newErrors = { ...prev };
-      delete newErrors[`billing.${field}`];
-      return newErrors;
+      return next;
     });
-  }
-};
+
+    if (errors[`billing.${field}`]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[`billing.${field}`];
+        return newErrors;
+      });
+    }
+  };
 
   // Update shipping field
   const updateShipping = (field: keyof AddressData, value: string) => {
