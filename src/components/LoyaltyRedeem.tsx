@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useAuth, getApolloAuthClient } from '@faustwp/core';
+import { getApolloAuthClient } from '@faustwp/core';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LOYALTY_REDEMPTION, REDEEM_LOYALTY_OPTION } from '@/graphql/queries/auth';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import LoyaltyRedeemView, { RedemptionOption, LoyaltyVariant } from './LoyaltyRedeemView';
 
 export default function LoyaltyRedeem({ variant = 'discounts' }: { variant?: LoyaltyVariant }) {

@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { useAuth, getApolloAuthClient } from '@faustwp/core';
+import { getApolloAuthClient } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
 import { GET_LOYALTY_PROGRAM } from '@/graphql/queries/auth';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoyaltyGreeting() {
   const { isAuthenticated, isReady } = useAuth();

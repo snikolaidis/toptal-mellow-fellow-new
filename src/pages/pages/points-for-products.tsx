@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { useAuth } from '@faustwp/core';
+import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout';
 import YotpoWidget from '@/components/YotpoWidget';
 import FreeProductRedemption from '@/components/FreeProductRedemption';

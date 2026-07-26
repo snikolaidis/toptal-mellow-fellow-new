@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
-import { useAuth } from '@faustwp/core';
+import { useAuth } from '@/context/AuthContext';
 import {
   MellowFellowLogo,
   SearchIcon,

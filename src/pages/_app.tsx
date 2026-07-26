@@ -4,11 +4,12 @@ import '@/styles/globals.scss';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/autoplay';
-import { FaustProvider, useAuth, getApolloAuthClient } from '@faustwp/core';
+import { FaustProvider, getApolloAuthClient } from '@faustwp/core';
 import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';
 import { useEffect, useRef } from 'react';
 import { getBodyClass } from '@/lib/bodyClass';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 import { YotpoLoyaltyProvider } from '@/context/YotpoLoyaltyContext';
 import AgeVerification from '@/components/AgeVerification/AgeVerification';
@@ -41,21 +42,23 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <FaustProvider pageProps={pageProps}>
-      <WordPressBlocksProvider
-				config={{
-					blocks,
-					theme: fromThemeJson({}),
-				}}
-			>
-        <CartProvider>
-          <YotpoLoyaltyProvider>
-            <AuthWarmer />
-            <AgeVerification />
-            <LiveAgentChat />
-            <Component {...pageProps} />
-          </YotpoLoyaltyProvider>
-        </CartProvider>
-      </WordPressBlocksProvider>
+      <AuthProvider>
+        <WordPressBlocksProvider
+					config={{
+						blocks,
+						theme: fromThemeJson({}),
+					}}
+				>
+          <CartProvider>
+            <YotpoLoyaltyProvider>
+              <AuthWarmer />
+              <AgeVerification />
+              <LiveAgentChat />
+              <Component {...pageProps} />
+            </YotpoLoyaltyProvider>
+          </CartProvider>
+        </WordPressBlocksProvider>
+      </AuthProvider>
     </FaustProvider>
   );
 }
