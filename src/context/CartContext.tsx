@@ -233,6 +233,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return getBrowserClient();
   }, [isAuthenticated]);
 
+  function isSessionExpired(err: unknown): boolean {
+    return err instanceof StoreApiError && err.code === 'session_expired';
+  }
+
+  function resetToEmptyCart() {
+    const empty: StoreCart = {
+      items: [],
+      subtotal: '$0.00',
+      total: '$0.00',
+      discountTotal: '$0.00',
+      shippingTotal: '$0.00',
+      isEmpty: true,
+      itemsCount: 0,
+      appliedCoupons: [],
+      availableShippingMethods: [],
+      chosenShippingMethods: [],
+    };
+    setCart(empty);
+    writeCachedCart(null);
+    setError('Your cart session has expired. Please add your items again.');
+  }
+
   // -------------------------------------------------------------------------
   // Fetch cart via WooCommerce Store API (no spinlock)
   // -------------------------------------------------------------------------
@@ -251,6 +273,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         writeCachedCart(enriched);
       }
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       logError('CartContext.fetchCart', err);
       const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
       setError(getUserMessage(cartError));
@@ -385,6 +408,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.addToCart', err, { productId: input.productId });
       const message = extractCartErrorMessage(
@@ -550,6 +574,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.updateQuantity', err, { key, quantity });
       const message = extractCartErrorMessage(
@@ -595,6 +620,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.removeFromCart', err, { key });
       const message = extractCartErrorMessage(
@@ -655,6 +681,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       return true;
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return false; }
       logError('CartContext.applyCoupon', err, { code });
       const message = extractCartErrorMessage(
         err,
@@ -676,6 +703,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (err instanceof StoreApiError && (err.status === 409 || err.status === 400)) {
         // Coupon already removed or deleted server-side — sync local state
         try {
