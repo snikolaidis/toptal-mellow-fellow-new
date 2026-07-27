@@ -100,6 +100,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       cookiesToSet.push(createCartTokenCookie(newCartToken));
     }
 
+    const isSessionDead =
+      response.status === 403 ||
+      (response.status >= 400 && typeof response.data?.code === 'string' &&
+        /nonce|woocommerce_rest_cart_invalid_key/i.test(response.data.code));
+
+    if (isSessionDead && cartToken) {
+      const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+      cookiesToSet.push(
+        `${CART_TOKEN_COOKIE}=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`
+      );
+      if (!response.data || typeof response.data !== 'object') {
+        response.data = {};
+      }
+      response.data._sessionExpired = true;
+    }
+
     if (cookiesToSet.length > 0) {
       res.setHeader('Set-Cookie', cookiesToSet);
     }

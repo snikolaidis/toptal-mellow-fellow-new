@@ -190,6 +190,14 @@ export async function storeApiFetch<T = any>(
 
   const data = await res.json();
 
+  if (data?._sessionExpired) {
+    throw new StoreApiError(
+      'Your cart session has expired.',
+      res.status,
+      'session_expired'
+    );
+  }
+
   if (!res.ok) {
     throw new StoreApiError(
       data?.message || `Store API error (${res.status})`,

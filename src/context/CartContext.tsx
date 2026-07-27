@@ -234,6 +234,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return getBrowserClient();
   }, [isAuthenticated]);
 
+  function isSessionExpired(err: unknown): boolean {
+    return err instanceof StoreApiError && err.code === 'session_expired';
+  }
+
+  function resetToEmptyCart() {
+    const empty: StoreCart = {
+      items: [],
+      subtotal: '$0.00',
+      total: '$0.00',
+      discountTotal: '$0.00',
+      shippingTotal: '$0.00',
+      isEmpty: true,
+      itemsCount: 0,
+      appliedCoupons: [],
+      availableShippingMethods: [],
+      chosenShippingMethods: [],
+    };
+    setCart(empty);
+    writeCachedCart(null);
+    setError('Your cart session has expired. Please add your items again.');
+  }
+
   // -------------------------------------------------------------------------
   // Fetch cart via WooCommerce Store API (no spinlock)
   // -------------------------------------------------------------------------
@@ -252,6 +274,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         writeCachedCart(enriched);
       }
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       logError('CartContext.fetchCart', err);
       const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
       setError(getUserMessage(cartError));
@@ -333,18 +356,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       );
 
       if (existing) {
-        const unitPrice = existing.quantity > 0 ? parseMoney(existing.total) / existing.quantity : 0;
         const newQuantity = existing.quantity + input.quantity;
-        const newTotal = unitPrice * newQuantity;
-        const delta = newTotal - parseMoney(existing.total);
         return enrichCartItems(
           {
             ...prev,
             items: prev.items.map((i) =>
-              i.key === existing.key ? { ...i, quantity: newQuantity, total: formatMoney(newTotal) } : i
+              i.key === existing.key ? { ...i, quantity: newQuantity } : i
             ),
-            subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
-            total: formatMoney(parseMoney(prev.total) + delta),
             itemsCount: prev.itemsCount + input.quantity,
             isEmpty: false,
           },
@@ -386,6 +404,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.addToCart', err, { productId: input.productId });
       const message = extractCartErrorMessage(
@@ -507,16 +526,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev;
       const item = prev.items.find((i) => i.key === key);
       if (!item) return prev;
-      const unitPrice = item.quantity > 0 ? parseMoney(item.total) / item.quantity : 0;
 
       if (quantity <= 0) {
-        const delta = -parseMoney(item.total);
         return enrichCartItems(
           {
             ...prev,
             items: prev.items.filter((i) => i.key !== key),
-            subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
-            total: formatMoney(parseMoney(prev.total) + delta),
             itemsCount: prev.itemsCount - item.quantity,
             isEmpty: prev.items.length <= 1,
           },
@@ -524,16 +539,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      const newTotal = unitPrice * quantity;
-      const delta = newTotal - parseMoney(item.total);
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.map((i) =>
-            i.key === key ? { ...i, quantity, total: formatMoney(newTotal) } : i
+            i.key === key ? { ...i, quantity } : i
           ),
-          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
-          total: formatMoney(parseMoney(prev.total) + delta),
           itemsCount: prev.itemsCount + (quantity - item.quantity),
         },
         bundleItemMapRef.current
@@ -551,6 +562,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.updateQuantity', err, { key, quantity });
       const message = extractCartErrorMessage(
@@ -575,14 +587,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart((prev) => {
       if (!prev) return prev;
       const item = prev.items.find((i) => i.key === key);
-      const delta = item ? -parseMoney(item.total) : 0;
       const removedQty = item ? item.quantity : 0;
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.filter((i) => i.key !== key),
-          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
-          total: formatMoney(parseMoney(prev.total) + delta),
           itemsCount: prev.itemsCount - removedQty,
           isEmpty: prev.items.length <= 1,
         },
@@ -596,6 +605,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.removeFromCart', err, { key });
       const message = extractCartErrorMessage(
@@ -656,6 +666,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       return true;
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return false; }
       logError('CartContext.applyCoupon', err, { code });
       const message = extractCartErrorMessage(
         err,
@@ -677,6 +688,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (err instanceof StoreApiError && (err.status === 409 || err.status === 400)) {
         // Coupon already removed or deleted server-side — sync local state
         try {
