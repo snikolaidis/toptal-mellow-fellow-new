@@ -5,41 +5,55 @@
  *              the custom "collection" taxonomy. Injects collection picker into
  *              the BOGO Step 2 (Trigger) admin UI and resolves collection slugs
  *              to product IDs at validation time.
- * Version: 3.0.0
+ * Version: 3.1.0
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-// ─── Runtime: resolve collections to product IDs during BOGO validation ─────
+// ─── Runtime: filter cart items by collection before BOGO validation ────────
+//
+// The plugin's wbte_sc_alter_bogo_product_ids filter only fires when the
+// native wbte_sc_bogo_product_ids meta is non-empty. Since we store
+// collection restrictions in our own meta (_mf_bogo_collections), the filter
+// never fires and the restriction is bypassed. Instead we use
+// wbte_sc_alter_items_to_validate which runs for every BOGO calculation
+// and lets us remove non-qualifying items from the cart before the plugin
+// decides which items to discount.
 
-add_filter('wbte_sc_alter_bogo_product_ids', function ($product_ids, $coupon_id) {
-    $collections_raw = get_post_meta($coupon_id, '_mf_bogo_collections', true);
-    if (empty($collections_raw)) {
-        return $product_ids;
+add_filter('wbte_sc_alter_items_to_validate', function ($items, $coupon_id) {
+    $include_raw = get_post_meta($coupon_id, '_mf_bogo_collections', true);
+    $exclude_raw = get_post_meta($coupon_id, '_mf_bogo_exclude_collections', true);
+
+    $include_slugs = !empty($include_raw) ? array_filter(array_map('trim', explode(',', $include_raw))) : [];
+    $exclude_slugs = !empty($exclude_raw) ? array_filter(array_map('trim', explode(',', $exclude_raw))) : [];
+
+    if (empty($include_slugs) && empty($exclude_slugs)) {
+        return $items;
     }
 
-    $slugs = array_filter(array_map('trim', explode(',', $collections_raw)));
-    if (empty($slugs)) {
-        return $product_ids;
-    }
+    $include_ids = !empty($include_slugs) ? mf_get_products_in_collections($include_slugs) : [];
+    $exclude_ids = !empty($exclude_slugs) ? mf_get_products_in_collections($exclude_slugs) : [];
 
-    return array_unique(array_merge($product_ids, mf_get_products_in_collections($slugs)));
-}, 10, 2);
+    return array_filter($items, function ($item) use ($include_ids, $exclude_ids) {
+        $product_id = $item['product_id'];
+        $parent_id = isset($item['variation_id']) && $item['variation_id'] > 0
+            ? $item['product_id']
+            : 0;
 
-add_filter('wbte_sc_alter_bogo_exclude_product_ids', function ($product_ids, $coupon_id) {
-    $collections_raw = get_post_meta($coupon_id, '_mf_bogo_exclude_collections', true);
-    if (empty($collections_raw)) {
-        return $product_ids;
-    }
+        if (!empty($exclude_ids)) {
+            if (in_array($product_id, $exclude_ids) || ($parent_id && in_array($parent_id, $exclude_ids))) {
+                return false;
+            }
+        }
 
-    $slugs = array_filter(array_map('trim', explode(',', $collections_raw)));
-    if (empty($slugs)) {
-        return $product_ids;
-    }
+        if (!empty($include_ids)) {
+            return in_array($product_id, $include_ids) || ($parent_id && in_array($parent_id, $include_ids));
+        }
 
-    return array_unique(array_merge($product_ids, mf_get_products_in_collections($slugs)));
+        return true;
+    });
 }, 10, 2);
 
 function mf_get_products_in_collections(array $slugs) {
@@ -134,7 +148,7 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
         <table style="width:100%;border-collapse:collapse;">
             <tr>
                 <td style="padding:8px 12px 8px 0;width:180px;vertical-align:top;">
-                    <label for="mf_bogo_collections" style="font-weight:500;">Include collections</label>
+                    <label for="mf_bogo_collections" style="font-weight:500;">Qualifying collections</label>
                 </td>
                 <td style="padding:8px 0;">
                     <select id="mf_bogo_collections" name="_mf_bogo_collections_arr[]"
@@ -146,12 +160,12 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <p style="color:#757575;font-size:12px;margin:4px 0 0;">Only products in these collections qualify for the BOGO deal.</p>
+                    <p style="color:#757575;font-size:12px;margin:4px 0 0;">Only products in these collections can trigger and receive this BOGO deal.</p>
                 </td>
             </tr>
             <tr>
                 <td style="padding:8px 12px 8px 0;vertical-align:top;">
-                    <label for="mf_bogo_exclude_collections" style="font-weight:500;">Exclude collections</label>
+                    <label for="mf_bogo_exclude_collections" style="font-weight:500;">Excluded collections</label>
                 </td>
                 <td style="padding:8px 0;">
                     <select id="mf_bogo_exclude_collections" name="_mf_bogo_exclude_collections_arr[]"
@@ -163,7 +177,7 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <p style="color:#757575;font-size:12px;margin:4px 0 0;">Products in these collections are excluded even if they match above.</p>
+                    <p style="color:#757575;font-size:12px;margin:4px 0 0;">Products in these collections are blocked from this deal, even if they match above.</p>
                 </td>
             </tr>
         </table>
