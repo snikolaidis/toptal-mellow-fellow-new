@@ -5,7 +5,7 @@
  *              the custom "collection" taxonomy. Injects collection picker into
  *              the BOGO Step 2 (Trigger) admin UI and resolves collection slugs
  *              to product IDs at validation time.
- * Version: 2.1.0
+ * Version: 3.0.0
  */
 
 if (!defined('ABSPATH')) {
@@ -211,140 +211,78 @@ add_action('wt_sc_before_bogo_coupon_save', function ($coupon_id, $data) {
 
 // ─── Runtime fix: force BOGO recalculation on cart changes ──────────────────
 //
-// WT Smart Coupon Pro's adjust_same_in_cart_giveaway_count bails out when
-// called from woocommerce_cart_item_removed because the removed item's key
-// can't be looked up. This leaves stale free-item quantities. We fix it by
-// removing and re-applying each BOGO coupon after the plugin's own hooks
-// have run, which triggers the full add_free_product_into_cart flow.
+// WT Smart Coupon Pro caches BOGO discount calculations in static properties
+// (bogo_cheap_exp_coupon_data, bogo_cheap_exp_checked_products, bogo_discounts)
+// during woocommerce_coupon_get_discount_amount. These persist for the entire
+// PHP request, so when calculate_totals() runs again after a cart mutation
+// (item added, removed, or quantity changed), the plugin sees the stale cache
+// and skips recalculation — returning wrong discount amounts.
+//
+// Clearing these static caches before each calculate_totals() call forces the
+// plugin to recalculate from the current cart state every time.
 
-add_action('woocommerce_cart_item_removed', 'mf_force_bogo_recalc', 200, 2);
-add_action('woocommerce_after_cart_item_quantity_update', 'mf_force_bogo_recalc_on_update', 200, 4);
+add_action('woocommerce_before_calculate_totals', 'mf_clear_bogo_static_cache', 1);
 
-function mf_force_bogo_recalc($cart_item_key, $cart) {
-    if (!empty($GLOBALS['_mf_bogo_recalc_running'])) {
-        return;
-    }
-    $GLOBALS['_mf_bogo_recalc_running'] = true;
-
-    mf_reapply_bogo_coupons($cart);
-
-    unset($GLOBALS['_mf_bogo_recalc_running']);
-}
-
-function mf_force_bogo_recalc_on_update($cart_item_key, $quantity, $old_quantity, $cart) {
-    if (!empty($GLOBALS['_mf_bogo_recalc_running'])) {
-        return;
-    }
-    if ($quantity === $old_quantity) {
-        return;
-    }
-    if (!$cart || !is_object($cart)) {
-        $cart = WC()->cart;
-    }
-    $item = isset($cart->cart_contents[$cart_item_key]) ? $cart->cart_contents[$cart_item_key] : null;
-    if ($item && !empty($item['wbte_sc_free_gift_coupon'])) {
-        return;
-    }
-    $GLOBALS['_mf_bogo_recalc_running'] = true;
-
-    mf_reapply_bogo_coupons($cart);
-
-    unset($GLOBALS['_mf_bogo_recalc_running']);
-}
-
-function mf_reapply_bogo_coupons($cart) {
-    if (!$cart || !is_object($cart)) {
-        $cart = WC()->cart;
-    }
-    if (!$cart) {
+function mf_clear_bogo_static_cache($cart) {
+    if (!class_exists('Wbte_Smart_Coupon_Bogo_Public')) {
         return;
     }
 
-    $bogo_codes = [];
+    $has_bogo = false;
     foreach ($cart->get_applied_coupons() as $code) {
         $coupon = new WC_Coupon($code);
         if ('wbte_sc_bogo' === $coupon->get_discount_type()) {
-            $bogo_codes[] = $code;
+            $has_bogo = true;
+            break;
         }
     }
-
-    if (empty($bogo_codes)) {
+    if (!$has_bogo) {
         return;
     }
 
-    // Collect free item keys first to avoid modifying cart during iteration
-    $free_keys = [];
-    foreach ($cart->get_cart() as $key => $item) {
-        if (!empty($item['wbte_sc_free_gift_coupon'])) {
-            $free_keys[] = $key;
-        }
-    }
-    foreach ($free_keys as $key) {
-        $cart->remove_cart_item($key);
-    }
-
-    // Clear BOGO sessions
-    if (!is_null(WC()->session)) {
-        WC()->session->set('wbte_sc_bogo_eligible', []);
-        WC()->session->set('wbte_sc_cheap_exp_checked_products', []);
-    }
-
-    // Re-apply each BOGO coupon to trigger full recalculation
-    foreach ($bogo_codes as $code) {
-        $cart->remove_coupon($code);
-        $cart->apply_coupon($code);
-    }
+    Wbte_Smart_Coupon_Bogo_Public::$bogo_cheap_exp_checked_products = [];
+    Wbte_Smart_Coupon_Bogo_Public::$bogo_cheap_exp_coupon_data = [];
+    Wbte_Smart_Coupon_Bogo_Public::$bogo_discounts = [];
 }
 
 // ─── Runtime fix: correct discount total for Store API ──────────────────────
 //
-// The BOGO plugin applies free-item discounts by directly modifying the cart
-// total (discounted_calculated_total at priority 999) instead of using WC's
-// standard coupon discount tracking. The Store API reads discount_total which
-// misses the BOGO discount. We correct it at priority 1000 (after the plugin)
-// by adding the BOGO free-item value to both the overall and per-coupon
-// discount totals. This doesn't affect the actual total (already correct).
+// When the "apply tax on discounted price" setting is disabled, the plugin
+// bypasses WC's standard coupon discount tracking and directly modifies the
+// cart total via discounted_calculated_total_cheap_exp at priority 999. The
+// Store API reads discount_total which then shows $0. We correct it at
+// priority 1000 by reading from the plugin's $bogo_discounts static property.
+//
+// When "apply tax on discounted price" IS enabled (current production config),
+// the plugin returns the actual discount via woocommerce_coupon_get_discount_amount
+// and WC tracks it normally — this hook returns early and does nothing.
 
 add_action('woocommerce_after_calculate_totals', 'mf_fix_bogo_discount_total', 1000);
 
 function mf_fix_bogo_discount_total($cart) {
-    $bogo_by_coupon = [];
-
-    foreach ($cart->get_cart() as $item) {
-        if (empty($item['wbte_sc_free_gift_coupon'])) {
-            continue;
-        }
-
-        $coupon_code = wc_format_coupon_code($item['wbte_sc_free_gift_coupon']);
-        $item_id = $item['variation_id'] > 0 ? $item['variation_id'] : $item['product_id'];
-        $product = wc_get_product($item_id);
-        if (!$product) {
-            continue;
-        }
-
-        $discount_per = isset($item['wbte_sc_bogo_discount'])
-            ? (float) $item['wbte_sc_bogo_discount']
-            : (float) $product->get_price();
-
-        if ($discount_per <= 0) {
-            continue;
-        }
-
-        if (!isset($bogo_by_coupon[$coupon_code])) {
-            $bogo_by_coupon[$coupon_code] = 0;
-        }
-        $bogo_by_coupon[$coupon_code] += $discount_per * $item['quantity'];
+    if (!class_exists('Wbte_Smart_Coupon_Bogo_Common')) {
+        return;
     }
-
-    if (empty($bogo_by_coupon)) {
+    if (Wbte_Smart_Coupon_Bogo_Common::is_apply_tax_on_discounted_price()) {
+        return;
+    }
+    if (!class_exists('Wbte_Smart_Coupon_Bogo_Public')) {
+        return;
+    }
+    if (empty(Wbte_Smart_Coupon_Bogo_Public::$bogo_discounts)) {
         return;
     }
 
-    $total_bogo_discount = array_sum($bogo_by_coupon);
+    $total_bogo_discount = array_sum(Wbte_Smart_Coupon_Bogo_Public::$bogo_discounts);
+    if ($total_bogo_discount <= 0) {
+        return;
+    }
+
     $cart->set_discount_total($cart->get_discount_total() + $total_bogo_discount);
 
     $coupon_totals = $cart->get_coupon_discount_totals();
-    foreach ($bogo_by_coupon as $code => $amount) {
+    foreach (Wbte_Smart_Coupon_Bogo_Public::$bogo_discounts as $code => $amount) {
+        $code = wc_format_coupon_code($code);
         $coupon_totals[$code] = ($coupon_totals[$code] ?? 0) + $amount;
     }
     $cart->set_coupon_discount_totals($coupon_totals);
