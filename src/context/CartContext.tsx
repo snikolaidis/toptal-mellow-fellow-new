@@ -355,18 +355,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       );
 
       if (existing) {
-        const unitPrice = existing.quantity > 0 ? parseMoney(existing.total) / existing.quantity : 0;
         const newQuantity = existing.quantity + input.quantity;
-        const newTotal = unitPrice * newQuantity;
-        const delta = newTotal - parseMoney(existing.total);
         return enrichCartItems(
           {
             ...prev,
             items: prev.items.map((i) =>
-              i.key === existing.key ? { ...i, quantity: newQuantity, total: formatMoney(newTotal) } : i
+              i.key === existing.key ? { ...i, quantity: newQuantity } : i
             ),
-            subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
-            total: formatMoney(parseMoney(prev.total) + delta),
             itemsCount: prev.itemsCount + input.quantity,
             isEmpty: false,
           },
@@ -530,16 +525,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev;
       const item = prev.items.find((i) => i.key === key);
       if (!item) return prev;
-      const unitPrice = item.quantity > 0 ? parseMoney(item.total) / item.quantity : 0;
 
       if (quantity <= 0) {
-        const delta = -parseMoney(item.total);
         return enrichCartItems(
           {
             ...prev,
             items: prev.items.filter((i) => i.key !== key),
-            subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
-            total: formatMoney(parseMoney(prev.total) + delta),
             itemsCount: prev.itemsCount - item.quantity,
             isEmpty: prev.items.length <= 1,
           },
@@ -547,16 +538,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      const newTotal = unitPrice * quantity;
-      const delta = newTotal - parseMoney(item.total);
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.map((i) =>
-            i.key === key ? { ...i, quantity, total: formatMoney(newTotal) } : i
+            i.key === key ? { ...i, quantity } : i
           ),
-          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
-          total: formatMoney(parseMoney(prev.total) + delta),
           itemsCount: prev.itemsCount + (quantity - item.quantity),
         },
         bundleItemMapRef.current
@@ -599,14 +586,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart((prev) => {
       if (!prev) return prev;
       const item = prev.items.find((i) => i.key === key);
-      const delta = item ? -parseMoney(item.total) : 0;
       const removedQty = item ? item.quantity : 0;
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.filter((i) => i.key !== key),
-          subtotal: formatMoney(parseMoney(prev.subtotal) + delta),
-          total: formatMoney(parseMoney(prev.total) + delta),
           itemsCount: prev.itemsCount - removedQty,
           isEmpty: prev.items.length <= 1,
         },
