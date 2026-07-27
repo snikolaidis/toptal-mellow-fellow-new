@@ -23,4 +23,4 @@ jobs:
           WPE_ENV: mellowfellow1
           SRC_PATH: "migration/wp/mu-plugins/"
           REMOTE_PATH: "wp-content/mu-plugins/"
-          CACHE_CLEAR: TRUE
+          CACHE_CLEAR: FALSE
