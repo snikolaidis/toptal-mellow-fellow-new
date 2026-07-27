@@ -1,11 +1,10 @@
 <?php
 /**
- * Plugin Name: Mellow Fellow - BOGO Collection Restrictions
- * Description: Extends WT Smart Coupon Pro's BOGO product validation to support
- *              the custom "collection" taxonomy. Injects collection picker into
- *              the BOGO Step 2 (Trigger) admin UI and resolves collection slugs
- *              to product IDs at validation time.
- * Version: 3.1.0
+ * Plugin Name: Mellow Fellow - Coupon Collection Restrictions
+ * Description: Adds "collection" taxonomy support to WooCommerce coupons.
+ *              Standard coupons get collection fields on the Usage Restriction tab.
+ *              BOGO coupons get collection fields on the Smart Coupon Pro Step 2 UI.
+ * Version: 4.0.0
  */
 
 if (!defined('ABSPATH')) {
@@ -222,6 +221,111 @@ add_action('wt_sc_before_bogo_coupon_save', function ($coupon_id, $data) {
     update_post_meta($coupon_id, '_mf_bogo_collections', $collections);
     update_post_meta($coupon_id, '_mf_bogo_exclude_collections', $exclude);
 }, 10, 2);
+
+// ─── Standard Coupons: collection fields on Usage Restriction tab ──────────
+//
+// WooCommerce has product and category restrictions built in but knows nothing
+// about the custom "collection" taxonomy. These hooks add qualifying/excluded
+// collection selectors to the standard coupon editor and enforce them at
+// discount-calculation time via woocommerce_coupon_is_valid_for_product.
+
+add_action('woocommerce_coupon_options_usage_restriction', function ($coupon_id) {
+    $collections = get_post_meta($coupon_id, '_mf_coupon_collections', true);
+    $exclude     = get_post_meta($coupon_id, '_mf_coupon_exclude_collections', true);
+
+    $selected_slugs = array_filter(array_map('trim', explode(',', $collections ?: '')));
+    $excluded_slugs = array_filter(array_map('trim', explode(',', $exclude ?: '')));
+
+    $all_collections = get_terms([
+        'taxonomy'   => 'collection',
+        'hide_empty' => true,
+        'orderby'    => 'name',
+        'number'     => 300,
+    ]);
+    if (is_wp_error($all_collections)) {
+        $all_collections = [];
+    }
+    ?>
+    <div class="options_group">
+        <p class="form-field"><label><strong>Collection restrictions</strong></label></p>
+        <p class="form-field">
+            <label for="mf_coupon_collections">Qualifying collections</label>
+            <select id="mf_coupon_collections" name="_mf_coupon_collections_arr[]"
+                    multiple="multiple" class="wc-enhanced-select" style="width:50%;"
+                    data-placeholder="Search collections&hellip;">
+                <?php foreach ($all_collections as $term) : ?>
+                    <option value="<?php echo esc_attr($term->slug); ?>"
+                        <?php echo in_array($term->slug, $selected_slugs, true) ? 'selected' : ''; ?>>
+                        <?php echo esc_html($term->name); ?> (<?php echo (int) $term->count; ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <?php echo wc_help_tip('Only products in these collections will receive this coupon\'s discount.'); ?>
+        </p>
+        <p class="form-field">
+            <label for="mf_coupon_exclude_collections">Exclude collections</label>
+            <select id="mf_coupon_exclude_collections" name="_mf_coupon_exclude_collections_arr[]"
+                    multiple="multiple" class="wc-enhanced-select" style="width:50%;"
+                    data-placeholder="Search collections&hellip;">
+                <?php foreach ($all_collections as $term) : ?>
+                    <option value="<?php echo esc_attr($term->slug); ?>"
+                        <?php echo in_array($term->slug, $excluded_slugs, true) ? 'selected' : ''; ?>>
+                        <?php echo esc_html($term->name); ?> (<?php echo (int) $term->count; ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <?php echo wc_help_tip('Products in these collections will not receive this coupon\'s discount, even if they match other restrictions.'); ?>
+        </p>
+    </div>
+    <?php
+}, 10, 1);
+
+add_action('woocommerce_coupon_options_save', function ($post_id) {
+    $collections = '';
+    if (!empty($_POST['_mf_coupon_collections_arr']) && is_array($_POST['_mf_coupon_collections_arr'])) {
+        $collections = implode(',', array_map('sanitize_text_field', $_POST['_mf_coupon_collections_arr']));
+    }
+    $exclude = '';
+    if (!empty($_POST['_mf_coupon_exclude_collections_arr']) && is_array($_POST['_mf_coupon_exclude_collections_arr'])) {
+        $exclude = implode(',', array_map('sanitize_text_field', $_POST['_mf_coupon_exclude_collections_arr']));
+    }
+    update_post_meta($post_id, '_mf_coupon_collections', $collections);
+    update_post_meta($post_id, '_mf_coupon_exclude_collections', $exclude);
+}, 10, 1);
+
+add_filter('woocommerce_coupon_is_valid_for_product', function ($valid, $product, $coupon, $values) {
+    if (!$valid) {
+        return false;
+    }
+
+    $coupon_id   = $coupon->get_id();
+    $include_raw = get_post_meta($coupon_id, '_mf_coupon_collections', true);
+    $exclude_raw = get_post_meta($coupon_id, '_mf_coupon_exclude_collections', true);
+
+    $include_slugs = !empty($include_raw) ? array_filter(array_map('trim', explode(',', $include_raw))) : [];
+    $exclude_slugs = !empty($exclude_raw) ? array_filter(array_map('trim', explode(',', $exclude_raw))) : [];
+
+    if (empty($include_slugs) && empty($exclude_slugs)) {
+        return $valid;
+    }
+
+    $product_id = $product->get_id();
+    $parent_id  = $product->get_parent_id();
+
+    $exclude_ids = !empty($exclude_slugs) ? mf_get_products_in_collections($exclude_slugs) : [];
+    if (!empty($exclude_ids)) {
+        if (in_array($product_id, $exclude_ids) || ($parent_id && in_array($parent_id, $exclude_ids))) {
+            return false;
+        }
+    }
+
+    $include_ids = !empty($include_slugs) ? mf_get_products_in_collections($include_slugs) : [];
+    if (!empty($include_ids)) {
+        return in_array($product_id, $include_ids) || ($parent_id && in_array($parent_id, $include_ids));
+    }
+
+    return $valid;
+}, 10, 4);
 
 // ─── Runtime fix: force BOGO recalculation on cart changes ──────────────────
 //
