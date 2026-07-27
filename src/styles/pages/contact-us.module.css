@@ -1,5 +1,5 @@
 .page {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 2.5rem 1rem 3rem;
 }
@@ -49,6 +49,7 @@
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 8px 24px rgba(45, 24, 16, 0.08);
+  scroll-margin-top: 96px;
 }
 
 .formWrap > form {
@@ -160,4 +161,156 @@
   .formWrap > form > [data-span='half'] {
     grid-column: span 1;
   }
+}
+
+.channels {
+  margin: 0 0 3rem;
+}
+
+.channelsHeading {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-align: center;
+  margin: 0 0 0.5rem;
+}
+
+.channelsSubtext {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  max-width: 32rem;
+  margin: 0 auto 2rem;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background-color: #ffffff;
+  border: 0.8px solid #e2d2b5;
+  border-radius: 10px;
+  padding: 2rem 1.5rem;
+  box-shadow: 0 8px 24px rgba(45, 24, 16, 0.08);
+}
+
+.cardBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #f5e8d0;
+  color: #BC912D;
+  margin-bottom: 1rem;
+}
+
+.cardBadge svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+}
+
+.cardTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.cardText {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  margin: 0 0 1.5rem;
+}
+
+.cardBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  text-decoration: none;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.cardBtn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.cardBtnRust {
+  background-color: #c24a1f;
+  color: #ffffff;
+}
+
+.cardBtnRust:hover:not(:disabled) {
+  background-color: #a83d18;
+}
+
+.cardBtnBrown {
+  background-color: #2d1810;
+  color: #ffffff;
+}
+
+.cardBtnBrown:hover:not(:disabled) {
+  background-color: #43281a;
+}
+
+.cardBtnOutline {
+  background-color: #ffffff;
+  color: #2d1810;
+  border-color: #2d1810;
+}
+
+.cardBtnOutline:hover:not(:disabled) {
+  background-color: #2d1810;
+  color: #ffffff;
+}
+
+.cardFootnote {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin: 0.75rem 0 0;
+}
+
+.cardOffline {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.cardOffline a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+@media (min-width: 1024px) {
+  .cardGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+.laTriggersHidden :global(div[id^='b_vh2pebhu_']),
+.laTriggersHidden :global(div[id^='b_n3lhfezy_']) {
+  display: none !important;
 }
