@@ -466,6 +466,13 @@ export default function CheckoutPage() {
     setBilling((prev) => {
       const next = { ...prev, [field]: value };
 
+      // The Real ID verification state is connected to the verified email address.
+      // When the billing email changes, we compare it with the last verified email:
+      // If the email is different, we reset the verification and disable the Pay button.
+      // If the user changes it back to the previous email (already verified), the verification
+      // state is restored and the Pay button is enabled again. This way the verification
+      // is email-specific and prevents a verification from one email address being reused for a different email.
+      // This is a temporary solution, until we complete the "remember-me" options
       if (
         field === 'email' &&
         value.trim().toLowerCase() !== verifiedEmail?.trim().toLowerCase()
