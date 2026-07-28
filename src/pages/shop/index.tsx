@@ -17,7 +17,7 @@ import {
   ActiveFilters,
   isHiddenTerm,
 } from '@/lib/shopFilters';
-import { getAllProducts as getAllProductsFromDb, getCollectionProductIds } from '@/lib/product-queries';
+import { getAllProducts as getAllProductsFromDb } from '@/lib/product-queries';
 import styles from '@/styles/pages/shop.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
@@ -363,7 +363,11 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
 export const getStaticProps: GetStaticProps = async () => {
   try {
     const menuClientPromise = prefetchMenus();
-    const bestSellerIdsPromise = getCollectionProductIds('best-sellers').then((ids) => ids || []);
+    const baseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+    const bestSellerIdsPromise = fetch(`${baseUrl}/wp-json/mf/v1/collection-products?slug=best-sellers&per_page=100`)
+      .then((r) => r.json())
+      .then((d) => (d.products || []).map((p: any) => p.databaseId as number))
+      .catch(() => [] as number[]);
     // Try Postgres first (fast, <20ms for all products)
     const pgProducts = await getAllProductsFromDb();
 

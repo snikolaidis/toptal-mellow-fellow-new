@@ -123,26 +123,6 @@ export async function getProductsByCollection(collectionSlug: string): Promise<P
 }
 
 /**
- * Get product database IDs belonging to a collection.
- */
-export async function getCollectionProductIds(collectionSlug: string): Promise<number[] | null> {
-  const db = getDb();
-  if (!db) return null;
-
-  try {
-    const result = await db.query(
-      `SELECT database_id FROM products
-       WHERE collections @> $1::jsonb`,
-      [JSON.stringify([{ slug: collectionSlug }])]
-    );
-    return result.rows.map((r: any) => r.database_id);
-  } catch (err) {
-    console.error('[ProductDB] getCollectionProductIds failed:', err);
-    return null;
-  }
-}
-
-/**
  * Get taxonomy data for all products (for building filter sidebar).
  * Returns a map of { filterKey: [{ slug, name, count }] }.
  */

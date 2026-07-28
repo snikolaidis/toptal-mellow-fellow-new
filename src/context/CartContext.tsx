@@ -300,7 +300,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [isReady, fetchCart]);
 
-  // Handle auth state changes
+  // Handle auth state changes — clear cached cart so the fresh fetch from the
+  // new session (guest or authenticated) isn't masked by stale localStorage data.
   useEffect(() => {
     if (!isReady) return;
     if (prevAuthState.current === null) {
@@ -310,6 +311,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (prevAuthState.current !== isAuthenticated) {
       prevAuthState.current = isAuthenticated;
       resetBrowserClient();
+      writeCachedCart(null);
       hasFetchedRef.current = true;
       fetchCart();
     }
