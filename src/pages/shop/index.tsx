@@ -17,7 +17,7 @@ import {
   ActiveFilters,
   isHiddenTerm,
 } from '@/lib/shopFilters';
-import { getAllProducts as getAllProductsFromDb } from '@/lib/product-queries';
+import { getAllProducts as getAllProductsFromDb, getCollectionProductIds } from '@/lib/product-queries';
 import styles from '@/styles/pages/shop.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
@@ -51,9 +51,18 @@ function parsePrice(price?: string): number {
   return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
 }
 
-function sortProducts(products: Product[], sort: string): Product[] {
+function sortProducts(products: Product[], sort: string, bestSellerIds?: Set<number>): Product[] {
   const sorted = [...products];
   switch (sort) {
+    case 'best-sellers':
+      if (bestSellerIds && bestSellerIds.size > 0) {
+        return sorted.sort((a, b) => {
+          const aIs = bestSellerIds.has(a.databaseId) ? 0 : 1;
+          const bIs = bestSellerIds.has(b.databaseId) ? 0 : 1;
+          return aIs - bIs;
+        });
+      }
+      return sorted;
     case 'price-low':
       return sorted.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
     case 'price-high':
@@ -124,12 +133,14 @@ function buildTaxMapFromProducts(products: Product[]): TaxonomyMap {
 interface ShopPageProps {
   allProducts: Product[];
   taxMap: TaxonomyMap | null;
+  bestSellerIds: number[];
 }
 
-export default function ShopPage({ allProducts, taxMap }: ShopPageProps) {
+export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPageProps) {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
+  const bestSellerSet = useMemo(() => new Set(bestSellerIds), [bestSellerIds]);
 
   // Enrich products with taxonomy names from the map (for ProductCard display)
   const enrichedProducts = useMemo(() => {
@@ -179,8 +190,8 @@ export default function ShopPage({ allProducts, taxMap }: ShopPageProps) {
       });
     }
 
-    return sortProducts(result, selectedSort);
-  }, [enrichedProducts, activeFilters, selectedSort, taxMap]);
+    return sortProducts(result, selectedSort, bestSellerSet);
+  }, [enrichedProducts, activeFilters, selectedSort, taxMap, bestSellerSet]);
 
   // Derive filter groups — when filters active, narrow to filtered results
   const filterGroups: FilterGroup[] = useMemo(() => {
@@ -352,6 +363,7 @@ export default function ShopPage({ allProducts, taxMap }: ShopPageProps) {
 export const getStaticProps: GetStaticProps = async () => {
   try {
     const menuClientPromise = prefetchMenus();
+    const bestSellerIdsPromise = getCollectionProductIds('best-sellers').then((ids) => ids || []);
     // Try Postgres first (fast, <20ms for all products)
     const pgProducts = await getAllProductsFromDb();
 
@@ -360,10 +372,11 @@ export const getStaticProps: GetStaticProps = async () => {
 
       // Build taxonomy map from the products' raw data
       const taxMap = buildTaxMapFromProducts(pgProducts);
+      const bestSellerIds = await bestSellerIdsPromise;
 
       const menuClient = await menuClientPromise;
       const result = {
-        props: { allProducts: pgProducts, taxMap } as Record<string, any>,
+        props: { allProducts: pgProducts, taxMap, bestSellerIds } as Record<string, any>,
         revalidate: 120,
       };
       mergeMenuState(result.props, menuClient);
@@ -409,9 +422,10 @@ export const getStaticProps: GetStaticProps = async () => {
       console.error('Failed to fetch taxonomy map');
     }
 
+    const bestSellerIds = await bestSellerIdsPromise;
     const menuClient = await menuClientPromise;
     const result = {
-      props: { allProducts, taxMap } as Record<string, any>,
+      props: { allProducts, taxMap, bestSellerIds } as Record<string, any>,
       revalidate: 120,
     };
     mergeMenuState(result.props, menuClient);
@@ -419,7 +433,7 @@ export const getStaticProps: GetStaticProps = async () => {
   } catch (error) {
     console.error('Error fetching shop data:', error);
     return {
-      props: { allProducts: [], taxMap: null },
+      props: { allProducts: [], taxMap: null, bestSellerIds: [] },
       revalidate: 60,
     };
   }

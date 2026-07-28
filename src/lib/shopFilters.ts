@@ -58,6 +58,7 @@ export const FACET_PRODUCT_CONNECTION: Record<string, string> = {
 
 export const SORT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'default', label: 'Featured' },
+  { value: 'best-sellers', label: 'Best Sellers' },
   { value: 'newest', label: 'Date, new to old' },
   { value: 'price-low', label: 'Price: Low to High' },
   { value: 'price-high', label: 'Price: High to Low' },

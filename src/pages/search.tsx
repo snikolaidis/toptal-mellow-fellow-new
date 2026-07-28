@@ -63,9 +63,21 @@ function productMatchesFilters(product: Product, filters: ActiveFilters): boolea
   return true;
 }
 
+function isBestSeller(product: Product): boolean {
+  const collections = (product as any).collections?.nodes;
+  if (!Array.isArray(collections)) return false;
+  return collections.some((c: { slug?: string }) => c.slug === 'best-sellers');
+}
+
 function sortProducts(products: Product[], sort: string): Product[] {
   const sorted = [...products];
   switch (sort) {
+    case 'best-sellers':
+      return sorted.sort((a, b) => {
+        const aIs = isBestSeller(a) ? 0 : 1;
+        const bIs = isBestSeller(b) ? 0 : 1;
+        return aIs - bIs;
+      });
     case 'newest':
       return sorted.sort((a, b) => {
         const da = a.date ? new Date(a.date).getTime() : 0;

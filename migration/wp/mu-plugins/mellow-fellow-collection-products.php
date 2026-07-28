@@ -108,6 +108,10 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     // Sorting
     $sort_join = '';
     switch ( $sort ) {
+        case 'best-sellers':
+            $sort_join  = "LEFT JOIN {$wpdb->postmeta} pm_sort ON p.ID = pm_sort.post_id AND pm_sort.meta_key = 'total_sales'";
+            $order_sql  = 'CAST(COALESCE(pm_sort.meta_value, 0) AS UNSIGNED) DESC, p.post_title ASC';
+            break;
         case 'price-low':
             $sort_join  = "LEFT JOIN {$wpdb->postmeta} pm_sort ON p.ID = pm_sort.post_id AND pm_sort.meta_key = '_price'";
             $order_sql  = 'CAST(pm_sort.meta_value AS DECIMAL(10,2)) ASC, p.post_title ASC';
