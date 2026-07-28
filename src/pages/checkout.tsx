@@ -848,7 +848,7 @@ export default function CheckoutPage() {
                  onVerifiedChange={(verified, cid) => {
                   if (verified) {
                     setRealIdVerified(true);
-                    setVerifiedEmail(billing.email);
+                    setVerifiedEmail(billing.email ?? null);
 
                     window.scrollTo({
                       top: 0,
