@@ -63,8 +63,8 @@ export default function ShopSidebar({
         const isExpanded = expanded[group.key] || false;
         const activeCount = (activeFilters[group.key] || []).length;
         const visibleTerms = group.terms.filter((t) => t.count > 0);
-
-        if (visibleTerms.length === 0) return null;
+        
+        if (visibleTerms.length < 2 && activeCount === 0) return null;
 
         return (
           <div key={group.key} className="shop-sidebar__group">

@@ -73,7 +73,9 @@ export default function MobileFilters({
               {filterGroups.map((group) => {
                 const isExpanded = expanded[group.key] || false;
                 const visibleTerms = group.terms.filter((t) => t.count > 0);
-                if (visibleTerms.length === 0) return null;
+                const activeCount = (activeFilters[group.key] || []).length;
+                
+                if (visibleTerms.length < 2 && activeCount === 0) return null;
 
                 return (
                   <div key={group.key} className={styles.group}>
