@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import https from 'https';
 import http from 'http';
 import { withRateLimitOnly } from '@/lib/middleware';
-import { makeHttpGetRequest } from '@/lib/http';
 
 const keepAliveAgent = new https.Agent({ keepAlive: true });
 const keepAliveAgentHttp = new http.Agent({ keepAlive: true });
@@ -20,25 +19,6 @@ function createCartTokenCookie(token: string): string {
   return `${CART_TOKEN_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Expires=${expiry}; SameSite=Lax${secure}`;
 }
 
-async function getAuthToken(req: NextApiRequest): Promise<string | null> {
-  const cookies = req.headers.cookie || '';
-  const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-
-  const wpHost = new URL(wordpressUrl).host.replace(/[^a-zA-Z0-9.-]/g, '');
-  const rtCookiePattern = new RegExp(`https?${wpHost}-rt=([^;]+)`);
-  if (!rtCookiePattern.test(cookies)) return null;
-
-  try {
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers.host || 'localhost:3001';
-    const tokenUrl = `${protocol}://${host}/api/faust/auth/token`;
-    const tokenResponse = await makeHttpGetRequest(tokenUrl, cookies);
-    return tokenResponse.data?.accessToken || null;
-  } catch {
-    return null;
-  }
-}
-
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { path } = req.query;
   const storePath = Array.isArray(path) ? path.join('/') : path || '';
@@ -48,8 +28,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const cookies = req.headers.cookie || '';
   const cartToken = extractCartToken(cookies);
-
-  const authToken = await getAuthToken(req);
 
   const bodyStr = req.method !== 'GET' && req.body
     ? JSON.stringify(req.body)
@@ -68,9 +46,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     headers['Content-Length'] = Buffer.byteLength(bodyStr);
   }
 
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  } else if (cartToken) {
+  if (cartToken) {
     headers['Cart-Token'] = cartToken;
   }
 
@@ -120,7 +96,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const cookiesToSet: string[] = [];
 
     const newCartToken = response.headers['cart-token'] as string | undefined;
-    if (newCartToken && !authToken) {
+    if (newCartToken) {
       cookiesToSet.push(createCartTokenCookie(newCartToken));
     }
 

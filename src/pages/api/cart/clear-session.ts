@@ -19,7 +19,6 @@ export default async function handler(
   res.setHeader('Set-Cookie', [
     `wc_session_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
     `wp_woocommerce_session=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
-    `wc_cart_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
   ]);
 
   return res.status(200).json({ success: true, message: 'Session cleared' });
