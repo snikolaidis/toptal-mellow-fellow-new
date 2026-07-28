@@ -1,9 +1,11 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { getApolloAuthClient } from '@faustwp/core';
-import { useQuery, useMutation } from '@apollo/client';
-import AccountGuard from '@/components/account/AccountGuard';
-import { GET_CUSTOMER_BILLING, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
+import { useMutation } from '@apollo/client';
+import type { GetServerSideProps } from 'next';
+import Layout from '@/components/Layout';
+import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
+import { UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { COUNTRIES, getStatesForCountry } from '@/constants/geography';
 
 interface AddressState {
@@ -185,21 +187,56 @@ function AddressFieldset({
   );
 }
 
-function AddressesContent() {
+const CUSTOMER_BILLING_QUERY = `
+  query GetCustomerBilling {
+    customer {
+      email
+      firstName
+      lastName
+      displayName
+      billing {
+        firstName lastName company email phone
+        address1 address2 city state postcode country
+      }
+      shipping {
+        firstName lastName company
+        address1 address2 city state postcode country
+      }
+    }
+  }
+`;
+
+interface AddressesPageProps {
+  initialBilling: AddressState;
+  initialShipping: AddressState;
+}
+
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
+
+  const auth = await getServerSideAuth(ctx);
+  if (!auth) return redirectToLogin(ctx);
+
+  try {
+    const data = await serverSideGraphQL(CUSTOMER_BILLING_QUERY, auth.accessToken);
+    return {
+      props: {
+        initialBilling: fromApi(data?.customer?.billing),
+        initialShipping: fromApi(data?.customer?.shipping),
+      },
+    };
+  } catch {
+    return { props: { initialBilling: EMPTY, initialShipping: EMPTY } };
+  }
+};
+
+export default function AddressesPage({ initialBilling, initialShipping }: AddressesPageProps) {
   const client = getApolloAuthClient();
-  const { data, loading } = useQuery(GET_CUSTOMER_BILLING, { client });
   const [updateCustomer, { loading: saving }] = useMutation(UPDATE_CUSTOMER, { client });
 
-  const [billing, setBilling] = useState<AddressState>(EMPTY);
-  const [shipping, setShipping] = useState<AddressState>(EMPTY);
+  const [billing, setBilling] = useState<AddressState>(initialBilling);
+  const [shipping, setShipping] = useState<AddressState>(initialShipping);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
-
-  useEffect(() => {
-    if (data?.customer) {
-      setBilling(fromApi(data.customer.billing));
-      setShipping(fromApi(data.customer.shipping));
-    }
-  }, [data]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -214,54 +251,40 @@ function AddressesContent() {
     }
   };
 
-  if (loading) {
-    return (
+  return (
+    <Layout title="Addresses">
       <div className="account">
-        <p className="account__empty">Loading addresses...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="account">
-      <div className="account__header">
-        <div>
-          <h1 className="account__title">Addresses</h1>
-          <Link href="/account" className="account__link">
-            Back to account
-          </Link>
+        <div className="account__header">
+          <div>
+            <h1 className="account__title">Addresses</h1>
+            <Link href="/account" className="account__link">
+              Back to account
+            </Link>
+          </div>
         </div>
+
+        <form className="account-form" onSubmit={handleSubmit}>
+          <AddressFieldset title="Billing Address" data={billing} set={setBilling} withContact />
+          <AddressFieldset
+            title="Shipping Address"
+            data={shipping}
+            set={setShipping}
+            withContact={false}
+          />
+
+          <div className="account-form__actions">
+            <button type="submit" className="account__button" disabled={saving}>
+              {saving ? 'Saving...' : 'Save addresses'}
+            </button>
+            {status === 'saved' && <span className="account-form__note">Addresses saved.</span>}
+            {status === 'error' && (
+              <span className="account-form__note account-form__note--error">
+                Could not save. Please try again.
+              </span>
+            )}
+          </div>
+        </form>
       </div>
-
-      <form className="account-form" onSubmit={handleSubmit}>
-        <AddressFieldset title="Billing Address" data={billing} set={setBilling} withContact />
-        <AddressFieldset
-          title="Shipping Address"
-          data={shipping}
-          set={setShipping}
-          withContact={false}
-        />
-
-        <div className="account-form__actions">
-          <button type="submit" className="account__button" disabled={saving}>
-            {saving ? 'Saving...' : 'Save addresses'}
-          </button>
-          {status === 'saved' && <span className="account-form__note">Addresses saved.</span>}
-          {status === 'error' && (
-            <span className="account-form__note account-form__note--error">
-              Could not save. Please try again.
-            </span>
-          )}
-        </div>
-      </form>
-    </div>
-  );
-}
-
-export default function AddressesPage() {
-  return (
-    <AccountGuard title="Addresses">
-      <AddressesContent />
-    </AccountGuard>
+    </Layout>
   );
 }
