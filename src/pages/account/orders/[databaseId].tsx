@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
@@ -8,7 +9,13 @@ import { GET_ACCOUNT_ORDER } from '@/graphql/queries/auth';
 interface LineItem {
   quantity: number;
   total: string;
-  product?: { node?: { name?: string; slug?: string } };
+  product?: {
+    node?: {
+      name?: string;
+      slug?: string;
+      image?: { sourceUrl?: string; altText?: string };
+    };
+  };
 }
 
 interface OrderAddress {
@@ -105,6 +112,69 @@ function statusModifier(status: string): string {
   }
 }
 
+function OrderSkeleton() {
+  return (
+    <div className="account">
+      <div className="account__header">
+        <div>
+          <div className="account__skeleton-bar" style={{ width: 180, height: 22, marginBottom: 8 }} />
+          <div className="account__skeleton-bar" style={{ width: 140, height: 14 }} />
+        </div>
+        <div className="account__skeleton-bar" style={{ width: 90, height: 28, borderRadius: 14 }} />
+      </div>
+
+      <table className="account__orders">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[1, 2, 3].map((i) => (
+            <tr key={i}>
+              <td>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div className="account__skeleton-bar" style={{ width: 48, height: 48, borderRadius: 6, flexShrink: 0 }} />
+                  <div className="account__skeleton-bar" style={{ width: '60%', height: 14 }} />
+                </div>
+              </td>
+              <td><div className="account__skeleton-bar" style={{ width: 20, height: 14 }} /></td>
+              <td><div className="account__skeleton-bar" style={{ width: 60, height: 14 }} /></td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          {[1, 2].map((i) => (
+            <tr key={i}>
+              <td><div className="account__skeleton-bar" style={{ width: 70, height: 14 }} /></td>
+              <td />
+              <td><div className="account__skeleton-bar" style={{ width: 60, height: 14 }} /></td>
+            </tr>
+          ))}
+          <tr>
+            <td><div className="account__skeleton-bar" style={{ width: 50, height: 16 }} /></td>
+            <td />
+            <td><div className="account__skeleton-bar" style={{ width: 70, height: 16 }} /></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div className="account__addresses">
+        {[1, 2].map((i) => (
+          <div key={i} className="account__address">
+            <div className="account__skeleton-bar" style={{ width: 140, height: 18, marginBottom: 12 }} />
+            <div className="account__skeleton-bar" style={{ width: '80%', height: 14, marginBottom: 6 }} />
+            <div className="account__skeleton-bar" style={{ width: '70%', height: 14, marginBottom: 6 }} />
+            <div className="account__skeleton-bar" style={{ width: '50%', height: 14 }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OrderContent() {
   const router = useRouter();
   const client = getApolloAuthClient();
@@ -118,11 +188,7 @@ function OrderContent() {
   const order: Order | undefined = data?.order || undefined;
 
   if (loading) {
-    return (
-      <div className="account">
-        <p className="account__empty">Loading order...</p>
-      </div>
-    );
+    return <OrderSkeleton />;
   }
 
   if (!order) {
@@ -179,16 +245,38 @@ function OrderContent() {
           {items.map((item, i) => {
             const name = item.product?.node?.name || 'Product';
             const slug = item.product?.node?.slug;
+            const image = item.product?.node?.image;
             return (
               <tr key={`${name}-${i}`}>
                 <td>
-                  {slug ? (
-                    <Link href={`/product/${slug}`} className="account__link">
-                      {name}
-                    </Link>
-                  ) : (
-                    name
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {image?.sourceUrl ? (
+                      <Image
+                        src={image.sourceUrl}
+                        alt={image.altText || name}
+                        width={48}
+                        height={48}
+                        style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 6,
+                          backgroundColor: '#f0f0f0',
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    {slug ? (
+                      <Link href={`/product/${slug}`} className="account__link">
+                        {name}
+                      </Link>
+                    ) : (
+                      name
+                    )}
+                  </div>
                 </td>
                 <td>{item.quantity}</td>
                 <td>{item.total}</td>

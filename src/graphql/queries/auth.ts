@@ -141,6 +141,10 @@ export const GET_ACCOUNT_ORDER = gql`
             node {
               name
               slug
+              image {
+                sourceUrl
+                altText
+              }
             }
           }
           quantity

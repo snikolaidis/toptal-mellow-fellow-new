@@ -6,7 +6,7 @@ import { useCart, groupCartItems } from '@/context/CartContext';
 import styles from '@/styles/pages/cart.module.css';
 
 export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, bundleNames, bundleDiscounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
+  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, cartReady, bundleNames, bundleDiscounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
 
@@ -17,7 +17,7 @@ export default function CartPage() {
   }, []);
   const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
 
-  if (isLoading) {
+  if (isLoading || !cartReady) {
     return (
       <Layout title="Cart">
         <div className={styles.page}>

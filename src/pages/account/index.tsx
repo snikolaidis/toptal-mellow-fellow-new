@@ -146,7 +146,11 @@ function AccountDashboard() {
               <tbody>
                 {orders.map((order) => (
                   <tr key={order.id}>
-                    <td className="account__order-number">#{order.orderNumber}</td>
+                    <td className="account__order-number">
+                      <Link href={`/account/orders/${order.databaseId}`} className="account__link">
+                        #{order.orderNumber}
+                      </Link>
+                    </td>
                     <td>
                       {new Date(order.date).toLocaleDateString('en-US', {
                         year: 'numeric',

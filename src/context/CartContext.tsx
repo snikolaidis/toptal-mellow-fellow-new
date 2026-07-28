@@ -132,6 +132,7 @@ export function groupCartItems(
 interface CartContextType {
   cart: Cart | null;
   isLoading: boolean;
+  cartReady: boolean;
   isMutating: boolean;
   error: string | null;
   isDrawerOpen: boolean;
@@ -171,7 +172,7 @@ const CART_CACHE_KEY = 'mf_cart_cache';
 function readCachedCart(): Cart | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(CART_CACHE_KEY);
+    const raw = localStorage.getItem(CART_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.items)) return parsed as Cart;
@@ -181,14 +182,15 @@ function readCachedCart(): Cart | null {
 
 function writeCachedCart(cart: Cart | null) {
   try {
-    if (cart && cart.items.length > 0) sessionStorage.setItem(CART_CACHE_KEY, JSON.stringify(cart));
-    else sessionStorage.removeItem(CART_CACHE_KEY);
+    if (cart && cart.items.length > 0) localStorage.setItem(CART_CACHE_KEY, JSON.stringify(cart));
+    else localStorage.removeItem(CART_CACHE_KEY);
   } catch {}
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(readCachedCart);
   const [isLoading, setIsLoading] = useState(false);
+  const [cartReady, setCartReady] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -253,6 +255,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
     setCart(empty);
     writeCachedCart(null);
+    try { localStorage.removeItem(CART_CACHE_KEY); } catch {}
     setError('Your cart session has expired. Please add your items again.');
   }
 
@@ -273,11 +276,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setCart(enriched);
         writeCachedCart(enriched);
       }
+      setCartReady(true);
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (isSessionExpired(err)) { resetToEmptyCart(); setCartReady(true); return; }
       logError('CartContext.fetchCart', err);
       const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
       setError(getUserMessage(cartError));
+      setCartReady(true);
     } finally {
       setIsLoading(false);
     }
@@ -734,6 +739,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       value={{
         cart,
         isLoading,
+        cartReady,
         isMutating,
         error,
         isDrawerOpen,
