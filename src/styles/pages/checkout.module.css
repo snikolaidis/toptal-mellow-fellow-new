@@ -146,6 +146,27 @@
   max-width: 3rem;
 }
 
+/* Guest sign-in prompt */
+.guestSignin {
+  font-size: 0.875rem;
+  color: #8A8683;
+  margin-bottom: 1.5rem;
+  padding: 0.875rem 1rem;
+  background-color: #F5F5F0;
+  border: 1px solid #D5D0C9;
+}
+
+.guestSigninLink {
+  color: #354654;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.guestSigninLink:hover {
+  color: #2a3a47;
+}
+
 /* Checkout Form */
 .form {
   display: flex;

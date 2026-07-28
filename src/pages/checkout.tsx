@@ -21,6 +21,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_CUSTOMER_BILLING, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { validateBillingAddress, validateShippingAddress, isValid, ValidationErrors } from '@/lib/validation';
+import Link from 'next/link';
 import styles from '@/styles/pages/checkout.module.css';
 
 const emptyAddress: AddressData = {
@@ -810,6 +811,15 @@ export default function CheckoutPage() {
           {error && (
             <div className={styles.errorMessage} role="alert">
               {error}
+            </div>
+          )}
+
+          {!isAuthenticated && authReady && step === 'billing' && (
+            <div className={styles.guestSignin}>
+              Already have an account?{' '}
+              <Link href="/login?redirect=/checkout" className={styles.guestSigninLink}>
+                Sign in
+              </Link>
             </div>
           )}
 
