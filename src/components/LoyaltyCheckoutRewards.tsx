@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useAuth, getApolloAuthClient } from '@faustwp/core';
+import { getApolloAuthClient } from '@faustwp/core';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LOYALTY_REDEMPTION, REDEEM_LOYALTY_OPTION } from '@/graphql/queries/auth';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface Option {
   id: number;

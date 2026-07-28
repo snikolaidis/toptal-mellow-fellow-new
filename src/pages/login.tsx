@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { useLogin, useAuth } from '@faustwp/core';
+import { useLogin } from '@faustwp/core';
+import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout';
 import styles from '@/styles/pages/auth.module.css';
 

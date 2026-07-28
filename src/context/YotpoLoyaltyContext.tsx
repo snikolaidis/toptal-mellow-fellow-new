@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAuth, getApolloAuthClient } from '@faustwp/core';
+import { getApolloAuthClient } from '@faustwp/core';
 import { useQuery } from '@apollo/client';
 import { GET_LOYALTY_IDENTITY } from '@/graphql/queries/auth';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import { setupYotpoAuthRedirect, setupYotpoRedeemScroll } from '@/lib/yotpoAuthRedirect';
+import { useAuth } from '@/context/AuthContext';
 
 interface LoyaltyIdentity {
   authenticated: boolean;

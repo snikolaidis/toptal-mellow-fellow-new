@@ -7,7 +7,8 @@ import {
   useRef,
   ReactNode,
 } from 'react';
-import { useAuth, getApolloAuthClient } from '@faustwp/core';
+import { getApolloAuthClient } from '@faustwp/core';
+import { useAuth } from '@/context/AuthContext';
 import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
 import {
   ADD_BUNDLE_TO_CART,

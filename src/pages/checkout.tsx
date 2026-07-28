@@ -16,7 +16,8 @@ import { processPayment } from '@/lib/authorize-net';
 import { collectWidgetSources } from '@/lib/widgetAttribution';
 import SavedCardSelector from '@/components/checkout/SavedCardSelector';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
-import { useAuth, getApolloAuthClient } from '@faustwp/core';
+import { getApolloAuthClient } from '@faustwp/core';
+import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_CUSTOMER_BILLING, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { validateBillingAddress, validateShippingAddress, isValid, ValidationErrors } from '@/lib/validation';
@@ -65,6 +66,7 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<ValidationErrors>({});
   const skipFirstSaveRef = useRef(true);
   const submittingRef = useRef(false);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
 
   // Address state
   const [billing, setBilling] = useState<AddressData>(emptyAddress);
@@ -461,7 +463,31 @@ export default function CheckoutPage() {
 
   // Update billing field
   const updateBilling = (field: keyof AddressData, value: string) => {
-    setBilling((prev) => ({ ...prev, [field]: value }));
+    setBilling((prev) => {
+      const next = { ...prev, [field]: value };
+
+      // The Real ID verification state is connected to the verified email address.
+      // When the billing email changes, we compare it with the last verified email:
+      // If the email is different, we reset the verification and disable the Pay button.
+      // If the user changes it back to the previous email (already verified), the verification
+      // state is restored and the Pay button is enabled again. This way the verification
+      // is email-specific and prevents a verification from one email address being reused for a different email.
+      // This is a temporary solution, until we complete the "remember-me" options
+      if (
+        field === 'email' &&
+        value.trim().toLowerCase() !== verifiedEmail?.trim().toLowerCase()
+      ) {
+        setRealIdVerified(false);
+      } else if (
+        field === 'email' &&
+        value.trim().toLowerCase() === verifiedEmail?.trim().toLowerCase()
+      ) {
+        setRealIdVerified(true);
+      }
+
+      return next;
+    });
+
     if (errors[`billing.${field}`]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -819,10 +845,19 @@ export default function CheckoutPage() {
                     firstName: billing.firstName,
                     lastName: billing.lastName,
                   }}
-                  onVerifiedChange={(verified, cid) => {
-                    setRealIdVerified(verified);
-                    if (cid) setRealIdCheckId(cid);
-                  }}
+                 onVerifiedChange={(verified, cid) => {
+                  if (verified) {
+                    setRealIdVerified(true);
+                    setVerifiedEmail(billing.email);
+
+                    window.scrollTo({
+                      top: 0,
+                      behavior: 'smooth',
+                    });
+                  }
+
+                  if (cid) setRealIdCheckId(cid);
+                }}
                 />
                 <PaymentForm
                   onSubmit={handlePayment}
@@ -1087,7 +1122,7 @@ function PaymentForm({
             type="button"
             className={styles.formActionsSecondary}
             onClick={onBack}
-            disabled={isDisabled}
+            // disabled={isDisabled}
           >
             Back
           </button>
