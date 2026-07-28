@@ -295,10 +295,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Fetch cart on page load so the counter and cart page are accurate on reload.
   // Safe now that all cart ops use the Store API (database sessions, no PHP file-lock contention).
   useEffect(() => {
-    if (isReady && !hasFetchedRef.current) {
+    if (!isReady || hasFetchedRef.current) return;
+
+    if (isAuthenticated) {
+      fetch('/api/cart/restore-for-user', {
+        method: 'POST',
+        credentials: 'include',
+      })
+        .catch(() => {})
+        .finally(() => {
+          fetchCart();
+        });
+    } else {
       fetchCart();
     }
-  }, [isReady, fetchCart]);
+  }, [isReady, isAuthenticated, fetchCart]);
 
   // Handle auth state changes — clear cached cart so the fresh fetch from the
   // new session (guest or authenticated) isn't masked by stale localStorage data.

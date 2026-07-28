@@ -49,6 +49,7 @@ function AccountDashboard() {
   }, [ready, token, loading, myRewards, campaign, vipTiers]);
 
   const handleLogout = async () => {
+    await fetch('/api/cart/save-for-user', { method: 'POST' }).catch(() => {});
     await fetch('/api/cart/clear-session', { method: 'POST' }).catch(() => {});
     logout('/');
   };
