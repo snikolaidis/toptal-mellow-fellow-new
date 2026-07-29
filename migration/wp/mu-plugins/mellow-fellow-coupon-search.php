@@ -19,22 +19,29 @@ add_action('wp_ajax_mf_json_search_coupons', function () {
     }
 
     $term = isset($_GET['term']) ? sanitize_text_field(wp_unslash($_GET['term'])) : '';
-    if (empty($term)) {
-        wp_send_json([]);
-    }
 
     global $wpdb;
 
-    $like       = '%' . $wpdb->esc_like($term) . '%';
-    $coupon_ids = $wpdb->get_col($wpdb->prepare(
-        "SELECT ID FROM {$wpdb->posts}
-         WHERE post_type = 'shop_coupon'
-           AND post_status = 'publish'
-           AND post_title LIKE %s
-         ORDER BY post_title ASC
-         LIMIT 50",
-        $like
-    ));
+    if (!empty($term)) {
+        $like       = '%' . $wpdb->esc_like($term) . '%';
+        $coupon_ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts}
+             WHERE post_type = 'shop_coupon'
+               AND post_status = 'publish'
+               AND post_title LIKE %s
+             ORDER BY post_title ASC
+             LIMIT 100",
+            $like
+        ));
+    } else {
+        $coupon_ids = $wpdb->get_col(
+            "SELECT ID FROM {$wpdb->posts}
+             WHERE post_type = 'shop_coupon'
+               AND post_status = 'publish'
+             ORDER BY post_title ASC
+             LIMIT 100"
+        );
+    }
 
     $type_labels = [
         'fixed_cart'    => 'Fixed Cart',
@@ -106,8 +113,26 @@ add_action('admin_footer', function () {
         align-items: center;
         gap: 8px;
         margin-top: 12px;
+        padding: 0 12px 4px;
     }
-    .mf-coupon-search-wrap .select2-container { min-width: 350px; }
+    .mf-coupon-search-wrap .select2-container { width: 400px !important; }
+    .mf-coupon-search-wrap .select2-container .select2-selection--single {
+        height: 32px;
+        border: 1px solid #8c8f94;
+        border-radius: 4px;
+    }
+    .mf-coupon-search-wrap .select2-container .select2-selection--single .select2-selection__rendered {
+        line-height: 32px;
+        padding-left: 10px;
+        color: #50575e;
+    }
+    .mf-coupon-search-wrap .select2-container .select2-selection--single .select2-selection__arrow {
+        height: 30px;
+    }
+    .mf-coupon-search-wrap #mf-apply-coupon {
+        height: 32px;
+        line-height: 30px;
+    }
     #woocommerce-order-items .add-coupon { display: none !important; }
     </style>
     <script>
@@ -118,17 +143,16 @@ add_action('admin_footer', function () {
             if (!$el.length || $el.hasClass('select2-hidden-accessible')) return;
 
             $el.select2({
-                placeholder: 'Search coupons…',
+                placeholder: 'Select a coupon or type to search…',
                 allowClear: true,
-                minimumInputLength: 2,
                 ajax: {
                     url: ajaxurl,
                     dataType: 'json',
-                    delay: 300,
+                    delay: 250,
                     data: function(params) {
                         return {
                             action: 'mf_json_search_coupons',
-                            term: params.term,
+                            term: params.term || '',
                             security: $el.data('nonce')
                         };
                     },
