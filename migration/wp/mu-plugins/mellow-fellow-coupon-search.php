@@ -1,15 +1,18 @@
 <?php
 /**
  * Plugin Name: Mellow Fellow - Coupon Search
- * Description: Adds a searchable Select2 dropdown to the admin order edit screen
- *              for applying coupons. Shows both native WooCommerce and Smart Coupon
- *              coupons with type/amount context.
+ * Description: Adds a searchable SelectWoo dropdown to the admin order edit screen
+ *              for applying coupons. Shows native WooCommerce and Smart Coupon
+ *              coupons (excludes BOGO). Works with WC's built-in Apply coupon
+ *              button via window.prompt intercept — zero custom apply logic.
  * Version: 1.0.0
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
+
+// ─── AJAX search endpoint ─────────────────────────────────────────────────────
 
 add_action('wp_ajax_mf_json_search_coupons', function () {
     check_ajax_referer('mf-coupon-search', 'security');
@@ -88,15 +91,22 @@ add_action('wp_ajax_mf_json_search_coupons', function () {
     wp_send_json($results);
 });
 
+// ─── HTML: inject hidden select into order items area ──────────────────────────
+
 add_action('woocommerce_order_item_add_action_buttons', function ($order) {
+    if (!$order->is_editable()) {
+        return;
+    }
+
     $nonce = wp_create_nonce('mf-coupon-search');
     ?>
-    <span class="mf-coupon-search-wrap">
-        <select id="mf-coupon-search" data-nonce="<?php echo esc_attr($nonce); ?>"></select>
-        <button type="button" class="button" id="mf-apply-coupon">Apply coupon</button>
-    </span>
+    <select id="mf-coupon-search"
+            data-nonce="<?php echo esc_attr($nonce); ?>"
+            style="width:1px;height:1px;opacity:0;position:absolute;pointer-events:none;"></select>
     <?php
 });
+
+// ─── JS + CSS: SelectWoo init + window.prompt bridge ───────────────────────────
 
 add_action('admin_footer', function () {
     $screen = get_current_screen();
@@ -108,32 +118,42 @@ add_action('admin_footer', function () {
     }
     ?>
     <style>
-    #woocommerce-order-items .add-coupon { display: none !important; }
-    #woocommerce-order-items .mf-coupon-search-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin-left: 8px;
+    .mf-coupon-select-wrap {
+        display: inline-block;
         vertical-align: middle;
+        margin-right: 4px;
     }
     </style>
     <script>
     jQuery(function($) {
 
+        var selectedCoupon = null;
+
         function initCouponSearch() {
             var $el = $('#mf-coupon-search');
             if (!$el.length || $el.hasClass('select2-hidden-accessible')) return;
 
-            var $wrap = $el.closest('.mf-coupon-search-wrap');
-            var $refund = $wrap.siblings('.refund-items');
-            if ($refund.length) {
-                $refund.after($wrap);
+            var $addCouponBtn = $('#woocommerce-order-items button.add-coupon');
+            if (!$addCouponBtn.length) return;
+
+            var $wrapper = $addCouponBtn.prev('.mf-coupon-select-wrap');
+            if (!$wrapper.length) {
+                $wrapper = $('<span class="mf-coupon-select-wrap"></span>');
+                $addCouponBtn.before($wrapper);
             }
 
-            $el.select2({
-                placeholder: 'Select a coupon or type to search…',
+            $el.detach().appendTo($wrapper).css({
+                width: '',
+                height: '',
+                opacity: '',
+                position: '',
+                'pointer-events': ''
+            });
+
+            $el.selectWoo({
+                placeholder: 'Select a coupon…',
                 allowClear: true,
-                width: '350px',
+                width: '300px',
                 ajax: {
                     url: ajaxurl,
                     dataType: 'json',
@@ -151,36 +171,56 @@ add_action('admin_footer', function () {
                     cache: true
                 }
             });
+
+            $el.on('select2:select', function(e) {
+                selectedCoupon = e.params.data.id;
+            });
+            $el.on('select2:clear', function() {
+                selectedCoupon = null;
+            });
+
+            bindPromptIntercept();
+        }
+
+        function bindPromptIntercept() {
+            var $btn = $('#woocommerce-order-items button.add-coupon');
+            if (!$btn.length || $btn.data('mf-bound')) return;
+
+            $btn.data('mf-bound', true);
+
+            $btn[0].addEventListener('click', function() {
+                if (!selectedCoupon) return;
+
+                var code = selectedCoupon;
+                var origPrompt = window.prompt;
+
+                window.prompt = function() { return code; };
+                setTimeout(function() { window.prompt = origPrompt; }, 0);
+
+                selectedCoupon = null;
+                var $sel = $('#mf-coupon-search');
+                if ($sel.length) {
+                    $sel.val(null).trigger('change');
+                }
+            }, true);
         }
 
         initCouponSearch();
 
-        $('#woocommerce-order-items').on('click', '#mf-apply-coupon', function(e) {
-            e.preventDefault();
+        $(document.body).on('wc_order_items_reloaded', function() {
+            setTimeout(initCouponSearch, 100);
+        });
 
-            var $select  = $('#mf-coupon-search');
-            var selected = $select.select2('data');
-
-            if (!selected || !selected.length || !selected[0].id) {
-                alert('Please search and select a coupon first.');
-                return;
+        $(document).ajaxComplete(function(event, xhr, settings) {
+            if (!settings.data || typeof settings.data !== 'string') return;
+            if (
+                settings.data.indexOf('woocommerce_add_coupon_discount') !== -1 ||
+                settings.data.indexOf('woocommerce_remove_order_coupon') !== -1 ||
+                settings.data.indexOf('woocommerce_calc_line_taxes') !== -1 ||
+                settings.data.indexOf('woocommerce_save_order_items') !== -1
+            ) {
+                setTimeout(initCouponSearch, 200);
             }
-
-            var coupon = selected[0].id;
-            var $btn = $(this);
-            $btn.prop('disabled', true).text('Applying…');
-
-            $.post(ajaxurl, {
-                action:   'woocommerce_add_coupon_discount',
-                order_id: woocommerce_admin_meta_boxes.post_id,
-                coupon:   coupon,
-                security: woocommerce_admin_meta_boxes.order_item_nonce
-            }, function() {
-                window.location.reload();
-            }).fail(function() {
-                alert('Failed to apply coupon. Please try again.');
-                $btn.prop('disabled', false).text('Apply coupon');
-            });
         });
     });
     </script>
