@@ -91,10 +91,10 @@ add_action('wp_ajax_mf_json_search_coupons', function () {
 add_action('woocommerce_order_item_add_action_buttons', function ($order) {
     $nonce = wp_create_nonce('mf-coupon-search');
     ?>
-    <div class="mf-coupon-search-wrap">
+    <span class="mf-coupon-search-wrap">
         <select id="mf-coupon-search" data-nonce="<?php echo esc_attr($nonce); ?>"></select>
         <button type="button" class="button" id="mf-apply-coupon">Apply coupon</button>
-    </div>
+    </span>
     <?php
 });
 
@@ -108,32 +108,15 @@ add_action('admin_footer', function () {
     }
     ?>
     <style>
-    .mf-coupon-search-wrap {
-        display: flex;
+    #woocommerce-order-items .add-coupon { display: none !important; }
+    #woocommerce-order-items .mf-coupon-search-wrap {
+        display: inline-flex;
         align-items: center;
         gap: 8px;
-        margin-top: 12px;
-        padding: 0 12px 4px;
+        margin: 0;
+        padding: 0;
+        vertical-align: middle;
     }
-    .mf-coupon-search-wrap .select2-container { width: 400px !important; }
-    .mf-coupon-search-wrap .select2-container .select2-selection--single {
-        height: 32px;
-        border: 1px solid #8c8f94;
-        border-radius: 4px;
-    }
-    .mf-coupon-search-wrap .select2-container .select2-selection--single .select2-selection__rendered {
-        line-height: 32px;
-        padding-left: 10px;
-        color: #50575e;
-    }
-    .mf-coupon-search-wrap .select2-container .select2-selection--single .select2-selection__arrow {
-        height: 30px;
-    }
-    .mf-coupon-search-wrap #mf-apply-coupon {
-        height: 32px;
-        line-height: 30px;
-    }
-    #woocommerce-order-items .add-coupon { display: none !important; }
     </style>
     <script>
     jQuery(function($) {
@@ -145,6 +128,7 @@ add_action('admin_footer', function () {
             $el.select2({
                 placeholder: 'Select a coupon or type to search…',
                 allowClear: true,
+                width: '400px',
                 ajax: {
                     url: ajaxurl,
                     dataType: 'json',
