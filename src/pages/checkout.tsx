@@ -848,27 +848,32 @@ export default function CheckoutPage() {
 
             {step === 'payment' && (
               <>
-                <RealIdVerification
-                  customer={{
-                    id: customerData?.customer?.databaseId ?? null,
-                    email: billing.email,
-                    firstName: billing.firstName,
-                    lastName: billing.lastName,
+                <div className="read-id-main-wrapper">
+                  <div className={styles.securityBadges}>
+                    <span>Secured by Authorize.net</span>
+                  </div>
+                  <RealIdVerification
+                    customer={{
+                      id: customerData?.customer?.databaseId ?? null,
+                      email: billing.email,
+                      firstName: billing.firstName,
+                      lastName: billing.lastName,
+                    }}
+                  onVerifiedChange={(verified, cid) => {
+                    if (verified) {
+                      setRealIdVerified(true);
+                      setVerifiedEmail(billing.email ?? null);
+
+                      window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth',
+                      });
+                    }
+
+                    if (cid) setRealIdCheckId(cid);
                   }}
-                 onVerifiedChange={(verified, cid) => {
-                  if (verified) {
-                    setRealIdVerified(true);
-                    setVerifiedEmail(billing.email ?? null);
-
-                    window.scrollTo({
-                      top: 0,
-                      behavior: 'smooth',
-                    });
-                  }
-
-                  if (cid) setRealIdCheckId(cid);
-                }}
-                />
+                  />
+                </div>
                 <PaymentForm
                   onSubmit={handlePayment}
                   onBack={() => setStep('shipping')}
@@ -1146,9 +1151,6 @@ function PaymentForm({
         </div>
       </form>
 
-      <div className={styles.securityBadges}>
-        <span>Secured by Authorize.net</span>
-      </div>
     </div>
   );
 }
