@@ -368,6 +368,23 @@
   background-color: white;
 }
 
+/* Collapsible section (Real ID gate / payment form reveal) - animates to/from its
+   natural height using a CSS grid track instead of a fixed max-height guess. */
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.4s ease;
+}
+
+.collapsibleCollapsed {
+  grid-template-rows: 0fr;
+}
+
+.collapsibleInner {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .paymentNotice {
   color: #8A8683;
   font-size: 0.875rem;
@@ -592,9 +609,9 @@
 }
 
 .securityBadges {
-  margin-bottom: 2rem;
+  /* margin-bottom: 2rem; */
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid #D5D0C9;
+  /* border-bottom: 1px solid #D5D0C9; */
   text-align: center;
 }
 

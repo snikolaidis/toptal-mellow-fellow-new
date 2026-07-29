@@ -417,6 +417,7 @@ export default function CheckoutPage() {
       setSameAsBilling(true);
       setStep('billing');
       setCustomerDataLoaded(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [isAuthenticated, authReady]);
 
@@ -539,6 +540,7 @@ export default function CheckoutPage() {
 
     saveAddressToProfile('billing', billing);
     setStep('shipping');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Handle shipping form submit
@@ -554,6 +556,7 @@ export default function CheckoutPage() {
     setErrors({});
     setError(null);
     setStep('payment');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Handle payment submission
@@ -842,41 +845,53 @@ export default function CheckoutPage() {
                 onUpdateShipping={updateShipping}
                 onSameAsBillingChange={setSameAsBilling}
                 onSubmit={handleShippingSubmit}
-                onBack={() => setStep('billing')}
+                onBack={() => {
+                  setStep('billing')
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
             )}
 
             {step === 'payment' && (
               <>
-                <div className="read-id-main-wrapper">
-                  <div className={styles.securityBadges}>
-                    <span>Secured by Authorize.net</span>
+                <div
+                  className={`${styles.collapsible} ${realIdVerified ? styles.collapsibleCollapsed : ''}`}
+                >
+                  <div className={styles.collapsibleInner}>
+                    <div className="read-id-main-wrapper">
+                      <div className={styles.securityBadges}>
+                        <span>Secured by Authorize.net</span>
+                      </div>
+                      <RealIdVerification
+                        customer={{
+                          id: customerData?.customer?.databaseId ?? null,
+                          email: billing.email,
+                          firstName: billing.firstName,
+                          lastName: billing.lastName,
+                        }}
+                      onVerifiedChange={(verified, cid) => {
+                        if (verified) {
+                          setRealIdVerified(true);
+                          setVerifiedEmail(billing.email ?? null);
+
+                          window.scrollTo({
+                            top: 0,
+                            behavior: 'smooth',
+                          });
+                        }
+
+                        if (cid) setRealIdCheckId(cid);
+                      }}
+                      />
+                    </div>
                   </div>
-                  <RealIdVerification
-                    customer={{
-                      id: customerData?.customer?.databaseId ?? null,
-                      email: billing.email,
-                      firstName: billing.firstName,
-                      lastName: billing.lastName,
-                    }}
-                  onVerifiedChange={(verified, cid) => {
-                    if (verified) {
-                      setRealIdVerified(true);
-                      setVerifiedEmail(billing.email ?? null);
-
-                      window.scrollTo({
-                        top: 0,
-                        behavior: 'smooth',
-                      });
-                    }
-
-                    if (cid) setRealIdCheckId(cid);
-                  }}
-                  />
                 </div>
                 <PaymentForm
                   onSubmit={handlePayment}
-                  onBack={() => setStep('shipping')}
+                  onBack={() => {
+                    setStep('shipping')
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   isProcessing={isProcessing}
                   isLoading={csrfLoading}
                   amount={subSummary ? `$${subSummary.total.toFixed(2)}` : cart.total}
@@ -1018,139 +1033,151 @@ function PaymentForm({
 
   return (
     <div className={styles.paymentContainer}>
-      <h2>payment information</h2>
-      <p className={styles.paymentNotice}>
-        Your payment is secured by Authorize.net. Your card details are encrypted
-        and never stored on our servers.
-      </p>
+      <div className={`${styles.collapsible} ${realIdBlocked ? styles.collapsibleCollapsed : ''}`}>
+        <div className={styles.collapsibleInner}>
+          <h2>payment information</h2>
+          <p className={styles.paymentNotice}>
+            Your payment is secured by Authorize.net. Your card details are encrypted
+            and never stored on our servers.
+          </p>
 
-      {/* Saved cards selector for authenticated users */}
-      {isAuthenticated && !loadingCards && savedCards.length > 0 && (
-        <SavedCardSelector
-          cards={savedCards}
-          selectedId={selectedSavedCard}
-          onSelect={setSelectedSavedCard}
-          disabled={isDisabled}
-        />
-      )}
+          {/* Saved cards selector for authenticated users */}
+          {isAuthenticated && !loadingCards && savedCards.length > 0 && (
+            <SavedCardSelector
+              cards={savedCards}
+              selectedId={selectedSavedCard}
+              onSelect={setSelectedSavedCard}
+              disabled={isDisabled}
+            />
+          )}
 
-      <form onSubmit={handleSubmit} className={styles.paymentForm}>
-        {cardError && (
-          <div className={styles.cardError} role="alert">
-            {cardError}
-          </div>
-        )}
-
-        {/* New card form — hidden when using saved card */}
-        {!usingSavedCard && (
-          <>
-            <div className={styles.formGroup}>
-              <label htmlFor="cardNumber">Card Number</label>
-              <input
-                type="text"
-                id="cardNumber"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                placeholder="1234 5678 9012 3456"
-                maxLength={19}
-                autoComplete="cc-number"
-                required
-                disabled={isDisabled}
-              />
-            </div>
-
-            <div className={styles.paymentFormRow}>
-              <div className={styles.formGroup}>
-                <label htmlFor="expMonth">Expiry Month</label>
-                <select
-                  id="expMonth"
-                  value={expMonth}
-                  onChange={(e) => setExpMonth(e.target.value)}
-                  autoComplete="cc-exp-month"
-                  required
-                  disabled={isDisabled}
-                >
-                  <option value="">MM</option>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                    <option key={month} value={month.toString().padStart(2, '0')}>
-                      {month.toString().padStart(2, '0')}
-                    </option>
-                  ))}
-                </select>
+          <form onSubmit={handleSubmit} className={styles.paymentForm}>
+            {cardError && (
+              <div className={styles.cardError} role="alert">
+                {cardError}
               </div>
-
-              <div className={styles.formGroup}>
-                <label htmlFor="expYear">Expiry Year</label>
-                <select
-                  id="expYear"
-                  value={expYear}
-                  onChange={(e) => setExpYear(e.target.value)}
-                  autoComplete="cc-exp-year"
-                  required
-                  disabled={isDisabled}
-                >
-                  <option value="">YY</option>
-                  {Array.from({ length: 10 }, (_, i) => {
-                    const year = new Date().getFullYear() + i;
-                    return (
-                      <option key={year} value={year.toString()}>
-                        {year}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label htmlFor="cvv">CVV</label>
-                <input
-                  type="text"
-                  id="cvv"
-                  value={cvv}
-                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="123"
-                  maxLength={4}
-                  autoComplete="cc-csc"
-                  required
-                  disabled={isDisabled}
-                />
-              </div>
-            </div>
-
-            {/* Save card checkbox — authenticated users only */}
-            {isAuthenticated && (
-              <label className={styles.saveCardCheckbox}>
-                <input
-                  type="checkbox"
-                  checked={saveCard}
-                  onChange={(e) => setSaveCard(e.target.checked)}
-                  disabled={isDisabled}
-                />
-                <span>Save this card for future purchases</span>
-              </label>
             )}
-          </>
-        )}
 
+            {/* New card form — hidden when using saved card */}
+            {!usingSavedCard && (
+              <>
+                <div className={styles.formGroup}>
+                  <label htmlFor="cardNumber">Card Number</label>
+                  <input
+                    type="text"
+                    id="cardNumber"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                    placeholder="1234 5678 9012 3456"
+                    maxLength={19}
+                    autoComplete="cc-number"
+                    required
+                    disabled={isDisabled}
+                  />
+                </div>
+
+                <div className={styles.paymentFormRow}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="expMonth">Expiry Month</label>
+                    <select
+                      id="expMonth"
+                      value={expMonth}
+                      onChange={(e) => setExpMonth(e.target.value)}
+                      autoComplete="cc-exp-month"
+                      required
+                      disabled={isDisabled}
+                    >
+                      <option value="">MM</option>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                        <option key={month} value={month.toString().padStart(2, '0')}>
+                          {month.toString().padStart(2, '0')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="expYear">Expiry Year</label>
+                    <select
+                      id="expYear"
+                      value={expYear}
+                      onChange={(e) => setExpYear(e.target.value)}
+                      autoComplete="cc-exp-year"
+                      required
+                      disabled={isDisabled}
+                    >
+                      <option value="">YY</option>
+                      {Array.from({ length: 10 }, (_, i) => {
+                        const year = new Date().getFullYear() + i;
+                        return (
+                          <option key={year} value={year.toString()}>
+                            {year}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="cvv">CVV</label>
+                    <input
+                      type="text"
+                      id="cvv"
+                      value={cvv}
+                      onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="123"
+                      maxLength={4}
+                      autoComplete="cc-csc"
+                      required
+                      disabled={isDisabled}
+                    />
+                  </div>
+                </div>
+
+                {/* Save card checkbox — authenticated users only */}
+                {isAuthenticated && (
+                  <label className={styles.saveCardCheckbox}>
+                    <input
+                      type="checkbox"
+                      checked={saveCard}
+                      onChange={(e) => setSaveCard(e.target.checked)}
+                      disabled={isDisabled}
+                    />
+                    <span>Save this card for future purchases</span>
+                  </label>
+                )}
+              </>
+            )}
+
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.formActionsSecondary}
+                onClick={onBack}
+                // disabled={isDisabled}
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                className={styles.formActionsPrimary}
+                disabled={isDisabled}
+              >
+                {isLoading ? 'Loading...' : isProcessing ? 'Processing...' : `Pay ${amount}`}
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      {realIdBlocked && (
         <div className={styles.formActions}>
-          <button
-            type="button"
-            className={styles.formActionsSecondary}
-            onClick={onBack}
-            // disabled={isDisabled}
-          >
+          <button type="button" className={styles.formActionsSecondary} onClick={onBack}>
             Back
           </button>
-          <button
-            type="submit"
-            className={styles.formActionsPrimary}
-            disabled={isDisabled}
-          >
-            {isLoading ? 'Loading...' : isProcessing ? 'Processing...' : `Pay ${amount}`}
-          </button>
         </div>
-      </form>
-
+      )}
     </div>
   );
 }

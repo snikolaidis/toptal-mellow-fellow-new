@@ -201,16 +201,35 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     //   observer.observe(el, { childList: true, subtree: true, characterData: true });
     // }
 
-    const onPassed = () => {
-      console.log('real-id-check-passed', {active});
+    // The SDK's "passed"/"loaded" events can fire slightly before our own backend
+    // (queried via fetchCheck, a separate round-trip) reflects the just-completed
+    // status - a single check right when the event fires can catch it too early and
+    // never get asked again. Retry a few times, a second apart, only in response to
+    // the SDK's own event - not a standing background loop.
+    const attemptVerify = (retriesLeft = 5) => {
       if (!active) return;
-      fetchCheck().then((result) => markVerifiedIfOwned(!!result?.verified, result));
+      fetchCheck().then((result) => {
+        if (!active) return;
+        console.log('attemptVerify result', { result, currentEmail, retriesLeft });
+        if (result?.verified) {
+          markVerifiedIfOwned(true, result);
+        } else if (retriesLeft > 0) {
+          window.setTimeout(() => attemptVerify(retriesLeft - 1), 1000);
+        }
+      });
+    };
+
+    // The events' own `detail.check` payload never actually includes email in
+    // practice (confirmed empty every time), so there's no reliable ownership signal
+    // to read off the event itself - always confirm via the fetch-based check instead.
+    const onPassed = () => {
+      console.log('real-id-check-passed', { active });
+      attemptVerify();
     };
     const onLoaded = () => {
       console.log('real-id-check-loaded');
-      fetchCheck().then((result) => markVerifiedIfOwned(!!result?.verified, result));
+      attemptVerify();
     };
-    // const onLoaded = () => {};
     window.addEventListener('real-id-check-passed', onPassed);
     window.addEventListener('real-id-check-loaded', onLoaded);
 
