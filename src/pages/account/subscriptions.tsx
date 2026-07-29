@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
 import Layout from '@/components/Layout';
-import { getServerSideAuth, redirectToLogin } from '@/lib/server-auth';
+import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 
 interface SubItem {
   name: string;
@@ -14,7 +14,6 @@ interface Subscription {
   id: number;
   status: string;
   total: string;
-  currency: string;
   billingPeriod: string;
   billingInterval: number;
   nextPayment: string;
@@ -38,21 +37,78 @@ function formatDate(value: string): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+const CUSTOMER_SUBSCRIPTIONS_QUERY = `
+  query CustomerSubscriptions {
+    customer {
+      subscriptions(first: 50) {
+        nodes {
+          orderNumber
+          status
+          total
+          billingPeriod
+          billingInterval
+          nextPaymentDate
+          lineItems {
+            nodes {
+              quantity
+              product {
+                node {
+                  name
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+const CANCELLABLE_STATUSES = ['active', 'on-hold', 'pending'];
+
+interface SubscriptionNode {
+  orderNumber?: string | null;
+  status?: string | null;
+  total?: string | null;
+  billingPeriod?: string | null;
+  billingInterval?: string | null;
+  nextPaymentDate?: string | null;
+  lineItems?: {
+    nodes?: Array<{
+      quantity?: number | null;
+      product?: { node?: { name?: string | null } | null } | null;
+    }> | null;
+  } | null;
+}
+
+function mapSubscription(node: SubscriptionNode): Subscription {
+  const status = (node.status || '').toLowerCase().replace(/_/g, '-');
+
+  return {
+    id: Number(node.orderNumber) || 0,
+    status,
+    total: node.total ?? '',
+    billingPeriod: node.billingPeriod ?? '',
+    billingInterval: Number(node.billingInterval) || 1,
+    nextPayment: node.nextPaymentDate ?? '',
+    canCancel: CANCELLABLE_STATUSES.includes(status),
+    items: (node.lineItems?.nodes ?? []).map((item) => ({
+      name: item?.product?.node?.name ?? 'Item',
+      quantity: item?.quantity ?? 1,
+    })),
+  };
+}
+
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
 
   const auth = await getServerSideAuth(ctx);
   if (!auth) return redirectToLogin(ctx);
 
-  const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-  const faustSecret = process.env.FAUST_SECRET_KEY || '';
-
   try {
-    const wpRes = await fetch(`${wpUrl}/wp-json/mf/v1/subscriptions/${auth.userId}`, {
-      headers: { Authorization: `Bearer ${faustSecret}` },
-    });
-    const data = await wpRes.json();
-    return { props: { subscriptions: data.subscriptions || [] } };
+    const data = await serverSideGraphQL(CUSTOMER_SUBSCRIPTIONS_QUERY, auth.accessToken);
+    const nodes: SubscriptionNode[] = data?.customer?.subscriptions?.nodes || [];
+    return { props: { subscriptions: nodes.map(mapSubscription) } };
   } catch {
     return { props: { subscriptions: [] } };
   }
@@ -123,7 +179,7 @@ export default function SubscriptionsPage({ subscriptions: initial }: Subscripti
                   </td>
                   <td>{frequency(s.billingPeriod, s.billingInterval)}</td>
                   <td>{formatDate(s.nextPayment)}</td>
-                  <td>${s.total}</td>
+                  <td>{s.total}</td>
                   <td>
                     <span className="account__status">{s.status}</span>
                   </td>
