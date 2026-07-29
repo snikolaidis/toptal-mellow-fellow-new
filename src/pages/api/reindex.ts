@@ -9,6 +9,7 @@ const MEILI_ADMIN_KEY = process.env.MEILISEARCH_ADMIN_KEY || '';
 const REINDEX_SECRET = process.env.REINDEX_SECRET || '';
 
 export const PRODUCTS_INDEX = 'products';
+export const COLLECTIONS_INDEX = 'collections';
 
 const PRODUCT_QUERY = `
   query ReindexProducts($first: Int!, $after: String) {
@@ -118,6 +119,25 @@ const DISPLAYED_ATTRIBUTES = [
   ...TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
   ...DISPLAY_TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
 ];
+
+const COLLECTION_QUERY = `
+  query ReindexCollections($first: Int!, $after: String) {
+    collections(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { databaseId name slug count }
+    }
+  }
+`;
+
+const COLLECTION_SEARCHABLE_ATTRIBUTES = ['name'];
+
+const COLLECTION_FILTERABLE_ATTRIBUTES: string[] = [];
+
+const COLLECTION_SORTABLE_ATTRIBUTES = ['count'];
+
+const COLLECTION_DISPLAYED_ATTRIBUTES = ['databaseId', 'name', 'slug', 'count'];
+
+const COLLECTION_SYNONYMS: Record<string, string[]> = {};
 
 const SYNONYM_GROUPS: string[][] = [
   ['butter', 'budder', 'badder', 'dab', 'dabs'],
@@ -281,6 +301,82 @@ async function fetchAllProducts(): Promise<ProductDocument[]> {
   return documents;
 }
 
+interface WooCollection {
+  databaseId?: number | null;
+  name?: string | null;
+  slug?: string | null;
+  count?: number | null;
+}
+
+interface CollectionDocument {
+  databaseId: number;
+  name: string;
+  slug: string;
+  count: number;
+  [key: string]: unknown;
+}
+
+interface CollectionsConnection {
+  pageInfo?: { hasNextPage?: boolean | null; endCursor?: string | null } | null;
+  nodes?: WooCollection[] | null;
+}
+
+interface CollectionsResponse {
+  errors?: Array<{ message: string }> | null;
+  data?: { collections?: CollectionsConnection | null } | null;
+}
+
+function isSlugLikeName(name: string): boolean {
+  return !/\s/.test(name) && name.includes('-');
+}
+
+async function fetchAllCollections(): Promise<CollectionDocument[]> {
+  const documents: CollectionDocument[] = [];
+  let after: string | null = null;
+
+  for (;;) {
+    const res: Response = await fetch(`${WP_URL}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: COLLECTION_QUERY, variables: { first: 100, after } }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`WordPress responded ${res.status}`);
+    }
+
+    const json = (await res.json()) as CollectionsResponse;
+
+    if (json.errors && json.errors.length > 0) {
+      throw new Error(`GraphQL error: ${json.errors.map((e) => e.message).join('; ')}`);
+    }
+
+    const connection: CollectionsConnection | null | undefined = json.data?.collections;
+    if (!connection) {
+      throw new Error('GraphQL response missing collections connection');
+    }
+
+    for (const node of connection.nodes || []) {
+      if (typeof node?.databaseId !== 'number') continue;
+      const count = node.count ?? 0;
+      if (count <= 0) continue;
+      const name = node.name ?? '';
+      if (isSlugLikeName(name)) continue;
+      documents.push({
+        databaseId: node.databaseId,
+        name,
+        slug: node.slug ?? '',
+        count,
+      });
+    }
+
+    if (!connection.pageInfo?.hasNextPage) break;
+    after = connection.pageInfo.endCursor ?? null;
+  }
+
+  return documents;
+}
+
 async function fetchIndexedIds(index: ReturnType<Meilisearch['index']>): Promise<number[]> {
   const ids: number[] = [];
   const limit = 1000;
@@ -312,6 +408,143 @@ function isAuthorized(req: NextApiRequest): boolean {
   return timingSafeEqual(a, b);
 }
 
+interface ReindexDocument {
+  databaseId: number;
+  [key: string]: unknown;
+}
+
+interface IndexSettings {
+  searchableAttributes: string[];
+  filterableAttributes: string[];
+  sortableAttributes: string[];
+  displayedAttributes: string[];
+  synonyms: Record<string, string[]>;
+}
+
+interface IndexDefinition {
+  uid: string;
+  settings: IndexSettings;
+  fetchDocuments: () => Promise<ReindexDocument[]>;
+}
+
+interface IndexResult {
+  ok: boolean;
+  indexed: number;
+  deleted: number;
+  durationMs: number;
+  error?: string;
+}
+
+const INDEX_DEFINITIONS: IndexDefinition[] = [
+  {
+    uid: PRODUCTS_INDEX,
+    settings: {
+      searchableAttributes: SEARCHABLE_ATTRIBUTES,
+      filterableAttributes: FILTERABLE_ATTRIBUTES,
+      sortableAttributes: SORTABLE_ATTRIBUTES,
+      displayedAttributes: DISPLAYED_ATTRIBUTES,
+      synonyms: SYNONYMS,
+    },
+    fetchDocuments: fetchAllProducts,
+  },
+  {
+    uid: COLLECTIONS_INDEX,
+    settings: {
+      searchableAttributes: COLLECTION_SEARCHABLE_ATTRIBUTES,
+      filterableAttributes: COLLECTION_FILTERABLE_ATTRIBUTES,
+      sortableAttributes: COLLECTION_SORTABLE_ATTRIBUTES,
+      displayedAttributes: COLLECTION_DISPLAYED_ATTRIBUTES,
+      synonyms: COLLECTION_SYNONYMS,
+    },
+    fetchDocuments: fetchAllCollections,
+  },
+];
+
+function resolveTargets(type: string | string[] | undefined): IndexDefinition[] | null {
+  if (type === undefined || type === 'all') return INDEX_DEFINITIONS;
+  if (typeof type !== 'string') return null;
+  const match = INDEX_DEFINITIONS.find((definition) => definition.uid === type);
+  return match ? [match] : null;
+}
+
+async function rebuildIndex(
+  client: Meilisearch,
+  definition: IndexDefinition,
+  existingUids: Set<string>
+): Promise<IndexResult> {
+  const startedAt = Date.now();
+
+  try {
+    if (!existingUids.has(definition.uid)) {
+      const created = await client.createIndex(definition.uid, { primaryKey: 'databaseId' });
+      await client.tasks.waitForTask(created.taskUid);
+    }
+
+    const index = client.index(definition.uid);
+
+    const settingsTask = await index.updateSettings(definition.settings);
+    await client.tasks.waitForTask(settingsTask.taskUid);
+
+    const documents = await definition.fetchDocuments();
+
+    if (documents.length === 0) {
+      return {
+        ok: false,
+        indexed: 0,
+        deleted: 0,
+        durationMs: Date.now() - startedAt,
+        error: 'Source returned no documents; index left unchanged',
+      };
+    }
+
+    const sourceIds = new Set(documents.map((d) => d.databaseId));
+    const indexedIds = await fetchIndexedIds(index);
+    const staleIds = indexedIds.filter((id) => !sourceIds.has(id));
+
+    const addTask = await index.addDocuments(documents, { primaryKey: 'databaseId' });
+    const addResult = await client.tasks.waitForTask(addTask.taskUid);
+
+    if (addResult.status !== 'succeeded') {
+      return {
+        ok: false,
+        indexed: 0,
+        deleted: 0,
+        durationMs: Date.now() - startedAt,
+        error: addResult.error?.message ?? 'Indexing failed',
+      };
+    }
+
+    if (staleIds.length > 0) {
+      const deleteTask = await index.deleteDocuments(staleIds);
+      const deleteResult = await client.tasks.waitForTask(deleteTask.taskUid);
+      if (deleteResult.status !== 'succeeded') {
+        return {
+          ok: false,
+          indexed: documents.length,
+          deleted: 0,
+          durationMs: Date.now() - startedAt,
+          error: deleteResult.error?.message ?? 'Delete reconciliation failed',
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      indexed: documents.length,
+      deleted: staleIds.length,
+      durationMs: Date.now() - startedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      indexed: 0,
+      deleted: 0,
+      durationMs: Date.now() - startedAt,
+      error: (error as Error).message,
+    };
+  }
+}
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -326,63 +559,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(503).json({ error: 'Reindex is not configured' });
   }
 
+  const targets = resolveTargets(req.query.type);
+  if (!targets) {
+    return res.status(400).json({ error: 'Unknown index type' });
+  }
+
   const startedAt = Date.now();
 
   try {
     const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_ADMIN_KEY });
 
     const indexes = await client.getRawIndexes({ limit: 1000 });
-    if (!indexes.results.some((i) => i.uid === PRODUCTS_INDEX)) {
-      const created = await client.createIndex(PRODUCTS_INDEX, { primaryKey: 'databaseId' });
-      await client.tasks.waitForTask(created.taskUid);
+    const existingUids = new Set(indexes.results.map((i) => i.uid));
+
+    const results: Record<string, IndexResult> = {};
+    for (const definition of targets) {
+      results[definition.uid] = await rebuildIndex(client, definition, existingUids);
     }
 
-    const index = client.index(PRODUCTS_INDEX);
+    const entries = Object.values(results);
 
-    const settingsTask = await index.updateSettings({
-      searchableAttributes: SEARCHABLE_ATTRIBUTES,
-      filterableAttributes: FILTERABLE_ATTRIBUTES,
-      sortableAttributes: SORTABLE_ATTRIBUTES,
-      displayedAttributes: DISPLAYED_ATTRIBUTES,
-      synonyms: SYNONYMS,
-    });
-    await client.tasks.waitForTask(settingsTask.taskUid);
-
-    const documents = await fetchAllProducts();
-
-    if (documents.length === 0) {
-      return res.status(502).json({ error: 'Source returned no products; index left unchanged' });
-    }
-
-    const sourceIds = new Set(documents.map((d) => d.databaseId));
-    const indexedIds = await fetchIndexedIds(index);
-    const staleIds = indexedIds.filter((id) => !sourceIds.has(id));
-
-    const addTask = await index.addDocuments(documents, { primaryKey: 'databaseId' });
-    const addResult = await client.tasks.waitForTask(addTask.taskUid);
-
-    if (addResult.status !== 'succeeded') {
-      return res.status(502).json({
-        error: 'Indexing failed',
-        detail: addResult.error?.message ?? null,
-      });
-    }
-
-    if (staleIds.length > 0) {
-      const deleteTask = await index.deleteDocuments(staleIds);
-      const deleteResult = await client.tasks.waitForTask(deleteTask.taskUid);
-      if (deleteResult.status !== 'succeeded') {
-        return res.status(502).json({
-          error: 'Delete reconciliation failed',
-          detail: deleteResult.error?.message ?? null,
-        });
-      }
-    }
-
-    return res.status(200).json({
-      indexed: documents.length,
-      deleted: staleIds.length,
+    return res.status(entries.every((r) => r.ok) ? 200 : 502).json({
+      indexed: entries.reduce((sum, r) => sum + r.indexed, 0),
+      deleted: entries.reduce((sum, r) => sum + r.deleted, 0),
       durationMs: Date.now() - startedAt,
+      results,
     });
   } catch (error) {
     console.error('[Reindex] Failed:', (error as Error).message);
