@@ -113,8 +113,7 @@ add_action('admin_footer', function () {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        margin: 0;
-        padding: 0;
+        margin-left: 8px;
         vertical-align: middle;
     }
     </style>
@@ -125,10 +124,16 @@ add_action('admin_footer', function () {
             var $el = $('#mf-coupon-search');
             if (!$el.length || $el.hasClass('select2-hidden-accessible')) return;
 
+            var $wrap = $el.closest('.mf-coupon-search-wrap');
+            var $refund = $wrap.siblings('.refund-items');
+            if ($refund.length) {
+                $refund.after($wrap);
+            }
+
             $el.select2({
                 placeholder: 'Select a coupon or type to search…',
                 allowClear: true,
-                width: '400px',
+                width: '350px',
                 ajax: {
                     url: ajaxurl,
                     dataType: 'json',
@@ -162,36 +167,20 @@ add_action('admin_footer', function () {
             }
 
             var coupon = selected[0].id;
-            var $items = $('#woocommerce-order-items');
-
-            $items.block({ message: null, overlayCSS: { background: '#fff', opacity: 0.6 } });
+            var $btn = $(this);
+            $btn.prop('disabled', true).text('Applying…');
 
             $.post(ajaxurl, {
                 action:   'woocommerce_add_coupon_discount',
                 order_id: woocommerce_admin_meta_boxes.post_id,
                 coupon:   coupon,
                 security: woocommerce_admin_meta_boxes.order_item_nonce
-            }, function(response) {
-                if (response) {
-                    $items.find('.inside').empty().append(response);
-                    initCouponSearch();
-                }
-                $items.unblock();
+            }, function() {
+                window.location.reload();
             }).fail(function() {
                 alert('Failed to apply coupon. Please try again.');
-                $items.unblock();
+                $btn.prop('disabled', false).text('Apply coupon');
             });
-        });
-
-        $(document).ajaxComplete(function(event, xhr, settings) {
-            if (!settings.data || typeof settings.data !== 'string') return;
-            if (
-                settings.data.indexOf('woocommerce_remove_order_coupon') !== -1 ||
-                settings.data.indexOf('woocommerce_calc_line_taxes') !== -1 ||
-                settings.data.indexOf('woocommerce_save_order_items') !== -1
-            ) {
-                setTimeout(initCouponSearch, 200);
-            }
         });
     });
     </script>
