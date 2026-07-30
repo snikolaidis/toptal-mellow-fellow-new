@@ -40,7 +40,7 @@ const emptyAddress: AddressData = {
 /**
  * Generate a unique idempotency key for checkout requests
  * Prevents duplicate charges on network retries or double-clicks
- */
+*/
 function generateIdempotencyKey(): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 15);
@@ -52,6 +52,7 @@ function formatFrequency(period: string, interval: number): string {
 }
 
 type CheckoutStep = 'billing' | 'shipping' | 'payment';
+type RememberMeState = 'not_exist' | 'do_not_remember' | 'remember_30' | 'remember_60' | 'remember_90';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -68,6 +69,7 @@ export default function CheckoutPage() {
   const skipFirstSaveRef = useRef(true);
   const submittingRef = useRef(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [rememberMeState, setRememberMeState] = useState<RememberMeState>('not_exist');
 
   // Address state
   const [billing, setBilling] = useState<AddressData>(emptyAddress);
@@ -894,6 +896,7 @@ export default function CheckoutPage() {
                   amount={subSummary ? `$${subSummary.total.toFixed(2)}` : cart.total}
                   realIdBlocked={!realIdVerified}
                   isAuthenticated={!!isAuthenticated}
+                  rememberMeState={rememberMeState}
                 />
               </>
             )}
@@ -921,6 +924,7 @@ function PaymentForm({
   amount,
   realIdBlocked = false,
   isAuthenticated = false,
+  rememberMeState,
 }: {
   onSubmit: (data: PaymentData) => void;
   onBack: () => void;
@@ -929,8 +933,12 @@ function PaymentForm({
   amount: string;
   realIdBlocked?: boolean;
   isAuthenticated?: boolean;
+  rememberMeState: RememberMeState;
 }) {
   const isDisabled = isProcessing || isLoading || realIdBlocked;
+  // Local for now - just capturing the shopper's pick; not wired to rememberMeState
+  // (the checkout-level state) yet, that connection happens in a later step.
+  const [selectedRememberOption, setSelectedRememberOption] = useState<RememberMeState>('do_not_remember');
   const [cardNumber, setCardNumber] = useState('');
   const [expMonth, setExpMonth] = useState('');
   const [expYear, setExpYear] = useState('');
@@ -1032,6 +1040,57 @@ function PaymentForm({
     <div className={styles.paymentContainer}>
       <div className={`${styles.collapsible} ${realIdBlocked ? styles.collapsibleCollapsed : ''}`}>
         <div className={styles.collapsibleInner}>
+
+          {rememberMeState === 'not_exist' && (
+            <ul className={styles.rememberMe}>
+              <li>
+                <label>
+                  <input
+                    name="remember_me_radio"
+                    type="radio"
+                    value="do_not_remember"
+                    defaultChecked
+                    onChange={() => setSelectedRememberOption('do_not_remember')}
+                  />
+                  <strong>Do not remember me</strong>
+                </label>
+              </li>
+              <li>
+                <label>
+                  <input
+                    name="remember_me_radio"
+                    type="radio"
+                    value="remember_30"
+                    onChange={() => setSelectedRememberOption('remember_30')}
+                  />
+                  Remember me for <strong>30 days</strong>
+                </label>
+              </li>
+              <li>
+                <label>
+                  <input
+                    name="remember_me_radio"
+                    type="radio"
+                    value="remember_60"
+                    onChange={() => setSelectedRememberOption('remember_60')}
+                  />
+                  Remember me for <strong>60 days</strong>
+                </label>
+              </li>
+              <li>
+                <label>
+                  <input
+                    name="remember_me_radio"
+                    type="radio"
+                    value="remember_90"
+                    onChange={() => setSelectedRememberOption('remember_90')}
+                  />
+                  Remember me for <strong>90 days</strong>
+                </label>
+              </li>
+            </ul>
+          )}
+
           <h2>payment information</h2>
           <p className={styles.paymentNotice}>
             Your payment is secured by Authorize.net. Your card details are encrypted
