@@ -419,6 +419,10 @@
   gap: 1rem;
 }
 
+.formActions > *{
+  flex: 1 1 auto;
+}
+
 .formActionsPrimary {
   flex: 1;
   padding: 1rem;
@@ -752,4 +756,8 @@
   margin: 0.5rem 0 0;
   font-size: 0.85rem;
   color: #8A8683;
+}
+
+.rememberMe {
+
 }

@@ -1174,10 +1174,11 @@ function PaymentForm({
       </div>
 
       {realIdBlocked && (
-        <div className={styles.formActions}>
+        <div className={styles.formActions} style={{marginTop: '1rem'}}>
           <button type="button" className={styles.formActionsSecondary} onClick={onBack}>
             Back
           </button>
+          <span>&nbsp;</span>
         </div>
       )}
     </div>

@@ -280,8 +280,23 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
         (el as HTMLElement).style.display = 'none';
       });
     };
+    // The widget renders its own editable email field pre-filled with whatever
+    // customer.email we passed it - if left editable, a shopper could retype a
+    // different (previously-verified) email right there, bypassing the email-
+    // ownership checks this component otherwise enforces. Lock it to read-only.
+    const lockEmailField = () => {
+      document
+        .querySelectorAll<HTMLInputElement>('.real-id-flow input[type="email"]')
+        .forEach((el) => {
+          el.readOnly = true;
+        });
+    };
     hideVerifiedCta();
-    const interval = window.setInterval(hideVerifiedCta, 400);
+    lockEmailField();
+    const interval = window.setInterval(() => {
+      hideVerifiedCta();
+      lockEmailField();
+    }, 400);
     return () => window.clearInterval(interval);
   }, []);
 

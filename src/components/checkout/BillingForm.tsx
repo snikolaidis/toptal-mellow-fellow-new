@@ -189,9 +189,14 @@ export default function BillingForm({ billing, errors, onUpdate, onSubmit }: Bil
         </div>
       </section>
 
-      <button type="submit" className="btn-primary continue-btn">
-        Continue to Shipping
-      </button>
+
+      <div className="form-actions" style={{ marginTop: '1.5rem', borderTop: 'none', paddingTop: 0 }}>
+        <span>&nbsp;</span>
+        <button type="submit" className="btn-primary continue-btn">
+          Continue to Shipping
+        </button>
+      </div>
+
     </form>
   );
 }
