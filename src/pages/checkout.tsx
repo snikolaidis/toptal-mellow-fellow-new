@@ -975,6 +975,27 @@ function PaymentForm({
     e.preventDefault();
     setCardError(null);
 
+    const checkId = window.localStorage.getItem('real-id-check-id');
+    if (checkId) {
+      switch (selectedRememberOption) {
+        case 'do_not_remember':
+          window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
+          window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
+          window.localStorage.removeItem('real-id-check-id');
+          break;
+        case 'remember_30':
+        case 'remember_60':
+        case 'remember_90': {
+          const days = { remember_30: 30, remember_60: 60, remember_90: 90 }[selectedRememberOption];
+          const expiration = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+          window.localStorage.setItem(`real-id-check-${checkId}-expiration`, expiration);
+          break;
+        }
+      }
+    }
+
+    return
+
     // Using saved card — no tokenization needed
     if (usingSavedCard && customerProfileId) {
       onSubmit({
