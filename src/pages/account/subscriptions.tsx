@@ -2,7 +2,10 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
+import { getApolloAuthClient } from '@faustwp/core';
+import { useMutation } from '@apollo/client';
 import Layout from '@/components/Layout';
+import { CANCEL_SUBSCRIPTION } from '@/graphql/mutations/subscriptions';
 import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 
 interface SubItem {
@@ -85,6 +88,9 @@ function mapSubscription(node: SubscriptionNode): Subscription {
   const status = (node.status || '').toLowerCase().replace(/_/g, '-');
 
   return {
+    // Subscriptions expose neither `id` nor `databaseId` through this
+    // connection (the model leaves them unresolved), but orderNumber is the
+    // subscription's post ID, which cancelSubscription accepts.
     id: Number(node.orderNumber) || 0,
     status,
     total: node.total ?? '',
@@ -114,32 +120,26 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   }
 };
 
-export default function SubscriptionsPage({ subscriptions: initial }: SubscriptionsPageProps) {
+export default function SubscriptionsPage({ subscriptions: subs }: SubscriptionsPageProps) {
   const router = useRouter();
-  const [subs, setSubs] = useState<Subscription[]>(initial);
+  const client = getApolloAuthClient();
+  const [cancelSubscription] = useMutation(CANCEL_SUBSCRIPTION, { client });
   const [cancelling, setCancelling] = useState<number | null>(null);
 
-  const cancel = useCallback(async (id: number) => {
+  const cancel = useCallback(async (sub: Subscription) => {
     if (!window.confirm('Cancel this subscription? This cannot be undone.')) return;
-    setCancelling(id);
+    setCancelling(sub.id);
     try {
-      const res = await fetch('/api/account/subscriptions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ subscriptionId: id }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Could not cancel');
-      }
+      await cancelSubscription({ variables: { id: String(sub.id) } });
+      // Re-run getServerSideProps so the row shows the new status (a
+      // subscription with a paid-up period left lands on pending-cancel).
       router.replace(router.asPath);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Could not cancel subscription');
     } finally {
       setCancelling(null);
     }
-  }, [router]);
+  }, [cancelSubscription, router]);
 
   return (
     <Layout title="My subscriptions">
@@ -188,7 +188,7 @@ export default function SubscriptionsPage({ subscriptions: initial }: Subscripti
                       <button
                         type="button"
                         className="account__link"
-                        onClick={() => cancel(s.id)}
+                        onClick={() => cancel(s)}
                         disabled={cancelling === s.id}
                       >
                         {cancelling === s.id ? 'Cancelling...' : 'Cancel'}
