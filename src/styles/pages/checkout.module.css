@@ -417,9 +417,6 @@
 .formActions {
   display: flex;
   gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #D5D0C9;
-  margin-top: 0.5rem;
 }
 
 .formActionsPrimary {
@@ -609,9 +606,7 @@
 }
 
 .securityBadges {
-  /* margin-bottom: 2rem; */
-  padding-bottom: 1.5rem;
-  /* border-bottom: 1px solid #D5D0C9; */
+  margin-top: 1rem;
   text-align: center;
 }
 
