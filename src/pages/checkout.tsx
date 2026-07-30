@@ -859,9 +859,6 @@ export default function CheckoutPage() {
                 >
                   <div className={styles.collapsibleInner}>
                     <div className="read-id-main-wrapper">
-                      <div className={styles.securityBadges}>
-                        <span>Secured by Authorize.net</span>
-                      </div>
                       <RealIdVerification
                         customer={{
                           id: customerData?.customer?.databaseId ?? null,
@@ -1168,6 +1165,11 @@ function PaymentForm({
             </div>
 
           </form>
+
+          <div className={styles.securityBadges}>
+            <span>Secured by Authorize.net</span>
+          </div>
+
         </div>
       </div>
 
