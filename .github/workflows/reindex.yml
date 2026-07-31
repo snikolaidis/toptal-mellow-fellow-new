@@ -40,7 +40,7 @@ jobs:
 
       # Adding an index is one entry here, once /api/reindex accepts the type.
       matrix:
-        index: [products, collections]
+        index: [products, collections, posts]
 
     steps:
       - name: Reindex ${{ matrix.index }}
