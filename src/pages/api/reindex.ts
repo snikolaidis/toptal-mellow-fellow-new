@@ -10,6 +10,7 @@ const REINDEX_SECRET = process.env.REINDEX_SECRET || '';
 
 export const PRODUCTS_INDEX = 'products';
 export const COLLECTIONS_INDEX = 'collections';
+export const POSTS_INDEX = 'posts';
 
 const PRODUCT_QUERY = `
   query ReindexProducts($first: Int!, $after: String) {
@@ -138,6 +139,40 @@ const COLLECTION_SORTABLE_ATTRIBUTES = ['count'];
 const COLLECTION_DISPLAYED_ATTRIBUTES = ['databaseId', 'name', 'slug', 'count'];
 
 const COLLECTION_SYNONYMS: Record<string, string[]> = {};
+
+const POST_QUERY = `
+  query ReindexPosts($first: Int!, $after: String) {
+    posts(first: $first, after: $after, where: { status: PUBLISH }) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        databaseId
+        title
+        slug
+        date
+        excerpt
+        content
+        featuredImage { node { sourceUrl altText } }
+      }
+    }
+  }
+`;
+
+const POST_SEARCHABLE_ATTRIBUTES = ['title', 'excerpt', 'content'];
+
+const POST_FILTERABLE_ATTRIBUTES: string[] = [];
+
+const POST_SORTABLE_ATTRIBUTES = ['date'];
+
+const POST_DISPLAYED_ATTRIBUTES = [
+  'databaseId',
+  'title',
+  'slug',
+  'date',
+  'excerpt',
+  'featuredImage',
+];
+
+const POST_SYNONYMS: Record<string, string[]> = {};
 
 const SYNONYM_GROUPS: string[][] = [
   ['butter', 'budder', 'badder', 'dab', 'dabs'],
@@ -377,6 +412,112 @@ async function fetchAllCollections(): Promise<CollectionDocument[]> {
   return documents;
 }
 
+interface WpFeaturedImage {
+  node?: { sourceUrl?: string | null; altText?: string | null } | null;
+}
+
+interface WpPost {
+  databaseId?: number | null;
+  title?: string | null;
+  slug?: string | null;
+  date?: string | null;
+  excerpt?: string | null;
+  content?: string | null;
+  featuredImage?: WpFeaturedImage | null;
+}
+
+interface PostDocument {
+  databaseId: number;
+  title: string;
+  slug: string;
+  date: string;
+  excerpt: string;
+  content: string;
+  featuredImage: { sourceUrl: string; altText: string } | null;
+  [key: string]: unknown;
+}
+
+interface PostsConnection {
+  pageInfo?: { hasNextPage?: boolean | null; endCursor?: string | null } | null;
+  nodes?: WpPost[] | null;
+}
+
+interface PostsResponse {
+  errors?: Array<{ message: string }> | null;
+  data?: { posts?: PostsConnection | null } | null;
+}
+
+function decodeCodePoint(value: number): string {
+  if (!Number.isInteger(value) || value < 1 || value > 0x10ffff) return ' ';
+  return String.fromCodePoint(value);
+}
+
+function stripPostHtml(html: string): string {
+  return html
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => decodeCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => decodeCodePoint(Number(dec)))
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&[a-z0-9]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function fetchAllPosts(): Promise<PostDocument[]> {
+  const documents: PostDocument[] = [];
+  let after: string | null = null;
+
+  for (;;) {
+    const res: Response = await fetch(`${WP_URL}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: POST_QUERY, variables: { first: 100, after } }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`WordPress responded ${res.status}`);
+    }
+
+    const json = (await res.json()) as PostsResponse;
+
+    if (json.errors && json.errors.length > 0) {
+      throw new Error(`GraphQL error: ${json.errors.map((e) => e.message).join('; ')}`);
+    }
+
+    const connection: PostsConnection | null | undefined = json.data?.posts;
+    if (!connection) {
+      throw new Error('GraphQL response missing posts connection');
+    }
+
+    for (const node of connection.nodes || []) {
+      if (typeof node?.databaseId !== 'number') continue;
+      const sourceUrl = node.featuredImage?.node?.sourceUrl ?? '';
+      documents.push({
+        databaseId: node.databaseId,
+        title: node.title ?? '',
+        slug: node.slug ?? '',
+        date: node.date ?? '',
+        excerpt: stripPostHtml(node.excerpt ?? ''),
+        content: stripPostHtml(node.content ?? ''),
+        featuredImage: sourceUrl
+          ? { sourceUrl, altText: node.featuredImage?.node?.altText ?? '' }
+          : null,
+      });
+    }
+
+    if (!connection.pageInfo?.hasNextPage) break;
+    after = connection.pageInfo.endCursor ?? null;
+  }
+
+  return documents;
+}
+
 async function fetchIndexedIds(index: ReturnType<Meilisearch['index']>): Promise<number[]> {
   const ids: number[] = [];
   const limit = 1000;
@@ -457,6 +598,17 @@ const INDEX_DEFINITIONS: IndexDefinition[] = [
       synonyms: COLLECTION_SYNONYMS,
     },
     fetchDocuments: fetchAllCollections,
+  },
+  {
+    uid: POSTS_INDEX,
+    settings: {
+      searchableAttributes: POST_SEARCHABLE_ATTRIBUTES,
+      filterableAttributes: POST_FILTERABLE_ATTRIBUTES,
+      sortableAttributes: POST_SORTABLE_ATTRIBUTES,
+      displayedAttributes: POST_DISPLAYED_ATTRIBUTES,
+      synonyms: POST_SYNONYMS,
+    },
+    fetchDocuments: fetchAllPosts,
   },
 ];
 
