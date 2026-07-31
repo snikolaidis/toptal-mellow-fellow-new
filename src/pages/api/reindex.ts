@@ -22,10 +22,8 @@ const PRODUCT_QUERY = `
           id databaseId name slug type date
           description shortDescription sku
           price regularPrice salePrice
-          stockStatus stockQuantity
+          stockStatus
           image { id sourceUrl altText }
-          galleryImages { nodes { id sourceUrl altText } }
-          productCategories { nodes { id name slug } }
           collections { nodes { name slug } }
           strainTypes { nodes { name slug } }
           strainNames { nodes { name slug } }
@@ -47,10 +45,7 @@ const PRODUCT_QUERY = `
           price regularPrice salePrice
           stockStatus
           image { id sourceUrl altText }
-          galleryImages { nodes { id sourceUrl altText } }
-          productCategories { nodes { id name slug } }
           collections { nodes { name slug } }
-          variations { nodes { id databaseId name price regularPrice salePrice stockStatus attributes { nodes { name value } } } }
           strainTypes { nodes { name slug } }
           strainNames { nodes { name slug } }
           blendTypes { nodes { name slug } }
