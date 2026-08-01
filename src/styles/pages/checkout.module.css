@@ -766,6 +766,9 @@
   margin-bottom: 1rem;
 }
 
+.rememberMeActive .App {
+  width: 100%;
+}
 .realIdBrandBar {
   background-color: #108043 !important;
 }

@@ -11,6 +11,11 @@ import RealIdVerification from '@/components/RealIdVerification';
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
+// MARK: REMOVE — temporary bypass to test the post-purchase Real ID remember-me
+// flow without a real Authorize.net charge. Skips card tokenization in
+// PaymentForm and the actual /api/checkout call in handlePayment, simulating
+// a successful order instead.
+const BYPASS_PAYMENT_FOR_TESTING = true;
 import { AddressData, PaymentData, SavedCardInfo } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
 import { collectWidgetSources } from '@/lib/widgetAttribution';
@@ -80,13 +85,20 @@ export default function CheckoutPage() {
     const checkId = window.localStorage.getItem('real-id-check-id');
     if (!checkId) return;
 
+    // No expiration recorded yet doesn't mean expired - it means no remember-me
+    // choice has been made for this check yet (still in progress, or verified but
+    // not yet submitted). Deleting real-id-check-id here would rip the check out
+    // from under Real ID mid-flow (React runs child effects, like the one that
+    // creates/writes this check, before parent effects like this one on the same
+    // render - so this used to fire immediately after the check was created).
+    // Only an expiration that actually exists and has passed counts as expired.
     const expiration = window.localStorage.getItem(`real-id-check-${checkId}-expiration`);
-    const expirationTime = expiration ? new Date(expiration).getTime() : NaN;
+    if (!expiration) return;
+
+    const expirationTime = new Date(expiration).getTime();
     const diffDays = (expirationTime - Date.now()) / (1000 * 60 * 60 * 24);
 
-    // Missing or unparseable expiration is treated the same as an expired one -
-    // there's no valid record to trust, so start the Real ID procedure over.
-    if (!expiration || Number.isNaN(expirationTime) || diffDays < 0) {
+    if (Number.isNaN(expirationTime) || diffDays < 0) {
       window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
       window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
       window.localStorage.removeItem('real-id-check-id');
@@ -630,43 +642,60 @@ export default function CheckoutPage() {
     }
 
     try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-          'X-Idempotency-Key': idempotencyKey,
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          billing,
-          shipping: sameAsBilling ? undefined : finalShipping,
-          paymentNonce: paymentData.opaqueData || undefined,
-          savedCard: paymentData.savedCard || undefined,
-          saveCard: paymentData.saveCard || false,
-          subscriptionItems:
-            subChecked.length > 0 && subChoice
-              ? subChecked.map((pid) => ({
-                productId: pid,
-                period: subChoice.period,
-                interval: subChoice.interval,
-              }))
-              : undefined,
-          amount: cart?.total,
-          coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
-          items: cart?.items.map((item) => ({
-            productId: item.product.databaseId,
-            name: item.product.name,
-            quantity: item.quantity,
-            price: item.bbLocked && typeof item.bbUnitPrice === 'number'
-              ? `$${item.bbUnitPrice.toFixed(2)}`
-              : item.product.price,
-          })),
-          sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
-        }),
-      });
+      // MARK: REMOVE
+      // Skips the real charge/order creation so the post-purchase
+      // Real ID remember-me logic below can be tested without hitting
+      // Authorize.net.
+      let response: Response | { ok: boolean; status: number };
+      let result: any;
+      if (BYPASS_PAYMENT_FOR_TESTING) {
+        response = { ok: true, status: 200 };
+        result = {
+          success: true,
+          orderId: `TEST-${Date.now()}`,
+          orderDatabaseId: 999999,
+          amountCharged: cart?.total,
+        };
+      } else {
+        const fetchResponse = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+            'X-Idempotency-Key': idempotencyKey,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            billing,
+            shipping: sameAsBilling ? undefined : finalShipping,
+            paymentNonce: paymentData.opaqueData || undefined,
+            savedCard: paymentData.savedCard || undefined,
+            saveCard: paymentData.saveCard || false,
+            subscriptionItems:
+              subChecked.length > 0 && subChoice
+                ? subChecked.map((pid) => ({
+                  productId: pid,
+                  period: subChoice.period,
+                  interval: subChoice.interval,
+                }))
+                : undefined,
+            amount: cart?.total,
+            coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
+            items: cart?.items.map((item) => ({
+              productId: item.product.databaseId,
+              name: item.product.name,
+              quantity: item.quantity,
+              price: item.bbLocked && typeof item.bbUnitPrice === 'number'
+                ? `$${item.bbUnitPrice.toFixed(2)}`
+                : item.product.price,
+            })),
+            sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
+          }),
+        });
 
-      const result = await response.json();
+        response = fetchResponse;
+        result = await fetchResponse.json();
+      }
 
       if (response.status === 429) {
         const retryAfter = result.retryAfter || 60;
@@ -694,6 +723,30 @@ export default function CheckoutPage() {
           );
         }
         throw new Error(result.message || 'Checkout failed. Please try again.');
+      }
+
+      // The Real ID remember-me choice is only ever applied once the purchase has
+      // actually succeeded - never at form submission time, and never on failure.
+      if (typeof window !== 'undefined') {
+        const checkId = window.localStorage.getItem('real-id-check-id');
+        if (checkId) {
+          switch (paymentData.rememberOption) {
+            case 'do_not_remember':
+              window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
+              window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
+              window.localStorage.removeItem('real-id-check-id');
+              break;
+            case 'remember_30':
+            case 'remember_60':
+            case 'remember_90': {
+              const REMEMBER_DAYS: Record<string, number> = { remember_30: 30, remember_60: 60, remember_90: 90 };
+              const days = REMEMBER_DAYS[paymentData.rememberOption];
+              const expiration = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+              window.localStorage.setItem(`real-id-check-${checkId}-expiration`, expiration);
+              break;
+            }
+          }
+        }
       }
 
       if (REALID_ENABLED && typeof window !== 'undefined' && realIdCheckId) {
@@ -925,7 +978,16 @@ export default function CheckoutPage() {
                   realIdBlocked={!realIdVerified}
                   isAuthenticated={!!isAuthenticated}
                   rememberMeState={rememberMeState}
-                  onForgetMe={() => setRememberMeState('forgotten')}
+                  onForgetMe={() => {
+                    // 'not_exist' (not 'forgotten') is what the remember-me radio
+                    // picker in PaymentForm actually checks for - otherwise it has
+                    // no way to reappear once verification completes again, until
+                    // a full page reload resets this state back to its initial value.
+                    setRememberMeState('not_exist');
+                    setRealIdVerified(false);
+                    setRealIdCheckId(null);
+                    setVerifiedEmail(null);
+                  }}
                 />
               </>
             )}
@@ -996,6 +1058,20 @@ function PaymentForm({
     setRememberDaysLeft(days);
   }, [rememberMeState]);
 
+  // While Real ID is blocking payment, the widget script/UI takes a moment to
+  // load - until then the screen is otherwise empty except for the standalone
+  // Back button below. Only show it once real-id-check-loaded actually fires,
+  // and reset back to hidden each time a fresh verification attempt starts.
+  const [realIdLoaded, setRealIdLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!realIdBlocked || typeof window === 'undefined') return;
+    setRealIdLoaded(false);
+    const onLoaded = () => setRealIdLoaded(true);
+    window.addEventListener('real-id-check-loaded', onLoaded);
+    return () => window.removeEventListener('real-id-check-loaded', onLoaded);
+  }, [realIdBlocked]);
+
   const handleForgetMe = () => {
     const checkId = window.localStorage.getItem('real-id-check-id');
     if (checkId) {
@@ -1035,27 +1111,12 @@ function PaymentForm({
     e.preventDefault();
     setCardError(null);
 
-    const checkId = window.localStorage.getItem('real-id-check-id');
-    if (checkId) {
-      switch (selectedRememberOption) {
-        case 'do_not_remember':
-          window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
-          window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
-          window.localStorage.removeItem('real-id-check-id');
-          break;
-        case 'remember_30':
-        case 'remember_60':
-        case 'remember_90': {
-          const days = { remember_30: 30, remember_60: 60, remember_90: 90 }[selectedRememberOption];
-          const expiration = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-          window.localStorage.setItem(`real-id-check-${checkId}-expiration`, expiration);
-          break;
-        }
-      }
+    // MARK: REMOVE — skips real card tokenization; handlePayment also skips the
+    // actual charge/order creation while BYPASS_PAYMENT_FOR_TESTING is on.
+    if (BYPASS_PAYMENT_FOR_TESTING) {
+      onSubmit({ rememberOption: selectedRememberOption });
+      return;
     }
-
-    // MARK: REMOVE THIS LINE
-    return
 
     // Using saved card — no tokenization needed
     if (usingSavedCard && customerProfileId) {
@@ -1064,6 +1125,7 @@ function PaymentForm({
           customerProfileId,
           paymentProfileId: selectedSavedCard,
         },
+        rememberOption: selectedRememberOption,
       });
       return;
     }
@@ -1092,7 +1154,7 @@ function PaymentForm({
         cvv,
       });
 
-      onSubmit({ opaqueData, saveCard: isAuthenticated && saveCard });
+      onSubmit({ opaqueData, saveCard: isAuthenticated && saveCard, rememberOption: selectedRememberOption });
     } catch (err) {
       console.error('Tokenization error:', err);
       setCardError(
@@ -1137,7 +1199,7 @@ function PaymentForm({
                       <div>
                         <div className="ri-text-center">
 
-                          <p className="ri-pb-4">
+                          <p className="ri-pb-4 ri-px-3">
                             {rememberDaysLeft !== null
                               ? `We'll remember your identity verification for ${rememberDaysLeft} more day${rememberDaysLeft === 1 ? '' : 's'}.`
                               : "We're remembering your identity verification on this device."}
@@ -1170,7 +1232,7 @@ function PaymentForm({
                       <div>
                         <div className="ri-text-center">
 
-                          <p className="ri-pb-4">You're verified! Skip this step next time by letting us remember your Real ID check on this device:</p>
+                          <p className="ri-pb-4 ri-px-3">You're verified! Skip this step next time by letting us remember your Real ID check on this device:</p>
 
                           <ul className="ri-inline-block ri-text-left">
                             <li>
@@ -1349,7 +1411,7 @@ function PaymentForm({
         </div>
       </div>
 
-      {realIdBlocked && (
+      {realIdBlocked && realIdLoaded && (
         <div className={styles.formActions} style={{ marginTop: '1rem' }}>
           <button type="button" className={styles.formActionsSecondary} onClick={onBack}>
             Back

@@ -27,6 +27,9 @@ export interface PaymentData {
     paymentProfileId: string;
   };
   saveCard?: boolean;
+  // The shopper's Real ID remember-me pick, carried from PaymentForm up to
+  // handlePayment so it's only ever applied after a purchase actually succeeds.
+  rememberOption?: string;
 }
 
 export interface SavedCardInfo {
