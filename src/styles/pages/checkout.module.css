@@ -758,6 +758,14 @@
   color: #8A8683;
 }
 
-.rememberMe {
+.rememberMeActive {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
 
+.realIdBrandBar {
+  background-color: #108043 !important;
 }
