@@ -368,6 +368,23 @@
   background-color: white;
 }
 
+/* Collapsible section (Real ID gate / payment form reveal) - animates to/from its
+   natural height using a CSS grid track instead of a fixed max-height guess. */
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.4s ease;
+}
+
+.collapsibleCollapsed {
+  grid-template-rows: 0fr;
+}
+
+.collapsibleInner {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .paymentNotice {
   color: #8A8683;
   font-size: 0.875rem;
@@ -400,9 +417,10 @@
 .formActions {
   display: flex;
   gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #D5D0C9;
-  margin-top: 0.5rem;
+}
+
+.formActions > *{
+  flex: 1 1 auto;
 }
 
 .formActionsPrimary {
@@ -592,9 +610,7 @@
 }
 
 .securityBadges {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #D5D0C9;
+  margin-top: 1rem;
   text-align: center;
 }
 
@@ -740,4 +756,19 @@
   margin: 0.5rem 0 0;
   font-size: 0.85rem;
   color: #8A8683;
+}
+
+.rememberMeActive {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.rememberMeActive .App {
+  width: 100%;
+}
+.realIdBrandBar {
+  background-color: #108043 !important;
 }

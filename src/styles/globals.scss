@@ -386,6 +386,15 @@ img {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+
+    > * {
+      flex: 1 1 0;
+    }
+  }
 }
 
 .form-section {
@@ -1004,5 +1013,12 @@ img {
 #aioa-trigger-button button img {
   width: 28px !important;
   height: 28px !important;
+}
+
+/* Real ID verification widget (checkout page) - it renders its own root
+   container(s) with these literal classes; not something we can style via
+   checkout.module.css since that scopes/hashes class names. */
+.App.ri-flex.ri-flex-col {
+  width: 100%;
 }
 

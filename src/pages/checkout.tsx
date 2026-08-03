@@ -40,7 +40,7 @@ const emptyAddress: AddressData = {
 /**
  * Generate a unique idempotency key for checkout requests
  * Prevents duplicate charges on network retries or double-clicks
- */
+*/
 function generateIdempotencyKey(): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 15);
@@ -52,6 +52,7 @@ function formatFrequency(period: string, interval: number): string {
 }
 
 type CheckoutStep = 'billing' | 'shipping' | 'payment';
+type RememberMeState = 'not_exist' | 'do_not_remember' | 'remember_30' | 'remember_60' | 'remember_90' | 'active' | 'forgotten';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -68,6 +69,54 @@ export default function CheckoutPage() {
   const skipFirstSaveRef = useRef(true);
   const submittingRef = useRef(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [rememberMeState, setRememberMeState] = useState<RememberMeState>('not_exist');
+
+  // While Real ID is blocking payment, the widget script/UI takes a moment to load -
+  // until then the screen is otherwise empty except for the standalone Back button
+  // below. Only show it once real-id-check-loaded actually fires, and reset back to
+  // hidden each time a fresh verification attempt starts.
+  const [realIdLoaded, setRealIdLoaded] = useState(false);
+
+  useEffect(() => {
+    if (realIdVerified || typeof window === 'undefined') return;
+    setRealIdLoaded(false);
+    const onLoaded = () => setRealIdLoaded(true);
+    window.addEventListener('real-id-check-loaded', onLoaded);
+    return () => window.removeEventListener('real-id-check-loaded', onLoaded);
+  }, [realIdVerified]);
+
+  // When the payment step becomes visible, check whether this browser already has
+  // a "remembered" Real ID check on file and whether it's still within its
+  // remember-me window, so we can skip re-running the Real ID procedure.
+  useEffect(() => {
+    if (!REALID_ENABLED || step !== 'payment' || typeof window === 'undefined') return;
+
+    const checkId = window.localStorage.getItem('real-id-check-id');
+    if (!checkId) return;
+
+    // No expiration recorded yet doesn't mean expired - it means no remember-me
+    // choice has been made for this check yet (still in progress, or verified but
+    // not yet submitted). Deleting real-id-check-id here would rip the check out
+    // from under Real ID mid-flow (React runs child effects, like the one that
+    // creates/writes this check, before parent effects like this one on the same
+    // render - so this used to fire immediately after the check was created).
+    // Only an expiration that actually exists and has passed counts as expired.
+    const expiration = window.localStorage.getItem(`real-id-check-${checkId}-expiration`);
+    if (!expiration) return;
+
+    const expirationTime = new Date(expiration).getTime();
+    const diffDays = (expirationTime - Date.now()) / (1000 * 60 * 60 * 24);
+
+    if (Number.isNaN(expirationTime) || diffDays < 0) {
+      window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
+      window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
+      window.localStorage.removeItem('real-id-check-id');
+      setRememberMeState('not_exist');
+    } else {
+      setRememberMeState('active');
+      setRealIdVerified(true);
+    }
+  }, [step]);
 
   // Address state
   const [billing, setBilling] = useState<AddressData>(emptyAddress);
@@ -253,16 +302,16 @@ export default function CheckoutPage() {
   const subSummary =
     subChecked.length > 0 && subChoice
       ? (() => {
-          const t = subTotals(subChoice, subChecked);
-          if (!t) return undefined;
-          const fullTotal = parseFloat((cart?.total || '0').replace(/[^0-9.]/g, '')) || 0;
-          return {
-            savings: t.savings,
-            recurring: t.recurring,
-            total: Math.max(0, fullTotal - t.savings),
-            label: formatFrequency(subChoice.period, subChoice.interval),
-          };
-        })()
+        const t = subTotals(subChoice, subChecked);
+        if (!t) return undefined;
+        const fullTotal = parseFloat((cart?.total || '0').replace(/[^0-9.]/g, '')) || 0;
+        return {
+          savings: t.savings,
+          recurring: t.recurring,
+          total: Math.max(0, fullTotal - t.savings),
+          label: formatFrequency(subChoice.period, subChoice.interval),
+        };
+      })()
       : undefined;
 
   const subscriptionCard = (() => {
@@ -417,6 +466,7 @@ export default function CheckoutPage() {
       setSameAsBilling(true);
       setStep('billing');
       setCustomerDataLoaded(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [isAuthenticated, authReady]);
 
@@ -539,6 +589,7 @@ export default function CheckoutPage() {
 
     saveAddressToProfile('billing', billing);
     setStep('shipping');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Handle shipping form submit
@@ -554,6 +605,7 @@ export default function CheckoutPage() {
     setErrors({});
     setError(null);
     setStep('payment');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Handle payment submission
@@ -616,10 +668,10 @@ export default function CheckoutPage() {
           subscriptionItems:
             subChecked.length > 0 && subChoice
               ? subChecked.map((pid) => ({
-                  productId: pid,
-                  period: subChoice.period,
-                  interval: subChoice.interval,
-                }))
+                productId: pid,
+                period: subChoice.period,
+                interval: subChoice.interval,
+              }))
               : undefined,
           amount: cart?.total,
           coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
@@ -665,6 +717,30 @@ export default function CheckoutPage() {
         throw new Error(result.message || 'Checkout failed. Please try again.');
       }
 
+      // The Real ID remember-me choice is only ever applied once the purchase has
+      // actually succeeded - never at form submission time, and never on failure.
+      if (typeof window !== 'undefined') {
+        const checkId = window.localStorage.getItem('real-id-check-id');
+        if (checkId) {
+          switch (paymentData.rememberOption) {
+            case 'do_not_remember':
+              window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
+              window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
+              window.localStorage.removeItem('real-id-check-id');
+              break;
+            case 'remember_30':
+            case 'remember_60':
+            case 'remember_90': {
+              const REMEMBER_DAYS: Record<string, number> = { remember_30: 30, remember_60: 60, remember_90: 90 };
+              const days = REMEMBER_DAYS[paymentData.rememberOption];
+              const expiration = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+              window.localStorage.setItem(`real-id-check-${checkId}-expiration`, expiration);
+              break;
+            }
+          }
+        }
+      }
+
       if (REALID_ENABLED && typeof window !== 'undefined' && realIdCheckId) {
         const orderId = result.orderDatabaseId || result.orderId;
         if (orderId) {
@@ -672,7 +748,7 @@ export default function CheckoutPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ checkId: realIdCheckId, orderId }),
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
 
@@ -681,7 +757,7 @@ export default function CheckoutPage() {
         window.sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
       }
 
-      clearCart().catch(() => {});
+      clearCart().catch(() => { });
 
       router.push({
         pathname: '/order-confirmation',
@@ -842,42 +918,87 @@ export default function CheckoutPage() {
                 onUpdateShipping={updateShipping}
                 onSameAsBillingChange={setSameAsBilling}
                 onSubmit={handleShippingSubmit}
-                onBack={() => setStep('billing')}
+                onBack={() => {
+                  setStep('billing')
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
             )}
 
             {step === 'payment' && (
               <>
-                <RealIdVerification
-                  customer={{
-                    id: customerData?.customer?.databaseId ?? null,
-                    email: billing.email,
-                    firstName: billing.firstName,
-                    lastName: billing.lastName,
-                  }}
-                 onVerifiedChange={(verified, cid) => {
-                  if (verified) {
-                    setRealIdVerified(true);
-                    setVerifiedEmail(billing.email ?? null);
+                {rememberMeState !== 'active' && (
+                  <div
+                    className={`${styles.collapsible} ${realIdVerified ? styles.collapsibleCollapsed : ''}`}
+                  >
+                    <div className={styles.collapsibleInner}>
+                      <div className="read-id-main-wrapper">
+                        <RealIdVerification
+                          customer={{
+                            id: customerData?.customer?.databaseId ?? null,
+                            email: billing.email,
+                            firstName: billing.firstName,
+                            lastName: billing.lastName,
+                          }}
+                          onVerifiedChange={(verified, cid) => {
+                            if (verified) {
+                              setRealIdVerified(true);
+                              setVerifiedEmail(billing.email ?? null);
 
-                    window.scrollTo({
-                      top: 0,
-                      behavior: 'smooth',
-                    });
-                  }
+                              window.scrollTo({
+                                top: 0,
+                                behavior: 'smooth',
+                              });
+                            }
 
-                  if (cid) setRealIdCheckId(cid);
-                }}
-                />
-                <PaymentForm
-                  onSubmit={handlePayment}
-                  onBack={() => setStep('shipping')}
-                  isProcessing={isProcessing}
-                  isLoading={csrfLoading}
-                  amount={subSummary ? `$${subSummary.total.toFixed(2)}` : cart.total}
-                  realIdBlocked={!realIdVerified}
-                  isAuthenticated={!!isAuthenticated}
-                />
+                            if (cid) setRealIdCheckId(cid);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!realIdVerified && realIdLoaded && (
+                  <div className={styles.formActions} style={{ marginTop: '1rem' }}>
+                    <button
+                      type="button"
+                      className={styles.formActionsSecondary}
+                      onClick={() => {
+                        setStep('shipping');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      Back
+                    </button>
+                    <span>&nbsp;</span>
+                  </div>
+                )}
+
+                {realIdVerified && (
+                  <PaymentForm
+                    onSubmit={handlePayment}
+                    onBack={() => {
+                      setStep('shipping')
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    isProcessing={isProcessing}
+                    isLoading={csrfLoading}
+                    amount={subSummary ? `$${subSummary.total.toFixed(2)}` : cart.total}
+                    realIdBlocked={!realIdVerified}
+                    isAuthenticated={!!isAuthenticated}
+                    rememberMeState={rememberMeState}
+                    onForgetMe={() => {
+                      // 'not_exist' (not 'forgotten') is what the remember-me radio
+                      // picker in PaymentForm actually checks for - otherwise it has
+                      // no way to reappear once verification completes again, until
+                      // a full page reload resets this state back to its initial value.
+                      setRememberMeState('not_exist');
+                      setRealIdVerified(false);
+                      setRealIdCheckId(null);
+                      setVerifiedEmail(null);
+                    }}
+                  />
+                )}
               </>
             )}
           </div>
@@ -904,6 +1025,8 @@ function PaymentForm({
   amount,
   realIdBlocked = false,
   isAuthenticated = false,
+  rememberMeState,
+  onForgetMe,
 }: {
   onSubmit: (data: PaymentData) => void;
   onBack: () => void;
@@ -912,14 +1035,57 @@ function PaymentForm({
   amount: string;
   realIdBlocked?: boolean;
   isAuthenticated?: boolean;
+  rememberMeState: RememberMeState;
+  onForgetMe?: () => void;
 }) {
   const isDisabled = isProcessing || isLoading || realIdBlocked;
+  // Local for now - just capturing the shopper's pick; not wired to rememberMeState
+  // (the checkout-level state) yet, that connection happens in a later step.
+  const [selectedRememberOption, setSelectedRememberOption] = useState<RememberMeState>('do_not_remember');
   const [cardNumber, setCardNumber] = useState('');
   const [expMonth, setExpMonth] = useState('');
   const [expYear, setExpYear] = useState('');
   const [cvv, setCvv] = useState('');
   const [cardError, setCardError] = useState<string | null>(null);
   const [saveCard, setSaveCard] = useState(false);
+  const [rememberDaysLeft, setRememberDaysLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (rememberMeState !== 'active' || typeof window === 'undefined') {
+      setRememberDaysLeft(null);
+      return;
+    }
+    const checkId = window.localStorage.getItem('real-id-check-id');
+    const expiration = checkId
+      ? window.localStorage.getItem(`real-id-check-${checkId}-expiration`)
+      : null;
+    const expirationTime = expiration ? new Date(expiration).getTime() : NaN;
+    if (Number.isNaN(expirationTime)) {
+      setRememberDaysLeft(null);
+      return;
+    }
+    const days = Math.ceil((expirationTime - Date.now()) / (1000 * 60 * 60 * 24));
+    setRememberDaysLeft(days);
+  }, [rememberMeState]);
+
+  // PaymentForm only ever mounts once Real ID has already verified, so it starts
+  // fully collapsed and flips open a frame after mount - giving the CSS transition
+  // an actual "before" state to animate from, producing the slide-down reveal.
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setRevealed(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const handleForgetMe = () => {
+    const checkId = window.localStorage.getItem('real-id-check-id');
+    if (checkId) {
+      window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
+      window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
+    }
+    window.localStorage.removeItem('real-id-check-id');
+    onForgetMe?.();
+  };
 
   // Saved cards state
   const [savedCards, setSavedCards] = useState<SavedCardInfo[]>([]);
@@ -940,7 +1106,7 @@ function PaymentForm({
           setSelectedSavedCard(data.cards[0].paymentProfileId);
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingCards(false));
   }, [isAuthenticated]);
 
@@ -957,6 +1123,7 @@ function PaymentForm({
           customerProfileId,
           paymentProfileId: selectedSavedCard,
         },
+        rememberOption: selectedRememberOption,
       });
       return;
     }
@@ -985,7 +1152,7 @@ function PaymentForm({
         cvv,
       });
 
-      onSubmit({ opaqueData, saveCard: isAuthenticated && saveCard });
+      onSubmit({ opaqueData, saveCard: isAuthenticated && saveCard, rememberOption: selectedRememberOption });
     } catch (err) {
       console.error('Tokenization error:', err);
       setCardError(
@@ -1013,141 +1180,233 @@ function PaymentForm({
 
   return (
     <div className={styles.paymentContainer}>
-      <h2>payment information</h2>
-      <p className={styles.paymentNotice}>
-        Your payment is secured by Authorize.net. Your card details are encrypted
-        and never stored on our servers.
-      </p>
+      <div className={`${styles.collapsible} ${revealed ? '' : styles.collapsibleCollapsed}`}>
+        <div className={styles.collapsibleInner}>
 
-      {/* Saved cards selector for authenticated users */}
-      {isAuthenticated && !loadingCards && savedCards.length > 0 && (
-        <SavedCardSelector
-          cards={savedCards}
-          selectedId={selectedSavedCard}
-          onSelect={setSelectedSavedCard}
-          disabled={isDisabled}
-        />
-      )}
+          {rememberMeState === 'active' && (
+            <div className={styles.rememberMeActive}>
+              <div className="App ri-flex ri-flex-col">
+                <div className={`md:ri-rounded-t ri-w-full ri-box-border ${styles.realIdBrandBar}`}>
+                  <div className="ri-flex ri-items-center ri-justify-between ri-max-w-xl ri-mx-auto ri-px-5">
+                    <img src="https://res.cloudinary.com/tinyhouse/image/upload/v1600384235/Real%20ID/realIDbrand_white.svg" className="ri-w-24 md:ri-w-32" alt="ID verification required"></img>
+                  </div>
+                </div>
+                <div id="content" className="ri-flex-grow ri-flex ri-flex-col ri-items-center ri-py-3 ri-bg-white md:ri-px-16">
+                  <div className="ri-w-full ri-bg-white portrait:ri-h-full">
+                    <div className="xl:ri-block ri-max-w-xl ri-mx-auto portrait:ri-h-full">
+                      <div>
+                        <div className="ri-text-center">
 
-      <form onSubmit={handleSubmit} className={styles.paymentForm}>
-        {cardError && (
-          <div className={styles.cardError} role="alert">
-            {cardError}
-          </div>
-        )}
+                          <p className="ri-pb-4 ri-px-3">
+                            {rememberDaysLeft !== null
+                              ? `We'll remember your identity verification for ${rememberDaysLeft} more day${rememberDaysLeft === 1 ? '' : 's'}.`
+                              : "We're remembering your identity verification on this device."}
+                          </p>
 
-        {/* New card form — hidden when using saved card */}
-        {!usingSavedCard && (
-          <>
-            <div className={styles.formGroup}>
-              <label htmlFor="cardNumber">Card Number</label>
-              <input
-                type="text"
-                id="cardNumber"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                placeholder="1234 5678 9012 3456"
-                maxLength={19}
-                autoComplete="cc-number"
-                required
-                disabled={isDisabled}
-              />
-            </div>
+                          <button type="button" className={styles.formActionsSecondary} onClick={handleForgetMe}>
+                            Forget me
+                          </button>
 
-            <div className={styles.paymentFormRow}>
-              <div className={styles.formGroup}>
-                <label htmlFor="expMonth">Expiry Month</label>
-                <select
-                  id="expMonth"
-                  value={expMonth}
-                  onChange={(e) => setExpMonth(e.target.value)}
-                  autoComplete="cc-exp-month"
-                  required
-                  disabled={isDisabled}
-                >
-                  <option value="">MM</option>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                    <option key={month} value={month.toString().padStart(2, '0')}>
-                      {month.toString().padStart(2, '0')}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label htmlFor="expYear">Expiry Year</label>
-                <select
-                  id="expYear"
-                  value={expYear}
-                  onChange={(e) => setExpYear(e.target.value)}
-                  autoComplete="cc-exp-year"
-                  required
-                  disabled={isDisabled}
-                >
-                  <option value="">YY</option>
-                  {Array.from({ length: 10 }, (_, i) => {
-                    const year = new Date().getFullYear() + i;
-                    return (
-                      <option key={year} value={year.toString()}>
-                        {year}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label htmlFor="cvv">CVV</label>
-                <input
-                  type="text"
-                  id="cvv"
-                  value={cvv}
-                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="123"
-                  maxLength={4}
-                  autoComplete="cc-csc"
-                  required
-                  disabled={isDisabled}
-                />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Save card checkbox — authenticated users only */}
-            {isAuthenticated && (
-              <label className={styles.saveCardCheckbox}>
-                <input
-                  type="checkbox"
-                  checked={saveCard}
-                  onChange={(e) => setSaveCard(e.target.checked)}
-                  disabled={isDisabled}
-                />
-                <span>Save this card for future purchases</span>
-              </label>
+          {rememberMeState === 'not_exist' && (
+            <div className={styles.rememberMe}>
+              <div className="App ri-flex ri-flex-col">
+                <div className={`md:ri-rounded-t ri-w-full ri-box-border ${styles.realIdBrandBar}`}>
+                  <div className="ri-flex ri-items-center ri-justify-between ri-max-w-xl ri-mx-auto ri-px-5">
+                    <img src="https://res.cloudinary.com/tinyhouse/image/upload/v1600384235/Real%20ID/realIDbrand_white.svg" className="ri-w-24 md:ri-w-32" alt="ID verification required"></img>
+                  </div>
+                </div>
+                <div id="content" className="ri-flex-grow ri-flex ri-flex-col ri-items-center ri-py-3 ri-bg-white md:ri-px-16">
+                  <div className="ri-w-full ri-bg-white portrait:ri-h-full">
+                    <div className="xl:ri-block ri-max-w-xl ri-mx-auto portrait:ri-h-full">
+                      <div>
+                        <div className="ri-text-center">
+
+                          <p className="ri-pb-4 ri-px-3">You're verified! Skip this step next time by letting us remember your Real ID check on this device:</p>
+
+                          <ul className="ri-inline-block ri-text-left">
+                            <li>
+                              <label>
+                                <input className="ri-mr-4" name="remember_me_radio" type="radio" value="do_not_remember" defaultChecked onChange={() => setSelectedRememberOption('do_not_remember')} />
+                                <strong>Do not remember me</strong>
+                              </label>
+                            </li>
+                            <li>
+                              <label>
+                                <input className="ri-mr-4" name="remember_me_radio" type="radio" value="remember_30" onChange={() => setSelectedRememberOption('remember_30')} />
+                                Remember me for <strong>30 days</strong>
+                              </label>
+                            </li>
+                            <li>
+                              <label>
+                                <input className="ri-mr-4" name="remember_me_radio" type="radio" value="remember_60" onChange={() => setSelectedRememberOption('remember_60')} />
+                                Remember me for <strong>60 days</strong>
+                              </label>
+                            </li>
+                            <li>
+                              <label>
+                                <input className="ri-mr-4" name="remember_me_radio" type="radio" value="remember_90" onChange={() => setSelectedRememberOption('remember_90')} />
+                                Remember me for <strong>90 days</strong>
+                              </label>
+                            </li>
+                          </ul>
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <h2>payment information</h2>
+          <p className={styles.paymentNotice}>
+            Your payment is secured by Authorize.net. Your card details are encrypted
+            and never stored on our servers.
+          </p>
+
+          {/* Saved cards selector for authenticated users */}
+          {isAuthenticated && !loadingCards && savedCards.length > 0 && (
+            <SavedCardSelector
+              cards={savedCards}
+              selectedId={selectedSavedCard}
+              onSelect={setSelectedSavedCard}
+              disabled={isDisabled}
+            />
+          )}
+
+          <form onSubmit={handleSubmit} className={styles.paymentForm}>
+            {cardError && (
+              <div className={styles.cardError} role="alert">
+                {cardError}
+              </div>
             )}
-          </>
-        )}
 
-        <div className={styles.formActions}>
-          <button
-            type="button"
-            className={styles.formActionsSecondary}
-            onClick={onBack}
-            // disabled={isDisabled}
-          >
-            Back
-          </button>
-          <button
-            type="submit"
-            className={styles.formActionsPrimary}
-            disabled={isDisabled}
-          >
-            {isLoading ? 'Loading...' : isProcessing ? 'Processing...' : `Pay ${amount}`}
-          </button>
+            {/* New card form — hidden when using saved card */}
+            {!usingSavedCard && (
+              <>
+                <div className={styles.formGroup}>
+                  <label htmlFor="cardNumber">Card Number</label>
+                  <input
+                    type="text"
+                    id="cardNumber"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                    placeholder="1234 5678 9012 3456"
+                    maxLength={19}
+                    autoComplete="cc-number"
+                    required
+                    disabled={isDisabled}
+                  />
+                </div>
+
+                <div className={styles.paymentFormRow}>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="expMonth">Expiry Month</label>
+                    <select
+                      id="expMonth"
+                      value={expMonth}
+                      onChange={(e) => setExpMonth(e.target.value)}
+                      autoComplete="cc-exp-month"
+                      required
+                      disabled={isDisabled}
+                    >
+                      <option value="">MM</option>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                        <option key={month} value={month.toString().padStart(2, '0')}>
+                          {month.toString().padStart(2, '0')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="expYear">Expiry Year</label>
+                    <select
+                      id="expYear"
+                      value={expYear}
+                      onChange={(e) => setExpYear(e.target.value)}
+                      autoComplete="cc-exp-year"
+                      required
+                      disabled={isDisabled}
+                    >
+                      <option value="">YY</option>
+                      {Array.from({ length: 10 }, (_, i) => {
+                        const year = new Date().getFullYear() + i;
+                        return (
+                          <option key={year} value={year.toString()}>
+                            {year}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label htmlFor="cvv">CVV</label>
+                    <input
+                      type="text"
+                      id="cvv"
+                      value={cvv}
+                      onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="123"
+                      maxLength={4}
+                      autoComplete="cc-csc"
+                      required
+                      disabled={isDisabled}
+                    />
+                  </div>
+                </div>
+
+                {/* Save card checkbox — authenticated users only */}
+                {isAuthenticated && (
+                  <label className={styles.saveCardCheckbox}>
+                    <input
+                      type="checkbox"
+                      checked={saveCard}
+                      onChange={(e) => setSaveCard(e.target.checked)}
+                      disabled={isDisabled}
+                    />
+                    <span>Save this card for future purchases</span>
+                  </label>
+                )}
+              </>
+            )}
+
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.formActionsSecondary}
+                onClick={onBack}
+              // disabled={isDisabled}
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                className={styles.formActionsPrimary}
+                disabled={isDisabled}
+              >
+                {isLoading ? 'Loading...' : isProcessing ? 'Processing...' : `Pay ${amount}`}
+              </button>
+            </div>
+
+          </form>
+
+          <div className={styles.securityBadges}>
+            <span>Secured by Authorize.net</span>
+          </div>
+
         </div>
-      </form>
-
-      <div className={styles.securityBadges}>
-        <span>Secured by Authorize.net</span>
       </div>
     </div>
   );

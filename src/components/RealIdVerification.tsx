@@ -11,7 +11,7 @@ const ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const WP_BASE = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 const FLOW_SDK = 'https://real-id-flow.getverdict.com/assets/index.js';
 const SHOP_NAME = process.env.NEXT_PUBLIC_REALID_SHOP_NAME || WP_BASE;
-const VERIFIED_STEPS = ['completed', 'in_review', 'manually_approved'];
+const VERIFIED_STEPS = ['completed', 'in_review', 'manually_approved', 'opened', 'delivered'];
 
 interface RealIdVerificationProps {
   customer?: RealIdCustomer;
@@ -148,7 +148,7 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     // Stratos, 19 Jul 2026
     // The Read ID library keeps its active check id in the 'real-id-check'
     // localStorage entry; this can result in a serious compliance error where
-    // someone else can use this key to make any purchase; althoug in real life
+    // someone else can use this key to make any purchase; although in real life
     // it's pretty hard to happen, still, we need to make sure we're fully covered.
     // The problem is not in the library itself but how the data are being used;
     // If I try to make a purcahse and complete the identification, I can go back and
@@ -156,24 +156,47 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     // gap; up to the point that I can easily bypass the whole identification process,
     // just by creating the 'real-id-check' key.
 
-    const fetchCheck = async (): Promise<{ verified: boolean; email: string } | null> => {
+    // Stratos, 30 Jul 2026
+    // There is a discrepancy between checkId we use on the api calls and the actual
+    // check id stored in the storage. So, we're using the local storage which is
+    // eventually the source of truth (it's being created dynamicaly from the real-id
+    // module). We're using checkId as a safe fallback, making sure the function won't
+    // return null, although the only reason this would happen is only if someone manually
+    // deletes the storage entry during the payment process.
+    const activeCheckId = () => window.localStorage.getItem('real-id-check-id') || checkId;
+
+    // Steps 'opened' and 'delivered' cover the lightweight re-verification flow the
+    // SDK offers a customer whose email already has a prior verified identity
+    // elsewhere: it emails a confirmation code instead of a full ID scan. But those
+    // same step/status values would also be reported the instant a check is created,
+    // before anyone has done anything - so entering a known-verified email alone could
+    // otherwise report as verified with zero action taken in this browser. The SDK
+    // marks its own completion per-browser in localStorage - require that too.
+    const completedInThisBrowser = (id: string | null) => {
+      return !!id && window.localStorage.getItem(`real-id-check-${id}-completed`) === 'true';
+    };
+
+    const fetchCheck = async (): Promise<{ verified: boolean; email: string, step: string, status: string } | null> => {
+      const id = activeCheckId();
+      if (!id) return null;
       try {
-        const r = await fetch(`${proxyRoot}real-id/v1/checks/${checkId}?_=${Date.now()}`, {
+        const r = await fetch(`${proxyRoot}real-id/v1/checks/${id}?_=${Date.now()}`, {
           cache: 'no-store',
         });
         const d = await r.json();
         const step = d?.check?.step ?? d?.step;
         const status = d?.check?.status ?? d?.status;
         const email = (d?.check?.email ?? d?.email ?? '').trim().toLowerCase();
-        return { verified: VERIFIED_STEPS.includes(step) || VERIFIED_STEPS.includes(status), email };
+        const verified = (VERIFIED_STEPS.includes(step) || VERIFIED_STEPS.includes(status)) && completedInThisBrowser(id);
+        return { verified, email, step, status };
       } catch {
         return null;
       }
     };
 
-    const markVerifiedIfOwned = (verified: boolean, result: { verified: boolean; email: string } | null) => {
+    const markVerifiedIfOwned = (verified: boolean, result: { verified: boolean; email: string, step: string, status: string } | null) => {
       if (!active || !verified || !result || !currentEmail || result.email !== currentEmail) return;
-      onVerifiedRef.current?.(true, checkId);
+      onVerifiedRef.current?.(true, activeCheckId());
       active = false;
     };
 
@@ -201,16 +224,34 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     //   observer.observe(el, { childList: true, subtree: true, characterData: true });
     // }
 
-    const onPassed = () => {
-      console.log('real-id-check-passed', {active});
+    // The SDK's "passed"/"loaded" events can fire slightly before our own backend
+    // (queried via fetchCheck, a separate round-trip) reflects the just-completed
+    // status - a single check right when the event fires can catch it too early and
+    // never get asked again. Retry a few times, a second apart, only in response to
+    // the SDK's own event - not a standing background loop.
+    const attemptVerify = (retriesLeft = 5) => {
       if (!active) return;
-      fetchCheck().then((result) => markVerifiedIfOwned(!!result?.verified, result));
+      fetchCheck().then((result) => {
+        if (!active) return;
+        if (result?.verified) {
+          markVerifiedIfOwned(true, result);
+        } else if (retriesLeft > 0) {
+          window.setTimeout(() => attemptVerify(retriesLeft - 1), 1000);
+        }
+      });
+    };
+
+    // The events' own `detail.check` payload never actually includes email in
+    // practice (confirmed empty every time), so there's no reliable ownership signal
+    // to read off the event itself - always confirm via the fetch-based check instead.
+    const onPassed = () => {
+      console.log("real-id-check-onPassed")
+      attemptVerify();
     };
     const onLoaded = () => {
-      console.log('real-id-check-loaded');
-      fetchCheck().then((result) => markVerifiedIfOwned(!!result?.verified, result));
+      console.log("real-id-check-onLoaded")
+      attemptVerify();
     };
-    // const onLoaded = () => {};
     window.addEventListener('real-id-check-passed', onPassed);
     window.addEventListener('real-id-check-loaded', onLoaded);
 
@@ -241,8 +282,23 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
         (el as HTMLElement).style.display = 'none';
       });
     };
+    // The widget renders its own editable email field pre-filled with whatever
+    // customer.email we passed it - if left editable, a shopper could retype a
+    // different (previously-verified) email right there, bypassing the email-
+    // ownership checks this component otherwise enforces. Lock it to read-only.
+    const lockEmailField = () => {
+      document
+        .querySelectorAll<HTMLInputElement>('.real-id-flow input[type="email"]')
+        .forEach((el) => {
+          el.readOnly = true;
+        });
+    };
     hideVerifiedCta();
-    const interval = window.setInterval(hideVerifiedCta, 400);
+    lockEmailField();
+    const interval = window.setInterval(() => {
+      hideVerifiedCta();
+      lockEmailField();
+    }, 400);
     return () => window.clearInterval(interval);
   }, []);
 
