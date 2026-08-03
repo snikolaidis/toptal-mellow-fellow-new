@@ -11,11 +11,6 @@ import RealIdVerification from '@/components/RealIdVerification';
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
-// MARK: REMOVE — temporary bypass to test the post-purchase Real ID remember-me
-// flow without a real Authorize.net charge. Skips card tokenization in
-// PaymentForm and the actual /api/checkout call in handlePayment, simulating
-// a successful order instead.
-const BYPASS_PAYMENT_FOR_TESTING = true;
 import { AddressData, PaymentData, SavedCardInfo } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
 import { collectWidgetSources } from '@/lib/widgetAttribution';
@@ -75,6 +70,20 @@ export default function CheckoutPage() {
   const submittingRef = useRef(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [rememberMeState, setRememberMeState] = useState<RememberMeState>('not_exist');
+
+  // While Real ID is blocking payment, the widget script/UI takes a moment to load -
+  // until then the screen is otherwise empty except for the standalone Back button
+  // below. Only show it once real-id-check-loaded actually fires, and reset back to
+  // hidden each time a fresh verification attempt starts.
+  const [realIdLoaded, setRealIdLoaded] = useState(false);
+
+  useEffect(() => {
+    if (realIdVerified || typeof window === 'undefined') return;
+    setRealIdLoaded(false);
+    const onLoaded = () => setRealIdLoaded(true);
+    window.addEventListener('real-id-check-loaded', onLoaded);
+    return () => window.removeEventListener('real-id-check-loaded', onLoaded);
+  }, [realIdVerified]);
 
   // When the payment step becomes visible, check whether this browser already has
   // a "remembered" Real ID check on file and whether it's still within its
@@ -642,60 +651,43 @@ export default function CheckoutPage() {
     }
 
     try {
-      // MARK: REMOVE
-      // Skips the real charge/order creation so the post-purchase
-      // Real ID remember-me logic below can be tested without hitting
-      // Authorize.net.
-      let response: Response | { ok: boolean; status: number };
-      let result: any;
-      if (BYPASS_PAYMENT_FOR_TESTING) {
-        response = { ok: true, status: 200 };
-        result = {
-          success: true,
-          orderId: `TEST-${Date.now()}`,
-          orderDatabaseId: 999999,
-          amountCharged: cart?.total,
-        };
-      } else {
-        const fetchResponse = await fetch('/api/checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
-            'X-Idempotency-Key': idempotencyKey,
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            billing,
-            shipping: sameAsBilling ? undefined : finalShipping,
-            paymentNonce: paymentData.opaqueData || undefined,
-            savedCard: paymentData.savedCard || undefined,
-            saveCard: paymentData.saveCard || false,
-            subscriptionItems:
-              subChecked.length > 0 && subChoice
-                ? subChecked.map((pid) => ({
-                  productId: pid,
-                  period: subChoice.period,
-                  interval: subChoice.interval,
-                }))
-                : undefined,
-            amount: cart?.total,
-            coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
-            items: cart?.items.map((item) => ({
-              productId: item.product.databaseId,
-              name: item.product.name,
-              quantity: item.quantity,
-              price: item.bbLocked && typeof item.bbUnitPrice === 'number'
-                ? `$${item.bbUnitPrice.toFixed(2)}`
-                : item.product.price,
-            })),
-            sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
-          }),
-        });
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+          'X-Idempotency-Key': idempotencyKey,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          billing,
+          shipping: sameAsBilling ? undefined : finalShipping,
+          paymentNonce: paymentData.opaqueData || undefined,
+          savedCard: paymentData.savedCard || undefined,
+          saveCard: paymentData.saveCard || false,
+          subscriptionItems:
+            subChecked.length > 0 && subChoice
+              ? subChecked.map((pid) => ({
+                productId: pid,
+                period: subChoice.period,
+                interval: subChoice.interval,
+              }))
+              : undefined,
+          amount: cart?.total,
+          coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
+          items: cart?.items.map((item) => ({
+            productId: item.product.databaseId,
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.bbLocked && typeof item.bbUnitPrice === 'number'
+              ? `$${item.bbUnitPrice.toFixed(2)}`
+              : item.product.price,
+          })),
+          sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
+        }),
+      });
 
-        response = fetchResponse;
-        result = await fetchResponse.json();
-      }
+      const result = await response.json();
 
       if (response.status === 429) {
         const retryAfter = result.retryAfter || 60;
@@ -966,29 +958,47 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 )}
-                <PaymentForm
-                  onSubmit={handlePayment}
-                  onBack={() => {
-                    setStep('shipping')
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  isProcessing={isProcessing}
-                  isLoading={csrfLoading}
-                  amount={subSummary ? `$${subSummary.total.toFixed(2)}` : cart.total}
-                  realIdBlocked={!realIdVerified}
-                  isAuthenticated={!!isAuthenticated}
-                  rememberMeState={rememberMeState}
-                  onForgetMe={() => {
-                    // 'not_exist' (not 'forgotten') is what the remember-me radio
-                    // picker in PaymentForm actually checks for - otherwise it has
-                    // no way to reappear once verification completes again, until
-                    // a full page reload resets this state back to its initial value.
-                    setRememberMeState('not_exist');
-                    setRealIdVerified(false);
-                    setRealIdCheckId(null);
-                    setVerifiedEmail(null);
-                  }}
-                />
+                {!realIdVerified && realIdLoaded && (
+                  <div className={styles.formActions} style={{ marginTop: '1rem' }}>
+                    <button
+                      type="button"
+                      className={styles.formActionsSecondary}
+                      onClick={() => {
+                        setStep('shipping');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      Back
+                    </button>
+                    <span>&nbsp;</span>
+                  </div>
+                )}
+
+                {realIdVerified && (
+                  <PaymentForm
+                    onSubmit={handlePayment}
+                    onBack={() => {
+                      setStep('shipping')
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    isProcessing={isProcessing}
+                    isLoading={csrfLoading}
+                    amount={subSummary ? `$${subSummary.total.toFixed(2)}` : cart.total}
+                    realIdBlocked={!realIdVerified}
+                    isAuthenticated={!!isAuthenticated}
+                    rememberMeState={rememberMeState}
+                    onForgetMe={() => {
+                      // 'not_exist' (not 'forgotten') is what the remember-me radio
+                      // picker in PaymentForm actually checks for - otherwise it has
+                      // no way to reappear once verification completes again, until
+                      // a full page reload resets this state back to its initial value.
+                      setRememberMeState('not_exist');
+                      setRealIdVerified(false);
+                      setRealIdCheckId(null);
+                      setVerifiedEmail(null);
+                    }}
+                  />
+                )}
               </>
             )}
           </div>
@@ -1058,19 +1068,14 @@ function PaymentForm({
     setRememberDaysLeft(days);
   }, [rememberMeState]);
 
-  // While Real ID is blocking payment, the widget script/UI takes a moment to
-  // load - until then the screen is otherwise empty except for the standalone
-  // Back button below. Only show it once real-id-check-loaded actually fires,
-  // and reset back to hidden each time a fresh verification attempt starts.
-  const [realIdLoaded, setRealIdLoaded] = useState(false);
-
+  // PaymentForm only ever mounts once Real ID has already verified, so it starts
+  // fully collapsed and flips open a frame after mount - giving the CSS transition
+  // an actual "before" state to animate from, producing the slide-down reveal.
+  const [revealed, setRevealed] = useState(false);
   useEffect(() => {
-    if (!realIdBlocked || typeof window === 'undefined') return;
-    setRealIdLoaded(false);
-    const onLoaded = () => setRealIdLoaded(true);
-    window.addEventListener('real-id-check-loaded', onLoaded);
-    return () => window.removeEventListener('real-id-check-loaded', onLoaded);
-  }, [realIdBlocked]);
+    const raf = requestAnimationFrame(() => setRevealed(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const handleForgetMe = () => {
     const checkId = window.localStorage.getItem('real-id-check-id');
@@ -1110,13 +1115,6 @@ function PaymentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCardError(null);
-
-    // MARK: REMOVE — skips real card tokenization; handlePayment also skips the
-    // actual charge/order creation while BYPASS_PAYMENT_FOR_TESTING is on.
-    if (BYPASS_PAYMENT_FOR_TESTING) {
-      onSubmit({ rememberOption: selectedRememberOption });
-      return;
-    }
 
     // Using saved card — no tokenization needed
     if (usingSavedCard && customerProfileId) {
@@ -1182,7 +1180,7 @@ function PaymentForm({
 
   return (
     <div className={styles.paymentContainer}>
-      <div className={`${styles.collapsible} ${realIdBlocked ? styles.collapsibleCollapsed : ''}`}>
+      <div className={`${styles.collapsible} ${revealed ? '' : styles.collapsibleCollapsed}`}>
         <div className={styles.collapsibleInner}>
 
           {rememberMeState === 'active' && (
@@ -1410,15 +1408,6 @@ function PaymentForm({
 
         </div>
       </div>
-
-      {realIdBlocked && realIdLoaded && (
-        <div className={styles.formActions} style={{ marginTop: '1rem' }}>
-          <button type="button" className={styles.formActionsSecondary} onClick={onBack}>
-            Back
-          </button>
-          <span>&nbsp;</span>
-        </div>
-      )}
     </div>
   );
 }
