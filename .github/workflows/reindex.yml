@@ -1,17 +1,20 @@
 name: mellowfellow1 / Reindex Meilisearch indexes
 
-# Rebuilds the Meilisearch indexes from WooGraphQL by calling
-# POST /api/reindex?type=<index> on the Atlas frontend, one request per index.
+# Rebuilds the Meilisearch indexes from WooGraphQL by running the reindex CLI on
+# the runner, one job per index.
 #
-# One request per index is deliberate. The platform cuts a request off at roughly
-# 30s, and a single untyped call rebuilt every index in one request: products
-# (27.6s) plus collections (7.3s) went over the ceiling and failed. Each index on
-# its own stays well under it.
+# The work used to run inside POST /api/reindex on Atlas. The platform cuts every
+# API request off at exactly 30s, which is fixed and has no background job support,
+# and the products crawl sits at roughly 23s with several seconds of night to night
+# swing, so it failed whenever WordPress was slow. The runner has no such ceiling.
+#
+# /api/reindex still exists and is unchanged: it is what the WordPress publish hook
+# calls for a single index.
 
 on:
   workflow_dispatch:
 
-  # Full-catalog reindex, daily by design: /api/reindex has no concurrency lock,
+  # Full-catalog reindex, daily by design: rebuildIndex has no concurrency lock,
   # so runs must not overlap. A save-triggered webhook with a delta mode is the
   # intended follow-up.
   schedule:
@@ -21,7 +24,8 @@ concurrency:
   group: meilisearch-reindex
   cancel-in-progress: false
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   reindex:
@@ -35,98 +39,41 @@ jobs:
       fail-fast: false
 
       # Sequential on purpose: parallel requests would double the load on
-      # WordPress inside the same window the 30s ceiling applies to.
+      # WordPress inside the same window.
       max-parallel: 1
 
-      # Adding an index is one entry here, once /api/reindex accepts the type.
+      # Adding an index is one entry here plus one definition in src/lib/reindex.ts.
       matrix:
         index: [products, collections, posts]
 
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Reindex ${{ matrix.index }}
         env:
-          # Must NOT have a trailing slash — this workflow appends "/api/reindex",
-          # and a trailing slash produces "//api/reindex", which 404s.
-          ATLAS_URL: ${{ vars.ATLAS_URL }}
+          # Stored as repository variables, not secrets, on purpose. The CLI prints
+          # both hosts before it writes anything so a wrong pairing is visible in
+          # the log, and GitHub masks secrets, which would print them as *** and
+          # defeat that check. Neither value is usable without the key below.
+          NEXT_PUBLIC_WORDPRESS_URL: ${{ vars.NEXT_PUBLIC_WORDPRESS_URL }}
+          MEILISEARCH_HOST: ${{ vars.MEILISEARCH_HOST }}
 
-          # Must be stored with NO trailing newline — the endpoint length-checks
-          # before timingSafeEqual(), so a stray "\n" is rejected as 401.
-          REINDEX_SECRET: ${{ secrets.REINDEX_SECRET }}
+          MEILISEARCH_ADMIN_KEY: ${{ secrets.MEILISEARCH_ADMIN_KEY }}
 
-          # Read through the environment, never interpolated into the script
-          # below, so a matrix value can never be parsed as shell.
+          # Read through the environment, never interpolated into the run script,
+          # so a matrix value can never be parsed as shell.
           INDEX_TYPE: ${{ matrix.index }}
-        run: |
-          # errexit is disabled on purpose. GitHub runs this step as `bash -e`,
-          # and `set -uo pipefail` does not turn that off, so the script used to
-          # abort at the HTTP_CODE assignment the instant curl reported failure:
-          # CURL_EXIT, the ::error:: line and the response body never ran, which
-          # made every failure unreadable from the log. Each check below is
-          # explicit instead.
-          set +e
-          set -uo pipefail
 
-          if [ -z "${ATLAS_URL}" ]; then
-            echo "::error::ATLAS_URL repository variable is not set."
-            exit 1
-          fi
-
-          if [ -z "${REINDEX_SECRET}" ]; then
-            echo "::error::REINDEX_SECRET repository secret is not set."
-            exit 1
-          fi
-
-          echo "POST ${ATLAS_URL}/api/reindex?type=${INDEX_TYPE}"
-
-          HTTP_CODE=$(curl -sS --fail-with-body --max-time 300 \
-            -X POST "${ATLAS_URL}/api/reindex?type=${INDEX_TYPE}" \
-            -H "x-reindex-secret: ${REINDEX_SECRET}" \
-            -A "Mellow-Fellow-Reindex/1.0 (+github-actions)" \
-            -o response.json \
-            -w '%{http_code}')
-          CURL_EXIT=$?
-
-          HTTP_CODE="${HTTP_CODE:-000}"
-          BODY="$(cat response.json 2>/dev/null || true)"
-
-          if [ "${CURL_EXIT}" -ne 0 ] || [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 300 ]; then
-            echo "::error::Reindex of ${INDEX_TYPE} failed — HTTP ${HTTP_CODE} (curl exit ${CURL_EXIT})."
-            echo "Response: ${BODY}"
-
-            {
-              echo "### Meilisearch reindex: ${INDEX_TYPE}"
-              echo ""
-              echo "Failed with HTTP ${HTTP_CODE} (curl exit ${CURL_EXIT})."
-              echo ""
-              echo '```json'
-              echo "${BODY:-(empty response body)}"
-              echo '```'
-              echo ""
-            } >> "${GITHUB_STEP_SUMMARY}"
-
-            exit 1
-          fi
-
-          INDEXED=$(printf '%s' "${BODY}" | jq -r '.indexed // "unknown"' 2>/dev/null)
-          DELETED=$(printf '%s' "${BODY}" | jq -r '.deleted // "unknown"' 2>/dev/null)
-          DURATION=$(printf '%s' "${BODY}" | jq -r '.durationMs // "unknown"' 2>/dev/null)
-
-          INDEXED="${INDEXED:-unknown}"
-          DELETED="${DELETED:-unknown}"
-          DURATION="${DURATION:-unknown}"
-
-          echo "Reindex of ${INDEX_TYPE} succeeded (HTTP ${HTTP_CODE})."
-          echo "  indexed: ${INDEXED}"
-          echo "  deleted: ${DELETED}"
-          echo "  durationMs: ${DURATION}"
-
-          {
-            echo "### Meilisearch reindex: ${INDEX_TYPE}"
-            echo ""
-            echo "| Metric | Value |"
-            echo "| --- | --- |"
-            echo "| Indexed | ${INDEXED} |"
-            echo "| Deleted | ${DELETED} |"
-            echo "| Duration (ms) | ${DURATION} |"
-            echo ""
-          } >> "${GITHUB_STEP_SUMMARY}"
+        # --allow-remote is required because the target is not a local Meilisearch.
+        # It is spelled out here rather than defaulted so the intent is at the call
+        # site. Exit 2 means the job is misconfigured, exit 1 means the rebuild
+        # itself failed and is worth retrying.
+        run: npm run search:reindex -- --index="${INDEX_TYPE}" --allow-remote
