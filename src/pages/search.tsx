@@ -25,10 +25,8 @@ import styles from '@/styles/pages/search.module.css';
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
 
-const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-
 interface BlogPost {
-  id: string;
+  id: number;
   title: string;
   slug: string;
   excerpt: string;
@@ -320,7 +318,9 @@ export default function SearchPage({
 const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
 const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
 const PRODUCTS_INDEX = 'products';
+const POSTS_INDEX = 'posts';
 const SEARCH_RESULT_WINDOW = 100;
+const BLOG_RESULT_LIMIT = 6;
 
 const MEILI_TAXONOMY: Array<{ meili: string; woo: string }> = [
   { meili: 'productType', woo: 'mfproductTypes' },
@@ -373,11 +373,23 @@ async function searchProducts(query: string): Promise<Product[]> {
 }
 
 async function searchBlogPosts(query: string): Promise<BlogPost[]> {
-  if (!WP_URL) return [];
-  const url = `${WP_URL}/wp-json/mf/v1/search-blogs?q=${encodeURIComponent(query)}&first=6`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.success ? data.posts : [];
+  if (!MEILI_HOST || !MEILI_SEARCH_KEY) return [];
+  const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
+  const result = await client.index(POSTS_INDEX).search<Record<string, any>>(query, {
+    limit: BLOG_RESULT_LIMIT,
+    sort: ['date:desc'],
+    attributesToRetrieve: ['databaseId', 'title', 'slug', 'date', 'excerpt', 'featuredImage'],
+  });
+  return result.hits.map((hit) => ({
+    id: hit.databaseId,
+    title: hit.title || '',
+    slug: hit.slug || '',
+    date: hit.date || '',
+    excerpt: hit.excerpt || '',
+    featuredImage: hit.featuredImage?.sourceUrl
+      ? { sourceUrl: hit.featuredImage.sourceUrl, altText: hit.featuredImage.altText || '' }
+      : null,
+  }));
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ query: params, res }) => {
