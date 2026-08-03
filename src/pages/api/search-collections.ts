@@ -1,7 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { Meilisearch } from 'meilisearch';
 import { withRateLimitOnly } from '@/lib/middleware';
 
-const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
+const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
+const COLLECTIONS_INDEX = 'collections';
+const COLLECTION_LIMIT = 4;
+
+interface CollectionHit {
+  name?: string | null;
+  slug?: string | null;
+  count?: number | null;
+}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -14,16 +24,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ success: false, collections: [] });
   }
 
+  if (!MEILI_HOST || !MEILI_SEARCH_KEY) {
+    return res
+      .status(503)
+      .json({ success: false, message: 'Search is not configured', collections: [] });
+  }
+
   try {
-    const url = `${WP_URL}/wp-json/mf/v1/search-collections?q=${encodeURIComponent(q)}`;
-    const wpRes = await fetch(url);
-    const data = await wpRes.json();
+    const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
+    const result = await client.index(COLLECTIONS_INDEX).search<CollectionHit>(q, {
+      limit: COLLECTION_LIMIT,
+      sort: ['count:desc'],
+      attributesToRetrieve: ['name', 'slug', 'count'],
+    });
+
+    const collections = result.hits.map((hit) => ({
+      name: hit.name || '',
+      slug: hit.slug || '',
+      count: hit.count ?? 0,
+    }));
 
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-    return res.status(200).json(data);
+
+    return res.status(200).json({ success: true, collections });
   } catch (error) {
-    console.error('[Search Collections API] REST query failed');
-    return res.status(500).json({ success: false, collections: [] });
+    console.error('[Search Collections API] Query failed');
+    return res.status(500).json({ success: false, message: 'Search failed', collections: [] });
   }
 }
 
