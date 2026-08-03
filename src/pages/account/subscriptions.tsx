@@ -5,7 +5,7 @@ import type { GetServerSideProps } from 'next';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
 import Layout from '@/components/Layout';
-import { CANCEL_SUBSCRIPTION } from '@/graphql/mutations/subscriptions';
+import { CANCEL_SUBSCRIPTION, PAUSE_SUBSCRIPTION, RESUME_SUBSCRIPTION } from '@/graphql/mutations/subscriptions';
 import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 
 interface SubItem {
@@ -21,6 +21,8 @@ interface Subscription {
   billingInterval: number;
   nextPayment: string;
   canCancel: boolean;
+  canPause: boolean;
+  canResume: boolean;
   items: SubItem[];
 }
 
@@ -51,6 +53,7 @@ const CUSTOMER_SUBSCRIPTIONS_QUERY = `
           billingPeriod
           billingInterval
           nextPaymentDate
+          endDate
           lineItems {
             nodes {
               quantity
@@ -68,6 +71,19 @@ const CUSTOMER_SUBSCRIPTIONS_QUERY = `
 `;
 
 const CANCELLABLE_STATUSES = ['active', 'on-hold', 'pending'];
+const PAUSABLE_STATUSES = ['active'];
+const RESUMABLE_STATUSES = ['on-hold'];
+
+// WooCommerce Subscriptions refuses to reactivate a subscription once its end
+// date has passed (WC_Subscription::can_be_updated_to()) — hide Resume for
+// that case rather than let the customer hit a failed mutation. A missing
+// end date means the subscription has no fixed term, so it's never "expired".
+function isPastEndDate(endDate: string | null | undefined): boolean {
+  if (!endDate) return false;
+  const d = new Date(endDate.replace(' ', 'T'));
+  if (isNaN(d.getTime())) return false;
+  return d.getTime() < Date.now();
+}
 
 interface SubscriptionNode {
   orderNumber?: string | null;
@@ -76,6 +92,7 @@ interface SubscriptionNode {
   billingPeriod?: string | null;
   billingInterval?: string | null;
   nextPaymentDate?: string | null;
+  endDate?: string | null;
   lineItems?: {
     nodes?: Array<{
       quantity?: number | null;
@@ -98,6 +115,8 @@ function mapSubscription(node: SubscriptionNode): Subscription {
     billingInterval: Number(node.billingInterval) || 1,
     nextPayment: node.nextPaymentDate ?? '',
     canCancel: CANCELLABLE_STATUSES.includes(status),
+    canPause: PAUSABLE_STATUSES.includes(status),
+    canResume: RESUMABLE_STATUSES.includes(status) && !isPastEndDate(node.endDate),
     items: (node.lineItems?.nodes ?? []).map((item) => ({
       name: item?.product?.node?.name ?? 'Item',
       quantity: item?.quantity ?? 1,
@@ -120,26 +139,55 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   }
 };
 
+type Action = 'cancel' | 'pause' | 'resume';
+
+const ACTION_LABELS: Record<Action, { label: string; busyLabel: string }> = {
+  cancel: { label: 'Cancel', busyLabel: 'Cancelling...' },
+  pause: { label: 'Pause', busyLabel: 'Pausing...' },
+  resume: { label: 'Resume', busyLabel: 'Resuming...' },
+};
+
 export default function SubscriptionsPage({ subscriptions: subs }: SubscriptionsPageProps) {
   const router = useRouter();
   const client = getApolloAuthClient();
   const [cancelSubscription] = useMutation(CANCEL_SUBSCRIPTION, { client });
-  const [cancelling, setCancelling] = useState<number | null>(null);
+  const [pauseSubscription] = useMutation(PAUSE_SUBSCRIPTION, { client });
+  const [resumeSubscription] = useMutation(RESUME_SUBSCRIPTION, { client });
+  const [busy, setBusy] = useState<{ id: number; action: Action } | null>(null);
 
-  const cancel = useCallback(async (sub: Subscription) => {
-    if (!window.confirm('Cancel this subscription? This cannot be undone.')) return;
-    setCancelling(sub.id);
+  const runAction = useCallback(async (
+    sub: Subscription,
+    action: Action,
+    mutate: () => Promise<unknown>,
+    fallbackMessage: string,
+  ) => {
+    setBusy({ id: sub.id, action });
     try {
-      await cancelSubscription({ variables: { id: String(sub.id) } });
-      // Re-run getServerSideProps so the row shows the new status (a
-      // subscription with a paid-up period left lands on pending-cancel).
+      await mutate();
+      // Re-run getServerSideProps so the row shows the new status for
+      // whichever action ran — e.g. pause lands on on-hold, resume on
+      // active, and a cancelled subscription with a paid-up period left
+      // lands on pending-cancel rather than cancelled.
       router.replace(router.asPath);
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Could not cancel subscription');
+      window.alert(e instanceof Error ? e.message : fallbackMessage);
     } finally {
-      setCancelling(null);
+      setBusy(null);
     }
-  }, [cancelSubscription, router]);
+  }, [router]);
+
+  const cancel = useCallback((sub: Subscription) => {
+    if (!window.confirm('Cancel this subscription? This cannot be undone.')) return;
+    runAction(sub, 'cancel', () => cancelSubscription({ variables: { id: String(sub.id) } }), 'Could not cancel subscription');
+  }, [cancelSubscription, runAction]);
+
+  const pause = useCallback((sub: Subscription) => {
+    runAction(sub, 'pause', () => pauseSubscription({ variables: { id: String(sub.id) } }), 'Could not pause subscription');
+  }, [pauseSubscription, runAction]);
+
+  const resume = useCallback((sub: Subscription) => {
+    runAction(sub, 'resume', () => resumeSubscription({ variables: { id: String(sub.id) } }), 'Could not resume subscription');
+  }, [resumeSubscription, runAction]);
 
   return (
     <Layout title="My subscriptions">
@@ -183,18 +231,40 @@ export default function SubscriptionsPage({ subscriptions: subs }: Subscriptions
                   <td>
                     <span className="account__status">{s.status}</span>
                   </td>
-                  <td>
-                    {s.canCancel && (
-                      <button
-                        type="button"
-                        className="account__link"
-                        onClick={() => cancel(s)}
-                        disabled={cancelling === s.id}
-                      >
-                        {cancelling === s.id ? 'Cancelling...' : 'Cancel'}
-                      </button>
-                    )}
-                  </td>
+                  {s.status !== 'expired' && (
+                    <td style={{ display: 'flex', gap: '12px' }}>
+                      {s.canPause && (
+                        <button
+                          type="button"
+                          className="account__link button"
+                          onClick={() => pause(s)}
+                          disabled={busy?.id === s.id}
+                        >
+                          {busy?.id === s.id && busy.action === 'pause' ? ACTION_LABELS.pause.busyLabel : ACTION_LABELS.pause.label}
+                        </button>
+                      )}
+                      {s.canResume && (
+                        <button
+                          type="button"
+                          className="account__link button"
+                          onClick={() => resume(s)}
+                          disabled={busy?.id === s.id}
+                        >
+                          {busy?.id === s.id && busy.action === 'resume' ? ACTION_LABELS.resume.busyLabel : ACTION_LABELS.resume.label}
+                        </button>
+                      )}
+                      {s.canCancel && (
+                        <button
+                          type="button"
+                          className="account__link button"
+                          onClick={() => cancel(s)}
+                          disabled={busy?.id === s.id}
+                        >
+                          {busy?.id === s.id && busy.action === 'cancel' ? ACTION_LABELS.cancel.busyLabel : ACTION_LABELS.cancel.label}
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
