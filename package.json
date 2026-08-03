@@ -9,6 +9,7 @@
     "dev": "next dev",
     "dev:https": "NODE_TLS_REJECT_UNAUTHORIZED=0 next dev --experimental-https",
     "build": "next build",
+    "search:reindex": "tsx src/scripts/reindex.ts",
     "sync:products": "tsx src/scripts/sync-products.ts",
     "start": "next start",
     "lint": "next lint",
