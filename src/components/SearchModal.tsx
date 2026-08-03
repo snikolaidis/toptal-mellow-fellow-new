@@ -24,7 +24,7 @@ interface CollectionResult {
 }
 
 interface BlogResult {
-  id: string;
+  id: number;
   title: string;
   slug: string;
 }
