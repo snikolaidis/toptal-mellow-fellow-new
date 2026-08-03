@@ -24,7 +24,7 @@ interface CollectionResult {
 }
 
 interface BlogResult {
-  id: string;
+  id: number;
   title: string;
   slug: string;
 }
@@ -36,6 +36,7 @@ interface SearchModalProps {
 
 const VENDOR = 'Mellow Fellow';
 const SIZE_RE = /\b\d+(?:\.\d+)?\s?(?:ml|mg|g|oz|ct|pcs?|pack|count)\b/i;
+const FOCUSABLE_CONTROLS = 'a[href], button, input, select, textarea';
 
 function formatPrice(price: string): string {
   if (!price) return '';
@@ -98,6 +99,8 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const reclaimedRef = useRef(false);
 
   const suggestions = buildSuggestions(
     results.map((r) => r.name),
@@ -114,21 +117,51 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }
   };
 
-  // Focus input when modal opens
+  // Focus input when modal opens, restore focus to the trigger when it closes
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+    if (isOpen) {
+      triggerRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      reclaimedRef.current = false;
+      inputRef.current?.focus();
+      return;
     }
-    if (!isOpen) {
-      abortRef.current?.abort();
-      abortRef.current = null;
-      setQuery('');
-      setResults([]);
-      setCollections([]);
-      setPosts([]);
-      setHasSearched(false);
-      setLoading(false);
+
+    const trigger = triggerRef.current;
+    triggerRef.current = null;
+    if (trigger?.isConnected) {
+      trigger.focus();
     }
+
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setQuery('');
+    setResults([]);
+    setCollections([]);
+    setPosts([]);
+    setHasSearched(false);
+    setLoading(false);
+  }, [isOpen]);
+
+  // The All in One Accessibility widget (loaded in _document) rebuilds its reading
+  // order shortly after the modal mounts, which pulls focus off the input onto a
+  // container it makes focusable with tabindex="-1". Take focus back once, unless it
+  // moved to a real control, so deliberate tabbing and clicking still work. Do not
+  // replace this with a longer delay: the widget's timing is not ours to rely on.
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!isOpen || !input) return;
+
+    const handleFocusOut = (event: FocusEvent) => {
+      if (reclaimedRef.current) return;
+      const next = event.relatedTarget;
+      if (next instanceof HTMLElement && next.closest(FOCUSABLE_CONTROLS)) return;
+      reclaimedRef.current = true;
+      setTimeout(() => input.focus(), 0);
+    };
+
+    input.addEventListener('focusout', handleFocusOut);
+    return () => input.removeEventListener('focusout', handleFocusOut);
   }, [isOpen]);
 
   // Handle ESC key

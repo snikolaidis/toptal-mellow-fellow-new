@@ -1,11 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { getSession } from '@/lib/session';
 
-/**
- * Clear WooCommerce Session API
- *
- * Clears the WooCommerce session cookie to ensure cart doesn't bleed
- * between different user sessions. Called during logout.
- */
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -13,6 +8,9 @@ export default async function handler(
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const session = await getSession(req, res);
+  session.destroy();
 
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
 

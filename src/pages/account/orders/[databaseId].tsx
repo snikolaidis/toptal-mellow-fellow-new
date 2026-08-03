@@ -1,10 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/router';
-import { getApolloAuthClient } from '@faustwp/core';
-import { useQuery } from '@apollo/client';
-import AccountGuard from '@/components/account/AccountGuard';
-import { GET_ACCOUNT_ORDER } from '@/graphql/queries/auth';
+import type { GetServerSideProps } from 'next';
+import Layout from '@/components/Layout';
+import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 
 interface LineItem {
   quantity: number;
@@ -112,98 +110,78 @@ function statusModifier(status: string): string {
   }
 }
 
-function OrderSkeleton() {
-  return (
-    <div className="account">
-      <div className="account__header">
-        <div>
-          <div className="account__skeleton-bar" style={{ width: 180, height: 22, marginBottom: 8 }} />
-          <div className="account__skeleton-bar" style={{ width: 140, height: 14 }} />
-        </div>
-        <div className="account__skeleton-bar" style={{ width: 90, height: 28, borderRadius: 14 }} />
-      </div>
+const ORDER_QUERY = `
+  query GetAccountOrder($id: ID!) {
+    order(id: $id, idType: DATABASE_ID) {
+      databaseId
+      orderNumber
+      date
+      status
+      total
+      subtotal
+      shippingTotal
+      discountTotal
+      totalTax
+      paymentMethodTitle
+      billing {
+        firstName lastName company email phone
+        address1 address2 city state postcode country
+      }
+      shipping {
+        firstName lastName company
+        address1 address2 city state postcode country
+      }
+      couponLines { nodes { code discount } }
+      lineItems {
+        nodes {
+          product { node { name slug image { sourceUrl altText } } }
+          quantity
+          total
+        }
+      }
+    }
+  }
+`;
 
-      <table className="account__orders">
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Qty</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[1, 2, 3].map((i) => (
-            <tr key={i}>
-              <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div className="account__skeleton-bar" style={{ width: 48, height: 48, borderRadius: 6, flexShrink: 0 }} />
-                  <div className="account__skeleton-bar" style={{ width: '60%', height: 14 }} />
-                </div>
-              </td>
-              <td><div className="account__skeleton-bar" style={{ width: 20, height: 14 }} /></td>
-              <td><div className="account__skeleton-bar" style={{ width: 60, height: 14 }} /></td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          {[1, 2].map((i) => (
-            <tr key={i}>
-              <td><div className="account__skeleton-bar" style={{ width: 70, height: 14 }} /></td>
-              <td />
-              <td><div className="account__skeleton-bar" style={{ width: 60, height: 14 }} /></td>
-            </tr>
-          ))}
-          <tr>
-            <td><div className="account__skeleton-bar" style={{ width: 50, height: 16 }} /></td>
-            <td />
-            <td><div className="account__skeleton-bar" style={{ width: 70, height: 16 }} /></td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <div className="account__addresses">
-        {[1, 2].map((i) => (
-          <div key={i} className="account__address">
-            <div className="account__skeleton-bar" style={{ width: 140, height: 18, marginBottom: 12 }} />
-            <div className="account__skeleton-bar" style={{ width: '80%', height: 14, marginBottom: 6 }} />
-            <div className="account__skeleton-bar" style={{ width: '70%', height: 14, marginBottom: 6 }} />
-            <div className="account__skeleton-bar" style={{ width: '50%', height: 14 }} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+interface OrderPageProps {
+  order: Order | null;
 }
 
-function OrderContent() {
-  const router = useRouter();
-  const client = getApolloAuthClient();
-  const databaseId = Number(router.query.databaseId);
-  const { data, loading } = useQuery(GET_ACCOUNT_ORDER, {
-    client,
-    variables: { id: String(databaseId) },
-    skip: !databaseId,
-  });
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
 
-  const order: Order | undefined = data?.order || undefined;
+  const auth = await getServerSideAuth(ctx);
+  if (!auth) return redirectToLogin(ctx);
 
-  if (loading) {
-    return <OrderSkeleton />;
+  const databaseId = ctx.params?.databaseId;
+  if (!databaseId) return { props: { order: null } };
+
+  try {
+    const data = await serverSideGraphQL(ORDER_QUERY, auth.accessToken, {
+      id: String(databaseId),
+    });
+    return { props: { order: data?.order || null } };
+  } catch {
+    return { props: { order: null } };
   }
+};
 
+export default function OrderDetailPage({ order }: OrderPageProps) {
   if (!order) {
     return (
-      <div className="account">
-        <div className="account__header">
-          <h1 className="account__title">Order</h1>
+      <Layout title="Order">
+        <div className="account">
+          <div className="account__header">
+            <h1 className="account__title">Order</h1>
+          </div>
+          <p className="account__empty">We could not find this order.</p>
+          <div className="account__center">
+            <Link href="/account" className="account__button">
+              Back to account
+            </Link>
+          </div>
         </div>
-        <p className="account__empty">We could not find this order.</p>
-        <div className="account__center">
-          <Link href="/account" className="account__button">
-            Back to account
-          </Link>
-        </div>
-      </div>
+      </Layout>
     );
   }
 
@@ -218,141 +196,135 @@ function OrderContent() {
     : couponDiscount;
 
   return (
-    <div className="account">
-      <div className="account__header">
-        <div>
-          <h1 className="account__title">Order #{order.orderNumber}</h1>
-          <p className="account__welcome">
-            {new Date(order.date).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
+    <Layout title={`Order #${order.orderNumber}`}>
+      <div className="account">
+        <div className="account__header">
+          <div>
+            <h1 className="account__title">Order #{order.orderNumber}</h1>
+            <p className="account__welcome">
+              {new Date(order.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+          </div>
+          <span className={`account__status ${statusModifier(order.status)}`}>{order.status}</span>
+        </div>
+
+        <table className="account__orders">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, i) => {
+              const name = item.product?.node?.name || 'Product';
+              const slug = item.product?.node?.slug;
+              const image = item.product?.node?.image;
+              return (
+                <tr key={`${name}-${i}`}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {image?.sourceUrl ? (
+                        <Image
+                          src={image.sourceUrl}
+                          alt={image.altText || name}
+                          width={48}
+                          height={48}
+                          style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 6,
+                            backgroundColor: '#f0f0f0',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      {slug ? (
+                        <Link href={`/product/${slug}`} className="account__link">
+                          {name}
+                        </Link>
+                      ) : (
+                        name
+                      )}
+                    </div>
+                  </td>
+                  <td>{item.quantity}</td>
+                  <td>{item.total}</td>
+                </tr>
+              );
             })}
-          </p>
-        </div>
-        <span className={`account__status ${statusModifier(order.status)}`}>{order.status}</span>
-      </div>
-
-      <table className="account__orders">
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Qty</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, i) => {
-            const name = item.product?.node?.name || 'Product';
-            const slug = item.product?.node?.slug;
-            const image = item.product?.node?.image;
-            return (
-              <tr key={`${name}-${i}`}>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {image?.sourceUrl ? (
-                      <Image
-                        src={image.sourceUrl}
-                        alt={image.altText || name}
-                        width={48}
-                        height={48}
-                        style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 6,
-                          backgroundColor: '#f0f0f0',
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-                    {slug ? (
-                      <Link href={`/product/${slug}`} className="account__link">
-                        {name}
-                      </Link>
-                    ) : (
-                      name
-                    )}
-                  </div>
-                </td>
-                <td>{item.quantity}</td>
-                <td>{item.total}</td>
+          </tbody>
+          <tfoot>
+            {hasAmount(order.subtotal) && (
+              <tr>
+                <td>Subtotal</td>
+                <td />
+                <td>{order.subtotal}</td>
               </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          {hasAmount(order.subtotal) && (
+            )}
+
+            {hasAmount(order.shippingTotal) && (
+              <tr>
+                <td>Shipping</td>
+                <td />
+                <td>{order.shippingTotal}</td>
+              </tr>
+            )}
+
+            {discountAmount > 0 && (
+              <tr>
+                <td>
+                  Discount
+                  {coupons.length > 0 && ` (${coupons.map((c) => c.code).join(', ')})`}
+                </td>
+                <td />
+                <td>-${discountAmount.toFixed(2)}</td>
+              </tr>
+            )}
+
+            {hasAmount(order.totalTax) && (
+              <tr>
+                <td>Tax</td>
+                <td />
+                <td>{order.totalTax}</td>
+              </tr>
+            )}
+
             <tr>
-              <td>Subtotal</td>
+              <td className="account__order-number">Total</td>
               <td />
-              <td>{order.subtotal}</td>
+              <td className="account__order-number">{order.total}</td>
             </tr>
-          )}
+          </tfoot>
+        </table>
 
-          {hasAmount(order.shippingTotal) && (
-            <tr>
-              <td>Shipping</td>
-              <td />
-              <td>{order.shippingTotal}</td>
-            </tr>
-          )}
+        {order.paymentMethodTitle && (
+          <div className="account__address">
+            <h2 className="account__subtitle">Payment</h2>
+            <p>{order.paymentMethodTitle}</p>
+          </div>
+        )}
 
-          {discountAmount > 0 && (
-            <tr>
-              <td>
-                Discount
-                {coupons.length > 0 && ` (${coupons.map((c) => c.code).join(', ')})`}
-              </td>
-              <td />
-              <td>-${discountAmount.toFixed(2)}</td>
-            </tr>
-          )}
-
-          {hasAmount(order.totalTax) && (
-            <tr>
-              <td>Tax</td>
-              <td />
-              <td>{order.totalTax}</td>
-            </tr>
-          )}
-
-          <tr>
-            <td className="account__order-number">Total</td>
-            <td />
-            <td className="account__order-number">{order.total}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      {order.paymentMethodTitle && (
-        <div className="account__address">
-          <h2 className="account__subtitle">Payment</h2>
-          <p>{order.paymentMethodTitle}</p>
+        <div className="account__addresses">
+          <AddressBlock title="Shipping address" address={order.shipping} />
+          <AddressBlock title="Billing address" address={order.billing} />
         </div>
-      )}
 
-      <div className="account__addresses">
-        <AddressBlock title="Shipping address" address={order.shipping} />
-        <AddressBlock title="Billing address" address={order.billing} />
+        <div className="account__back">
+          <Link href="/account" className="account__link">
+            Back to account
+          </Link>
+        </div>
       </div>
-
-      <div className="account__back">
-        <Link href="/account" className="account__link">
-          Back to account
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-export default function OrderDetailPage() {
-  return (
-    <AccountGuard title="Order">
-      <OrderContent />
-    </AccountGuard>
+    </Layout>
   );
 }
