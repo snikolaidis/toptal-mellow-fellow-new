@@ -135,10 +135,10 @@ export default function CheckoutPage() {
   // Fetch customer data for logged-in users
   const client = isAuthenticated ? getApolloAuthClient() : null;
   const { data: customerData } = useQuery(GET_CUSTOMER_BILLING, {
-    client: client!,
+    client: client ?? undefined,
     skip: !isAuthenticated || !client,
   });
-  const [updateCustomer] = useMutation(UPDATE_CUSTOMER, { client: client! });
+  const [updateCustomer] = useMutation(UPDATE_CUSTOMER, { client: client ?? undefined });
 
   // Persist an edited billing/shipping address back to the customer's saved
   // profile — best-effort: failures here shouldn't block checkout.
@@ -1387,7 +1387,7 @@ function PaymentForm({
                 type="button"
                 className={styles.formActionsSecondary}
                 onClick={onBack}
-              // disabled={isDisabled}
+                disabled={isDisabled}
               >
                 Back
               </button>
