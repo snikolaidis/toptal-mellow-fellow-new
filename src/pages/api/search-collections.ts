@@ -1,9 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Meilisearch } from 'meilisearch';
 import { withRateLimitOnly } from '@/lib/middleware';
+import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-client';
 
-const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
-const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
 const COLLECTIONS_INDEX = 'collections';
 const COLLECTION_LIMIT = 4;
 
@@ -24,15 +22,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ success: false, collections: [] });
   }
 
-  if (!MEILI_HOST || !MEILI_SEARCH_KEY) {
+  if (!isSearchConfigured()) {
     return res
       .status(503)
       .json({ success: false, message: 'Search is not configured', collections: [] });
   }
 
   try {
-    const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
-    const result = await client.index(COLLECTIONS_INDEX).search<CollectionHit>(q, {
+    const result = await getSearchClient().index(COLLECTIONS_INDEX).search<CollectionHit>(capQuery(q), {
       limit: COLLECTION_LIMIT,
       sort: ['count:desc'],
       attributesToRetrieve: ['name', 'slug', 'count'],
@@ -48,7 +45,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     return res.status(200).json({ success: true, collections });
   } catch (error) {
-    console.error('[Search Collections API] Query failed');
+    console.error('[Search Collections API] Query failed:', error);
     return res.status(500).json({ success: false, message: 'Search failed', collections: [] });
   }
 }

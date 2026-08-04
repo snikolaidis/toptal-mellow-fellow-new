@@ -11,7 +11,7 @@ import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
-import { Meilisearch } from 'meilisearch';
+import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-client';
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
@@ -315,8 +315,6 @@ export default function SearchPage({
   );
 }
 
-const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
-const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
 const PRODUCTS_INDEX = 'products';
 const POSTS_INDEX = 'posts';
 const SEARCH_RESULT_WINDOW = 100;
@@ -364,18 +362,16 @@ function meiliHitToProduct(hit: Record<string, any>): Product {
 }
 
 async function searchProducts(query: string): Promise<Product[]> {
-  if (!MEILI_HOST || !MEILI_SEARCH_KEY) return [];
-  const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
-  const result = await client
+  if (!isSearchConfigured()) return [];
+  const result = await getSearchClient()
     .index(PRODUCTS_INDEX)
     .search<Record<string, any>>(query, { limit: SEARCH_RESULT_WINDOW });
   return result.hits.map(meiliHitToProduct);
 }
 
 async function searchBlogPosts(query: string): Promise<BlogPost[]> {
-  if (!MEILI_HOST || !MEILI_SEARCH_KEY) return [];
-  const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
-  const result = await client.index(POSTS_INDEX).search<Record<string, any>>(query, {
+  if (!isSearchConfigured()) return [];
+  const result = await getSearchClient().index(POSTS_INDEX).search<Record<string, any>>(query, {
     limit: BLOG_RESULT_LIMIT,
     sort: ['date:desc'],
     attributesToRetrieve: ['databaseId', 'title', 'slug', 'date', 'excerpt', 'featuredImage'],
@@ -395,7 +391,7 @@ async function searchBlogPosts(query: string): Promise<BlogPost[]> {
 export const getServerSideProps: GetServerSideProps = async ({ query: params, res }) => {
   res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
 
-  const query = typeof params.q === 'string' ? params.q.trim() : '';
+  const query = typeof params.q === 'string' ? capQuery(params.q.trim()) : '';
 
   if (!query) {
     return {
@@ -406,7 +402,10 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
   try {
     const [products, blogPosts] = await Promise.all([
       searchProducts(query),
-      searchBlogPosts(query).catch(() => []),
+      searchBlogPosts(query).catch((error) => {
+        console.error('[Search Page] Blog query failed:', error);
+        return [];
+      }),
     ]);
 
     return {
