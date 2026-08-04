@@ -4,54 +4,42 @@ export const PRODUCTS_INDEX = 'products';
 export const COLLECTIONS_INDEX = 'collections';
 export const POSTS_INDEX = 'posts';
 
+// Each fetch builds its own signal, never a shared one hoisted out of the loop:
+// the clock starts when the signal is constructed, so a single signal would give
+// every page of a paginated fetch one shared budget. Products pages four times
+// and takes 22 to 29 seconds in total, so that would abort it partway through.
+const REQUEST_TIMEOUT_MS = 30_000;
+
+const PRODUCT_FIELDS = `
+  id databaseId name slug type date
+  description shortDescription sku
+  price regularPrice salePrice
+  stockStatus
+  image { id sourceUrl altText }
+  collections { nodes { name slug } }
+  strainTypes { nodes { name slug } }
+  strainNames { nodes { name slug } }
+  blendTypes { nodes { name slug } }
+  productLines { nodes { name slug } }
+  size { nodes { name slug } }
+  mfproductTypes { nodes { name slug } }
+  cannabinoids { nodes { name slug } }
+  singleCannabinoid { nodes { name slug } }
+  mG { nodes { name slug } }
+  pieces { nodes { name slug } }
+  bbLinkedBundleId
+  bbFromPrice
+  uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
+`;
+
 const PRODUCT_QUERY = `
   query ReindexProducts($first: Int!, $after: String) {
     products(first: $first, after: $after, where: { status: "publish" }) {
       pageInfo { hasNextPage endCursor }
       nodes {
         __typename
-        ... on SimpleProduct {
-          id databaseId name slug type date
-          description shortDescription sku
-          price regularPrice salePrice
-          stockStatus
-          image { id sourceUrl altText }
-          collections { nodes { name slug } }
-          strainTypes { nodes { name slug } }
-          strainNames { nodes { name slug } }
-          blendTypes { nodes { name slug } }
-          productLines { nodes { name slug } }
-          size { nodes { name slug } }
-          mfproductTypes { nodes { name slug } }
-          cannabinoids { nodes { name slug } }
-          singleCannabinoid { nodes { name slug } }
-          mG { nodes { name slug } }
-          pieces { nodes { name slug } }
-          bbLinkedBundleId
-          bbFromPrice
-          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
-        }
-        ... on VariableProduct {
-          id databaseId name slug type date
-          description shortDescription sku
-          price regularPrice salePrice
-          stockStatus
-          image { id sourceUrl altText }
-          collections { nodes { name slug } }
-          strainTypes { nodes { name slug } }
-          strainNames { nodes { name slug } }
-          blendTypes { nodes { name slug } }
-          productLines { nodes { name slug } }
-          size { nodes { name slug } }
-          mfproductTypes { nodes { name slug } }
-          cannabinoids { nodes { name slug } }
-          singleCannabinoid { nodes { name slug } }
-          mG { nodes { name slug } }
-          pieces { nodes { name slug } }
-          bbLinkedBundleId
-          bbFromPrice
-          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
-        }
+        ... on SimpleProduct { ${PRODUCT_FIELDS} }
+        ... on VariableProduct { ${PRODUCT_FIELDS} }
       }
     }
   }
@@ -313,6 +301,7 @@ async function fetchAllProducts(wpUrl: string): Promise<ProductDocument[]> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: PRODUCT_QUERY, variables: { first: 100, after } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -381,6 +370,7 @@ async function fetchAllCollections(wpUrl: string): Promise<CollectionDocument[]>
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: COLLECTION_QUERY, variables: { first: 100, after } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -486,6 +476,7 @@ async function fetchAllPosts(wpUrl: string): Promise<PostDocument[]> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: POST_QUERY, variables: { first: 100, after } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {

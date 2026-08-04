@@ -186,6 +186,8 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   // Client-side search cache — avoids re-fetching for repeat/similar queries
   const searchCache = useRef<Map<string, { results: SearchResult[]; collections: CollectionResult[]; posts: BlogResult[]; time: number }>>(new Map());
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const CACHE_MAX_ENTRIES = 50;
+  const REQUEST_TIMEOUT_MS = 15000;
 
   // Debounced search
   const searchProducts = useCallback(async (searchQuery: string) => {
@@ -204,6 +206,8 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     const cacheKey = searchQuery.toLowerCase().trim();
     const cached = searchCache.current.get(cacheKey);
     if (cached && Date.now() - cached.time < CACHE_TTL) {
+      searchCache.current.delete(cacheKey);
+      searchCache.current.set(cacheKey, cached);
       setResults(cached.results);
       setCollections(cached.collections);
       setPosts(cached.posts);
@@ -214,6 +218,12 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
     const controller = new AbortController();
     abortRef.current = controller;
+
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
 
     setLoading(true);
     setHasSearched(true);
@@ -238,14 +248,20 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
       setResults(nextResults);
       setCollections(nextCollections);
       setPosts(nextPosts);
+      searchCache.current.delete(cacheKey);
       searchCache.current.set(cacheKey, {
         results: nextResults,
         collections: nextCollections,
         posts: nextPosts,
         time: Date.now(),
       });
+      while (searchCache.current.size > CACHE_MAX_ENTRIES) {
+        const oldest = searchCache.current.keys().next().value;
+        if (oldest === undefined) break;
+        searchCache.current.delete(oldest);
+      }
     } catch (error) {
-      if ((error as Error)?.name === 'AbortError') {
+      if ((error as Error)?.name === 'AbortError' && !timedOut) {
         return;
       }
       console.error('Search error:', error);
@@ -253,6 +269,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
       setCollections([]);
       setPosts([]);
     } finally {
+      clearTimeout(timeoutId);
       if (abortRef.current === controller) {
         setLoading(false);
       }
