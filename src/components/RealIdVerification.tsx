@@ -245,11 +245,9 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     // practice (confirmed empty every time), so there's no reliable ownership signal
     // to read off the event itself - always confirm via the fetch-based check instead.
     const onPassed = () => {
-      console.log("real-id-check-onPassed")
       attemptVerify();
     };
     const onLoaded = () => {
-      console.log("real-id-check-onLoaded")
       attemptVerify();
     };
     window.addEventListener('real-id-check-passed', onPassed);
