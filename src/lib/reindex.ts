@@ -163,17 +163,37 @@ const POST_SYNONYMS: Record<string, string[]> = {};
 
 const SYNONYM_GROUPS: string[][] = [
   ['butter', 'budder', 'badder', 'dab', 'dabs'],
-  ['ingestable', 'edible', 'edibles'],
+  ['ingestable', 'ingestible', 'edible', 'edibles'],
   ['510', 'eliquid', 'cartridge', 'cartridges'],
   ['baterry', 'battery'],
 ];
 
-const SYNONYMS = SYNONYM_GROUPS.reduce<Record<string, string[]>>((acc, group) => {
+// Deliberately one-directional, and deliberately not a group. Meilisearch matches
+// by prefix, so a term sitting mid-token is unreachable: "cbd" never finds h4cbd,
+// "berry" never finds strawberry. The reverse must not hold, or searching h4cbd
+// returns all 287 CBD products. A group cannot express that, because the reducer
+// below expands every member to every other.
+const SYNONYM_EXPANSIONS: Record<string, string[]> = {
+  cbd: ['h4cbd'],
+  berry: ['strawberry', 'blueberry', 'raspberry', 'blackberry'],
+};
+
+const GROUPED_SYNONYMS = SYNONYM_GROUPS.reduce<Record<string, string[]>>((acc, group) => {
   for (const term of group) {
     acc[term] = [...(acc[term] || []), ...group.filter((other) => other !== term)];
   }
   return acc;
 }, {});
+
+const SYNONYMS = Object.entries(SYNONYM_EXPANSIONS).reduce<Record<string, string[]>>(
+  (acc, [term, expansions]) => {
+    acc[term] = [...(acc[term] || []), ...expansions].filter(
+      (value, index, all) => all.indexOf(value) === index
+    );
+    return acc;
+  },
+  { ...GROUPED_SYNONYMS }
+);
 
 interface TaxonomyNode {
   name?: string | null;
@@ -348,8 +368,8 @@ interface CollectionsResponse {
   data?: { collections?: CollectionsConnection | null } | null;
 }
 
-function isSlugLikeName(name: string): boolean {
-  return !/\s/.test(name) && name.includes('-');
+function isSlugLikeName(name: string, slug: string): boolean {
+  return !/\s/.test(name) && name.includes('-') && name === slug;
 }
 
 async function fetchAllCollections(wpUrl: string): Promise<CollectionDocument[]> {
@@ -383,11 +403,12 @@ async function fetchAllCollections(wpUrl: string): Promise<CollectionDocument[]>
       const count = node.count ?? 0;
       if (count <= 0) continue;
       const name = node.name ?? '';
-      if (isSlugLikeName(name)) continue;
+      const slug = node.slug ?? '';
+      if (isSlugLikeName(name, slug)) continue;
       documents.push({
         databaseId: node.databaseId,
         name,
-        slug: node.slug ?? '',
+        slug,
         count,
       });
     }
