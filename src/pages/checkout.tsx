@@ -575,7 +575,7 @@ export default function CheckoutPage() {
     if (billing.lastName) identity.last_name = billing.lastName;
     if (billing.phone) identity.phone_number = billing.phone;
     klaviyoIdentify(identity);
-    klaviyoTrack('Started Checkout', {
+    klaviyoTrack('Started Checkout (MFF-WOO)', {
       $value: parseFloat(String(cart?.total ?? '0').replace(/[^0-9.]/g, '')) || 0,
       ItemNames: cart?.items.map((i) => i.product.name) ?? [],
       Items:
