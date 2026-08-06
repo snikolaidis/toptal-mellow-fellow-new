@@ -241,6 +241,18 @@ function mf_create_subscription_order_endpoint($request) {
         return new WP_REST_Response(array('error' => 'missing_fields'), 400);
     }
 
+    // Same server-side Real ID re-confirmation as mf/v1/create-order - see
+    // mellow-fellow-realid-order-guard.php. Subscriptions create an order too,
+    // via a completely separate endpoint, so this needs its own check.
+    $realid_check_id = sanitize_text_field((string) ($params['realIdCheckId'] ?? ''));
+    $realid_allowed = apply_filters('mf_realid_order_allowed', true, $realid_check_id, $billing);
+    if (is_wp_error($realid_allowed)) {
+        return new WP_REST_Response(array(
+            'error' => $realid_allowed->get_error_code(),
+            'message' => $realid_allowed->get_error_message(),
+        ), 403);
+    }
+
     $order = wc_create_order(array('customer_id' => $customer_id));
     if (is_wp_error($order)) {
         return new WP_REST_Response(array('error' => 'order_failed', 'message' => $order->get_error_message()), 500);

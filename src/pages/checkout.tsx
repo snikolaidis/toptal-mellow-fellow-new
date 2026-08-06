@@ -6,7 +6,7 @@ import BillingForm from '@/components/checkout/BillingForm';
 import ShippingForm from '@/components/checkout/ShippingForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
-import RealIdVerification from '@/components/RealIdVerification';
+import RealIdVerification, { STRONGLY_VERIFIED_STEPS } from '@/components/RealIdVerification';
 
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
@@ -71,6 +71,11 @@ export default function CheckoutPage() {
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [rememberMeState, setRememberMeState] = useState<RememberMeState>('not_exist');
 
+  // Address state
+  const [billing, setBilling] = useState<AddressData>(emptyAddress);
+  const [shipping, setShipping] = useState<AddressData>(emptyAddress);
+  const [sameAsBilling, setSameAsBilling] = useState(true);
+
   // While Real ID is blocking payment, the widget script/UI takes a moment to load -
   // until then the screen is otherwise empty except for the standalone Back button
   // below. Only show it once real-id-check-loaded actually fires, and reset back to
@@ -88,6 +93,10 @@ export default function CheckoutPage() {
   // When the payment step becomes visible, check whether this browser already has
   // a "remembered" Real ID check on file and whether it's still within its
   // remember-me window, so we can skip re-running the Real ID procedure.
+  // localStorage is trivially forgeable via devtools (setItem three fake keys and
+  // the payment form would appear with zero verification), so it's only ever a
+  // hint here - the check's existence, completion, and ownership are all
+  // re-confirmed against the server before ever trusting it enough to skip Real ID.
   useEffect(() => {
     if (!REALID_ENABLED || step !== 'payment' || typeof window === 'undefined') return;
 
@@ -107,21 +116,49 @@ export default function CheckoutPage() {
     const expirationTime = new Date(expiration).getTime();
     const diffDays = (expirationTime - Date.now()) / (1000 * 60 * 60 * 24);
 
-    if (Number.isNaN(expirationTime) || diffDays < 0) {
+    const forgetThisCheck = () => {
       window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
       window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
       window.localStorage.removeItem('real-id-check-id');
       setRememberMeState('not_exist');
-    } else {
-      setRememberMeState('active');
-      setRealIdVerified(true);
-    }
-  }, [step]);
+    };
 
-  // Address state
-  const [billing, setBilling] = useState<AddressData>(emptyAddress);
-  const [shipping, setShipping] = useState<AddressData>(emptyAddress);
-  const [sameAsBilling, setSameAsBilling] = useState(true);
+    if (Number.isNaN(expirationTime) || diffDays < 0) {
+      forgetThisCheck();
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/realid/real-id/v1/checks/${checkId}`);
+        if (!res.ok) throw new Error('verification lookup failed');
+        const data = await res.json();
+        const stepValue = data?.check?.step ?? data?.step;
+        const statusValue = data?.check?.status ?? data?.status;
+        const email = (data?.check?.email ?? data?.email ?? '').trim().toLowerCase();
+        const currentEmail = (billing.email ?? '').trim().toLowerCase();
+
+        const stepOk = STRONGLY_VERIFIED_STEPS.includes(stepValue) || STRONGLY_VERIFIED_STEPS.includes(statusValue);
+        const completedLocally = window.localStorage.getItem(`real-id-check-${checkId}-completed`) === 'true';
+        const ownedByCustomer = !!currentEmail && email === currentEmail;
+
+        if (cancelled) return;
+        if (stepOk && completedLocally && ownedByCustomer) {
+          setRememberMeState('active');
+          setRealIdVerified(true);
+        } else {
+          forgetThisCheck();
+        }
+      } catch {
+        if (!cancelled) forgetThisCheck();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, billing.email]);
 
   const [subSchemes, setSubSchemes] = useState<Array<{ period: string; interval: number }>>([]);
   const [subChecked, setSubChecked] = useState<number[]>([]);
@@ -684,6 +721,9 @@ export default function CheckoutPage() {
               : item.product.price,
           })),
           sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
+          // Lets the server independently re-confirm Real ID verification before
+          // the order is created — see mellow-fellow-realid-order-guard.php.
+          realIdCheckId: REALID_ENABLED ? realIdCheckId || undefined : undefined,
         }),
       });
 
