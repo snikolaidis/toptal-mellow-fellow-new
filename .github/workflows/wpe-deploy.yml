@@ -19,6 +19,11 @@ jobs:
       - name: Deploy mu-plugins to WP Engine
         uses: wpengine/github-action-wpe-site-deploy@v3.2.0
         with:
+          # No --delete here (the action's default FLAGS), so this only adds and updates:
+          # a file deleted from the repo keeps running on the install. Do not add --delete.
+          # WPEngine's own SSO, cache and security plugins are in this directory and not in
+          # the repo, so it would break wp-admin login and caching on production. Removing a
+          # mu-plugin needs a WPEngine support ticket or the action's SCRIPT input.
           WPE_SSHG_KEY_PRIVATE: ${{ secrets.WPE_SSHG_KEY_PRIVATE }}
           WPE_ENV: mellowfellow1
           SRC_PATH: "migration/wp/mu-plugins/"
