@@ -42,3 +42,13 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit
+
+  notify:
+    needs: typecheck
+    # Push only. A pull request failure already shows in the checks list, so
+    # dropping this clause posts a duplicate of what the PR is already saying.
+    if: failure() && github.event_name == 'push'
+    permissions:
+      actions: read
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit
