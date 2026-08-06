@@ -340,19 +340,27 @@ function meiliHitToProduct(hit: Record<string, any>): Product {
     databaseId: hit.databaseId,
     name: hit.name ?? '',
     slug: hit.slug ?? '',
-    type: hit.type ?? undefined,
     date: hit.date ?? null,
     price: hit.price ?? '',
     regularPrice: hit.regularPrice ?? '',
     salePrice: hit.salePrice ?? '',
     stockStatus: hit.stockStatus ?? 'IN_STOCK',
-    image: hit.image?.sourceUrl
-      ? { sourceUrl: hit.image.sourceUrl, altText: hit.image.altText ?? hit.name ?? '' }
-      : undefined,
     bbLinkedBundleId: hit.bbLinkedBundleId ?? null,
     bbFromPrice: hit.bbFromPrice ?? null,
-    uniqueSellingProps: hit.uniqueSellingProps ?? undefined,
   };
+
+  // Left off entirely rather than set to undefined. The index stores null for all
+  // three, getServerSideProps refuses to serialize undefined and fails the whole
+  // page, and Product declares them optional but not nullable.
+  if (hit.type) product.type = hit.type;
+  if (hit.image?.sourceUrl) {
+    product.image = {
+      sourceUrl: hit.image.sourceUrl,
+      altText: hit.image.altText ?? hit.name ?? '',
+    };
+  }
+  if (hit.uniqueSellingProps) product.uniqueSellingProps = hit.uniqueSellingProps;
+
   for (const { meili, woo } of MEILI_TAXONOMY) {
     const slugs: string[] = hit[`${meili}Slugs`] || [];
     const names: string[] = hit[`${meili}Names`] || [];
