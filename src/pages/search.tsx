@@ -99,12 +99,16 @@ interface SearchPageProps {
   query: string;
   allProducts: Product[];
   blogPosts: BlogPost[];
+  productsFailed: boolean;
+  blogsFailed: boolean;
 }
 
 export default function SearchPage({
   query,
   allProducts,
   blogPosts,
+  productsFailed,
+  blogsFailed,
 }: SearchPageProps) {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState(query);
@@ -118,6 +122,10 @@ export default function SearchPage({
     if (trimmed.length >= 2) {
       router.push(`/search?q=${encodeURIComponent(trimmed)}`);
     }
+  };
+
+  const retrySearch = () => {
+    router.replace(router.asPath);
   };
 
   // Filter → sort → paginate — all client-side, instant
@@ -165,8 +173,10 @@ export default function SearchPage({
 
   const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
-  const noProductMatches = Boolean(query) && allProducts.length === 0;
+  const searchUnavailable = Boolean(query) && productsFailed;
+  const noProductMatches = Boolean(query) && !productsFailed && allProducts.length === 0;
   const articlesOnly = noProductMatches && blogPosts.length > 0;
+  const articlesStandalone = articlesOnly || (searchUnavailable && blogPosts.length > 0);
 
   return (
     <Layout
@@ -202,6 +212,22 @@ export default function SearchPage({
         {!query ? (
           <div className={styles.emptySearch}>
             <p>Search for products, collections, and articles across the store.</p>
+          </div>
+        ) : searchUnavailable ? (
+          <div className={styles.empty}>
+            <h2>
+              {blogsFailed
+                ? 'Search is temporarily unavailable'
+                : 'Product search is temporarily unavailable'}
+            </h2>
+            <p>
+              Something went wrong on our end, not with your search. Please try again in a
+              moment.
+            </p>
+            <button type="button" onClick={retrySearch} className="btn-primary">
+              Try again
+            </button>
+            <Link href="/shop" className="btn-secondary">Browse all products</Link>
           </div>
         ) : articlesOnly ? (
           <p className={styles.articlesLead}>
@@ -279,10 +305,10 @@ export default function SearchPage({
 
         {blogPosts.length > 0 && (
           <section
-            className={articlesOnly ? `${styles.blogSection} ${styles.blogSectionOnly}` : styles.blogSection}
+            className={articlesStandalone ? `${styles.blogSection} ${styles.blogSectionOnly}` : styles.blogSection}
           >
             <h2 className={styles.blogTitle}>
-              {articlesOnly ? 'Articles' : 'Related Articles'}
+              {articlesStandalone ? 'Articles' : 'Related Articles'}
             </h2>
             <div className={styles.blogGrid}>
               {blogPosts.map((post) => (
@@ -362,7 +388,7 @@ function meiliHitToProduct(hit: Record<string, any>): Product {
 }
 
 async function searchProducts(query: string): Promise<Product[]> {
-  if (!isSearchConfigured()) return [];
+  if (!isSearchConfigured()) throw new Error('Search is not configured');
   const result = await getSearchClient()
     .index(PRODUCTS_INDEX)
     .search<Record<string, any>>(query, { limit: SEARCH_RESULT_WINDOW });
@@ -370,7 +396,7 @@ async function searchProducts(query: string): Promise<Product[]> {
 }
 
 async function searchBlogPosts(query: string): Promise<BlogPost[]> {
-  if (!isSearchConfigured()) return [];
+  if (!isSearchConfigured()) throw new Error('Search is not configured');
   const result = await getSearchClient().index(POSTS_INDEX).search<Record<string, any>>(query, {
     limit: BLOG_RESULT_LIMIT,
     sort: ['date:desc'],
@@ -395,30 +421,40 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
 
   if (!query) {
     return {
-      props: { query: '', allProducts: [], blogPosts: [] },
-    };
-  }
-
-  try {
-    const [products, blogPosts] = await Promise.all([
-      searchProducts(query),
-      searchBlogPosts(query).catch((error) => {
-        console.error('[Search Page] Blog query failed:', error);
-        return [];
-      }),
-    ]);
-
-    return {
       props: {
-        query,
-        allProducts: products,
-        blogPosts,
+        query: '',
+        allProducts: [],
+        blogPosts: [],
+        productsFailed: false,
+        blogsFailed: false,
       },
     };
-  } catch (error) {
-    console.error('[Search Page] Query failed:', error);
-    return {
-      props: { query, allProducts: [], blogPosts: [] },
-    };
   }
+
+  const [products, blogPosts] = await Promise.all([
+    searchProducts(query).catch((error) => {
+      console.error('[Search Page] Product query failed:', error);
+      return null;
+    }),
+    searchBlogPosts(query).catch((error) => {
+      console.error('[Search Page] Blog query failed:', error);
+      return null;
+    }),
+  ]);
+
+  // Overrides the header set above, which would otherwise pin a degraded page
+  // for two minutes and serve it stale for ten more.
+  if (products === null || blogPosts === null) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+
+  return {
+    props: {
+      query,
+      allProducts: products ?? [],
+      blogPosts: blogPosts ?? [],
+      productsFailed: products === null,
+      blogsFailed: blogPosts === null,
+    },
+  };
 };
