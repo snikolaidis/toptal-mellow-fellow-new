@@ -24,3 +24,11 @@ jobs:
           SRC_PATH: "migration/wp/mu-plugins/"
           REMOTE_PATH: "wp-content/mu-plugins/"
           CACHE_CLEAR: FALSE
+
+  notify:
+    needs: deploy-mu-plugins
+    if: failure()
+    permissions:
+      actions: read
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit
