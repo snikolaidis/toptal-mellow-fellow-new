@@ -132,7 +132,7 @@ export default function ProductPage({
 
   useEffect(() => {
     if (!product || typeof window === 'undefined') return;
-    klaviyoTrack('Viewed Product', {
+    klaviyoTrack('Viewed Product (MFF-WOO)', {
       ProductName: product.name,
       ProductID: product.databaseId,
       SKU: product.sku,
@@ -184,7 +184,7 @@ export default function ProductPage({
       } catch {
         void 0;
       }
-      klaviyoTrack('Added to Cart', {
+      klaviyoTrack('Added to Cart (MFF-WOO)', {
         ProductName: product.name,
         ProductID: product.databaseId,
         SKU: product.sku,

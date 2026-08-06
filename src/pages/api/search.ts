@@ -1,9 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Meilisearch } from 'meilisearch';
 import { withRateLimitOnly } from '@/lib/middleware';
+import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-client';
 
-const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
-const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
 const PRODUCTS_INDEX = 'products';
 
 interface ProductHit {
@@ -36,13 +34,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const firstRaw = typeof req.query.first === 'string' ? parseInt(req.query.first, 10) : 8;
   const first = Math.max(1, Math.min(48, Number.isFinite(firstRaw) ? firstRaw : 8));
 
-  if (!MEILI_HOST || !MEILI_SEARCH_KEY) {
+  if (!isSearchConfigured()) {
     return res.status(503).json({ success: false, message: 'Search is not configured', products: [] });
   }
 
+  const query = capQuery(q);
+
   try {
-    const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
-    const result = await client.index(PRODUCTS_INDEX).search<ProductHit>(q, {
+    const result = await getSearchClient().index(PRODUCTS_INDEX).search<ProductHit>(query, {
       limit: first,
       attributesToRetrieve: [
         'databaseId',
@@ -76,12 +75,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({
       success: true,
       products,
-      query: q,
+      query,
       hasNextPage: (result.estimatedTotalHits ?? 0) > first,
       endCursor: null,
     });
   } catch (error) {
-    console.error('[Search API] Query failed');
+    console.error('[Search API] Query failed:', error);
     return res.status(500).json({ success: false, message: 'Search failed', products: [] });
   }
 }
