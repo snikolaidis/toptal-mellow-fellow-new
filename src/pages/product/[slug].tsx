@@ -1,8 +1,10 @@
+"use client";
+
 import { GetStaticProps, GetStaticPaths } from 'next';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
@@ -14,7 +16,14 @@ import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
 import { Product } from '@/types/woocommerce';
-import styles from '@/styles/pages/product.module.css';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Thumbs, Pagination, FreeMode, Mousewheel } from 'swiper/modules';
+
+// Import Swiper styles
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/free-mode';
+import 'swiper/css/thumbs';
 
 const YouMayAlsoLike = dynamic(() => import('@/components/pdp/YouMayAlsoLike'), { ssr: false });
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
@@ -65,6 +74,9 @@ export default function ProductPage({
   const [subChoice, setSubChoice] = useState<{ period: string; interval: number } | null>(null);
   const [showSubInfo, setShowSubInfo] = useState(false);
   const { addToCart } = useCart();
+
+   // Store the thumbs swiper instance to connect it to the main slider
+  const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
 
   useEffect(() => {
     if (!product?.slug) return;
@@ -150,7 +162,7 @@ export default function ProductPage({
   if (!product) {
     return (
       <Layout title="Product Not Found">
-        <div className={styles.notFound}>
+        <div className="not-found">
           <h1>Product Not Found</h1>
           <p>The product you are looking for does not exist.</p>
           <Link href="/shop" className="btn-primary">
@@ -267,502 +279,506 @@ export default function ProductPage({
         opengraphImage: product.seo?.opengraphImage?.sourceUrl,
       }}
     >
-      <div className={styles.page}>
-        {/* Main Product Section */}
-        <div className={styles.productLayout}>
-          {/* Gallery */}
-          <div className={styles.gallery}>
-            {/* Main Image */}
-            <div className={styles.mainImage}>
-              <Image
-                src={allImages[activeImageIndex]?.sourceUrl || primaryImage}
-                alt={allImages[activeImageIndex]?.altText || product.name}
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                className={styles.image}
-                priority
-              />
+      <div className="container">
+        {/* Breadcrumb */}
+        <nav className="breadcrumb">
+          <Link href="/">Home</Link>
+          <span className="separator">/</span>
+          <Link href="/shop">Shop</Link>
+          {categories.length > 0 && (
+            <>
+              <span className="separator">/</span>
+              <Link href={`/shop?category=${categories[0].slug}`}>{categories[0].name}</Link>
+            </>
+          )}
+        </nav>
 
-              {/* Sale Badge */}
-              {product.salePrice && (
-                <span className={styles.saleBadge}>Sale</span>
-              )}
-            </div>
-
-            {/* Thumbnails */}
-            {allImages.length > 1 && (
-              <div className={styles.thumbnails}>
+        <div className="columns is-desktop">
+          <div className="column">
+            <div className="gallery">
+              <Swiper
+                modules={[Thumbs, Pagination, Mousewheel]}
+                spaceBetween={10}
+                pagination={{
+                  clickable: true,
+                  el: '.pagination-dots', // Targeted container for mobile dots
+                }}
+                thumbs={{ swiper: thumbsSwiper && !thumbsSwiper.destroyed ? thumbsSwiper : null }}
+                mousewheel={{ enabled: true, forceToAxis: true, thresholdDelta: 10 }}
+                className="main-images"
+              >
                 {allImages.map((img, index) => (
-                  <button
-                    key={index}
-                    className={`${styles.thumbnail} ${index === activeImageIndex ? styles.active : ''}`}
-                    onClick={() => setActiveImageIndex(index)}
-                    aria-label={`View image ${index + 1}`}
-                  >
-                    <Image
+                  <SwiperSlide key={index}>
+                    <img
                       src={img.sourceUrl}
-                      alt={img.altText || `${product.name} thumbnail ${index + 1}`}
-                      fill
-                      sizes="80px"
-                      className={styles.thumbnailImage}
+                      alt={`Slide ${index + 1}`}
+                      className="main-image"
                     />
-                  </button>
+                  </SwiperSlide>
                 ))}
-              </div>
-            )}
-          </div>
+              </Swiper>
 
-          {/* Product Info */}
-          <div className={styles.info}>
-            {/* Category */}
-            {categories.length > 0 && (
-              <Link href={`/shop?category=${categories[0].slug}`} className={styles.category}>
-                {categories[0].name}
-              </Link>
-            )}
-
-            {/* Breadcrumb */}
-            <nav className={styles.breadcrumb}>
-              <Link href="/">Home</Link>
-              <span className={styles.separator}>/</span>
-              <Link href="/shop">Shop</Link>
-              {categories.length > 0 && (
-                <>
-                  <span className={styles.separator}>/</span>
-                  <Link href={`/shop?category=${categories[0].slug}`}>{categories[0].name}</Link>
-                </>
-              )}
-            </nav>
-
-            {/* Title */}
-            <h1 className={styles.title}>{product.name}</h1>
-
-            {mounted && product.shopifyId && (
-              <div
-                className="klaviyo-star-rating-widget"
-                data-id={product.shopifyId}
-                data-product-title={product.name}
-              />
-            )}
-
-            {/* Price — bundles have no fixed price, they're priced by selection,
-                so show a "starting from" price instead */}
-            {isBundle ? (
-              product.bbFromPrice != null && (
-                <div className={styles.price}>
-                  <span>From ${product.bbFromPrice.toFixed(2)}</span>
-                </div>
-              )
-            ) : (
-              <div className={styles.price}>
-                {displaySalePrice ? (
-                  <>
-                    <span className={styles.salePrice}>{scalePrice(displaySalePrice)}</span>
-                    <span className={styles.regularPrice}>{scalePrice(displayRegularPrice)}</span>
-                  </>
-                ) : (
-                  <span>{scalePrice(displayPrice)}</span>
-                )}
-              </div>
-            )}
-
-            {/* Available Options */}
-            {availableOptions.length > 1 && (
-              <div className={styles.collectionItems}>
-                <span className={styles.collectionLabel}>Available Options</span>
-                <div className={styles.collectionGrid}>
-                  {availableOptions.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/product/${item.slug}`}
-                      scroll={false}
-                      prefetch
-                      className={`${styles.collectionItem} ${item.id === product.id ? styles.currentItem : ''}`}
-                      title={item.name}
-                    >
-                      <div className={styles.collectionItemImageWrap}>
-                        <Image
-                          src={item.image?.sourceUrl || '/placeholder-product.png'}
-                          alt={item.name}
-                          fill
-                          sizes="90px"
-                          className={styles.collectionItemImage}
+              <div className="pagination-dots swiper-pagination" />
+              
+              <div className="thumbnails">
+                <Swiper
+                  onSwiper={setThumbsSwiper}
+                  spaceBetween={10}
+                  slidesPerView={4} // Number of thumbs visible at once before overflowing
+                  freeMode={true}
+                  watchSlidesProgress={true}
+                  mousewheel={{ enabled: true, forceToAxis: true, thresholdDelta: 5 }}
+                  modules={[FreeMode, Thumbs, Mousewheel]}
+                >
+                  {allImages.map((img, index) => (
+                    <SwiperSlide key={index} className="cursor-pointer opacity-40 [&.swiper-slide-thumb-active]:opacity-100">
+                      <div className="thumbnail">
+                        <img
+                          src={img.sourceUrl}
+                          alt={`Thumb ${index + 1}`}
                         />
                       </div>
-                      <span className={styles.collectionItemName}>
-                        {optionLabel(item.name, availableOptionsBase)}
-                      </span>
-                    </Link>
+                    </SwiperSlide>
                   ))}
-                </div>
+                </Swiper>
               </div>
-            )}
-
-            {/* Stock Status */}
-            <div className={`${styles.stock} ${isInStock ? styles.inStock : styles.outOfStock}`}>
-              <span className={styles.stockDot} />
-              {isInStock ? 'In Stock' : 'Out of Stock'}
             </div>
+          </div>
 
-            {/* Short Description */}
-            {product.shortDescription && (
-              <div
-                className={styles.shortDescription}
-                dangerouslySetInnerHTML={{ __html: product.shortDescription }}
-              />
-            )}
+          <div className="column">
+            {/* Product Info */}
+            <div className="info">
 
-            {/* Variations */}
-            {hasVariations && (
-              <div className={styles.variations}>
-                <span className={styles.variationLabel}>Select Option</span>
-                <div className={styles.variationTiles}>
-                  {product.variations!.nodes.map((variation) => {
-                    const variationId = String(variation.databaseId);
-                    const optionLabel =
-                      variation.name?.replace(product.name, '').replace(/^\s*-\s*/, '').trim() ||
-                      variation.name;
-                    const isSelected = selectedVariation === variationId;
-                    return (
-                      <button
-                        key={variation.databaseId}
-                        type="button"
-                        className={`${styles.variationTile} ${isSelected ? styles.variationTileActive : ''}`}
-                        onClick={() => setSelectedVariation(variationId)}
-                        aria-pressed={isSelected}
-                      >
-                        <span className={styles.variationTileName}>{optionLabel}</span>
-                        <span className={styles.variationTilePrice}>{variation.price}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+              {/* Title */}
+              <h1 className="title">{product.name}</h1>
 
-            {/* Quantity Selector */}
-            {isInStock && !isBundle && (
-              <div className={styles.quantitySelector}>
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className={styles.quantityBtn}
-                  aria-label="Decrease quantity"
-                  disabled={quantity <= 1}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                  </svg>
-                </button>
-                <span className={styles.quantityValue}>{quantity}</span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className={styles.quantityBtn}
-                  aria-label="Increase quantity"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
-              </div>
-            )}
+              {mounted && product.shopifyId && (
+                <div
+                  className="klaviyo-star-rating-widget"
+                  data-id={product.shopifyId}
+                  data-product-title={product.name}
+                />
+              )}
 
-            {isInStock && subSchemes.length > 0 && (() => {
-              const sel =
-                (subChoice &&
-                  subSchemes.find(
-                    (s) => s.period === subChoice.period && s.interval === subChoice.interval
-                  )) ||
-                subSchemes[0];
-              const discount = Math.round(sel.discount);
-              return (
-                <>
-                <div className={styles.purchaseOptions}>
-                  <button
-                    type="button"
-                    className={`${styles.purchaseOption} ${subscribe ? styles.purchaseOptionActive : ''}`}
-                    onClick={() => setSubscribe(true)}
-                    aria-pressed={subscribe}
-                  >
-                    <span className={styles.purchaseTop}>
-                      <span className={styles.purchaseRadio} data-checked={subscribe} aria-hidden="true" />
-                      <span className={styles.purchaseName}>Subscribe &amp; save</span>
-                      <button
-                        type="button"
-                        className={styles.purchaseInfo}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowSubInfo(true);
-                        }}
-                        aria-label="Why subscribe?"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                          <circle cx="12" cy="12" r="9" />
-                          <path strokeLinecap="round" d="M12 11.5v4.5" />
-                          <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
-                        </svg>
-                      </button>
-                      {discount > 0 && (
-                        <span className={styles.purchaseBadge}>Save up to {discount}%</span>
-                      )}
-                      <span className={styles.purchasePricing}>
-                        <span className={styles.purchaseWas}>{product.price}</span>
-                        <span className={styles.purchaseNow}>${sel.price}</span>
-                      </span>
-                    </span>
-                    {subscribe && (
-                      <span className={styles.purchaseDetail}>
-                        <span className={styles.purchaseBenefits}>
-                          {discount > 0 && (
-                            <span className={styles.purchaseBenefit}>
-                              <svg className={styles.purchaseBenefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                                <circle cx="12" cy="12" r="9" />
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
-                              </svg>
-                              Save {discount}%
-                            </span>
-                          )}
-                          <span className={styles.purchaseBenefit}>
-                            <svg className={styles.purchaseBenefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                              <circle cx="12" cy="12" r="9" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
-                            </svg>
-                            No commitment. Cancel anytime
-                          </span>
-                        </span>
-                        <span className={styles.purchaseDeliver}>
-                          <span className={styles.purchaseDeliverLabel}>Deliver every:</span>
-                          <span className={styles.purchaseFreqs}>
-                            {subSchemes.map((s) => {
-                              const active = sel.period === s.period && sel.interval === s.interval;
-                              return (
-                                <button
-                                  key={`${s.period}:${s.interval}`}
-                                  type="button"
-                                  className={`${styles.purchaseFreq} ${active ? styles.purchaseFreqActive : ''}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSubChoice({ period: s.period, interval: s.interval });
-                                  }}
-                                  aria-pressed={active}
-                                >
-                                  <span className={styles.purchaseFreqLabel}>{formatEvery(s.period, s.interval)}</span>
-                                  {s.discount > 0 && (
-                                    <span className={styles.purchaseFreqSave}>save {Math.round(s.discount)}%</span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </span>
-                        </span>
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.purchaseOption} ${!subscribe ? styles.purchaseOptionActive : ''}`}
-                    onClick={() => setSubscribe(false)}
-                    aria-pressed={!subscribe}
-                  >
-                    <span className={styles.purchaseTop}>
-                      <span className={styles.purchaseRadio} data-checked={!subscribe} aria-hidden="true" />
-                      <span className={styles.purchaseName}>One-time</span>
-                      <span className={styles.purchasePricing}>
-                        <span className={styles.purchaseNow}>{product.price}</span>
-                      </span>
-                    </span>
-                  </button>
-                </div>
-                {showSubInfo && (
-                  <div
-                    className={styles.subInfoOverlay}
-                    role="dialog"
-                    aria-modal="true"
-                    onClick={() => setShowSubInfo(false)}
-                  >
-                    <div className={styles.subInfoModal} onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className={styles.subInfoClose}
-                        onClick={() => setShowSubInfo(false)}
-                        aria-label="Close"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-                        </svg>
-                      </button>
-                      <h3 className={styles.subInfoTitle}>Great reasons to subscribe</h3>
-                      <ul className={styles.subInfoList}>
-                        <li className={styles.subInfoItem}>
-                          <span className={styles.subInfoIcon}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                              <rect x="4" y="5" width="16" height="16" rx="2" />
-                              <path strokeLinecap="round" d="M4 9.5h16M8.5 3v4M15.5 3v4" />
-                            </svg>
-                          </span>
-                          <span className={styles.subInfoText}>
-                            <strong>Flexible frequency</strong>
-                            {' Not sure how much of something you need, or how often? Adjust quantities and frequencies any time.'}
-                          </span>
-                        </li>
-                        <li className={styles.subInfoItem}>
-                          <span className={styles.subInfoIcon}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 8.5a6 6 0 10-12 0c0 6.5-2.5 8.5-2.5 8.5h17S18 15 18 8.5" />
-                              <path strokeLinecap="round" d="M13.6 20.5a1.9 1.9 0 01-3.2 0" />
-                            </svg>
-                          </span>
-                          <span className={styles.subInfoText}>
-                            <strong>Order reminders</strong>
-                            {" We'll let you know before each shipment. Delay, reschedule or cancel if you need to, we'll only bill you when your order ships."}
-                          </span>
-                        </li>
-                        <li className={styles.subInfoItem}>
-                          <span className={styles.subInfoIcon}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.5h9" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2 2 0 012.9 2.9L7.5 18.7 3.5 20l1.3-4z" />
-                            </svg>
-                          </span>
-                          <span className={styles.subInfoText}>
-                            <strong>You&apos;re in control</strong>
-                            {' Add or remove subscriptions, cancel orders, and edit frequencies and quantities through our user-friendly customer portal.'}
-                          </span>
-                        </li>
-                      </ul>
-                      <button
-                        type="button"
-                        className={styles.subInfoBtn}
-                        onClick={() => setShowSubInfo(false)}
-                      >
-                        Got it
-                      </button>
-                    </div>
+              {/* Price — bundles have no fixed price, they're priced by selection,
+                  so show a "starting from" price instead */}
+              {isBundle ? (
+                product.bbFromPrice != null && (
+                  <div className="price">
+                    <span>From ${product.bbFromPrice.toFixed(2)}</span>
                   </div>
-                )}
-                </>
-              );
-            })()}
-
-            <p className={styles.shippingNote}>
-              <a href="/shipping-policy">Shipping</a> calculated at checkout.
-            </p>
-
-            {/* Add to Cart Section */}
-            {isInStock ? (
-              isBundle ? (
-                <div className={styles.addToCartSection}>
-                  {/* Bundles are priced/added via the bundle builder, not a
-                      direct add-to-cart — this routes into that flow. */}
-                  <Link
-                    href={bundleSlug ? `/bundle/${bundleSlug}` : '#'}
-                    className="button is-black is-fullwidth"
-                  >
-                    Create Bundle
-                  </Link>
-                </div>
-              ) : (
-              <div className={styles.addToCartSection}>
-                {/* Add to Cart Button */}
-                <button
-                  className={`button is-black is-fullwidth ${isAdding ? 'loading' : ''}`}
-                  onClick={handleAddToCart}
-                  disabled={isAdding || (hasVariations && !selectedVariation)}
-                >
-                  {isAdding ? (
-                    <span className={styles.btnContent}>
-                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Adding...
-                    </span>
-                  ) : addedToCart ? (
-                    <span className={styles.btnContent}>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Added to Cart!
-                    </span>
-                  ) : (
-                    'Add to Cart'
-                  )}
-                </button>
-              </div>
-              )
-            ) : (
-              <div className={styles.soldOut}>
-                <span>Currently Unavailable</span>
-                <p>This item is out of stock. Check back soon!</p>
-              </div>
-            )}
-
-            <FrequentlyBoughtTogether
-              productId={product.databaseId}
-              productSlug={product.slug}
-              productName={product.name}
-              productPrice={product.price || ''}
-              productRegularPrice={product.regularPrice}
-              productImage={product.image}
-              productTypeLabel={product.mfproductTypes?.nodes?.[0]?.name}
-              productSubtitle={
-                product.productLines?.nodes?.[0]?.name ||
-                (
-                  (product as { cannabinoids?: { nodes: Array<{ name: string }> } }).cannabinoids
-                    ?.nodes || []
                 )
-                  .map((c) => c.name)
-                  .join(' + ') ||
-                undefined
-              }
-              typeSlugs={(product.mfproductTypes?.nodes || [])
-                .map((t) => (t as { slug?: string }).slug || '')
-                .filter(Boolean)}
-            />
+              ) : (
+                <div className="price">
+                  {displaySalePrice ? (
+                    <>
+                      <span className="sale-price">{scalePrice(displaySalePrice)}</span>
+                      <span className="regular-price">{scalePrice(displayRegularPrice)}</span>
+                    </>
+                  ) : (
+                    <span>{scalePrice(displayPrice)}</span>
+                  )}
+                </div>
+              )}
 
-            {/* Product Meta */}
-            <div className={styles.meta}>
-              {categories.length > 0 && (
-                <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>Category</span>
-                  <div className={styles.metaLinks}>
-                    {categories.map((cat, index) => (
-                      <span key={cat.id}>
-                        <Link href={`/shop?category=${cat.slug}`}>{cat.name}</Link>
-                        {index < categories.length - 1 && ', '}
-                      </span>
+              {/* Available Options */}
+              {availableOptions.length > 1 && (
+                <div className="collection-items">
+                  <span className="collection-label">Available Options</span>
+                  <div className="collection-grid">
+                    {availableOptions.map((item) => (
+                      <Link
+                        key={item.id}
+                        href={`/product/${item.slug}`}
+                        scroll={false}
+                        prefetch
+                        className={`collection-item ${item.id === product.id ? 'current-item' : ''}`}
+                        title={item.name}
+                      >
+                        <div className="collection-item-image-wrap">
+                          <Image
+                            src={item.image?.sourceUrl || '/placeholder-product.png'}
+                            alt={item.name}
+                            fill
+                            sizes="90px"
+                            className="collection-item-image"
+                          />
+                        </div>
+                        <span className="collection-item-name">
+                          {optionLabel(item.name, availableOptionsBase)}
+                        </span>
+                      </Link>
                     ))}
                   </div>
                 </div>
               )}
-              {collectionName && collectionSlug && (
-                <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>Collection</span>
-                  <Link href={`/collection/${collectionSlug}`} className={styles.metaLink}>
-                    {collectionName}
-                  </Link>
-                </div>
-              )}
-            </div>
 
-            {/* Full Description */}
-            <div className={styles.descriptionSection}>
-              {product.description && (
+              {/* Stock Status */}
+              <div className={`stock ${isInStock ? 'in-stock' : 'out-of-stock'}`}>
+                <span className="stock-dot" />
+                {isInStock ? 'In Stock' : 'Out of Stock'}
+              </div>
+
+              {/* Short Description */}
+              {product.shortDescription && (
                 <div
-                  className={styles.description}
-                  dangerouslySetInnerHTML={{ __html: product.description }}
+                  className="short-description"
+                  dangerouslySetInnerHTML={{ __html: product.shortDescription }}
                 />
               )}
-              <PdpTrustBadges />
-              {product.productDetails?.coaLink && (
-                <a
-                  href={product.productDetails.coaLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.coaButton}
-                >
-                  See Test Results
-                </a>
+
+              {/* Variations */}
+              {hasVariations && (
+                <div className="variations">
+                  <span className="variation-label">Select Option</span>
+                  <div className="variation-tiles">
+                    {product.variations!.nodes.map((variation) => {
+                      const variationId = String(variation.databaseId);
+                      const optionLabel =
+                        variation.name?.replace(product.name, '').replace(/^\s*-\s*/, '').trim() ||
+                        variation.name;
+                      const isSelected = selectedVariation === variationId;
+                      return (
+                        <button
+                          key={variation.databaseId}
+                          type="button"
+                          className={`variation-tile ${isSelected ? 'variation-tile-active' : ''}`}
+                          onClick={() => setSelectedVariation(variationId)}
+                          aria-pressed={isSelected}
+                        >
+                          <span className="variation-tile-name">{optionLabel}</span>
+                          <span className="variation-tile-price">{variation.price}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
+
+              {/* Quantity Selector */}
+              {isInStock && !isBundle && (
+                <div className="quantity-selector">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="quantity-btn"
+                    aria-label="Decrease quantity"
+                    disabled={quantity <= 1}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    </svg>
+                  </button>
+                  <span className="quantity-value">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="quantity-btn"
+                    aria-label="Increase quantity"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {isInStock && subSchemes.length > 0 && (() => {
+                const sel =
+                  (subChoice &&
+                    subSchemes.find(
+                      (s) => s.period === subChoice.period && s.interval === subChoice.interval
+                    )) ||
+                  subSchemes[0];
+                const discount = Math.round(sel.discount);
+                return (
+                  <>
+                  <div className="purchase-options">
+                    <button
+                      type="button"
+                      className={`purchase-option ${subscribe ? 'purchase-option-active' : ''}`}
+                      onClick={() => setSubscribe(true)}
+                      aria-pressed={subscribe}
+                    >
+                      <span className="purchase-top">
+                        <span className="purchase-radio" data-checked={subscribe} aria-hidden="true" />
+                        <span className="purchase-name">Subscribe &amp; save</span>
+                        <button
+                          type="button"
+                          className="purchase-info"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSubInfo(true);
+                          }}
+                          aria-label="Why subscribe?"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" />
+                            <path strokeLinecap="round" d="M12 11.5v4.5" />
+                            <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+                          </svg>
+                        </button>
+                        {discount > 0 && (
+                          <span className="purchase-badge">Save up to {discount}%</span>
+                        )}
+                        <span className="purchase-pricing">
+                          <span className="purchase-was">{product.price}</span>
+                          <span className="purchase-now">${sel.price}</span>
+                        </span>
+                      </span>
+                      {subscribe && (
+                        <span className="purchase-detail">
+                          <span className="purchase-benefits">
+                            {discount > 0 && (
+                              <span className="purchase-benefit">
+                                <svg className="purchase-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                  <circle cx="12" cy="12" r="9" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
+                                </svg>
+                                Save {discount}%
+                              </span>
+                            )}
+                            <span className="purchase-benefit">
+                              <svg className="purchase-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
+                              </svg>
+                              No commitment. Cancel anytime
+                            </span>
+                          </span>
+                          <span className="purchase-deliver">
+                            <span className="purchase-deliver-label">Deliver every:</span>
+                            <span className="purchase-freqs">
+                              {subSchemes.map((s) => {
+                                const active = sel.period === s.period && sel.interval === s.interval;
+                                return (
+                                  <button
+                                    key={`${s.period}:${s.interval}`}
+                                    type="button"
+                                    className={`purchase-freq ${active ? 'purchase-freq-active' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSubChoice({ period: s.period, interval: s.interval });
+                                    }}
+                                    aria-pressed={active}
+                                  >
+                                    <span className="purchase-freq-label">{formatEvery(s.period, s.interval)}</span>
+                                    {s.discount > 0 && (
+                                      <span className="purchase-freq-save">save {Math.round(s.discount)}%</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </span>
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className={`purchase-option ${!subscribe ? 'purchase-option-active' : ''}`}
+                      onClick={() => setSubscribe(false)}
+                      aria-pressed={!subscribe}
+                    >
+                      <span className="purchase-top">
+                        <span className="purchase-radio" data-checked={!subscribe} aria-hidden="true" />
+                        <span className="purchase-name">One-time</span>
+                        <span className="purchase-pricing">
+                          <span className="purchase-now">{product.price}</span>
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                  {showSubInfo && (
+                    <div
+                      className="sub-info-overlay"
+                      role="dialog"
+                      aria-modal="true"
+                      onClick={() => setShowSubInfo(false)}
+                    >
+                      <div className="sub-info-modal" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="sub-info-close"
+                          onClick={() => setShowSubInfo(false)}
+                          aria-label="Close"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                          </svg>
+                        </button>
+                        <h3 className="sub-info-title">Great reasons to subscribe</h3>
+                        <ul className="sub-info-list">
+                          <li className="sub-info-item">
+                            <span className="sub-info-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                                <rect x="4" y="5" width="16" height="16" rx="2" />
+                                <path strokeLinecap="round" d="M4 9.5h16M8.5 3v4M15.5 3v4" />
+                              </svg>
+                            </span>
+                            <span className="sub-info-text">
+                              <strong>Flexible frequency</strong>
+                              {' Not sure how much of something you need, or how often? Adjust quantities and frequencies any time.'}
+                            </span>
+                          </li>
+                          <li className="sub-info-item">
+                            <span className="sub-info-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M18 8.5a6 6 0 10-12 0c0 6.5-2.5 8.5-2.5 8.5h17S18 15 18 8.5" />
+                                <path strokeLinecap="round" d="M13.6 20.5a1.9 1.9 0 01-3.2 0" />
+                              </svg>
+                            </span>
+                            <span className="sub-info-text">
+                              <strong>Order reminders</strong>
+                              {" We'll let you know before each shipment. Delay, reschedule or cancel if you need to, we'll only bill you when your order ships."}
+                            </span>
+                          </li>
+                          <li className="sub-info-item">
+                            <span className="sub-info-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.5h9" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2 2 0 012.9 2.9L7.5 18.7 3.5 20l1.3-4z" />
+                              </svg>
+                            </span>
+                            <span className="sub-info-text">
+                              <strong>You&apos;re in control</strong>
+                              {' Add or remove subscriptions, cancel orders, and edit frequencies and quantities through our user-friendly customer portal.'}
+                            </span>
+                          </li>
+                        </ul>
+                        <button
+                          type="button"
+                          className="sub-info-btn"
+                          onClick={() => setShowSubInfo(false)}
+                        >
+                          Got it
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  </>
+                );
+              })()}
+
+              <p className="shipping-note">
+                <a href="/shipping-policy">Shipping</a> calculated at checkout.
+              </p>
+
+              {/* Add to Cart Section */}
+              {isInStock ? (
+                isBundle ? (
+                  <div className="add-to-cart-section">
+                    {/* Bundles are priced/added via the bundle builder, not a
+                        direct add-to-cart — this routes into that flow. */}
+                    <Link
+                      href={bundleSlug ? `/bundle/${bundleSlug}` : '#'}
+                      className="button is-black is-fullwidth"
+                    >
+                      Create Bundle
+                    </Link>
+                  </div>
+                ) : (
+                <div className="add-to-cart-section">
+                  {/* Add to Cart Button */}
+                  <button
+                    className={`button is-black is-fullwidth ${isAdding ? 'loading' : ''}`}
+                    onClick={handleAddToCart}
+                    disabled={isAdding || (hasVariations && !selectedVariation)}
+                  >
+                    {isAdding ? (
+                      <span className="btn-content">
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Adding...
+                      </span>
+                    ) : addedToCart ? (
+                      <span className="btn-content">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Added to Cart!
+                      </span>
+                    ) : (
+                      'Add to Cart'
+                    )}
+                  </button>
+                </div>
+                )
+              ) : (
+                <div className="sold-out">
+                  <span>Currently Unavailable</span>
+                  <p>This item is out of stock. Check back soon!</p>
+                </div>
+              )}
+
+              <FrequentlyBoughtTogether
+                productId={product.databaseId}
+                productSlug={product.slug}
+                productName={product.name}
+                productPrice={product.price || ''}
+                productRegularPrice={product.regularPrice}
+                productImage={product.image}
+                productTypeLabel={product.mfproductTypes?.nodes?.[0]?.name}
+                productSubtitle={
+                  product.productLines?.nodes?.[0]?.name ||
+                  (
+                    (product as { cannabinoids?: { nodes: Array<{ name: string }> } }).cannabinoids
+                      ?.nodes || []
+                  )
+                    .map((c) => c.name)
+                    .join(' + ') ||
+                  undefined
+                }
+                typeSlugs={(product.mfproductTypes?.nodes || [])
+                  .map((t) => (t as { slug?: string }).slug || '')
+                  .filter(Boolean)}
+              />
+
+              {/* Product Meta */}
+              <div className="meta">
+                {categories.length > 0 && (
+                  <div className="meta-item">
+                    <span className="meta-label">Category</span>
+                    <div className="meta-links">
+                      {categories.map((cat, index) => (
+                        <span key={cat.id}>
+                          <Link href={`/shop?category=${cat.slug}`}>{cat.name}</Link>
+                          {index < categories.length - 1 && ', '}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {collectionName && collectionSlug && (
+                  <div className="meta-item">
+                    <span className="meta-label">Collection</span>
+                    <Link href={`/collection/${collectionSlug}`} className="meta-link">
+                      {collectionName}
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Full Description */}
+              <div className="description-section">
+                {product.description && (
+                  <div
+                    className="description"
+                    dangerouslySetInnerHTML={{ __html: product.description }}
+                  />
+                )}
+                <PdpTrustBadges />
+                {product.productDetails?.coaLink && (
+                  <a
+                    href={product.productDetails.coaLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="coa-button"
+                  >
+                    See Test Results
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -770,7 +786,7 @@ export default function ProductPage({
         <ProductFaqs details={product.productDetails} noidName={product.blendTypes?.nodes?.[0]?.name} />
 
         {mounted && product.shopifyId && (
-          <div className={`${styles.descriptionSection} ${styles.reviewsSection}`}>
+          <div className="description-section reviews-section">
             <div id="klaviyo-reviews-all" data-id={product.shopifyId} />
           </div>
         )}
@@ -785,7 +801,6 @@ export default function ProductPage({
         />
 
         <RecentlyViewed currentSlug={product.slug} />
-
       </div>
     </Layout>
   );

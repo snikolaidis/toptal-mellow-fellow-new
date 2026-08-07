@@ -1,5 +1,3 @@
-import styles from './ProductFaqs.module.css';
-
 export interface ProductFaqDetails {
   noidOrBlendDescriptionTitle?: string | null;
   whatIsNoid?: string | null;
@@ -37,11 +35,11 @@ export default function ProductFaqs({ details, noidName }: Props) {
   if (items.length === 0) return null;
 
   return (
-    <section className={styles.faqSection}>
+    <section className="faq-section">
       {items.map((item) => (
-        <details key={item.question} className={styles.faqItem}>
+        <details key={item.question} className="faq-item">
           <summary>{item.question}</summary>
-          <div className={styles.faqAnswer} dangerouslySetInnerHTML={{ __html: item.answer }} />
+          <div className="faq-answer" dangerouslySetInnerHTML={{ __html: item.answer }} />
         </details>
       ))}
     </section>
