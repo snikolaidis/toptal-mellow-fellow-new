@@ -1,0 +1,41 @@
+name: Notify failure
+
+on:
+  workflow_call:
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
+
+# permissions is absent on purpose. A called workflow cannot hold more than its
+# caller grants, so actions: read has to stay on each caller or this 403s.
+
+jobs:
+  notify:
+    name: Post failure to Slack
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Post failure to Slack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          failed=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")')
+
+          [ -n "${failed}" ] || failed='no job reported a failure'
+
+          jq -n \
+            --arg workflow "${GITHUB_WORKFLOW}" \
+            --arg ref "${GITHUB_REF_NAME}" \
+            --arg failed "${failed}" \
+            --arg url "${RUN_URL}" \
+            '{text: ($workflow + " failed on " + $ref + "\nFailed: " + $failed + "\n" + $url)}' \
+            | curl -sS --fail-with-body -X POST \
+                -H 'Content-Type: application/json' \
+                --data @- \
+                "${SLACK_WEBHOOK_URL}"

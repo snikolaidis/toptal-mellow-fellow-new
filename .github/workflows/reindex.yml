@@ -77,3 +77,11 @@ jobs:
         # site. Exit 2 means the job is misconfigured, exit 1 means the rebuild
         # itself failed and is worth retrying.
         run: npm run search:reindex -- --index="${INDEX_TYPE}" --allow-remote
+
+  notify:
+    needs: reindex
+    if: failure()
+    permissions:
+      actions: read
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit
