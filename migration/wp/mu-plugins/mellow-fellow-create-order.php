@@ -4,7 +4,7 @@
  * Description: Creates WooCommerce orders from explicit line items, bypassing
  *              session-based cart resolution. Used by the headless checkout to
  *              decouple order creation from any specific cart session mechanism.
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -18,9 +18,12 @@ add_action( 'rest_api_init', function() {
 } );
 
 function mf_verify_faust_secret( WP_REST_Request $request ) {
-    $secret = defined( 'FAUSTWP_SECRET_KEY' )
-        ? FAUSTWP_SECRET_KEY
-        : get_option( 'faustwp_secret_key' );
+    if ( defined( 'FAUSTWP_SECRET_KEY' ) ) {
+        $secret = FAUSTWP_SECRET_KEY;
+    } else {
+        $settings = get_option( 'faustwp_settings' );
+        $secret = is_array( $settings ) ? ( $settings['secret_key'] ?? '' ) : '';
+    }
     if ( ! $secret ) return false;
 
     $auth = $request->get_header( 'Authorization' );
