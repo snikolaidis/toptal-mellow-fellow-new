@@ -733,12 +733,16 @@ export default function CheckoutPage() {
         const retryAfter = result.retryAfter || 60;
         setError(`Too many attempts. Please wait ${retryAfter} seconds and try again.`);
         fetchCsrfToken();
+        submittingRef.current = false;
+        setIsProcessing(false);
         return;
       }
 
       if (response.status === 403 && result.code === 'CSRF_INVALID') {
         setError('Your security token refreshed. Please press Pay again to complete your order.');
         fetchCsrfToken();
+        submittingRef.current = false;
+        setIsProcessing(false);
         return;
       }
 
@@ -806,11 +810,14 @@ export default function CheckoutPage() {
           total: result.amountCharged ? `$${result.amountCharged}` : cart?.total,
         },
       });
+      // Intentionally not resetting isProcessing/submittingRef here: router.push()
+      // isn't awaited, so a finally block would re-enable every button (Back
+      // included) while Next.js is still loading the order-confirmation page -
+      // there's nothing to recover for on the success path, we're navigating away.
     } catch (err) {
       console.error('Checkout error:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       fetchCsrfToken();
-    } finally {
       submittingRef.current = false;
       setIsProcessing(false);
     }
