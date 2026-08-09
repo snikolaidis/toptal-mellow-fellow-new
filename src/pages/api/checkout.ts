@@ -535,6 +535,7 @@ async function createOrderWithPayment(
   }
 
   console.log('[Checkout] Creating order via /mf/v1/create-order...', authToken ? '(authenticated)' : '(guest)');
+  console.log('[Checkout][RealID] body.realIdCheckId =', JSON.stringify(body.realIdCheckId));
 
   const orderPayload = {
     billing: body.billing,
@@ -558,6 +559,8 @@ async function createOrderWithPayment(
     ],
     realIdCheckId: body.realIdCheckId,
   };
+
+  console.log('[Checkout][RealID] orderPayload.realIdCheckId =', JSON.stringify(orderPayload.realIdCheckId));
 
   const response = await fetch(`${wpBaseUrl}/wp-json/mf/v1/create-order`, {
     method: 'POST',
