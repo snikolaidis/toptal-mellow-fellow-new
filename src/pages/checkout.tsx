@@ -147,6 +147,12 @@ export default function CheckoutPage() {
         if (stepOk && completedLocally && ownedByCustomer) {
           setRememberMeState('active');
           setRealIdVerified(true);
+          // RealIdVerification never mounts for a remembered session (it's only
+          // rendered while rememberMeState !== 'active'), so its onVerifiedChange
+          // callback - the only other place that sets this - never fires. Without
+          // this, handlePayment would send realIdCheckId: undefined to /api/checkout,
+          // and the server-side guard correctly rejects an order with no check id.
+          setRealIdCheckId(checkId);
         } else {
           forgetThisCheck();
         }
