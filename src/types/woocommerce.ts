@@ -72,6 +72,18 @@ export interface ProductVariation {
   };
 }
 
+/**
+ * ACF image fields come through WPGraphQL as a media-item connection edge
+ * (`AcfMediaItemConnectionEdge`), not a flat object.
+ */
+export interface AcfImageField {
+  node?: {
+    sourceUrl?: string | null;
+    altText?: string | null;
+    mediaDetails?: { width?: number | null; height?: number | null } | null;
+  } | null;
+}
+
 export interface ProductACF {
   // Text / textarea / wysiwyg
   coaLink?: string | null;
@@ -83,16 +95,9 @@ export interface ProductACF {
   whatIsNoid?: string | null;
   // Link field (url + title + target)
   userManual?: { url?: string | null; title?: string | null; target?: string | null } | null;
-  // Image field
-  blendsHighlights?: { sourceUrl?: string | null; altText?: string | null } | null;
-  // Image field exposed as a media-item edge by ACF's GraphQL integration
-  timelineImage?: {
-    node?: {
-      sourceUrl?: string | null;
-      altText?: string | null;
-      mediaDetails?: { width?: number | null; height?: number | null } | null;
-    } | null;
-  } | null;
+  // Image fields
+  blendsHighlights?: AcfImageField | null;
+  timelineImage?: AcfImageField | null;
   // Post-object references (single)
   deviceFaqsReference?: { nodes?: Array<{ id?: string; title?: string; content?: string }> } | null;
   deviceFaqTest?: { node?: { id?: string; title?: string } | null } | null;

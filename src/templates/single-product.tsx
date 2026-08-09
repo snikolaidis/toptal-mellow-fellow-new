@@ -308,7 +308,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
           )}
         </nav>
 
-        <div className="columns is-desktop">
+        <div className="columns">
           <div className="column">
             <div className="gallery">
               <Swiper

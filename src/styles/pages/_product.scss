@@ -566,6 +566,23 @@
     text-transform: lowercase;
   }
 
+  .description-box {
+    &__title {
+      color: #101828;
+      font-family: var(--font-family-body);
+      font-size: 24px;
+      font-style: normal;
+      font-weight: 700;
+      line-height: 32px;
+      margin-bottom: 16px;
+
+      @include medium-up {
+        line-height: 36px;
+        margin-bottom: 20px;
+      }
+    }
+  }
+
   .description {
     font-size: 0.9375rem;
     line-height: 1.8;
