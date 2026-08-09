@@ -85,6 +85,14 @@ export interface ProductACF {
   userManual?: { url?: string | null; title?: string | null; target?: string | null } | null;
   // Image field
   blendsHighlights?: { sourceUrl?: string | null; altText?: string | null } | null;
+  // Image field exposed as a media-item edge by ACF's GraphQL integration
+  timelineImage?: {
+    node?: {
+      sourceUrl?: string | null;
+      altText?: string | null;
+      mediaDetails?: { width?: number | null; height?: number | null } | null;
+    } | null;
+  } | null;
   // Post-object references (single)
   deviceFaqsReference?: { nodes?: Array<{ id?: string; title?: string; content?: string }> } | null;
   deviceFaqTest?: { node?: { id?: string; title?: string } | null } | null;

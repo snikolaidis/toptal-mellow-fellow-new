@@ -1,7 +1,42 @@
 import { gql } from '@apollo/client';
 
+// The `productDetails` ACF group is shared by every product type, so it lives in
+// its own fragment rather than being repeated per product-type fragment.
+export const PRODUCT_DETAILS_FIELDS = gql`
+  fragment ProductDetailsFields on ProductDetails {
+    noidOrBlendDescriptionTitle
+    whatIsNoid
+    directionsForUse
+    deviceSpecifications
+    ingredientsV2
+    servingSize
+    disclaimers
+    coaLink
+    timelineImage {
+      node {
+        sourceUrl
+        altText
+        mediaDetails {
+          width
+          height
+        }
+      }
+    }
+    deviceFaqsReference {
+      nodes {
+        id
+        ... on FAQ {
+          title
+          content
+        }
+      }
+    }
+  }
+`;
+
 // WooGraphQL returns products as a union type, so we need inline fragments for each type
 export const SIMPLE_PRODUCT_FIELDS = gql`
+  ${PRODUCT_DETAILS_FIELDS}
   fragment SimpleProductFields on SimpleProduct {
     id
     databaseId
@@ -112,23 +147,7 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
       }
     }
     productDetails {
-      noidOrBlendDescriptionTitle
-      whatIsNoid
-      directionsForUse
-      deviceSpecifications
-      ingredientsV2
-      servingSize
-      disclaimers
-      coaLink
-      deviceFaqsReference {
-        nodes {
-          id
-          ... on FAQ {
-            title
-            content
-          }
-        }
-      }
+      ...ProductDetailsFields
     }
     collections(first: 50) {
       nodes {
@@ -141,6 +160,7 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
 `;
 
 export const VARIABLE_PRODUCT_FIELDS = gql`
+  ${PRODUCT_DETAILS_FIELDS}
   fragment VariableProductFields on VariableProduct {
     id
     databaseId
@@ -154,6 +174,17 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
     regularPrice
     salePrice
     stockStatus
+    stockQuantity
+    productDetails {
+      ...ProductDetailsFields
+    }
+    collections(first: 50) {
+      nodes {
+        name
+        slug
+        count
+      }
+    }
     image {
       id
       sourceUrl
@@ -577,6 +608,48 @@ export const GET_PRODUCT_BY_SLUG = gql`
   ${GROUP_PRODUCT_FIELDS}
   query GetProductBySlug($slug: ID!) {
     product(id: $slug, idType: SLUG) {
+      __typename
+      shopifyId
+      seo {
+        title
+        metaDesc
+        schema {
+          raw
+        }
+        opengraphTitle
+        opengraphDescription
+        opengraphImage {
+          sourceUrl
+        }
+      }
+      ... on SimpleProduct {
+        ...SimpleProductFields
+      }
+      ... on VariableProduct {
+        ...VariableProductFields
+      }
+      ... on ExternalProduct {
+        ...ExternalProductFields
+      }
+      ... on GroupProduct {
+        ...GroupProductFields
+      }
+    }
+  }
+`;
+
+/**
+ * Same selection as GET_PRODUCT_BY_SLUG but keyed by database ID — the shape
+ * Faust's `single-product` template needs, since the seed node resolved from the
+ * URI gives us a `databaseId` rather than a slug.
+ */
+export const GET_PRODUCT_BY_DATABASE_ID = gql`
+  ${SIMPLE_PRODUCT_FIELDS}
+  ${VARIABLE_PRODUCT_FIELDS}
+  ${EXTERNAL_PRODUCT_FIELDS}
+  ${GROUP_PRODUCT_FIELDS}
+  query GetProductByDatabaseId($databaseId: ID!) {
+    product(id: $databaseId, idType: DATABASE_ID) {
       __typename
       shopifyId
       seo {

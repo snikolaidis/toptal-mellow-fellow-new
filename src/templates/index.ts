@@ -18,11 +18,13 @@ import PageLearnAboutOurBlends from './page-learn-about-our-blends';
 import PageLearnAboutCannabinoids from './page-learn-about-cannabinoids-1';
 import LandingPage from './template-landing-page';
 import SnapPage from './page-snap';
+import SingleProduct from './single-product';
 
 const templates = {
   'front-page': FrontPage,
   'page': Page,
   'page-snap': SnapPage,
+  'single-product': SingleProduct,
   'page-mellow-day-2026': MellowDay2026,
   'page-rewards': Rewards,
   'page-affiliate': Affiliate,
