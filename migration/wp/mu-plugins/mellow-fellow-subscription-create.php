@@ -244,6 +244,9 @@ function mf_create_subscription_order_endpoint($request) {
     // Same server-side Real ID re-confirmation as mf/v1/create-order - see
     // mellow-fellow-realid-order-guard.php. Subscriptions create an order too,
     // via a completely separate endpoint, so this needs its own check.
+
+    error_log( '[MF RealID Guard] mf_create_subscription_order_endpoint: ' . json_encode($params) );
+
     $realid_check_id = sanitize_text_field((string) ($params['realIdCheckId'] ?? ''));
     $realid_allowed = apply_filters('mf_realid_order_allowed', true, $realid_check_id, $billing);
     if (is_wp_error($realid_allowed)) {
