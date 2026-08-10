@@ -89,6 +89,10 @@ interface CheckoutRequest {
     price: string;
   }>;
   sources?: Record<string, string>;
+  // Forwarded to mf/v1/create-order so the WP-side guard can independently
+  // re-confirm Real ID verification before the order is created — see
+  // mellow-fellow-realid-order-guard.php.
+  realIdCheckId?: string;
 }
 
 interface PendingOrder {
@@ -453,6 +457,7 @@ async function createSubscriptionOrder(
       interval: scheme.interval,
       customerProfileId,
       paymentProfileId,
+      realIdCheckId: body.realIdCheckId,
     }),
   });
   const data = await res.json().catch(() => null);
@@ -530,6 +535,7 @@ async function createOrderWithPayment(
   }
 
   console.log('[Checkout] Creating order via /mf/v1/create-order...', authToken ? '(authenticated)' : '(guest)');
+  console.log('[Checkout][RealID] body.realIdCheckId =', JSON.stringify(body.realIdCheckId));
 
   const orderPayload = {
     billing: body.billing,
@@ -551,7 +557,10 @@ async function createOrderWithPayment(
       { key: '_payment_method', value: 'authnet' },
       { key: '_payment_method_title', value: 'Credit Card (Authorize.net)' },
     ],
+    realIdCheckId: body.realIdCheckId,
   };
+
+  console.log('[Checkout][RealID] orderPayload.realIdCheckId =', JSON.stringify(orderPayload.realIdCheckId));
 
   const response = await fetch(`${wpBaseUrl}/wp-json/mf/v1/create-order`, {
     method: 'POST',

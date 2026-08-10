@@ -11,7 +11,14 @@ const ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const WP_BASE = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 const FLOW_SDK = 'https://real-id-flow.getverdict.com/assets/index.js';
 const SHOP_NAME = process.env.NEXT_PUBLIC_REALID_SHOP_NAME || WP_BASE;
-const VERIFIED_STEPS = ['completed', 'in_review', 'manually_approved', 'opened', 'delivered'];
+export const VERIFIED_STEPS = ['completed', 'in_review', 'manually_approved', 'opened', 'delivered'];
+// 'opened'/'delivered' are set the instant a check is *created* - before any photo,
+// selfie, or confirmation code has ever been submitted. They're only meaningful for
+// tracking the in-progress confirmation-code flow here, on the same page load as the
+// live widget. They must never be trusted for a "skip verification entirely" decision
+// (like checkout.tsx's remember-me check) - only these three can only ever be reached
+// once getverdict's own backend has actually processed something and made a decision.
+export const STRONGLY_VERIFIED_STEPS = ['completed', 'in_review', 'manually_approved'];
 
 interface RealIdVerificationProps {
   customer?: RealIdCustomer;
@@ -245,11 +252,9 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     // practice (confirmed empty every time), so there's no reliable ownership signal
     // to read off the event itself - always confirm via the fetch-based check instead.
     const onPassed = () => {
-      console.log("real-id-check-onPassed")
       attemptVerify();
     };
     const onLoaded = () => {
-      console.log("real-id-check-onLoaded")
       attemptVerify();
     };
     window.addEventListener('real-id-check-passed', onPassed);

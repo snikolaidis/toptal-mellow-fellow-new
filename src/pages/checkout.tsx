@@ -6,7 +6,7 @@ import BillingForm from '@/components/checkout/BillingForm';
 import ShippingForm from '@/components/checkout/ShippingForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
-import RealIdVerification from '@/components/RealIdVerification';
+import RealIdVerification, { STRONGLY_VERIFIED_STEPS } from '@/components/RealIdVerification';
 
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
@@ -70,6 +70,20 @@ export default function CheckoutPage() {
   const submittingRef = useRef(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [rememberMeState, setRememberMeState] = useState<RememberMeState>('not_exist');
+  // rememberMeState starts at 'not_exist' - the same value it has once we've
+  // confirmed there's genuinely no remembered check. Without a separate flag,
+  // RealIdVerification (gated on rememberMeState !== 'active') would mount and
+  // start the widget's own independent flow immediately, racing the async
+  // server check below - and since the widget can silently overwrite the shared
+  // real-id-check-id key with a check of its own choosing, that race can replace
+  // a perfectly valid remembered check with a brand new, unverified one. Nothing
+  // that depends on "is there a remembered check" should render until this is true.
+  const [rememberMeChecked, setRememberMeChecked] = useState(false);
+
+  // Address state
+  const [billing, setBilling] = useState<AddressData>(emptyAddress);
+  const [shipping, setShipping] = useState<AddressData>(emptyAddress);
+  const [sameAsBilling, setSameAsBilling] = useState(true);
 
   // While Real ID is blocking payment, the widget script/UI takes a moment to load -
   // until then the screen is otherwise empty except for the standalone Back button
@@ -88,11 +102,18 @@ export default function CheckoutPage() {
   // When the payment step becomes visible, check whether this browser already has
   // a "remembered" Real ID check on file and whether it's still within its
   // remember-me window, so we can skip re-running the Real ID procedure.
+  // localStorage is trivially forgeable via devtools (setItem three fake keys and
+  // the payment form would appear with zero verification), so it's only ever a
+  // hint here - the check's existence, completion, and ownership are all
+  // re-confirmed against the server before ever trusting it enough to skip Real ID.
   useEffect(() => {
     if (!REALID_ENABLED || step !== 'payment' || typeof window === 'undefined') return;
 
     const checkId = window.localStorage.getItem('real-id-check-id');
-    if (!checkId) return;
+    if (!checkId) {
+      setRememberMeChecked(true);
+      return;
+    }
 
     // No expiration recorded yet doesn't mean expired - it means no remember-me
     // choice has been made for this check yet (still in progress, or verified but
@@ -102,26 +123,65 @@ export default function CheckoutPage() {
     // render - so this used to fire immediately after the check was created).
     // Only an expiration that actually exists and has passed counts as expired.
     const expiration = window.localStorage.getItem(`real-id-check-${checkId}-expiration`);
-    if (!expiration) return;
+    if (!expiration) {
+      setRememberMeChecked(true);
+      return;
+    }
 
     const expirationTime = new Date(expiration).getTime();
     const diffDays = (expirationTime - Date.now()) / (1000 * 60 * 60 * 24);
 
-    if (Number.isNaN(expirationTime) || diffDays < 0) {
+    const forgetThisCheck = () => {
       window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
       window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
       window.localStorage.removeItem('real-id-check-id');
       setRememberMeState('not_exist');
-    } else {
-      setRememberMeState('active');
-      setRealIdVerified(true);
-    }
-  }, [step]);
+      setRememberMeChecked(true);
+    };
 
-  // Address state
-  const [billing, setBilling] = useState<AddressData>(emptyAddress);
-  const [shipping, setShipping] = useState<AddressData>(emptyAddress);
-  const [sameAsBilling, setSameAsBilling] = useState(true);
+    if (Number.isNaN(expirationTime) || diffDays < 0) {
+      forgetThisCheck();
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/realid/real-id/v1/checks/${checkId}`);
+        if (!res.ok) throw new Error('verification lookup failed');
+        const data = await res.json();
+        const stepValue = data?.check?.step ?? data?.step;
+        const statusValue = data?.check?.status ?? data?.status;
+        const email = (data?.check?.email ?? data?.email ?? '').trim().toLowerCase();
+        const currentEmail = (billing.email ?? '').trim().toLowerCase();
+
+        const stepOk = STRONGLY_VERIFIED_STEPS.includes(stepValue) || STRONGLY_VERIFIED_STEPS.includes(statusValue);
+        const completedLocally = window.localStorage.getItem(`real-id-check-${checkId}-completed`) === 'true';
+        const ownedByCustomer = !!currentEmail && email === currentEmail;
+
+        if (cancelled) return;
+        if (stepOk && completedLocally && ownedByCustomer) {
+          setRememberMeState('active');
+          setRealIdVerified(true);
+          // RealIdVerification never mounts for a remembered session (it's only
+          // rendered while rememberMeState !== 'active'), so its onVerifiedChange
+          // callback - the only other place that sets this - never fires. Without
+          // this, handlePayment would send realIdCheckId: undefined to /api/checkout,
+          // and the server-side guard correctly rejects an order with no check id.
+          setRealIdCheckId(checkId);
+          setRememberMeChecked(true);
+        } else {
+          forgetThisCheck();
+        }
+      } catch {
+        if (!cancelled) forgetThisCheck();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, billing.email]);
 
   const [subSchemes, setSubSchemes] = useState<Array<{ period: string; interval: number }>>([]);
   const [subChecked, setSubChecked] = useState<number[]>([]);
@@ -135,10 +195,10 @@ export default function CheckoutPage() {
   // Fetch customer data for logged-in users
   const client = isAuthenticated ? getApolloAuthClient() : null;
   const { data: customerData } = useQuery(GET_CUSTOMER_BILLING, {
-    client: client!,
+    client: client ?? undefined,
     skip: !isAuthenticated || !client,
   });
-  const [updateCustomer] = useMutation(UPDATE_CUSTOMER, { client: client! });
+  const [updateCustomer] = useMutation(UPDATE_CUSTOMER, { client: client ?? undefined });
 
   // Persist an edited billing/shipping address back to the customer's saved
   // profile — best-effort: failures here shouldn't block checkout.
@@ -684,6 +744,9 @@ export default function CheckoutPage() {
               : item.product.price,
           })),
           sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
+          // Lets the server independently re-confirm Real ID verification before
+          // the order is created — see mellow-fellow-realid-order-guard.php.
+          realIdCheckId: REALID_ENABLED ? realIdCheckId || undefined : undefined,
         }),
       });
 
@@ -693,12 +756,16 @@ export default function CheckoutPage() {
         const retryAfter = result.retryAfter || 60;
         setError(`Too many attempts. Please wait ${retryAfter} seconds and try again.`);
         fetchCsrfToken();
+        submittingRef.current = false;
+        setIsProcessing(false);
         return;
       }
 
       if (response.status === 403 && result.code === 'CSRF_INVALID') {
         setError('Your security token refreshed. Please press Pay again to complete your order.');
         fetchCsrfToken();
+        submittingRef.current = false;
+        setIsProcessing(false);
         return;
       }
 
@@ -766,11 +833,14 @@ export default function CheckoutPage() {
           total: result.amountCharged ? `$${result.amountCharged}` : cart?.total,
         },
       });
+      // Intentionally not resetting isProcessing/submittingRef here: router.push()
+      // isn't awaited, so a finally block would re-enable every button (Back
+      // included) while Next.js is still loading the order-confirmation page -
+      // there's nothing to recover for on the success path, we're navigating away.
     } catch (err) {
       console.error('Checkout error:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       fetchCsrfToken();
-    } finally {
       submittingRef.current = false;
       setIsProcessing(false);
     }
@@ -927,7 +997,7 @@ export default function CheckoutPage() {
 
             {step === 'payment' && (
               <>
-                {rememberMeState !== 'active' && (
+                {rememberMeChecked && rememberMeState !== 'active' && (
                   <div
                     className={`${styles.collapsible} ${realIdVerified ? styles.collapsibleCollapsed : ''}`}
                   >
@@ -1387,7 +1457,7 @@ function PaymentForm({
                 type="button"
                 className={styles.formActionsSecondary}
                 onClick={onBack}
-              // disabled={isDisabled}
+                disabled={isDisabled}
               >
                 Back
               </button>

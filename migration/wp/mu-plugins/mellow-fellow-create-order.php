@@ -53,6 +53,25 @@ function mf_create_order( WP_REST_Request $request ) {
     $shipping_lines = $body['shippingLines'] ?? [];
     $meta_data      = $body['metaData'] ?? [];
     $customer_id    = absint( $body['customerId'] ?? 0 );
+    $realid_check_id = sanitize_text_field( $body['realIdCheckId'] ?? '' );
+
+    /**
+     * Real ID (getverdict.com) identity verification is currently enforced only
+     * client-side (see RealIdVerification.tsx / checkout.tsx) - the browser just
+     * disables the Pay button until verified. That's not a real security boundary:
+     * anyone can call this endpoint directly and skip it entirely. This filter is
+     * the server-side backstop - see mellow-fellow-realid-order-guard.php, which
+     * hooks in here to independently re-confirm verification before we allow an
+     * order to be created. Return a WP_Error to reject; anything else allows it.
+     */
+    $realid_allowed = apply_filters( 'mf_realid_order_allowed', true, $realid_check_id, $billing );
+    if ( is_wp_error( $realid_allowed ) ) {
+        return new WP_REST_Response( [
+            'success' => false,
+            'code'    => $realid_allowed->get_error_code(),
+            'message' => $realid_allowed->get_error_message(),
+        ], 403 );
+    }
 
     try {
         $order = wc_create_order( [
