@@ -70,6 +70,15 @@ export default function CheckoutPage() {
   const submittingRef = useRef(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [rememberMeState, setRememberMeState] = useState<RememberMeState>('not_exist');
+  // rememberMeState starts at 'not_exist' - the same value it has once we've
+  // confirmed there's genuinely no remembered check. Without a separate flag,
+  // RealIdVerification (gated on rememberMeState !== 'active') would mount and
+  // start the widget's own independent flow immediately, racing the async
+  // server check below - and since the widget can silently overwrite the shared
+  // real-id-check-id key with a check of its own choosing, that race can replace
+  // a perfectly valid remembered check with a brand new, unverified one. Nothing
+  // that depends on "is there a remembered check" should render until this is true.
+  const [rememberMeChecked, setRememberMeChecked] = useState(false);
 
   // Address state
   const [billing, setBilling] = useState<AddressData>(emptyAddress);
@@ -101,7 +110,10 @@ export default function CheckoutPage() {
     if (!REALID_ENABLED || step !== 'payment' || typeof window === 'undefined') return;
 
     const checkId = window.localStorage.getItem('real-id-check-id');
-    if (!checkId) return;
+    if (!checkId) {
+      setRememberMeChecked(true);
+      return;
+    }
 
     // No expiration recorded yet doesn't mean expired - it means no remember-me
     // choice has been made for this check yet (still in progress, or verified but
@@ -111,7 +123,10 @@ export default function CheckoutPage() {
     // render - so this used to fire immediately after the check was created).
     // Only an expiration that actually exists and has passed counts as expired.
     const expiration = window.localStorage.getItem(`real-id-check-${checkId}-expiration`);
-    if (!expiration) return;
+    if (!expiration) {
+      setRememberMeChecked(true);
+      return;
+    }
 
     const expirationTime = new Date(expiration).getTime();
     const diffDays = (expirationTime - Date.now()) / (1000 * 60 * 60 * 24);
@@ -121,6 +136,7 @@ export default function CheckoutPage() {
       window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
       window.localStorage.removeItem('real-id-check-id');
       setRememberMeState('not_exist');
+      setRememberMeChecked(true);
     };
 
     if (Number.isNaN(expirationTime) || diffDays < 0) {
@@ -153,6 +169,7 @@ export default function CheckoutPage() {
           // this, handlePayment would send realIdCheckId: undefined to /api/checkout,
           // and the server-side guard correctly rejects an order with no check id.
           setRealIdCheckId(checkId);
+          setRememberMeChecked(true);
         } else {
           forgetThisCheck();
         }
@@ -980,7 +997,7 @@ export default function CheckoutPage() {
 
             {step === 'payment' && (
               <>
-                {rememberMeState !== 'active' && (
+                {rememberMeChecked && rememberMeState !== 'active' && (
                   <div
                     className={`${styles.collapsible} ${realIdVerified ? styles.collapsibleCollapsed : ''}`}
                   >
