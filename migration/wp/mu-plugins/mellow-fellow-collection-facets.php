@@ -20,14 +20,24 @@ add_action( 'rest_api_init', function() {
                 'type'              => 'string',
                 'sanitize_callback' => 'sanitize_title',
             ],
+            // Deliberately no sanitize_callback. WP applies it to the raw value during
+            // dispatch, so taxonomy[]=x hands an array to sanitize_title() and fatals
+            // before mf_resolve_taxonomy_param() runs. No 'type' either: it would make
+            // WP reject an array with a 400 rather than falling back, and falling back
+            // is the contract. The allowlist is the control.
+            'taxonomy' => [
+                'required' => false,
+                'default'  => 'collection',
+            ],
         ],
     ] );
 } );
 
 function mf_get_collection_facets( WP_REST_Request $request ) {
     $slug = $request->get_param( 'slug' );
+    $term_tax = function_exists( 'mf_resolve_taxonomy_param' ) ? mf_resolve_taxonomy_param( $request ) : 'collection';
 
-    $cache_key = 'mf_coll_facets_' . $slug;
+    $cache_key = 'mf_coll_facets_' . $term_tax . '_' . $slug;
     $cached = get_transient( $cache_key );
     if ( $cached !== false ) {
         return new WP_REST_Response( $cached, 200 );
@@ -66,11 +76,12 @@ function mf_get_collection_facets( WP_REST_Request $request ) {
              ON tt.term_id = t.term_id
          WHERE p.post_type = 'product'
            AND p.post_status = 'publish'
-           AND tt_coll.taxonomy = 'collection'
+           AND tt_coll.taxonomy = %s
            AND t_coll.slug = %s
            AND tt.taxonomy IN ($placeholders)
          GROUP BY t.slug, t.name, tt.taxonomy
          ORDER BY tt.taxonomy, product_count DESC, t.name",
+        $term_tax,
         $slug,
         ...$tax_slugs
     );
@@ -95,7 +106,10 @@ function mf_get_collection_facets( WP_REST_Request $request ) {
         ];
     }
 
-    // Count distinct products in this collection
+    // Count distinct products in this collection.
+    // This query needs its own taxonomy condition. It is a separate statement from
+    // the facet query above and uses the alias tt rather than tt_coll, so removing
+    // it as a duplicate silently returns totalProducts = 0 for any non-collection.
     $count_sql = $wpdb->prepare(
         "SELECT COUNT(DISTINCT p.ID)
          FROM {$wpdb->posts} p
@@ -107,8 +121,9 @@ function mf_get_collection_facets( WP_REST_Request $request ) {
              ON tt.term_id = t.term_id
          WHERE p.post_type = 'product'
            AND p.post_status = 'publish'
-           AND tt.taxonomy = 'collection'
+           AND tt.taxonomy = %s
            AND t.slug = %s",
+        $term_tax,
         $slug
     );
 

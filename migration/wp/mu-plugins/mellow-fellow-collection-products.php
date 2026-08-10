@@ -15,6 +15,12 @@ add_action( 'rest_api_init', function () {
         'permission_callback' => '__return_true',
         'args'                => [
             'slug'     => [ 'required' => true,  'type' => 'string',  'sanitize_callback' => 'sanitize_title' ],
+            // Deliberately no sanitize_callback. WP applies it to the raw value during
+            // dispatch, so taxonomy[]=x hands an array to sanitize_title() and fatals
+            // before mf_resolve_taxonomy_param() runs. No 'type' either: it would make
+            // WP reject an array with a 400 rather than falling back, and falling back
+            // is the contract. The allowlist is the control.
+            'taxonomy' => [ 'required' => false, 'default' => 'collection' ],
             'page'     => [ 'required' => false, 'type' => 'integer', 'default' => 1,  'sanitize_callback' => 'absint' ],
             'per_page' => [ 'required' => false, 'type' => 'integer', 'default' => 24, 'sanitize_callback' => 'absint' ],
             'sort'     => [ 'required' => false, 'type' => 'string',  'default' => 'default', 'sanitize_callback' => 'sanitize_text_field' ],
@@ -24,6 +30,7 @@ add_action( 'rest_api_init', function () {
 
 function mf_get_collection_products( WP_REST_Request $request ) {
     $slug     = $request->get_param( 'slug' );
+    $term_tax = function_exists( 'mf_resolve_taxonomy_param' ) ? mf_resolve_taxonomy_param( $request ) : 'collection';
     $page     = max( 1, (int) $request->get_param( 'page' ) );
     $per_page = max( 1, min( 100, (int) $request->get_param( 'per_page' ) ) );
     $sort     = $request->get_param( 'sort' );
@@ -53,7 +60,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     }
 
     // Build cache key from all parameters
-    $cache_parts = [ 'mf_cp', $slug, $page, $per_page, $sort ];
+    $cache_parts = [ 'mf_cp', $term_tax, $slug, $page, $per_page, $sort ];
     ksort( $active_filters );
     foreach ( $active_filters as $tax => $slugs ) {
         sort( $slugs );
@@ -75,9 +82,16 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     $where_clauses = [
         "p.post_type = 'product'",
         "p.post_status = 'publish'",
-        "tt_coll.taxonomy = 'collection'",
+        'tt_coll.taxonomy = %s',
     ];
-    $prepare_args = [ $slug ];
+    // $prepare_args must stay in the same order as the placeholders appear in
+    // $where_clauses, which is imploded far below and passed to prepare() positionally.
+    // Reordering or dropping an entry here binds slug to taxonomy and vice versa,
+    // which returns zero rows as a successful empty result rather than an error.
+    // $term_tax is deliberately not named $tax: the cache loop above reuses $tax as
+    // its foreach key, so a variable named $tax here would be overwritten by the last
+    // active filter before this line runs.
+    $prepare_args = [ $term_tax, $slug ];
 
     // Collection slug
     $where_clauses[] = 't_coll.slug = %s';
