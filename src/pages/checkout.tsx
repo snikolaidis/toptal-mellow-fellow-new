@@ -131,10 +131,24 @@ export default function CheckoutPage() {
     const expirationTime = new Date(expiration).getTime();
     const diffDays = (expirationTime - Date.now()) / (1000 * 60 * 60 * 24);
 
+    // Only for a check that's genuinely done for - actually expired, or fetched
+    // fine but never reached a verified state for its own rightful owner. This
+    // wipes the shared storage, so it must never fire just because the email
+    // currently typed into the form happens not to match.
     const forgetThisCheck = () => {
       window.localStorage.removeItem(`real-id-check-${checkId}-completed`);
       window.localStorage.removeItem(`real-id-check-${checkId}-expiration`);
       window.localStorage.removeItem('real-id-check-id');
+      setRememberMeState('not_exist');
+      setRememberMeChecked(true);
+    };
+
+    // For "this isn't a match for the current session" - an email mismatch or a
+    // failed lookup. The stored check may still be perfectly valid for whoever it
+    // actually belongs to (e.g. a different family member checking out with their
+    // own email on the same browser, right after this customer used remember-me) -
+    // it must be left untouched. This session simply won't be treated as remembered.
+    const skipWithoutForgetting = () => {
       setRememberMeState('not_exist');
       setRememberMeChecked(true);
     };
@@ -170,11 +184,13 @@ export default function CheckoutPage() {
           // and the server-side guard correctly rejects an order with no check id.
           setRealIdCheckId(checkId);
           setRememberMeChecked(true);
+        } else if (!ownedByCustomer) {
+          skipWithoutForgetting();
         } else {
           forgetThisCheck();
         }
       } catch {
-        if (!cancelled) forgetThisCheck();
+        if (!cancelled) skipWithoutForgetting();
       }
     })();
 
@@ -1109,9 +1125,14 @@ function PaymentForm({
   onForgetMe?: () => void;
 }) {
   const isDisabled = isProcessing || isLoading || realIdBlocked;
-  // Local for now - just capturing the shopper's pick; not wired to rememberMeState
-  // (the checkout-level state) yet, that connection happens in a later step.
-  const [selectedRememberOption, setSelectedRememberOption] = useState<RememberMeState>('do_not_remember');
+  // The remember-me radio group only renders when rememberMeState === 'not_exist'
+  // (see below) - during an already-active remembered session there's no new
+  // choice being made, so this must default to 'active', not 'do_not_remember'.
+  // Otherwise every purchase in an active session would submit 'do_not_remember'
+  // by default and handlePayment would wipe out the very session being reused.
+  const [selectedRememberOption, setSelectedRememberOption] = useState<RememberMeState>(
+    rememberMeState === 'active' ? 'active' : 'do_not_remember'
+  );
   const [cardNumber, setCardNumber] = useState('');
   const [expMonth, setExpMonth] = useState('');
   const [expYear, setExpYear] = useState('');
