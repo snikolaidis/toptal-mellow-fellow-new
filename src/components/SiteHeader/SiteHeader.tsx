@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -19,8 +19,67 @@ export default function SiteHeader() {
   const [isOpen, setIsOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const expandedHeight = useRef(0);
 
   const menuItems: NavMenuItem[] = data?.menuItems?.nodes ?? [];
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  // The collapse animates, so reading the height as soon as the class comes off
+  // captures a mid-transition value and the collapse point moves every cycle.
+  // Wait until two consecutive frames agree, which means the transition is done.
+  useEffect(() => {
+    if (isScrolled) return;
+    const el = headerRef.current;
+    if (!el) return;
+
+    let raf = 0;
+    let previous = -1;
+    const settle = () => {
+      const height = el.offsetHeight;
+      if (height === previous) {
+        expandedHeight.current = height;
+        return;
+      }
+      previous = height;
+      raf = requestAnimationFrame(settle);
+    };
+    const restart = () => {
+      cancelAnimationFrame(raf);
+      previous = -1;
+      raf = requestAnimationFrame(settle);
+    };
+
+    restart();
+    window.addEventListener('resize', restart);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', restart);
+    };
+  }, [isScrolled]);
+
+  // Collapsing shortens the document by the height delta, and scroll anchoring
+  // answers by pulling scrollY down by that same amount. Trigger and result are
+  // therefore coupled: any re-expand threshold within the delta of the collapse
+  // threshold oscillates forever. Re-expanding only at the very top is the one
+  // safe choice, because it is both the widest possible gap and the one offset
+  // where the browser suppresses anchoring, so expanding cannot push us back
+  // down across the collapse threshold.
+  useEffect(() => {
+    const onScroll = () => {
+      setIsScrolled((prev) =>
+        prev ? window.scrollY > 0 : window.scrollY > expandedHeight.current
+      );
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const closeMenu = () => {
     setIsOpen(false);
@@ -50,11 +109,17 @@ export default function SiteHeader() {
     });
   };
 
-  const itemsCount = cart?.itemsCount ?? 0;
+  // CartContext seeds its state from localStorage in a lazy useState initialiser,
+  // so a returning visitor has a full cart on the very first client render while
+  // the server had none. Both values stay empty until after mount so the first
+  // client render matches the server. Without this the mismatch only appears for
+  // visitors who already have items, never for a developer with an empty cart.
+  const itemsCount = hydrated ? cart?.itemsCount ?? 0 : 0;
+  const cartSubtotal = hydrated && cartReady ? cart?.subtotal ?? '' : '';
 
   return (
     <>
-      <header className="site-header">
+      <header ref={headerRef} className={`site-header ${isScrolled ? 'is-scrolled' : ''}`}>
         <AnnouncementBar />
 
         <div className="site-header__bar">
@@ -93,14 +158,17 @@ export default function SiteHeader() {
             >
               <span className="site-header__cart-icon">
                 <CartIcon />
-                {itemsCount > 0 && (
-                  <span className="site-header__cart-badge">{itemsCount}</span>
-                )}
+                <span
+                  className={
+                    itemsCount > 0
+                      ? 'site-header__cart-badge'
+                      : 'site-header__cart-badge is-empty'
+                  }
+                >
+                  {itemsCount > 0 ? itemsCount : ''}
+                </span>
               </span>
-              {/* The cart loads client side, so this gate prevents a hydration mismatch and a $0.00 flash. */}
-              <span className="site-header__cart-subtotal">
-                {cartReady ? cart?.subtotal : ''}
-              </span>
+              <span className="site-header__cart-subtotal">{cartSubtotal}</span>
             </button>
 
             <button
