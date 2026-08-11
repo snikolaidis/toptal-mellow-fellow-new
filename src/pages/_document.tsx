@@ -17,6 +17,8 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
     <Html lang="en" translate="no">
       <Head>
         <meta name="google" content="notranslate" />
+        <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://use.typekit.net/kud0qbd.css" />
         {process.env.NEXT_PUBLIC_AUTHORIZE_ENVIRONMENT === 'production' ? (
           <script
             type="text/javascript"
