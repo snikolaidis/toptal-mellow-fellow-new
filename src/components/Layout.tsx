@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import Footer from '@/components/Footer/Footer';
-import NavBar from './NavBar/NavBar';
+import SiteHeader from './SiteHeader/SiteHeader';
 import CartDrawer from './CartDrawer/CartDrawer';
 
 interface SeoData {
@@ -98,7 +98,7 @@ export default function Layout({
         )}
       </Head>
 
-      <NavBar />
+      <SiteHeader />
 
       <main>
         {children}

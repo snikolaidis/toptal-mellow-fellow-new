@@ -1,7 +1,7 @@
 import { getApolloClient } from '@faustwp/core';
 import type { ApolloClient, NormalizedCacheObject } from '@apollo/client';
 import merge from 'deepmerge';
-import { GET_NAV } from '@/components/NavBar/NavBar';
+import { GET_NAV } from '@/graphql/queries/menus';
 import { GET_FOOTER_MENU, GET_FOOTER_MENU_2, GET_SOCIAL_LINKS } from '@/components/Footer/Footer';
 
 const STATE_KEY = '__APOLLO_STATE__';

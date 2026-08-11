@@ -71,6 +71,12 @@ export const CartIcon = () => (
   </svg>
 );
 
+export const GridIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" />
+  </svg>
+);
+
 // Hamburger menu icon
 export const MenuIcon = () => (
   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
