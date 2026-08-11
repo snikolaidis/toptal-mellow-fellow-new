@@ -22,6 +22,12 @@ import Faq from './Faq';
 import ReviewsCarousel from './ReviewsCarousel';
 import PromoSlider from './PromoSlider';
 import DiscountCodeBar from './DiscountCodeBar';
+import CategoryTabs from './CategoryTabs';
+import LoyaltyTiers from './LoyaltyTiers';
+import QuizHero from './QuizHero';
+import ShopByMood from './ShopByMood';
+import SocialProofStrip from './SocialProofStrip';
+import WhatSetsUsApart from './WhatSetsUsApart';
 
 export default {
   ...CoreBlocks,
@@ -79,5 +85,11 @@ export default {
   // Ready, but inert until the `acf/promo-slider` block is deployed to WP.
   AcfPromoSlider: PromoSlider,
   // Ready, but inert until the `acf/discount-code-bar` block is deployed to WP.
-  AcfDiscountCodeBar: DiscountCodeBar
+  AcfDiscountCodeBar: DiscountCodeBar,
+  AcfQuizHero: QuizHero,
+  AcfShopByMood: ShopByMood,
+  AcfSocialProofStrip: SocialProofStrip,
+  AcfCategoryTabs: CategoryTabs,
+  AcfWhatSetsUsApart: WhatSetsUsApart,
+  AcfLoyaltyTiers: LoyaltyTiers
 };

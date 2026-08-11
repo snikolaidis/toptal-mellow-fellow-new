@@ -3,7 +3,6 @@ import { FaustTemplate } from '@faustwp/core';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import blocks from '@/wp-blocks';
 import Layout from '@/components/Layout';
-import { CollectionFilterProvider } from '@/context/CollectionFilterContext';
 
 interface FrontPageData {
   page?: { editorBlocks?: any[] } | null;
@@ -61,11 +60,7 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
     >
       {/* Backend-managed homepage blocks (hero slider, image slider,
           highlights groups, collection links). */}
-      {pageBlocks.length > 0 && (
-        <CollectionFilterProvider>
-          <WordPressBlocksViewer blocks={pageBlocks} />
-        </CollectionFilterProvider>
-      )}
+      {pageBlocks.length > 0 && <WordPressBlocksViewer blocks={pageBlocks} />}
     </Layout>
   );
 };
@@ -87,12 +82,6 @@ FrontPage.query = gql`
   ${blocks.AcfFaq.fragments.entry}
   ${blocks.AcfReviewsCarousel.fragments.entry}
   ${blocks.AcfPromoSlider.fragments.entry}
-  ${blocks.AcfQuizHero.fragments.entry}
-  ${blocks.AcfShopByMood.fragments.entry}
-  ${blocks.AcfSocialProofStrip.fragments.entry}
-  ${blocks.AcfCategoryTabs.fragments.entry}
-  ${blocks.AcfWhatSetsUsApart.fragments.entry}
-  ${blocks.AcfLoyaltyTiers.fragments.entry}
   ${blocks.CoreImage.fragments.entry}
   query FrontPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
@@ -114,12 +103,6 @@ FrontPage.query = gql`
         ...${blocks.AcfFaq.fragments.key}
         ...${blocks.AcfReviewsCarousel.fragments.key}
         ...${blocks.AcfPromoSlider.fragments.key}
-        ...${blocks.AcfQuizHero.fragments.key}
-        ...${blocks.AcfShopByMood.fragments.key}
-        ...${blocks.AcfSocialProofStrip.fragments.key}
-        ...${blocks.AcfCategoryTabs.fragments.key}
-        ...${blocks.AcfWhatSetsUsApart.fragments.key}
-        ...${blocks.AcfLoyaltyTiers.fragments.key}
         ...${blocks.CoreImage.fragments.key}
       }
     }

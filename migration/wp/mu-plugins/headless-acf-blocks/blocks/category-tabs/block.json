@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/category-tabs",
+	"title": "Category Tabs",
+	"description": "A heading, subheading and a scrolling row of category tabs with icons. Rendered on the frontend by the Faust.js app.",
+	"category": "headless-blocks",
+	"icon": "category",
+	"keywords": [ "category", "tabs", "shop" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\CategoryTabs\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

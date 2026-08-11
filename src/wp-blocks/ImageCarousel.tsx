@@ -29,6 +29,7 @@ interface ImageCarouselProps {
     images?: { nodes?: MediaItem[] | null } | null;
     link?: LinkField | null;
     linkStyle?: string | null;
+    backgroundVariant?: string | null;
   } | null;
 }
 
@@ -44,6 +45,11 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   const link = props.imageCarousel?.link;
   const linkUrl = link?.url;
   const wholeCarouselClickable = linkUrl && props.imageCarousel?.linkStyle === 'whole_carousel';
+
+  const variantClass =
+    props.imageCarousel?.backgroundVariant === 'featured_bar'
+      ? ' image-carousel--featured-bar'
+      : '';
 
   const carousel = (
     <Swiper
@@ -75,7 +81,7 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   if (wholeCarouselClickable) {
     return (
       <a
-        className="image-carousel image-carousel--linked"
+        className={`image-carousel image-carousel--linked${variantClass}`}
         href={linkUrl!}
         target={link?.target || undefined}
         rel={link?.target === '_blank' ? 'noopener noreferrer' : undefined}
@@ -87,7 +93,7 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   }
 
   return (
-    <section className="image-carousel">
+    <section className={`image-carousel${variantClass}`}>
       <div className="container">
         {title && <h3 className="section__title">{title}</h3>}
         {carousel}
@@ -130,6 +136,7 @@ ImageCarousel.fragments = {
           target
         }
         linkStyle
+        backgroundVariant
       }
     }
   `,

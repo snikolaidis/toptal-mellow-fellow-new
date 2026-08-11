@@ -3,4 +3,78 @@
   width: 100%;
   padding-left: 0;
   padding-right: 0;
+
+  @media screen and (min-width: 1024px) {
+    margin-bottom: 38px;
+
+    [class*='galleryLarge'] {
+      position: relative;
+
+      [class*='track'] {
+        gap: 16px;
+        padding: 18px 0 4px;
+      }
+
+      [class*='card'] {
+        flex: 0 0 303px;
+        aspect-ratio: auto;
+        border-radius: 20px;
+      }
+
+      [class*='cardActive'] {
+        flex: 0 0 303px;
+        height: 541px;
+        transform: none;
+      }
+
+      [class*='cardInactive'] {
+        flex: 0 0 303px;
+        height: 473px;
+        transform: none;
+      }
+
+      [class*='cardInactive']:hover {
+        transform: none;
+      }
+
+      [class*='navRow'] {
+        position: absolute;
+        top: 18px;
+        right: 0;
+        bottom: 4px;
+        left: 0;
+        z-index: 4;
+        display: block;
+        padding: 0;
+        pointer-events: none;
+      }
+
+      [class*='navBtn'] {
+        position: absolute;
+        top: 50%;
+        width: 36px;
+        height: 36px;
+        transform: translateY(-50%);
+        border: none;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.7);
+        box-shadow: none;
+        color: var(--color-text-inverse);
+        pointer-events: auto;
+      }
+
+      [class*='navBtn']:first-of-type {
+        left: 29px;
+      }
+
+      [class*='navBtn']:last-of-type {
+        right: 29px;
+      }
+
+      [class*='navBtn']:hover:not(:disabled) {
+        border: none;
+        background: rgba(0, 0, 0, 0.85);
+      }
+    }
+  }
 }

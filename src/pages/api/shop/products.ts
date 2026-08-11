@@ -13,15 +13,22 @@ const COLLECTION_FILTER_KEYS = [
   'singleCannabinoid', 'size', 'mg', 'pieces',
 ];
 
+const ALLOWED_TAXONOMIES = ['collection', 'mood'];
+
 async function handleCollectionProducts(req: NextApiRequest, res: NextApiResponse) {
   const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
   const collection = req.query.collection as string;
   const page = typeof req.query.page === 'string' ? req.query.page : '1';
   const perPage = typeof req.query.first === 'string' ? req.query.first : '24';
   const sort = typeof req.query.sort === 'string' ? req.query.sort : 'default';
+  const requestedTaxonomy = typeof req.query.taxonomy === 'string' ? req.query.taxonomy : '';
+  const taxonomy = ALLOWED_TAXONOMIES.includes(requestedTaxonomy)
+    ? requestedTaxonomy
+    : 'collection';
 
   const params = new URLSearchParams({
     slug: collection,
+    taxonomy,
     page,
     per_page: perPage,
     sort,

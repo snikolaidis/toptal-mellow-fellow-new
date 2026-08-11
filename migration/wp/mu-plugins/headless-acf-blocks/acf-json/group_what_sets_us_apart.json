@@ -1,0 +1,71 @@
+{
+    "key": "group_what_sets_us_apart",
+    "title": "What Sets Us Apart Fields",
+    "fields": [
+        {
+            "key": "field_wsua_heading",
+            "label": "Heading",
+            "name": "heading",
+            "type": "text",
+            "required": 1
+        },
+        {
+            "key": "field_wsua_items",
+            "label": "Items",
+            "name": "items",
+            "type": "repeater",
+            "layout": "table",
+            "button_label": "Add item",
+            "required": 0,
+            "sub_fields": [
+                {
+                    "key": "field_wsua_item_icon",
+                    "label": "Icon",
+                    "name": "icon",
+                    "type": "image",
+                    "return_format": "array",
+                    "preview_size": "thumbnail",
+                    "required": 1
+                },
+                {
+                    "key": "field_wsua_item_label",
+                    "label": "Label",
+                    "name": "label",
+                    "type": "text",
+                    "instructions": "Shown uppercase. Type it in normal case.",
+                    "required": 1
+                },
+                {
+                    "key": "field_wsua_item_color",
+                    "label": "Label colour",
+                    "name": "label_color",
+                    "type": "color_picker",
+                    "return_format": "string",
+                    "required": 0
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/what-sets-us-apart"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "whatSetsUsApart",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfWhatSetsUsApart"
+    ]
+}

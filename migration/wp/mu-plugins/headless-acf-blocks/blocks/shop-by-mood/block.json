@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/shop-by-mood",
+	"title": "Shop by Mood",
+	"description": "A heading, subheading and a grid of mood cards, each with an image, label and link. Rendered on the frontend by the Faust.js app.",
+	"category": "headless-blocks",
+	"icon": "grid-view",
+	"keywords": [ "mood", "cards", "grid", "shop" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\ShopByMood\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

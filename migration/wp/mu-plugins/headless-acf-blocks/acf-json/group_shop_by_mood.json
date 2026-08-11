@@ -1,0 +1,77 @@
+{
+    "key": "group_shop_by_mood",
+    "title": "Shop by Mood Fields",
+    "fields": [
+        {
+            "key": "field_shop_by_mood_heading",
+            "label": "Heading",
+            "name": "heading",
+            "type": "text",
+            "required": 1
+        },
+        {
+            "key": "field_shop_by_mood_subheading",
+            "label": "Subheading",
+            "name": "subheading",
+            "type": "textarea",
+            "rows": 2,
+            "required": 0
+        },
+        {
+            "key": "field_shop_by_mood_cards",
+            "label": "Cards",
+            "name": "cards",
+            "type": "repeater",
+            "layout": "block",
+            "button_label": "Add card",
+            "required": 0,
+            "sub_fields": [
+                {
+                    "key": "field_shop_by_mood_card_image",
+                    "label": "Image",
+                    "name": "image",
+                    "type": "image",
+                    "return_format": "array",
+                    "preview_size": "medium",
+                    "required": 1
+                },
+                {
+                    "key": "field_shop_by_mood_card_label",
+                    "label": "Label",
+                    "name": "label",
+                    "type": "text",
+                    "required": 1
+                },
+                {
+                    "key": "field_shop_by_mood_card_link",
+                    "label": "Link",
+                    "name": "link",
+                    "type": "link",
+                    "required": 0
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/shop-by-mood"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "shopByMood",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfShopByMood"
+    ]
+}
