@@ -37,20 +37,22 @@
   --sh-badge-font-size: 10px;
   --sh-cart-subtotal-min: 3.5rem;
 
+  --sh-nav-cream: #f0e6d0;
+  --sh-nav-cream-dark: #dbcaa9;
   --sh-nav-bg: linear-gradient(
     180deg,
-    var(--color-brand-cream-dark) -10%,
-    var(--color-brand-cream) 50%,
-    var(--color-brand-cream-dark) 100%
+    var(--sh-nav-cream-dark) -10%,
+    var(--sh-nav-cream) 50%,
+    var(--sh-nav-cream-dark) 100%
   );
   --sh-nav-gap: 16px;
   --sh-nav-pad-block: 0.5rem;
   --sh-nav-font-size: 1.05rem;
   --sh-nav-color: var(--color-text-primary);
   --sh-nav-hover-color: var(--color-brand-primary);
-  --sh-dropdown-bg: var(--color-brand-cream);
+  --sh-dropdown-bg: var(--sh-nav-cream);
 
-  --sh-drawer-bg: var(--color-brand-cream);
+  --sh-drawer-bg: var(--sh-nav-cream);
   --sh-drawer-pad: 1rem;
 
   --sh-sticky-z: 30;
