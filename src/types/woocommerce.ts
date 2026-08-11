@@ -84,6 +84,13 @@ export interface AcfImageField {
   } | null;
 }
 
+export interface ProductTaxonomyTerm {
+  id: string;
+  name: string;
+  slug?: string;
+  extraTaxonomyFields?: { propIcon?: AcfImageField | null } | null;
+}
+
 export interface ProductACF {
   // Text / textarea / wysiwyg
   coaLink?: string | null;
@@ -150,6 +157,10 @@ export interface Product {
   // Product attribute taxonomies (migrated from Shopify), surfaced on cards.
   strainTypes?: { nodes: Array<{ name: string }> };
   strainNames?: { nodes: Array<{ name: string }> };
+  flavors?: { nodes: ProductTaxonomyTerm[] };
+  vibes?: { nodes: ProductTaxonomyTerm[] };
+  feelings?: { nodes: ProductTaxonomyTerm[] };
+  settings?: { nodes: ProductTaxonomyTerm[] };
   blendTypes?: { nodes: Array<{ name: string }> };
   productLines?: { nodes: Array<{ name: string }> };
   size?: { nodes: Array<{ name: string }> };

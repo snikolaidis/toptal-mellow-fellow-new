@@ -92,6 +92,66 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    flavors {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    vibes {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    feelings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    settings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
     blendTypes {
       nodes {
         name
@@ -243,6 +303,66 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    flavors {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    vibes {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    feelings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    settings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
     blendTypes {
       nodes {
         name
@@ -356,6 +476,66 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         slug
       }
     }
+    flavors {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    vibes {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    feelings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    settings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
     blendTypes {
       nodes {
         name
@@ -463,6 +643,66 @@ export const GROUP_PRODUCT_FIELDS = gql`
       nodes {
         name
         slug
+      }
+    }
+    flavors {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    vibes {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    feelings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    settings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
       }
     }
     blendTypes {

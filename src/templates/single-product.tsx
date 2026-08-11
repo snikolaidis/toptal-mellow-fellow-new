@@ -10,6 +10,7 @@ import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
 import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
+import FlavorsBox from '@/components/pdp/FlavorsBox';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
@@ -748,6 +749,8 @@ const SingleProduct: React.FC<SingleProductProps> & {
                   .map((t) => (t as { slug?: string }).slug || '')
                   .filter(Boolean)}
               />
+
+              <FlavorsBox product={product} />
 
               {/* Timeline infographic (ACF `timeline_image`) */}
               {timelineImage?.sourceUrl && (

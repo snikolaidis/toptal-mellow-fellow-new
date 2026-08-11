@@ -14,9 +14,6 @@ export default function ProductDescription({ product }: Props) {
         <div className="column">
           {product.description && (
             <div className="description-box">
-              <h2 className="description-box__title">
-                About Mellow Sips
-              </h2>
               <div
                 className="description"
                 dangerouslySetInnerHTML={{ __html: product.description }}
