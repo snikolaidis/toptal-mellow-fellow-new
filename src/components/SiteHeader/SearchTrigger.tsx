@@ -14,7 +14,7 @@ interface SearchTriggerProps {
 // the modal cannot be dismissed.
 export default function SearchTrigger({
   onOpen,
-  placeholder = 'Search for products',
+  placeholder = 'Search...',
 }: SearchTriggerProps) {
   return (
     <button

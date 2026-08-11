@@ -4,6 +4,8 @@
   --sh-inline-pad: 1rem;
   --sh-bar-gap: 1rem;
   --sh-bar-pad-block: 0.75rem;
+  --sh-bar-content-h: 66px;
+  --sh-max-width: 1920px;
 
   --sh-announce-bg: var(--color-surface-secondary);
   --sh-announce-color: var(--color-text-primary);
@@ -16,26 +18,51 @@
 
   --sh-bar-bg: var(--color-surface-primary);
   --sh-logo-width: 140px;
+  --sh-logo-height: 40px;
 
-  --sh-search-height: 2.75rem;
-  --sh-search-radius: 999px;
-  --sh-search-bg: var(--color-surface-primary);
+  --sh-search-width: 629px;
+  --sh-search-height: 42px;
+  --sh-search-radius: 20px;
+  --sh-search-bg: #f4f4f4;
   --sh-search-border: var(--color-border-default);
   --sh-search-placeholder: var(--color-text-secondary);
   --sh-search-pad-inline: 1rem;
   --sh-search-font-size: 0.875rem;
-  --sh-search-button-size: 2rem;
-  --sh-search-button-bg: var(--color-brand-primary);
-  --sh-search-button-color: var(--color-text-inverse);
+  --sh-search-button-w: 63px;
+  --sh-search-button-h: 42px;
+  --sh-search-button-radius: 999px;
+  --sh-search-button-bg: var(--color-gold-cream);
+  --sh-search-button-color: var(--color-text-primary);
+  --sh-search-icon-w: 24.02px;
+  --sh-search-icon-h: 28px;
 
+  --sh-actions-w: 205.46px;
+  --sh-actions-h: 40px;
   --sh-action-gap: 1rem;
   --sh-action-icon-size: 24px;
+  --sh-account-w: 116.46px;
+  --sh-account-h: 34px;
+  --sh-account-pad-left: 24px;
+  --sh-account-gap: 8px;
+  --sh-account-icon-color: var(--color-text-primary);
+  --sh-account-icon-w: 21.46px;
+  --sh-account-icon-h: 34px;
+  --sh-account-icon-pad-block: 6px;
   --sh-action-font-size: 0.75rem;
   --sh-badge-size: 1.125rem;
-  --sh-badge-bg: var(--color-brand-primary);
+  --sh-badge-bg: #207685;
   --sh-badge-color: var(--color-text-inverse);
   --sh-badge-font-size: 10px;
-  --sh-cart-subtotal-min: 3.5rem;
+  --sh-cart-button-w: 63px;
+  --sh-cart-button-h: 40px;
+  --sh-cart-icon-w: 24.02px;
+  --sh-cart-icon-h: 28px;
+  --sh-cart-icon-color: var(--color-text-primary);
+  --sh-badge-offset-top: 2px;
+  --sh-badge-offset-end: -7px;
+  --sh-cart-subtotal-w: 63px;
+  --sh-cart-subtotal-h: 16px;
+  --sh-cart-subtotal-color: #207685;
 
   --sh-nav-cream: #f0e6d0;
   --sh-nav-cream-dark: #dbcaa9;
@@ -55,6 +82,10 @@
   --sh-drawer-bg: var(--sh-nav-cream);
   --sh-drawer-pad: 1rem;
 
+  --sh-focus-ring-w: 2px;
+  --sh-focus-ring-color: var(--color-brand-primary);
+  --sh-focus-ring-offset: 3px;
+
   --sh-sticky-z: 30;
   --sh-collapse-duration: 0.3s;
   --sh-scrolled-bg: var(--color-surface-primary);
@@ -71,6 +102,15 @@
   background-color: var(--sh-bar-bg);
   font-family: var(--font-family-body);
 
+  // Two class levels are load bearing. Bulma ships `a:focus-visible,
+  // button:focus-visible` at 0,1,1, which outranks the bare `:focus-visible`
+  // in globals.scss and repaints every header control in its own blue at a
+  // 1px offset. Flattening this to one class hands the ring back to Bulma.
+  :focus-visible {
+    outline: var(--sh-focus-ring-w) solid var(--sh-focus-ring-color);
+    outline-offset: var(--sh-focus-ring-offset);
+  }
+
   @include mixins.mobile {
     --sh-announce-pad-inline: 0.5rem;
     --sh-announce-gap: 0.5rem;
@@ -81,10 +121,10 @@
 
   @include mixins.desktop {
     --sh-inline-pad: 2rem;
-    --sh-logo-width: 200px;
+    --sh-logo-width: 146px;
     --sh-announce-gap: 3rem;
-    --sh-bar-pad-block: 1rem;
-    --sh-action-gap: 1.5rem;
+    --sh-bar-pad-block: 12px;
+    --sh-action-gap: 26px;
     --sh-scrolled-logo-width: 150px;
     --sh-scrolled-gap: 1.25rem;
   }
@@ -154,6 +194,13 @@
     "search search";
 
   @include mixins.desktop {
+    justify-content: space-between;
+    min-height: calc(
+      var(--sh-bar-content-h) + 2 * var(--sh-bar-pad-block)
+    );
+    max-width: var(--sh-max-width);
+    margin-inline: auto;
+    width: 100%;
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas: "logo search actions";
   }
@@ -173,6 +220,11 @@
     max-height: none;
     width: var(--sh-logo-width);
     height: auto;
+
+    @include mixins.desktop {
+      height: var(--sh-logo-height);
+      object-fit: contain;
+    }
   }
 }
 
@@ -197,18 +249,25 @@
   justify-content: space-between;
   gap: 0.5rem;
   width: 100%;
+  max-width: var(--sh-search-width);
   height: var(--sh-search-height);
-  padding: 0 0.25rem 0 var(--sh-search-pad-inline);
-  border: 1px solid var(--sh-search-border);
+
+  // No right padding and no border on this edge: the gold button is the same
+  // height as the field and has to sit flush against it. Either one reintroduces
+  // the gap, and a border also shortens the content box so the button no longer
+  // reaches full height.
+  padding: 0 0 0 var(--sh-search-pad-inline);
+  border: none;
   border-radius: var(--sh-search-radius);
   background-color: var(--sh-search-bg);
   cursor: pointer;
   text-align: start;
+  overflow: hidden;
   transition: width var(--sh-collapse-duration) ease,
     height var(--sh-collapse-duration) ease;
 
   &:hover {
-    border-color: var(--color-brand-primary);
+    box-shadow: inset 0 0 0 1px var(--color-brand-primary);
   }
 }
 
@@ -225,15 +284,15 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: var(--sh-search-button-size);
-  height: var(--sh-search-button-size);
-  border-radius: 50%;
+  width: var(--sh-search-button-w);
+  height: var(--sh-search-button-h);
+  border-radius: var(--sh-search-button-radius);
   background-color: var(--sh-search-button-bg);
   color: var(--sh-search-button-color);
 
   svg {
-    width: 1rem;
-    height: 1rem;
+    width: var(--sh-search-icon-w);
+    height: var(--sh-search-icon-h);
   }
 }
 
@@ -243,6 +302,11 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--sh-action-gap);
+
+  @include mixins.desktop {
+    width: var(--sh-actions-w);
+    min-height: var(--sh-actions-h);
+  }
 }
 
 .site-header__action {
@@ -251,19 +315,41 @@
   gap: 0.4rem;
   color: var(--color-text-primary);
 
-  &:hover {
-    color: var(--sh-nav-hover-color);
-  }
-
   svg {
     width: var(--sh-action-icon-size);
     height: var(--sh-action-icon-size);
   }
 }
 
+.site-header__account {
+  @include mixins.desktop {
+    width: var(--sh-account-w);
+    height: var(--sh-account-h);
+    padding-inline-start: var(--sh-account-pad-left);
+    gap: var(--sh-account-gap);
+  }
+
+  &:hover {
+    color: var(--sh-nav-hover-color);
+  }
+}
+
 .site-header__action-icon {
   display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
+  color: var(--sh-account-icon-color);
+}
+
+.site-header__account .site-header__action-icon {
+  box-sizing: border-box;
+  height: var(--sh-account-icon-h);
+  padding-block: var(--sh-account-icon-pad-block);
+
+  svg {
+    width: var(--sh-account-icon-w);
+    height: 100%;
+  }
 }
 
 .site-header__account-text {
@@ -289,23 +375,30 @@
 
 .site-header__cart {
   flex-direction: column;
+  align-items: center;
   gap: 0.15rem;
-
-  @include mixins.desktop {
-    flex-direction: row;
-    gap: 0.5rem;
-  }
+  width: var(--sh-cart-button-w);
+  min-height: var(--sh-cart-button-h);
 }
 
 .site-header__cart-icon {
   position: relative;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sh-cart-icon-h);
+  color: var(--sh-cart-icon-color);
+
+  svg {
+    width: var(--sh-cart-icon-w);
+    height: var(--sh-cart-icon-h);
+  }
 }
 
 .site-header__cart-badge {
   position: absolute;
-  top: -8px;
-  inset-inline-end: -0.6rem;
+  top: var(--sh-badge-offset-top);
+  inset-inline-end: var(--sh-badge-offset-end);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -324,15 +417,13 @@
 }
 
 .site-header__cart-subtotal {
-  min-width: var(--sh-cart-subtotal-min);
+  width: var(--sh-cart-subtotal-w);
+  height: var(--sh-cart-subtotal-h);
+  color: var(--sh-cart-subtotal-color);
   font-size: var(--sh-action-font-size);
   font-weight: 600;
   line-height: 1;
   text-align: center;
-
-  @include mixins.desktop {
-    text-align: start;
-  }
 }
 
 .site-header__burger {
