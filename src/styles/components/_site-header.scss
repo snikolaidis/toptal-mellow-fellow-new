@@ -27,6 +27,8 @@
   --sh-announce-font-size: 0.75rem;
   --sh-announce-icon-size: 1rem;
   --sh-announce-fade-duration: 0.4s;
+  --sh-ticker-gap: 2rem;
+  --sh-ticker-fade: 24px;
 
   --sh-bar-bg: var(--color-surface-primary);
   --sh-logo-width: 140px;
@@ -141,10 +143,51 @@
 }
 
 .site-header__announce {
+  // is-sr-only positions the pause button absolutely, so the bar has to be its
+  // containing block or the revealed state lands against the whole header.
+  position: relative;
   height: var(--sh-announce-h);
   padding-block: var(--sh-announce-pad-block);
   background: var(--sh-announce-bg);
   color: var(--sh-announce-color);
+}
+
+.site-header__announce-pause {
+  appearance: none;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+
+  @include mixins.desktop {
+    display: none;
+  }
+
+  // Hidden but focusable is a focus stop with no visible indicator, so keyboard
+  // focus brings it back into view.
+  &:focus-visible {
+    clip: auto !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 0.5rem !important;
+    inset-inline-start: var(--sh-announce-pad-inline);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    border-radius: 4px;
+    background-color: var(--color-surface-primary);
+    font-size: var(--sh-announce-font-size);
+    line-height: 1.8;
+  }
+}
+
+// Both wrappers collapse away outside the ticker so the list behaves as if it
+// were still a direct child of the bar.
+.site-header__announce-viewport,
+.site-header__announce-track {
+  display: contents;
 }
 
 .site-header__announce-list {
@@ -158,6 +201,10 @@
   margin: 0;
   overflow: hidden;
   padding-inline: var(--sh-announce-pad-inline);
+
+  &[aria-hidden] {
+    display: none;
+  }
 }
 
 .site-header__announce-item {
@@ -170,26 +217,57 @@
 }
 
 @include mixins.touch {
+  // The mask belongs here and not on the bar: the bar paints the cream
+  // gradient, so masking it fades the background to white at both ends
+  // instead of fading the text.
+  .site-header__announce-viewport {
+    display: block;
+    height: 100%;
+    overflow: hidden;
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 var(--sh-ticker-fade),
+      #000 calc(100% - var(--sh-ticker-fade)),
+      transparent 100%
+    );
+  }
+
+  .site-header__announce-track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    height: 100%;
+    animation: sh-ticker var(--sh-ticker-duration, 12s) linear infinite;
+  }
+
+  .site-header__announce.is-paused .site-header__announce-track {
+    animation-play-state: paused;
+  }
+
   .site-header__announce-list {
-    display: grid;
-    grid-template-areas: "rotator";
-    align-content: center;
-    justify-items: center;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    // Per item margin, not a container gap: the period is 4 items plus 4 gaps,
+    // but a container gap makes the row 4 items plus 3, so translating by one
+    // copy lands half a gap out and the seam stutters every cycle.
+    gap: 0;
+    overflow: visible;
+    padding-inline: 0;
+
+    &[aria-hidden] {
+      display: flex;
+    }
   }
 
   .site-header__announce-item {
-    grid-area: rotator;
+    margin-inline-end: var(--sh-ticker-gap);
+  }
+}
 
-    // Faded, not display:none: identical visually, but that would drop the
-    // other three out of the accessibility tree.
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--sh-announce-fade-duration) ease;
-
-    &.is-active {
-      opacity: 1;
-      pointer-events: auto;
-    }
+@keyframes sh-ticker {
+  to {
+    transform: translateX(calc(-100% / var(--sh-ticker-copies, 2)));
   }
 }
 
@@ -657,7 +735,42 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-header__announce-item {
-    transition: none;
+  @include mixins.touch {
+    .site-header__announce-viewport {
+      mask-image: none;
+    }
+
+    .site-header__announce-track {
+      display: block;
+      width: 100%;
+      animation: none;
+    }
+
+    .site-header__announce-list {
+      display: grid;
+      grid-template-areas: "rotator";
+      align-content: center;
+      justify-items: center;
+
+      &[aria-hidden] {
+        display: none;
+      }
+    }
+
+    .site-header__announce-item {
+      grid-area: rotator;
+      margin-inline-end: 0;
+
+      // Faded, not display:none: identical visually, but that would drop the
+      // other three out of the accessibility tree.
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--sh-announce-fade-duration) ease;
+
+      &.is-active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
   }
 }
