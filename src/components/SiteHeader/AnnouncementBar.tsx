@@ -1,18 +1,70 @@
+import { CSSProperties, useEffect, useState } from 'react';
 import { ANNOUNCEMENT_ITEMS, AnnouncementItem } from './announcementItems';
 
 interface AnnouncementBarProps {
   items?: AnnouncementItem[];
 }
 
+const ROTATE_INTERVAL_MS = 5000;
+
+// Must match the SCSS rotator block, which uses Bulma's mixins.touch.
+const ROTATE_QUERY = '(max-width: 1023px)';
+
 export default function AnnouncementBar({ items }: AnnouncementBarProps) {
   const resolved = items && items.length > 0 ? items : ANNOUNCEMENT_ITEMS;
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [rotates, setRotates] = useState(false);
+
+  useEffect(() => {
+    const narrow = window.matchMedia(ROTATE_QUERY);
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => setRotates(narrow.matches && !reduced.matches);
+
+    sync();
+    narrow.addEventListener('change', sync);
+    reduced.addEventListener('change', sync);
+    return () => {
+      narrow.removeEventListener('change', sync);
+      reduced.removeEventListener('change', sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!rotates) {
+      setActiveIndex(0);
+    }
+  }, [rotates]);
+
+  useEffect(() => {
+    if (!rotates || isPaused || resolved.length < 2) return;
+
+    const id = window.setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % resolved.length);
+    }, ROTATE_INTERVAL_MS);
+
+    return () => window.clearInterval(id);
+  }, [rotates, isPaused, resolved.length]);
 
   if (resolved.length === 0) {
     return null;
   }
 
+  const pause = () => {
+    if (rotates) setIsPaused(true);
+  };
+  const resume = () => {
+    if (rotates) setIsPaused(false);
+  };
+
   return (
-    <div className="site-header__announce">
+    <div
+      className="site-header__announce"
+      onPointerEnter={pause}
+      onPointerLeave={resume}
+      onPointerCancel={resume}
+    >
       <ul className="site-header__announce-list">
         {resolved.map((item, index) => {
           const sourceUrl = item.icon?.node?.sourceUrl;
@@ -37,13 +89,17 @@ export default function AnnouncementBar({ items }: AnnouncementBarProps) {
           return (
             <li
               key={item.label || index}
-              // Mobile visibility is a class, not a conditional render: rendering
-              // a different item count on the client than the server was rendered
-              // with is a hydration mismatch.
               className={
-                item.showOnMobile === false
-                  ? 'site-header__announce-item is-desktop-only'
+                index === activeIndex
+                  ? 'site-header__announce-item is-active'
                   : 'site-header__announce-item'
+              }
+              style={
+                item.labelColor
+                  ? ({
+                      '--sh-announce-item-color': item.labelColor,
+                    } as CSSProperties)
+                  : undefined
               }
             >
               {item.link?.url ? (

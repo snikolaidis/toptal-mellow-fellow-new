@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { GridIcon } from '@/components/icons';
+import { ChevronDownIcon, GridIcon } from '@/components/icons';
 import { NavMenuItem, isRealHref } from '@/graphql/queries/menus';
 
 interface PrimaryNavProps {
@@ -26,6 +26,11 @@ export default function PrimaryNav({ items }: PrimaryNavProps) {
 
         {items.map((item) => {
           const children = item.childItems?.nodes ?? [];
+          const caret = (
+            <span className="site-header__nav-caret" aria-hidden="true">
+              <ChevronDownIcon />
+            </span>
+          );
 
           if (children.length > 0) {
             return (
@@ -36,14 +41,19 @@ export default function PrimaryNav({ items }: PrimaryNavProps) {
                 {isRealHref(item.uri) ? (
                   <Link
                     id={`nav-item-${item.id}`}
-                    className="navbar-link"
+                    className="navbar-link is-arrowless"
                     href={item.uri}
                   >
                     {item.label}
+                    {caret}
                   </Link>
                 ) : (
-                  <span id={`nav-item-${item.id}`} className="navbar-link">
+                  <span
+                    id={`nav-item-${item.id}`}
+                    className="navbar-link is-arrowless"
+                  >
                     {item.label}
+                    {caret}
                   </span>
                 )}
                 <div className="navbar-dropdown">

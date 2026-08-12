@@ -158,15 +158,7 @@ export default function SiteHeader() {
             >
               <span className="site-header__cart-icon">
                 <CartIcon />
-                <span
-                  className={
-                    itemsCount > 0
-                      ? 'site-header__cart-badge'
-                      : 'site-header__cart-badge is-empty'
-                  }
-                >
-                  {itemsCount > 0 ? itemsCount : ''}
-                </span>
+                <span className="site-header__cart-badge">{itemsCount}</span>
               </span>
               <span className="site-header__cart-subtotal">{cartSubtotal}</span>
             </button>

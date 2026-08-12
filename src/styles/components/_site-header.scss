@@ -4,10 +4,21 @@
   --sh-inline-pad: 1rem;
   --sh-bar-gap: 1rem;
   --sh-bar-pad-block: 0.75rem;
-  --sh-bar-content-h: 66px;
+  --sh-bar-row-h: 90px;
   --sh-max-width: 1920px;
 
-  --sh-announce-bg: var(--color-surface-secondary);
+  --sh-cream-gradient-1: #fef9c3;
+  --sh-cream-gradient-2: #ffedd5;
+  --sh-cream-gradient-3: #fef3c7;
+  --sh-cream-gradient: linear-gradient(
+    180deg,
+    var(--sh-cream-gradient-1) 0%,
+    var(--sh-cream-gradient-2) 50%,
+    var(--sh-cream-gradient-3) 100%
+  );
+
+  --sh-announce-h: 30px;
+  --sh-announce-bg: var(--sh-cream-gradient);
   --sh-announce-color: var(--color-text-primary);
   --sh-announce-pad-block: 0.5rem;
   --sh-announce-pad-inline: var(--sh-inline-pad);
@@ -15,6 +26,7 @@
   --sh-announce-item-gap: 0.4rem;
   --sh-announce-font-size: 0.75rem;
   --sh-announce-icon-size: 1rem;
+  --sh-announce-fade-duration: 0.4s;
 
   --sh-bar-bg: var(--color-surface-primary);
   --sh-logo-width: 140px;
@@ -65,15 +77,16 @@
   --sh-cart-subtotal-color: #207685;
 
   --sh-nav-cream: #f0e6d0;
-  --sh-nav-cream-dark: #dbcaa9;
-  --sh-nav-bg: linear-gradient(
-    180deg,
-    var(--sh-nav-cream-dark) -10%,
-    var(--sh-nav-cream) 50%,
-    var(--sh-nav-cream-dark) 100%
-  );
-  --sh-nav-gap: 16px;
+  --sh-nav-bg: var(--color-surface-primary);
+  --sh-nav-gap: 10px;
+  --sh-nav-row-h: auto;
   --sh-nav-pad-block: 0.5rem;
+  --sh-nav-item-h: 40px;
+  --sh-nav-item-pad-block: 8px;
+  --sh-nav-item-pad-inline: 0.75rem;
+  --sh-nav-caret-w: 18.02px;
+  --sh-nav-caret-h: 20px;
+  --sh-nav-caret-pad-left: 4px;
   --sh-nav-font-size: 1.05rem;
   --sh-nav-color: var(--color-text-primary);
   --sh-nav-hover-color: var(--color-brand-primary);
@@ -85,6 +98,7 @@
   --sh-focus-ring-w: 2px;
   --sh-focus-ring-color: var(--color-brand-primary);
   --sh-focus-ring-offset: 3px;
+  --sh-search-focus-ring-offset: 6px;
 
   --sh-sticky-z: 30;
   --sh-collapse-duration: 0.3s;
@@ -124,7 +138,12 @@
     --sh-logo-width: 146px;
     --sh-announce-gap: 3rem;
     --sh-bar-pad-block: 12px;
+    --sh-bar-row-h: 66px;
     --sh-action-gap: 26px;
+    --sh-announce-h: 35px;
+    --sh-nav-bg: var(--sh-cream-gradient);
+    --sh-nav-row-h: 48px;
+    --sh-nav-pad-block: 4px;
     --sh-scrolled-logo-width: 150px;
     --sh-scrolled-gap: 1.25rem;
   }
@@ -132,9 +151,11 @@
 
 .site-header__announce {
   display: grid;
-  grid-template-rows: 1fr;
+  grid-template-rows: calc(
+    var(--sh-announce-h) - 2 * var(--sh-announce-pad-block)
+  );
   padding-block: var(--sh-announce-pad-block);
-  background-color: var(--sh-announce-bg);
+  background: var(--sh-announce-bg);
   color: var(--sh-announce-color);
   transition: grid-template-rows var(--sh-collapse-duration) ease,
     padding-block var(--sh-collapse-duration) ease;
@@ -160,12 +181,27 @@
   font-size: var(--sh-announce-font-size);
   line-height: 1.2;
   white-space: nowrap;
+}
 
-  &.is-desktop-only {
-    display: none;
+@include mixins.touch {
+  .site-header__announce-list {
+    display: grid;
+    grid-template-areas: "rotator";
+    justify-items: center;
+  }
 
-    @include mixins.desktop {
-      display: flex;
+  .site-header__announce-item {
+    grid-area: rotator;
+
+    // Faded, not display:none: identical visually, but that would drop the
+    // other three out of the accessibility tree.
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--sh-announce-fade-duration) ease;
+
+    &.is-active {
+      opacity: 1;
+      pointer-events: auto;
     }
   }
 }
@@ -175,6 +211,10 @@
   align-items: center;
   gap: var(--sh-announce-item-gap);
   color: inherit;
+}
+
+.site-header__announce-label {
+  color: var(--sh-announce-item-color, var(--sh-announce-color));
 }
 
 .site-header__announce-icon {
@@ -195,9 +235,7 @@
 
   @include mixins.desktop {
     justify-content: space-between;
-    min-height: calc(
-      var(--sh-bar-content-h) + 2 * var(--sh-bar-pad-block)
-    );
+    min-height: var(--sh-bar-row-h);
     max-width: var(--sh-max-width);
     margin-inline: auto;
     width: 100%;
@@ -244,6 +282,8 @@
 }
 
 .site-header__search {
+  --sh-focus-ring-offset: var(--sh-search-focus-ring-offset);
+
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -251,6 +291,7 @@
   width: 100%;
   max-width: var(--sh-search-width);
   height: var(--sh-search-height);
+  margin-inline: auto;
 
   // No right padding and no border on this edge: the gold button is the same
   // height as the field and has to sit flush against it. Either one reintroduces
@@ -265,10 +306,6 @@
   overflow: hidden;
   transition: width var(--sh-collapse-duration) ease,
     height var(--sh-collapse-duration) ease;
-
-  &:hover {
-    box-shadow: inset 0 0 0 1px var(--color-brand-primary);
-  }
 }
 
 .site-header__search-placeholder {
@@ -410,10 +447,6 @@
   font-size: var(--sh-badge-font-size);
   font-weight: 600;
   line-height: 1;
-
-  &.is-empty {
-    display: none;
-  }
 }
 
 .site-header__cart-subtotal {
@@ -436,6 +469,9 @@
 }
 
 .site-header__nav {
+  display: flex;
+  align-items: center;
+  min-height: var(--sh-nav-row-h);
   background: var(--sh-nav-bg);
   padding-block: var(--sh-nav-pad-block);
 }
@@ -443,6 +479,8 @@
 .site-header__nav-scroll {
   display: flex;
   align-items: center;
+  flex: 1;
+  min-width: 0;
   gap: var(--sh-nav-gap);
   padding-inline: var(--sh-inline-pad);
 
@@ -512,6 +550,14 @@
     color: var(--sh-nav-color);
     font-size: var(--sh-nav-font-size);
     background-color: transparent;
+
+    @include mixins.desktop {
+      display: flex;
+      align-items: center;
+      height: var(--sh-nav-item-h);
+      padding-block: var(--sh-nav-item-pad-block);
+      padding-inline: var(--sh-nav-item-pad-inline);
+    }
   }
 
   .navbar-item:not(.has-dropdown),
@@ -530,6 +576,22 @@
   .navbar-item.has-dropdown {
     position: relative;
     padding: 0;
+  }
+
+  .site-header__nav-caret {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding-inline-start: var(--sh-nav-caret-pad-left);
+
+    svg {
+      width: var(--sh-nav-caret-w);
+      height: var(--sh-nav-caret-h);
+    }
+
+    @include mixins.touch {
+      display: none;
+    }
   }
 
   .navbar-dropdown {
@@ -605,7 +667,7 @@
   box-shadow: var(--sh-scrolled-shadow);
 
   .site-header__announce {
-    grid-template-rows: 0fr;
+    grid-template-rows: 0px;
     padding-block: 0;
   }
 
@@ -655,7 +717,11 @@
     grid-template-areas:
       "announce announce announce announce"
       "logo     nav      search   actions";
-    padding: var(--sh-scrolled-pad-block) var(--sh-inline-pad);
+
+    // Padding-top here would inset the announcement bar, which is still painted
+    // and shrinking for 300ms after the class lands. Shows on the way down only.
+    row-gap: var(--sh-scrolled-pad-block);
+    padding: 0 var(--sh-inline-pad) var(--sh-scrolled-pad-block);
 
     > .site-header__bar,
     > .site-header__nav {
@@ -664,6 +730,7 @@
 
     > .site-header__announce {
       grid-area: announce;
+      margin-inline: calc(-1 * var(--sh-inline-pad));
     }
 
     .site-header__logo {
@@ -708,6 +775,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .site-header__announce,
+  .site-header__announce-item,
   .site-header__search {
     transition: none;
   }
