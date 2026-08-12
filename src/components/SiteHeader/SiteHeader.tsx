@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -11,6 +11,12 @@ import SearchTrigger from './SearchTrigger';
 import PrimaryNav from './PrimaryNav';
 import MenuDrawer from './MenuDrawer';
 
+const CONDENSE_AT = 150;
+const DIRECTION_DELTA = 8;
+
+const useIsomorphicLayoutEffect =
+  typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 export default function SiteHeader() {
   const { data } = useQuery(GET_NAV);
   const { cart, cartReady, toggleDrawer } = useCart();
@@ -19,66 +25,75 @@ export default function SiteHeader() {
   const [isOpen, setIsOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
   const [searchModalOpen, setSearchModalOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [isCondensed, setIsCondensed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const headerRef = useRef<HTMLElement>(null);
-  const expandedHeight = useRef(0);
 
   const menuItems: NavMenuItem[] = data?.menuItems?.nodes ?? [];
+
+  const headerRef = useRef<HTMLElement>(null);
+  const condensedRef = useRef(false);
+  const lastYRef = useRef(0);
+  const lastHeightRef = useRef(0);
+  const goingDownRef = useRef(false);
 
   useEffect(() => {
     setHydrated(true);
   }, []);
 
-  // The collapse animates, so reading the height as soon as the class comes off
-  // captures a mid-transition value and the collapse point moves every cycle.
-  // Wait until two consecutive frames agree, which means the transition is done.
-  useEffect(() => {
-    if (isScrolled) return;
-    const el = headerRef.current;
-    if (!el) return;
+  // Condensing takes the two rows out of flow and scroll anchoring answers by
+  // moving scrollY by their height. Re-reading it after layout and before paint
+  // keeps that jump out of the next delta.
+  useIsomorphicLayoutEffect(() => {
+    lastYRef.current = Math.max(0, window.scrollY);
+    lastHeightRef.current = headerRef.current?.offsetHeight ?? 0;
+  }, [isCondensed]);
 
+  useEffect(() => {
     let raf = 0;
-    let previous = -1;
-    const settle = () => {
-      const height = el.offsetHeight;
-      if (height === previous) {
-        expandedHeight.current = height;
+    const evaluate = () => {
+      raf = 0;
+      const y = Math.max(0, window.scrollY);
+      const height = headerRef.current?.offsetHeight ?? 0;
+
+      // Any other change of header height moves scrollY the same way, and a
+      // ResizeObserver cannot catch it: the frame runs scroll callbacks before
+      // it broadcasts resizes, so the observer is always a frame late. Opening
+      // the drawer moves scrollY 409px, read as a scroll up when it closes.
+      if (height !== lastHeightRef.current) {
+        lastHeightRef.current = height;
+        lastYRef.current = y;
         return;
       }
-      previous = height;
-      raf = requestAnimationFrame(settle);
-    };
-    const restart = () => {
-      cancelAnimationFrame(raf);
-      previous = -1;
-      raf = requestAnimationFrame(settle);
+
+      const delta = y - lastYRef.current;
+
+      if (Math.abs(delta) >= DIRECTION_DELTA) {
+        lastYRef.current = y;
+        goingDownRef.current = delta > 0;
+      }
+
+      // Condensing drops scrollY below the arming threshold, so re-testing it
+      // would un-condense on the very next sample and start the loop again.
+      const next =
+        goingDownRef.current &&
+        (condensedRef.current ? y > 0 : y > CONDENSE_AT);
+
+      if (next !== condensedRef.current) {
+        condensedRef.current = next;
+        setIsCondensed(next);
+      }
     };
 
-    restart();
-    window.addEventListener('resize', restart);
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(evaluate);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener('resize', restart);
+      window.removeEventListener('scroll', onScroll);
     };
-  }, [isScrolled]);
-
-  // Collapsing shortens the document by the height delta, and scroll anchoring
-  // answers by pulling scrollY down by that same amount. Trigger and result are
-  // therefore coupled: any re-expand threshold within the delta of the collapse
-  // threshold oscillates forever. Re-expanding only at the very top is the one
-  // safe choice, because it is both the widest possible gap and the one offset
-  // where the browser suppresses anchoring, so expanding cannot push us back
-  // down across the collapse threshold.
-  useEffect(() => {
-    const onScroll = () => {
-      setIsScrolled((prev) =>
-        prev ? window.scrollY > 0 : window.scrollY > expandedHeight.current
-      );
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const closeMenu = () => {
@@ -119,8 +134,11 @@ export default function SiteHeader() {
 
   return (
     <>
-      <header ref={headerRef} className={`site-header ${isScrolled ? 'is-scrolled' : ''}`}>
-        <AnnouncementBar />
+      <header
+        ref={headerRef}
+        className={`site-header${isCondensed ? ' is-condensed' : ''}`}
+      >
+        <AnnouncementBar isVisible={!isCondensed} />
 
         <div className="site-header__bar">
           <div className="site-header__logo">

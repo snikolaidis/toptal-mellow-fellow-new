@@ -101,14 +101,7 @@
   --sh-search-focus-ring-offset: 6px;
 
   --sh-sticky-z: 30;
-  --sh-collapse-duration: 0.3s;
-  --sh-scrolled-bg: var(--color-surface-primary);
-  --sh-scrolled-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --sh-scrolled-pad-block: 0.5rem;
-  --sh-scrolled-gap: 0.75rem;
-  --sh-scrolled-logo-width: 120px;
-  --sh-scrolled-search-size: 2.25rem;
-  --sh-scrolled-nav-font-size: 0.95rem;
+  --sh-condensed-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
   position: sticky;
   top: 0;
@@ -144,21 +137,14 @@
     --sh-nav-bg: var(--sh-cream-gradient);
     --sh-nav-row-h: 48px;
     --sh-nav-pad-block: 4px;
-    --sh-scrolled-logo-width: 150px;
-    --sh-scrolled-gap: 1.25rem;
   }
 }
 
 .site-header__announce {
-  display: grid;
-  grid-template-rows: calc(
-    var(--sh-announce-h) - 2 * var(--sh-announce-pad-block)
-  );
+  height: var(--sh-announce-h);
   padding-block: var(--sh-announce-pad-block);
   background: var(--sh-announce-bg);
   color: var(--sh-announce-color);
-  transition: grid-template-rows var(--sh-collapse-duration) ease,
-    padding-block var(--sh-collapse-duration) ease;
 }
 
 .site-header__announce-list {
@@ -167,9 +153,9 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: var(--sh-announce-gap);
+  height: 100%;
   list-style: none;
   margin: 0;
-  min-height: 0;
   overflow: hidden;
   padding-inline: var(--sh-announce-pad-inline);
 }
@@ -187,6 +173,7 @@
   .site-header__announce-list {
     display: grid;
     grid-template-areas: "rotator";
+    align-content: center;
     justify-items: center;
   }
 
@@ -304,8 +291,6 @@
   cursor: pointer;
   text-align: start;
   overflow: hidden;
-  transition: width var(--sh-collapse-duration) ease,
-    height var(--sh-collapse-duration) ease;
 }
 
 .site-header__search-placeholder {
@@ -662,121 +647,17 @@
   }
 }
 
-.site-header.is-scrolled {
-  background-color: var(--sh-scrolled-bg);
-  box-shadow: var(--sh-scrolled-shadow);
+.site-header.is-condensed {
+  box-shadow: var(--sh-condensed-shadow);
 
-  .site-header__announce {
-    grid-template-rows: 0px;
-    padding-block: 0;
-  }
-
-  .site-header__search-placeholder {
+  .site-header__announce,
+  .site-header__nav {
     display: none;
-  }
-
-  .site-header__search {
-    width: var(--sh-scrolled-search-size);
-    height: var(--sh-scrolled-search-size);
-    padding: 0;
-    justify-content: center;
-    border-color: transparent;
-    background: none;
-  }
-
-  .site-header__search-button {
-    width: 100%;
-    height: 100%;
-  }
-
-  .mf-logo {
-    width: var(--sh-scrolled-logo-width);
-  }
-}
-
-@include mixins.touch {
-  .site-header.is-scrolled {
-    .site-header__bar {
-      grid-template-columns: auto 1fr auto;
-      grid-template-areas: "logo search actions";
-      padding-block: var(--sh-scrolled-pad-block);
-    }
-
-    .site-header__search-cell {
-      justify-self: end;
-    }
-  }
-}
-
-@include mixins.desktop {
-  .site-header.is-scrolled {
-    display: grid;
-    align-items: center;
-    column-gap: var(--sh-scrolled-gap);
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "announce announce announce announce"
-      "logo     nav      search   actions";
-
-    // Padding-top here would inset the announcement bar, which is still painted
-    // and shrinking for 300ms after the class lands. Shows on the way down only.
-    row-gap: var(--sh-scrolled-pad-block);
-    padding: 0 var(--sh-inline-pad) var(--sh-scrolled-pad-block);
-
-    > .site-header__bar,
-    > .site-header__nav {
-      display: contents;
-    }
-
-    > .site-header__announce {
-      grid-area: announce;
-      margin-inline: calc(-1 * var(--sh-inline-pad));
-    }
-
-    .site-header__logo {
-      grid-area: logo;
-    }
-
-    .site-header__nav-scroll {
-      grid-area: nav;
-      justify-content: flex-start;
-      gap: var(--sh-scrolled-gap);
-      padding-inline: 0;
-      font-size: var(--sh-scrolled-nav-font-size);
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      overflow-y: hidden;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-
-      &::-webkit-scrollbar {
-        width: 0;
-        height: 0;
-        display: none;
-      }
-    }
-
-    .site-header__search-cell {
-      grid-area: search;
-    }
-
-    .site-header__actions {
-      grid-area: actions;
-    }
-
-    .site-header__nav-item,
-    .navbar-item,
-    .navbar-link,
-    .site-header__shop-trigger {
-      font-size: var(--sh-scrolled-nav-font-size);
-    }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-header__announce,
-  .site-header__announce-item,
-  .site-header__search {
+  .site-header__announce-item {
     transition: none;
   }
 }

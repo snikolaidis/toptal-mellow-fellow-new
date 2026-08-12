@@ -3,6 +3,7 @@ import { ANNOUNCEMENT_ITEMS, AnnouncementItem } from './announcementItems';
 
 interface AnnouncementBarProps {
   items?: AnnouncementItem[];
+  isVisible?: boolean;
 }
 
 const ROTATE_INTERVAL_MS = 5000;
@@ -10,7 +11,10 @@ const ROTATE_INTERVAL_MS = 5000;
 // Must match the SCSS rotator block, which uses Bulma's mixins.touch.
 const ROTATE_QUERY = '(max-width: 1023px)';
 
-export default function AnnouncementBar({ items }: AnnouncementBarProps) {
+export default function AnnouncementBar({
+  items,
+  isVisible = true,
+}: AnnouncementBarProps) {
   const resolved = items && items.length > 0 ? items : ANNOUNCEMENT_ITEMS;
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -38,14 +42,14 @@ export default function AnnouncementBar({ items }: AnnouncementBarProps) {
   }, [rotates]);
 
   useEffect(() => {
-    if (!rotates || isPaused || resolved.length < 2) return;
+    if (!rotates || isPaused || !isVisible || resolved.length < 2) return;
 
     const id = window.setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % resolved.length);
     }, ROTATE_INTERVAL_MS);
 
     return () => window.clearInterval(id);
-  }, [rotates, isPaused, resolved.length]);
+  }, [rotates, isPaused, isVisible, resolved.length]);
 
   if (resolved.length === 0) {
     return null;
