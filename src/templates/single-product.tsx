@@ -1,7 +1,6 @@
 "use client";
 
 import { FaustTemplateProps } from '@faustwp/core';
-import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
@@ -12,6 +11,7 @@ import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
 import FlavorsBox from '@/components/pdp/FlavorsBox';
+import AvailableOptions from '@/components/pdp/AvailableOptions';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
@@ -54,15 +54,6 @@ type SingleProductProps = FaustTemplateProps<SingleProductData, SingleProductExt
 
 function formatEvery(period: string, interval: number) {
   return interval > 1 ? `${interval} ${period}s` : `1 ${period}`;
-}
-
-function optionLabel(name: string, base: string): string {
-  if (base && name.includes(base)) {
-    return name.replace(base, '').replace(/\s*-\s*/g, ' ').replace(/\s+/g, ' ').trim() || name;
-  }
-  const packMatch = name.match(/\(([^)]*pack[^)]*)\)/i);
-  if (packMatch) return packMatch[1];
-  return name;
 }
 
 const SingleProduct: React.FC<SingleProductProps> & {
@@ -397,37 +388,11 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 </div>
               )}
 
-              {/* Available Options */}
-              {availableOptions.length > 1 && (
-                <div className="collection-items">
-                  <span className="collection-label">Available Options</span>
-                  <div className="collection-grid">
-                    {availableOptions.map((item) => (
-                      <Link
-                        key={item.id}
-                        href={`/product/${item.slug}`}
-                        scroll={false}
-                        prefetch
-                        className={`collection-item ${item.id === product.id ? 'current-item' : ''}`}
-                        title={item.name}
-                      >
-                        <div className="collection-item-image-wrap">
-                          <Image
-                            src={item.image?.sourceUrl || '/placeholder-product.png'}
-                            alt={item.name}
-                            fill
-                            sizes="90px"
-                            className="collection-item-image"
-                          />
-                        </div>
-                        <span className="collection-item-name">
-                          {optionLabel(item.name, availableOptionsBase)}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <AvailableOptions
+                options={availableOptions}
+                currentProductId={product.id}
+                baseName={availableOptionsBase}
+              />
 
               {/* Stock Status */}
               <div className={`stock ${isInStock ? 'in-stock' : 'out-of-stock'}`}>

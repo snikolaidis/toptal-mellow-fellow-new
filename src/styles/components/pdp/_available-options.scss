@@ -1,0 +1,99 @@
+@use "bulma/sass/utilities/mixins";
+
+.available-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem 0;
+
+  &__label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__list {
+    // Mobile: plain CSS horizontal scroller, no JS.
+    --options-gap: 0.5rem;
+
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--options-gap);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding: 0 1rem 0.5rem;
+
+    @include mixins.tablet {
+      // Tablet and up: revert to a grid, scroller properties reset.
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      gap: 0.5rem;
+      overflow-x: visible;
+      scroll-snap-type: none;
+      padding: 0;
+    }
+  }
+
+  &__item {
+    // Sized so 3 items are fully visible and a 4th peeks at the edge, as a
+    // scroll affordance. --options-visible/--options-peek tune the count/peek.
+    --options-visible: 3;
+    --options-peek: 0.1;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.35rem 0.5rem;
+    border: 1.5px solid var(--color-border-default);
+    border-radius: 8px;
+    background: var(--color-surface-primary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+
+    flex: 0 0 calc((100% - var(--options-visible) * var(--options-gap)) / (var(--options-visible) + var(--options-peek)));
+    scroll-snap-align: start;
+
+    @include mixins.tablet {
+      flex: initial;
+      scroll-snap-align: none;
+    }
+
+    &:hover {
+      border-color: var(--color-brand-primary);
+    }
+
+    &--current {
+      border-color: var(--color-brand-primary);
+      border-width: 2px;
+    }
+  }
+
+  &__image-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--color-surface-muted);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  &__image {
+    object-fit: contain;
+    padding: 0.2rem;
+  }
+
+  &__name {
+    font-size: 0.68rem;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--color-text-primary);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
