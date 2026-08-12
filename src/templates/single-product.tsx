@@ -10,6 +10,7 @@ import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
 import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
+import ProductTimeline from '@/components/pdp/ProductTimeline';
 import FlavorsBox from '@/components/pdp/FlavorsBox';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
@@ -239,7 +240,6 @@ const SingleProduct: React.FC<SingleProductProps> & {
   // cart directly; "Create Bundle" routes into the actual bundle picker.
   const isBundle = product.bbLinkedBundleId != null;
   const categories = product.productCategories?.nodes || [];
-  const timelineImage = product.productDetails?.timelineImage?.node;
 
   // Get selected variation details
   const selectedVariationData = selectedVariation
@@ -752,18 +752,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
 
               <FlavorsBox product={product} />
 
-              {/* Timeline infographic (ACF `timeline_image`) */}
-              {timelineImage?.sourceUrl && (
-                <div className="timeline">
-                  <Image
-                    src={timelineImage.sourceUrl}
-                    alt={timelineImage.altText || `${product.name} timeline`}
-                    width={timelineImage.mediaDetails?.width || 444}
-                    height={timelineImage.mediaDetails?.height || 221}
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                  />
-                </div>
-              )}
+              <ProductTimeline product={product} />
 
               {/* Product Meta */}
               <div className="meta">

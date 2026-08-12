@@ -52,6 +52,10 @@
     list-style: none;
     margin: 0;
     padding: 0;
+
+    @include mixins.desktop {
+      flex-wrap: nowrap;
+    }
   }
 
   &__icon {
@@ -62,8 +66,8 @@
     height: 80px;
 
     @include mixins.desktop {
-      width: 100px;
-      height: 100px;
+      width: auto;
+      height: auto;
     }
 
     img {
@@ -78,7 +82,7 @@
     flex-wrap: wrap;
     align-items: flex-start;
     justify-content: center;
-    gap: 20px;
+    gap: 16px;
     list-style: none;
     margin: 0;
     padding: 0;
@@ -109,13 +113,11 @@
     justify-content: center;
     width: 64px;
     height: 64px;
-    padding: 14px;
     border-radius: 50%;
-    background-color: var(--best-for-accent);
 
     @include mixins.desktop {
-      width: 80px;
-      height: 80px;
+      width: 120px;
+      height: 120px;
     }
 
     img {

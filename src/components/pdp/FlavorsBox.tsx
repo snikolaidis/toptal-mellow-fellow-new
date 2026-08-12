@@ -69,7 +69,7 @@ export default function FlavorsBox({ product }: Props) {
         {bestForItems.length > 0 && (
           <div className="flavors-box__section flavors-box__section--best-for">
             <h4 className="flavors-box__title">
-              Best Flavors
+              Best For
             </h4>
             <ul className="flavors-box__best-for">
               {bestForItems.map((item) => (
