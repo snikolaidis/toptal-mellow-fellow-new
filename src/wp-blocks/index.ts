@@ -1,37 +1,43 @@
 import dynamic from 'next/dynamic';
 import { CoreBlocks } from '@faustwp/blocks';
 
+function block(name: string, loader: () => Promise<any>) {
+  const Component = dynamic(loader);
+  Component.displayName = name;
+  return Component;
+}
+
 const blocks: Record<string, any> = {
   ...CoreBlocks,
-  AcfHeroSection: dynamic(() => import('./HeroSection')),
-  AcfHeroSlider: dynamic(() => import('./HeroSlider')),
-  AcfCollectionLinks: dynamic(() => import('./CollectionLinks')),
-  AcfCollectionSlider: dynamic(() => import('./CollectionSlider')),
-  AcfSaleCountdownHero: dynamic(() => import('./SaleCountdownHero')),
-  AcfDoublePointsDaily: dynamic(() => import('./DoublePointsDaily')),
-  AcfCollectionGroup: dynamic(() => import('./CollectionGroup')),
-  AcfImageSlider: dynamic(() => import('./ImageSlider')),
-  AcfHighlightsGroup: dynamic(() => import('./HighlightsGroup')),
-  AcfResponsiveImage: dynamic(() => import('./ResponsiveImage')),
-  AcfImageCarousel: dynamic(() => import('./ImageCarousel')),
-  AcfFeaturedCollection: dynamic(() => import('./FeaturedCollection')),
-  AcfBlendCallout: dynamic(() => import('./BlendCallout')),
-  AcfCannabinoidCallout: dynamic(() => import('./CannabinoidCallout')),
-  AcfValuePropsSet: dynamic(() => import('./ValuePropsSet')),
-  AcfCollectionCardsSet: dynamic(() => import('./CollectionCardsSet')),
-  AcfShoppableHero: dynamic(() => import('./ShoppableHero')),
-  AcfUgcCarousel: dynamic(() => import('./UgcCarousel')),
-  AcfBlogPosts: dynamic(() => import('./BlogPosts')),
-  AcfFaq: dynamic(() => import('./Faq')),
-  AcfReviewsCarousel: dynamic(() => import('./ReviewsCarousel')),
-  AcfPromoSlider: dynamic(() => import('./PromoSlider')),
-  AcfDiscountCodeBar: dynamic(() => import('./DiscountCodeBar')),
-  AcfQuizHero: dynamic(() => import('./QuizHero')),
-  AcfShopByMood: dynamic(() => import('./ShopByMood')),
-  AcfSocialProofStrip: dynamic(() => import('./SocialProofStrip')),
-  AcfCategoryTabs: dynamic(() => import('./CategoryTabs')),
-  AcfWhatSetsUsApart: dynamic(() => import('./WhatSetsUsApart')),
-  AcfLoyaltyTiers: dynamic(() => import('./LoyaltyTiers')),
+  AcfHeroSection: block('AcfHeroSection', () => import('./HeroSection')),
+  AcfHeroSlider: block('AcfHeroSlider', () => import('./HeroSlider')),
+  AcfCollectionLinks: block('AcfCollectionLinks', () => import('./CollectionLinks')),
+  AcfCollectionSlider: block('AcfCollectionSlider', () => import('./CollectionSlider')),
+  AcfSaleCountdownHero: block('AcfSaleCountdownHero', () => import('./SaleCountdownHero')),
+  AcfDoublePointsDaily: block('AcfDoublePointsDaily', () => import('./DoublePointsDaily')),
+  AcfCollectionGroup: block('AcfCollectionGroup', () => import('./CollectionGroup')),
+  AcfImageSlider: block('AcfImageSlider', () => import('./ImageSlider')),
+  AcfHighlightsGroup: block('AcfHighlightsGroup', () => import('./HighlightsGroup')),
+  AcfResponsiveImage: block('AcfResponsiveImage', () => import('./ResponsiveImage')),
+  AcfImageCarousel: block('AcfImageCarousel', () => import('./ImageCarousel')),
+  AcfFeaturedCollection: block('AcfFeaturedCollection', () => import('./FeaturedCollection')),
+  AcfBlendCallout: block('AcfBlendCallout', () => import('./BlendCallout')),
+  AcfCannabinoidCallout: block('AcfCannabinoidCallout', () => import('./CannabinoidCallout')),
+  AcfValuePropsSet: block('AcfValuePropsSet', () => import('./ValuePropsSet')),
+  AcfCollectionCardsSet: block('AcfCollectionCardsSet', () => import('./CollectionCardsSet')),
+  AcfShoppableHero: block('AcfShoppableHero', () => import('./ShoppableHero')),
+  AcfUgcCarousel: block('AcfUgcCarousel', () => import('./UgcCarousel')),
+  AcfBlogPosts: block('AcfBlogPosts', () => import('./BlogPosts')),
+  AcfFaq: block('AcfFaq', () => import('./Faq')),
+  AcfReviewsCarousel: block('AcfReviewsCarousel', () => import('./ReviewsCarousel')),
+  AcfPromoSlider: block('AcfPromoSlider', () => import('./PromoSlider')),
+  AcfDiscountCodeBar: block('AcfDiscountCodeBar', () => import('./DiscountCodeBar')),
+  AcfQuizHero: block('AcfQuizHero', () => import('./QuizHero')),
+  AcfShopByMood: block('AcfShopByMood', () => import('./ShopByMood')),
+  AcfSocialProofStrip: block('AcfSocialProofStrip', () => import('./SocialProofStrip')),
+  AcfCategoryTabs: block('AcfCategoryTabs', () => import('./CategoryTabs')),
+  AcfWhatSetsUsApart: block('AcfWhatSetsUsApart', () => import('./WhatSetsUsApart')),
+  AcfLoyaltyTiers: block('AcfLoyaltyTiers', () => import('./LoyaltyTiers')),
 };
 
 export default blocks;
