@@ -1,0 +1,776 @@
+@use "bulma/sass/utilities/mixins";
+
+.site-header {
+  --sh-inline-pad: 1rem;
+  --sh-bar-gap: 1rem;
+  --sh-bar-pad-block: 0.75rem;
+  --sh-bar-row-h: 90px;
+  --sh-max-width: 1920px;
+
+  --sh-cream-gradient-1: #fef9c3;
+  --sh-cream-gradient-2: #ffedd5;
+  --sh-cream-gradient-3: #fef3c7;
+  --sh-cream-gradient: linear-gradient(
+    180deg,
+    var(--sh-cream-gradient-1) 0%,
+    var(--sh-cream-gradient-2) 50%,
+    var(--sh-cream-gradient-3) 100%
+  );
+
+  --sh-announce-h: 30px;
+  --sh-announce-bg: var(--sh-cream-gradient);
+  --sh-announce-color: var(--color-text-primary);
+  --sh-announce-pad-block: 0.5rem;
+  --sh-announce-pad-inline: var(--sh-inline-pad);
+  --sh-announce-gap: 1rem;
+  --sh-announce-item-gap: 0.4rem;
+  --sh-announce-font-size: 0.75rem;
+  --sh-announce-icon-size: 1rem;
+  --sh-announce-fade-duration: 0.4s;
+  --sh-ticker-gap: 2rem;
+  --sh-ticker-fade: 24px;
+
+  --sh-bar-bg: var(--color-surface-primary);
+  --sh-logo-width: 140px;
+  --sh-logo-height: 40px;
+
+  --sh-search-width: 629px;
+  --sh-search-height: 42px;
+  --sh-search-radius: 20px;
+  --sh-search-bg: #f4f4f4;
+  --sh-search-border: var(--color-border-default);
+  --sh-search-placeholder: var(--color-text-secondary);
+  --sh-search-pad-inline: 1rem;
+  --sh-search-font-size: 0.875rem;
+  --sh-search-button-w: 63px;
+  --sh-search-button-h: 42px;
+  --sh-search-button-radius: 999px;
+  --sh-search-button-bg: var(--color-gold-cream);
+  --sh-search-button-color: var(--color-text-primary);
+  --sh-search-icon-w: 24.02px;
+  --sh-search-icon-h: 28px;
+
+  --sh-actions-w: 205.46px;
+  --sh-actions-h: 40px;
+  --sh-action-gap: 1rem;
+  --sh-action-icon-size: 24px;
+  --sh-account-w: 116.46px;
+  --sh-account-h: 34px;
+  --sh-account-pad-left: 24px;
+  --sh-account-gap: 8px;
+  --sh-account-icon-color: var(--color-text-primary);
+  --sh-account-icon-w: 21.46px;
+  --sh-account-icon-h: 34px;
+  --sh-account-icon-pad-block: 6px;
+  --sh-action-font-size: 0.75rem;
+  --sh-badge-size: 1.125rem;
+  --sh-badge-bg: #207685;
+  --sh-badge-color: var(--color-text-inverse);
+  --sh-badge-font-size: 10px;
+  --sh-cart-button-w: 63px;
+  --sh-cart-button-h: 40px;
+  --sh-cart-icon-w: 24.02px;
+  --sh-cart-icon-h: 28px;
+  --sh-cart-icon-color: var(--color-text-primary);
+  --sh-badge-offset-top: 2px;
+  --sh-badge-offset-end: -7px;
+  --sh-cart-subtotal-w: 63px;
+  --sh-cart-subtotal-h: 16px;
+  --sh-cart-subtotal-color: #207685;
+
+  --sh-nav-cream: #f0e6d0;
+  --sh-nav-bg: var(--color-surface-primary);
+  --sh-nav-gap: 10px;
+  --sh-nav-row-h: auto;
+  --sh-nav-pad-block: 0.5rem;
+  --sh-nav-item-h: 40px;
+  --sh-nav-item-pad-block: 8px;
+  --sh-nav-item-pad-inline: 0.75rem;
+  --sh-nav-caret-w: 18.02px;
+  --sh-nav-caret-h: 20px;
+  --sh-nav-caret-pad-left: 4px;
+  --sh-nav-font-size: 1.05rem;
+  --sh-nav-color: var(--color-text-primary);
+  --sh-nav-hover-color: var(--color-brand-primary);
+  --sh-dropdown-bg: var(--sh-nav-cream);
+
+  --sh-drawer-bg: var(--sh-nav-cream);
+  --sh-drawer-pad: 1rem;
+
+  --sh-focus-ring-w: 2px;
+  --sh-focus-ring-color: var(--color-brand-primary);
+  --sh-focus-ring-offset: 3px;
+  --sh-search-focus-ring-offset: 6px;
+
+  --sh-sticky-z: 30;
+  --sh-condensed-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  position: sticky;
+  top: 0;
+  z-index: var(--sh-sticky-z);
+  background-color: var(--sh-bar-bg);
+  font-family: var(--font-family-body);
+
+  // Two class levels are load bearing. Bulma ships `a:focus-visible,
+  // button:focus-visible` at 0,1,1, which outranks the bare `:focus-visible`
+  // in globals.scss and repaints every header control in its own blue at a
+  // 1px offset. Flattening this to one class hands the ring back to Bulma.
+  :focus-visible {
+    outline: var(--sh-focus-ring-w) solid var(--sh-focus-ring-color);
+    outline-offset: var(--sh-focus-ring-offset);
+  }
+
+  @include mixins.mobile {
+    --sh-announce-pad-inline: 0.5rem;
+    --sh-announce-gap: 0.5rem;
+    --sh-announce-item-gap: 0.25rem;
+    --sh-announce-font-size: 0.6875rem;
+    --sh-announce-icon-size: 0.875rem;
+  }
+
+  @include mixins.desktop {
+    --sh-inline-pad: 2rem;
+    --sh-logo-width: 146px;
+    --sh-announce-gap: 3rem;
+    --sh-bar-pad-block: 12px;
+    --sh-bar-row-h: 66px;
+    --sh-action-gap: 26px;
+    --sh-announce-h: 35px;
+    --sh-nav-bg: var(--sh-cream-gradient);
+    --sh-nav-row-h: 48px;
+    --sh-nav-pad-block: 4px;
+  }
+}
+
+.site-header__announce {
+  // is-sr-only positions the pause button absolutely, so the bar has to be its
+  // containing block or the revealed state lands against the whole header.
+  position: relative;
+  height: var(--sh-announce-h);
+  padding-block: var(--sh-announce-pad-block);
+  background: var(--sh-announce-bg);
+  color: var(--sh-announce-color);
+}
+
+.site-header__announce-pause {
+  appearance: none;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+
+  @include mixins.desktop {
+    display: none;
+  }
+
+  // Hidden but focusable is a focus stop with no visible indicator, so keyboard
+  // focus brings it back into view.
+  &:focus-visible {
+    clip: auto !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 0.5rem !important;
+    inset-inline-start: var(--sh-announce-pad-inline);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    border-radius: 4px;
+    background-color: var(--color-surface-primary);
+    font-size: var(--sh-announce-font-size);
+    line-height: 1.8;
+  }
+}
+
+// Both wrappers collapse away outside the ticker so the list behaves as if it
+// were still a direct child of the bar.
+.site-header__announce-viewport,
+.site-header__announce-track {
+  display: contents;
+}
+
+.site-header__announce-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sh-announce-gap);
+  height: 100%;
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  padding-inline: var(--sh-announce-pad-inline);
+
+  &[aria-hidden] {
+    display: none;
+  }
+}
+
+.site-header__announce-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sh-announce-item-gap);
+  font-size: var(--sh-announce-font-size);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+@include mixins.touch {
+  // The mask belongs here and not on the bar: the bar paints the cream
+  // gradient, so masking it fades the background to white at both ends
+  // instead of fading the text.
+  .site-header__announce-viewport {
+    display: block;
+    height: 100%;
+    overflow: hidden;
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 var(--sh-ticker-fade),
+      #000 calc(100% - var(--sh-ticker-fade)),
+      transparent 100%
+    );
+  }
+
+  .site-header__announce-track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    height: 100%;
+    animation: sh-ticker var(--sh-ticker-duration, 12s) linear infinite;
+  }
+
+  .site-header__announce.is-paused .site-header__announce-track {
+    animation-play-state: paused;
+  }
+
+  .site-header__announce-list {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    // Per item margin, not a container gap: the period is 4 items plus 4 gaps,
+    // but a container gap makes the row 4 items plus 3, so translating by one
+    // copy lands half a gap out and the seam stutters every cycle.
+    gap: 0;
+    overflow: visible;
+    padding-inline: 0;
+
+    &[aria-hidden] {
+      display: flex;
+    }
+  }
+
+  .site-header__announce-item {
+    margin-inline-end: var(--sh-ticker-gap);
+  }
+}
+
+@keyframes sh-ticker {
+  to {
+    transform: translateX(calc(-100% / var(--sh-ticker-copies, 2)));
+  }
+}
+
+.site-header__announce-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sh-announce-item-gap);
+  color: inherit;
+}
+
+.site-header__announce-label {
+  color: var(--sh-announce-item-color, var(--sh-announce-color));
+}
+
+.site-header__announce-icon {
+  width: var(--sh-announce-icon-size);
+  height: var(--sh-announce-icon-size);
+  flex: 0 0 auto;
+}
+
+.site-header__bar {
+  display: grid;
+  align-items: center;
+  gap: var(--sh-bar-gap);
+  padding: var(--sh-bar-pad-block) var(--sh-inline-pad);
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "logo actions"
+    "search search";
+
+  @include mixins.desktop {
+    justify-content: space-between;
+    min-height: var(--sh-bar-row-h);
+    max-width: var(--sh-max-width);
+    margin-inline: auto;
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "logo search actions";
+  }
+}
+
+.site-header__logo {
+  grid-area: logo;
+  display: flex;
+  align-items: center;
+
+  h1 {
+    margin: 0;
+    line-height: 0;
+  }
+
+  .mf-logo {
+    max-height: none;
+    width: var(--sh-logo-width);
+    height: auto;
+
+    @include mixins.desktop {
+      height: var(--sh-logo-height);
+      object-fit: contain;
+    }
+  }
+}
+
+.site-header__search-cell {
+  grid-area: search;
+  min-width: 0;
+}
+
+.site-header__search,
+.site-header__action,
+.site-header__shop-trigger,
+.site-header__drawer-trigger {
+  appearance: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.site-header__search {
+  --sh-focus-ring-offset: var(--sh-search-focus-ring-offset);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: var(--sh-search-width);
+  height: var(--sh-search-height);
+  margin-inline: auto;
+
+  // No right padding and no border on this edge: the gold button is the same
+  // height as the field and has to sit flush against it. Either one reintroduces
+  // the gap, and a border also shortens the content box so the button no longer
+  // reaches full height.
+  padding: 0 0 0 var(--sh-search-pad-inline);
+  border: none;
+  border-radius: var(--sh-search-radius);
+  background-color: var(--sh-search-bg);
+  cursor: pointer;
+  text-align: start;
+  overflow: hidden;
+}
+
+.site-header__search-placeholder {
+  color: var(--sh-search-placeholder);
+  font-size: var(--sh-search-font-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-header__search-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--sh-search-button-w);
+  height: var(--sh-search-button-h);
+  border-radius: var(--sh-search-button-radius);
+  background-color: var(--sh-search-button-bg);
+  color: var(--sh-search-button-color);
+
+  svg {
+    width: var(--sh-search-icon-w);
+    height: var(--sh-search-icon-h);
+  }
+}
+
+.site-header__actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sh-action-gap);
+
+  @include mixins.desktop {
+    width: var(--sh-actions-w);
+    min-height: var(--sh-actions-h);
+  }
+}
+
+.site-header__action {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-primary);
+
+  svg {
+    width: var(--sh-action-icon-size);
+    height: var(--sh-action-icon-size);
+  }
+}
+
+.site-header__account {
+  @include mixins.desktop {
+    width: var(--sh-account-w);
+    height: var(--sh-account-h);
+    padding-inline-start: var(--sh-account-pad-left);
+    gap: var(--sh-account-gap);
+  }
+
+  &:hover {
+    color: var(--sh-nav-hover-color);
+  }
+}
+
+.site-header__action-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--sh-account-icon-color);
+}
+
+.site-header__account .site-header__action-icon {
+  box-sizing: border-box;
+  height: var(--sh-account-icon-h);
+  padding-block: var(--sh-account-icon-pad-block);
+
+  svg {
+    width: var(--sh-account-icon-w);
+    height: 100%;
+  }
+}
+
+.site-header__account-text {
+  display: none;
+  flex-direction: column;
+  font-size: var(--sh-action-font-size);
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  @include mixins.desktop {
+    display: flex;
+  }
+}
+
+.site-header__account-line {
+  white-space: nowrap;
+
+  &:first-child {
+    font-weight: 600;
+  }
+}
+
+.site-header__cart {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  width: var(--sh-cart-button-w);
+  min-height: var(--sh-cart-button-h);
+}
+
+.site-header__cart-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sh-cart-icon-h);
+  color: var(--sh-cart-icon-color);
+
+  svg {
+    width: var(--sh-cart-icon-w);
+    height: var(--sh-cart-icon-h);
+  }
+}
+
+.site-header__cart-badge {
+  position: absolute;
+  top: var(--sh-badge-offset-top);
+  inset-inline-end: var(--sh-badge-offset-end);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sh-badge-size);
+  height: var(--sh-badge-size);
+  border-radius: 9999px;
+  background-color: var(--sh-badge-bg);
+  color: var(--sh-badge-color);
+  font-size: var(--sh-badge-font-size);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.site-header__cart-subtotal {
+  width: var(--sh-cart-subtotal-w);
+  height: var(--sh-cart-subtotal-h);
+  color: var(--sh-cart-subtotal-color);
+  font-size: var(--sh-action-font-size);
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+}
+
+.site-header__burger {
+  color: var(--color-text-primary);
+  margin-inline: 0;
+
+  @include mixins.desktop {
+    display: none;
+  }
+}
+
+.site-header__nav {
+  display: flex;
+  align-items: center;
+  min-height: var(--sh-nav-row-h);
+  background: var(--sh-nav-bg);
+  padding-block: var(--sh-nav-pad-block);
+}
+
+.site-header__nav-scroll {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: var(--sh-nav-gap);
+  padding-inline: var(--sh-inline-pad);
+
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
+  @include mixins.desktop {
+    justify-content: center;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+}
+
+.site-header__shop {
+  display: none;
+  align-items: center;
+  gap: var(--sh-nav-gap);
+  flex: 0 0 auto;
+
+  @include mixins.desktop {
+    display: flex;
+  }
+}
+
+.site-header__shop-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--sh-nav-color);
+  font-size: var(--sh-nav-font-size);
+  cursor: pointer;
+
+  svg {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  &:hover {
+    color: var(--sh-nav-hover-color);
+  }
+}
+
+.site-header__shop-divider {
+  width: 1px;
+  height: 1.25rem;
+  background-color: var(--color-border-default);
+}
+
+.site-header__nav-item {
+  flex: 0 0 auto;
+  font-size: var(--sh-nav-font-size);
+  white-space: nowrap;
+}
+
+.site-header__nav-scroll {
+  .navbar-item,
+  .navbar-link {
+    color: var(--sh-nav-color);
+    font-size: var(--sh-nav-font-size);
+    background-color: transparent;
+
+    @include mixins.desktop {
+      display: flex;
+      align-items: center;
+      height: var(--sh-nav-item-h);
+      padding-block: var(--sh-nav-item-pad-block);
+      padding-inline: var(--sh-nav-item-pad-inline);
+    }
+  }
+
+  .navbar-item:not(.has-dropdown),
+  .navbar-link {
+    border-bottom: 1px solid transparent;
+  }
+
+  .navbar-item:not(.has-dropdown):hover,
+  .navbar-link:hover {
+    --bulma-navbar-item-background-l-delta: 0%;
+    background-color: transparent;
+    color: var(--sh-nav-hover-color);
+    border-bottom-color: currentColor;
+  }
+
+  .navbar-item.has-dropdown {
+    position: relative;
+    padding: 0;
+  }
+
+  .site-header__nav-caret {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding-inline-start: var(--sh-nav-caret-pad-left);
+
+    svg {
+      width: var(--sh-nav-caret-w);
+      height: var(--sh-nav-caret-h);
+    }
+
+    @include mixins.touch {
+      display: none;
+    }
+  }
+
+  .navbar-dropdown {
+    display: none;
+    border-top: 0;
+    background-color: var(--sh-dropdown-bg);
+
+    .navbar-item {
+      background-color: var(--sh-dropdown-bg);
+      border-bottom: none;
+      padding-bottom: 10px;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}
+
+.site-header__drawer {
+  display: none;
+  background-color: var(--sh-drawer-bg);
+  padding: var(--sh-drawer-pad) var(--sh-inline-pad);
+
+  @include mixins.touch {
+    &.is-active {
+      display: block;
+    }
+  }
+}
+
+.site-header__drawer-link,
+.site-header__drawer-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-block: 0.6rem;
+  color: var(--color-text-primary);
+  font-size: var(--sh-nav-font-size);
+  text-align: start;
+}
+
+.site-header__drawer-caret {
+  display: inline-flex;
+  transition: transform 0.25s ease;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.site-header__drawer-group {
+  .site-header__drawer-submenu {
+    display: none;
+    padding-inline-start: 1rem;
+  }
+
+  &.is-open {
+    .site-header__drawer-submenu {
+      display: block;
+    }
+
+    .site-header__drawer-caret {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.site-header.is-condensed {
+  box-shadow: var(--sh-condensed-shadow);
+
+  .site-header__announce,
+  .site-header__nav {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @include mixins.touch {
+    .site-header__announce-viewport {
+      mask-image: none;
+    }
+
+    .site-header__announce-track {
+      display: block;
+      width: 100%;
+      animation: none;
+    }
+
+    .site-header__announce-list {
+      display: grid;
+      grid-template-areas: "rotator";
+      align-content: center;
+      justify-items: center;
+
+      &[aria-hidden] {
+        display: none;
+      }
+    }
+
+    .site-header__announce-item {
+      grid-area: rotator;
+      margin-inline-end: 0;
+
+      // Faded, not display:none: identical visually, but that would drop the
+      // other three out of the accessibility tree.
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--sh-announce-fade-duration) ease;
+
+      &.is-active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+  }
+}

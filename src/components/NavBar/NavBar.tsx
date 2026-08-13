@@ -10,28 +10,8 @@ import {
 } from '@/components/icons';
 import SearchModal from '@/components/SearchModal';
 import styles from './NavBar.module.css';
-import { gql, useQuery } from '@apollo/client';
-
-export const GET_NAV = gql`
-  query {
-    menuItems(where: { location: PRIMARY, parentId: 0 }, first: 100) {
-      nodes {
-        id
-        label
-        uri
-        childItems {
-          nodes {
-            id
-            label
-            uri
-          }
-        }
-      }
-    }
-  }
-`;
-
-const isRealHref = (uri?: string | null) => !!uri && uri !== '#';
+import { useQuery } from '@apollo/client';
+import { GET_NAV, isRealHref } from '@/graphql/queries/menus';
 
 const ChevronIcon = () => (
   <span className="nav-caret" aria-hidden="true">
