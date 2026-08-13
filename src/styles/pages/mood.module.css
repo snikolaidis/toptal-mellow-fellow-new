@@ -1,0 +1,203 @@
+.page {
+  padding: 1.5rem 1rem 4rem;
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding: 2rem 60px 6rem;
+  }
+}
+
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  aspect-ratio: 16 / 9;
+  border-radius: 13px;
+  overflow: hidden;
+  margin-bottom: 36px;
+}
+
+.heroImageWrap {
+  position: absolute;
+  inset: 0;
+}
+
+.heroImage {
+  object-fit: cover;
+}
+
+.heroDesktop {
+  display: none;
+}
+
+.heroMobile {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .hero {
+    aspect-ratio: 1299 / 202;
+  }
+
+  .heroDesktop {
+    display: block;
+  }
+
+  .heroMobile {
+    display: none;
+  }
+}
+
+/* The offset is margin, not padding: box-sizing is border-box globally (Bulma
+   minireset), so padding would eat into the frame's 400px text box. */
+.heroTitle {
+  position: relative;
+  z-index: 1;
+  /* The bottom margin is not spacing. All-small-caps uses none of the ascender or
+     descender the line box reserves, so flex centring alone lands the glyphs 6px
+     low; this lifts them by half its value. Measured, not guessed. */
+  margin: 0 16px 0.125em;
+  font-family: var(--font-family-display);
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 0.9;
+  font-variant-caps: all-small-caps;
+  text-align: left;
+  color: var(--color-text-inverse);
+}
+
+@media (min-width: 768px) {
+  .heroTitle {
+    width: 400px;
+    margin: 0 0 0.125em 11px;
+    font-size: 96px;
+  }
+}
+
+.header {
+  margin-bottom: 38px;
+}
+
+.sectionTitle {
+  margin: 0 0 8px;
+  font-family: "MrEavesSanOT", sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-deep-teal);
+  text-align: left;
+}
+
+.sentence {
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--color-teal-85);
+  text-align: left;
+}
+
+.sentence p {
+  margin: 0;
+}
+
+.sentenceClamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--color-brown-40);
+  margin-bottom: 22px;
+}
+
+.breadcrumb a {
+  color: var(--color-brown-40);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.breadcrumb a:hover {
+  color: var(--color-teal-85);
+}
+
+.separator,
+.crumb {
+  color: var(--color-brown-40);
+}
+
+.current {
+  color: var(--color-teal-85);
+}
+
+/* TODO(figma): spacing and type below are placeholders derived from
+   collection.module.css. Replace with the Dev Mode values. */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 4rem 1rem 5rem;
+}
+
+.emptyTitle {
+  font-family: var(--font-family-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+  margin: 0 0 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .emptyTitle {
+    font-size: 1.75rem;
+  }
+}
+
+.emptyBody {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin: 0 0 2rem;
+}
+
+.emptyActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+@media (min-width: 480px) {
+  .emptyActions {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+.emptyLink {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.emptyLink:hover {
+  color: var(--color-brand-primary);
+}
