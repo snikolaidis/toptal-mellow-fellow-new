@@ -1,4 +1,5 @@
 import { GetStaticProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { gql } from '@apollo/client';
 import Layout from '@/components/Layout';
 import KlaviyoForm from '@/components/KlaviyoForm';
@@ -60,12 +61,13 @@ export default function DealsPage({ page, cards, hero }: DealsPageProps) {
 export const getStaticProps: GetStaticProps<DealsPageProps> = async () => {
   try {
     const client = getClient();
-    const [pageResult, ctasResult] = await Promise.all([
+    const [pageResult, ctasResult, menuClient] = await Promise.all([
       client.query({
         query: GET_CONTENT_PAGE_BY_SLUG,
         variables: { slug: '/mellow-fellow-coupons-and-sales' },
       }),
       client.query({ query: GET_DEALS_CARD_GRID }).catch(() => ({ data: null })),
+      prefetchMenus(),
     ]);
 
     const group = ctasResult.data?.pageBy?.dealsPageCtas;
@@ -95,14 +97,10 @@ export const getStaticProps: GetStaticProps<DealsPageProps> = async () => {
       subtitle: group?.heroSubtitle ?? null,
     };
 
-    return {
-      props: {
-        page: pageResult.data?.page ?? null,
-        cards,
-        hero,
-      },
-      revalidate: 60,
-    };
+    const props = { page: pageResult.data?.page ?? null, cards, hero } as any;
+    mergeMenuState(props, menuClient);
+
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error('Error fetching mellow-fellow-coupons-and-sales page:', error);
     return {

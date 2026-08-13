@@ -1,4 +1,5 @@
 import { GetServerSideProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -428,18 +429,19 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
   const query = typeof params.q === 'string' ? capQuery(params.q.trim()) : '';
 
   if (!query) {
-    return {
-      props: {
-        query: '',
-        allProducts: [],
-        blogPosts: [],
-        productsFailed: false,
-        blogsFailed: false,
-      },
+    const menuClient = await prefetchMenus();
+    const props: Record<string, any> = {
+      query: '',
+      allProducts: [],
+      blogPosts: [],
+      productsFailed: false,
+      blogsFailed: false,
     };
+    mergeMenuState(props, menuClient);
+    return { props };
   }
 
-  const [products, blogPosts] = await Promise.all([
+  const [products, blogPosts, menuClient] = await Promise.all([
     searchProducts(query).catch((error) => {
       console.error('[Search Page] Product query failed:', error);
       return null;
@@ -448,6 +450,7 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
       console.error('[Search Page] Blog query failed:', error);
       return null;
     }),
+    prefetchMenus(),
   ]);
 
   // Overrides the header set above, which would otherwise pin a degraded page
@@ -456,13 +459,14 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
     res.setHeader('Cache-Control', 'no-store');
   }
 
-  return {
-    props: {
-      query,
-      allProducts: products ?? [],
-      blogPosts: blogPosts ?? [],
-      productsFailed: products === null,
-      blogsFailed: blogPosts === null,
-    },
+  const props: Record<string, any> = {
+    query,
+    allProducts: products ?? [],
+    blogPosts: blogPosts ?? [],
+    productsFailed: products === null,
+    blogsFailed: blogPosts === null,
   };
+  mergeMenuState(props, menuClient);
+
+  return { props };
 };

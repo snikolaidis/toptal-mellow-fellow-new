@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { gql } from '@apollo/client';
+import { fragments } from './SocialProofStrip.fragments';
 import Image from 'next/image';
 
 interface MediaItem {
@@ -53,8 +53,8 @@ export default function SocialProofStrip(props: SocialProofStripProps) {
                   className="social-proof-strip__image"
                   src={image!.sourceUrl!}
                   alt={image?.altText || ''}
-                  width={image?.mediaDetails?.width ?? 200}
-                  height={image?.mediaDetails?.height ?? 200}
+                  width={image?.mediaDetails?.width ?? 120}
+                  height={image?.mediaDetails?.height ?? 120}
                 />
               </div>
             );
@@ -70,28 +70,4 @@ export default function SocialProofStrip(props: SocialProofStripProps) {
 
 SocialProofStrip.displayName = 'AcfSocialProofStrip';
 
-SocialProofStrip.fragments = {
-  key: `AcfSocialProofStripFragment`,
-  entry: gql`
-    fragment AcfSocialProofStripFragment on AcfSocialProofStrip {
-      socialProofStrip {
-        heading
-        subheading
-        thumbs {
-          glowColor
-          image {
-            node {
-              id
-              altText
-              sourceUrl
-              mediaDetails {
-                width
-                height
-              }
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+SocialProofStrip.fragments = fragments;

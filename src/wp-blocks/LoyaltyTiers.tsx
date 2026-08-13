@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
-import { gql } from '@apollo/client';
+import { fragments } from './LoyaltyTiers.fragments';
+import Image from 'next/image';
 import Link from 'next/link';
 
 interface MediaItem {
@@ -35,7 +36,15 @@ interface LoyaltyTiersProps {
 
 function BadgeIcon({ node }: { node?: MediaItem | null }) {
   if (!node?.sourceUrl) return null;
-  return <img className="loyalty-tiers__badge-icon" src={node.sourceUrl} alt="" />;
+  return (
+    <Image
+      className="loyalty-tiers__badge-icon"
+      src={node.sourceUrl}
+      alt=""
+      width={24}
+      height={24}
+    />
+  );
 }
 
 export default function LoyaltyTiers(props: LoyaltyTiersProps) {
@@ -90,7 +99,7 @@ export default function LoyaltyTiers(props: LoyaltyTiersProps) {
                     }
                   >
                     {tier.icon?.node?.sourceUrl && (
-                      <img src={tier.icon.node.sourceUrl} alt="" />
+                      <Image src={tier.icon.node.sourceUrl} alt="" width={32} height={32} />
                     )}
                   </span>
                   <span className="loyalty-tiers__tier-text">
@@ -106,10 +115,12 @@ export default function LoyaltyTiers(props: LoyaltyTiersProps) {
                     {(tier.benefits ?? []).map((benefit, j) => (
                       <li key={j} className="loyalty-tiers__benefit">
                         {benefit.icon?.node?.sourceUrl && (
-                          <img
+                          <Image
                             className="loyalty-tiers__benefit-icon"
                             src={benefit.icon.node.sourceUrl}
                             alt=""
+                            width={20}
+                            height={20}
                           />
                         )}
                         <span>{benefit.label}</span>
@@ -128,50 +139,4 @@ export default function LoyaltyTiers(props: LoyaltyTiersProps) {
 
 LoyaltyTiers.displayName = 'AcfLoyaltyTiers';
 
-LoyaltyTiers.fragments = {
-  key: `AcfLoyaltyTiersFragment`,
-  entry: gql`
-    fragment AcfLoyaltyTiersFragment on AcfLoyaltyTiers {
-      loyaltyTiers {
-        badgeText
-        heading
-        body
-        tiersTitle
-        cta {
-          url
-          title
-          target
-        }
-        badgeIcon {
-          node {
-            id
-            altText
-            sourceUrl
-          }
-        }
-        tiers {
-          name
-          points
-          iconBg
-          icon {
-            node {
-              id
-              altText
-              sourceUrl
-            }
-          }
-          benefits {
-            label
-            icon {
-              node {
-                id
-                altText
-                sourceUrl
-              }
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+LoyaltyTiers.fragments = fragments;

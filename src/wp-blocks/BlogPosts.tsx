@@ -1,5 +1,6 @@
-import { gql, useQuery } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import Link from 'next/link';
+import { fragments } from './BlogPosts.fragments';
 import Image from 'next/image';
 import { getClient, getBrowserClient } from '@/lib/apollo-client';
 import { GET_LATEST_POSTS } from '@/graphql/queries/posts';
@@ -119,21 +120,4 @@ export default function BlogPosts(props: BlogPostsProps) {
 
 BlogPosts.displayName = 'AcfBlogPosts';
 
-BlogPosts.fragments = {
-  key: `AcfBlogPostsFragment`,
-  entry: gql`
-    fragment AcfBlogPostsFragment on AcfBlogPosts {
-      blogPosts {
-        title
-        subheading
-        postCount
-        buttonText
-        buttonLink {
-          url
-          title
-          target
-        }
-      }
-    }
-  `,
-};
+BlogPosts.fragments = fragments;

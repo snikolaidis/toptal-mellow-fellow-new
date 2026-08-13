@@ -1,4 +1,5 @@
 import { GetStaticProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import FeaturedCollection from '@/components/FeaturedCollection';
@@ -87,6 +88,7 @@ export default function ReviewPage({ page, products }: ReviewPageProps) {
 
 export const getStaticProps: GetStaticProps<ReviewPageProps> = async () => {
   const client = getClient();
+  const menuClient = await prefetchMenus();
 
   let page: ContentPageData | null = null;
   try {
@@ -114,5 +116,8 @@ export const getStaticProps: GetStaticProps<ReviewPageProps> = async () => {
     console.error('Error fetching Fam Favorites (best-sellers) products:', error);
   }
 
-  return { props: { page, products }, revalidate: 60 };
+  const props = { page, products } as any;
+  mergeMenuState(props, menuClient);
+
+  return { props, revalidate: 60 };
 };

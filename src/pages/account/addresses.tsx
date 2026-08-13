@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
 import type { GetServerSideProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 import { UPDATE_CUSTOMER } from '@/graphql/queries/auth';
@@ -218,13 +219,16 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   if (!auth) return redirectToLogin(ctx);
 
   try {
-    const data = await serverSideGraphQL(CUSTOMER_BILLING_QUERY, auth.accessToken);
-    return {
-      props: {
-        initialBilling: fromApi(data?.customer?.billing),
-        initialShipping: fromApi(data?.customer?.shipping),
-      },
+    const [data, menuClient] = await Promise.all([
+      serverSideGraphQL(CUSTOMER_BILLING_QUERY, auth.accessToken),
+      prefetchMenus(),
+    ]);
+    const props: Record<string, any> = {
+      initialBilling: fromApi(data?.customer?.billing),
+      initialShipping: fromApi(data?.customer?.shipping),
     };
+    mergeMenuState(props, menuClient);
+    return { props };
   } catch {
     return { props: { initialBilling: EMPTY, initialShipping: EMPTY } };
   }

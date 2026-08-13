@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './HeroSection.fragments';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -72,30 +72,4 @@ export default function HeroSection(props: HeroSectionProps) {
 
 HeroSection.displayName = 'AcfHeroSection';
 
-HeroSection.fragments = {
-  key: `AcfHeroSectionFragment`,
-  entry: gql`
-    fragment AcfHeroSectionFragment on AcfHeroSection {
-      heroSection {
-        heading
-        subheading
-        backgroundImage {
-          node {
-            id
-            altText
-            sourceUrl
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-        ctaButton {
-          url
-          title
-          target
-        }
-      }
-    }
-  `,
-};
+HeroSection.fragments = fragments;

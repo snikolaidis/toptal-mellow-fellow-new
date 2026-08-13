@@ -1,14 +1,19 @@
-import { gql } from '@apollo/client';
+import { fragments } from './CollectionSlider.fragments';
 import { useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay, Pagination, Navigation, Mousewheel } from 'swiper/modules';
+import { Pagination, Navigation } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
-import 'swiper/css/mousewheel';
 import { Product } from '@/types/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import { useCollectionFilter } from '@/context/CollectionFilterContext';
+
+const SWIPER_BREAKPOINTS = {
+  769: { slidesPerView: 2 },
+  992: { slidesPerView: 3 },
+  1400: { slidesPerView: 4 },
+} as const;
 
 interface CollectionNode {
   __typename?: string | null;
@@ -83,24 +88,10 @@ export default function CollectionSlider(props: CollectionSliderProps) {
             slidesPerView={2}
             slidesOffsetAfter={8}
             slidesOffsetBefore={8}
-            modules={[Autoplay, Pagination, Navigation, Mousewheel]}
+            modules={[Pagination, Navigation]}
             pagination={{ clickable: true }}
             navigation
-            breakpoints={{
-              769: {
-                slidesPerView: 2
-              },
-              992: {
-                slidesPerView: 3
-              },
-              1400: {
-                slidesPerView: 4
-              },
-            }}
-            mousewheel={{
-              enabled: true,
-              forceToAxis: true
-            }}
+            breakpoints={SWIPER_BREAKPOINTS}
             cssMode={true}
           >
             {products.map((product) => (
@@ -117,26 +108,4 @@ export default function CollectionSlider(props: CollectionSliderProps) {
 
 CollectionSlider.displayName = 'AcfCollectionSlider';
 
-CollectionSlider.fragments = {
-  key: `AcfCollectionSliderFragment`,
-  entry: gql`
-    fragment AcfCollectionSliderFragment on AcfCollectionSlider {
-      collectionSlider {
-        title
-        productCount
-        backgroundVariant
-        filterGroup
-        collection {
-          nodes {
-            __typename
-            ... on Collection {
-              databaseId
-              name
-              slug
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+CollectionSlider.fragments = fragments;

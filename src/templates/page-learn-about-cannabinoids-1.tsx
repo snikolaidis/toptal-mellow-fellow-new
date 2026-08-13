@@ -4,6 +4,7 @@ import { FaustTemplate } from '@faustwp/core';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import Layout from '@/components/Layout';
 import blocks from '@/wp-blocks';
+import * as blockFragments from '@/wp-blocks/fragments';
 
 interface LearnAboutCannabinoidsData {
   page?: {
@@ -120,8 +121,8 @@ const PageLearnAboutCannabinoids: FaustTemplate<LearnAboutCannabinoidsData> = (p
 };
 
 PageLearnAboutCannabinoids.query = gql`
-  ${blocks.AcfCannabinoidCallout.fragments.entry}
-  ${blocks.CoreParagraph.fragments.entry}
+  ${blockFragments.AcfCannabinoidCallout.entry}
+  ${blockFragments.CoreParagraph.entry}
   query GetLearnAboutCannabinoids($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       title
@@ -134,8 +135,8 @@ PageLearnAboutCannabinoids.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blocks.AcfCannabinoidCallout.fragments.key}
-        ...${blocks.CoreParagraph.fragments.key}
+        ...${blockFragments.AcfCannabinoidCallout.key}
+        ...${blockFragments.CoreParagraph.key}
       }
     }
   }

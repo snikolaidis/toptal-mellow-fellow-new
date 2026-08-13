@@ -1,4 +1,5 @@
 import { GetStaticProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import ContactForm from '@/components/ContactForm';
 import type { ContactFieldConfig } from '@/components/ContactForm/ContactForm';
@@ -249,15 +250,18 @@ export default function ContactUsPage({ page }: ContactUsPageProps) {
 export const getStaticProps: GetStaticProps<ContactUsPageProps> = async () => {
   try {
     const client = getClient();
-    const pageResult = await client.query({
-      query: GET_CONTENT_PAGE_BY_SLUG,
-      variables: { slug: '/contact-us' },
-    });
+    const [pageResult, menuClient] = await Promise.all([
+      client.query({
+        query: GET_CONTENT_PAGE_BY_SLUG,
+        variables: { slug: '/contact-us' },
+      }),
+      prefetchMenus(),
+    ]);
 
-    return {
-      props: { page: pageResult.data?.page ?? null },
-      revalidate: 60,
-    };
+    const props = { page: pageResult.data?.page ?? null } as any;
+    mergeMenuState(props, menuClient);
+
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error('Error fetching contact-us page:', error);
     return { props: { page: null }, revalidate: 60 };

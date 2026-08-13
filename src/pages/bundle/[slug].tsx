@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { GetStaticPaths, GetStaticProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { useState, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import { getClient } from '@/lib/apollo-client';
@@ -314,19 +315,22 @@ export const getStaticPaths: GetStaticPaths = async () => {
 export const getStaticProps: GetStaticProps<BundlePageProps> = async ({ params }) => {
   try {
     const client = getClient();
-    const { data } = await client.query({
-      query: GET_BUNDLE_BY_SLUG,
-      variables: { slug: params?.slug as string },
-    });
+    const [{ data }, menuClient] = await Promise.all([
+      client.query({
+        query: GET_BUNDLE_BY_SLUG,
+        variables: { slug: params?.slug as string },
+      }),
+      prefetchMenus(),
+    ]);
 
     if (!data?.bundleBuilder) {
       return { notFound: true, revalidate: 60 };
     }
 
-    return {
-      props: { bundle: data.bundleBuilder },
-      revalidate: 60,
-    };
+    const props = { bundle: data.bundleBuilder } as any;
+    mergeMenuState(props, menuClient);
+
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error(`Error fetching bundle "${params?.slug}":`, error);
     return { notFound: true, revalidate: 60 };

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { GetServerSideProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 
@@ -157,10 +158,15 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   if (!databaseId) return { props: { order: null } };
 
   try {
-    const data = await serverSideGraphQL(ORDER_QUERY, auth.accessToken, {
-      id: String(databaseId),
-    });
-    return { props: { order: data?.order || null } };
+    const [data, menuClient] = await Promise.all([
+      serverSideGraphQL(ORDER_QUERY, auth.accessToken, {
+        id: String(databaseId),
+      }),
+      prefetchMenus(),
+    ]);
+    const props: Record<string, any> = { order: data?.order || null };
+    mergeMenuState(props, menuClient);
+    return { props };
   } catch {
     return { props: { order: null } };
   }

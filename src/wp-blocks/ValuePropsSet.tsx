@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { gql, useQuery } from '@apollo/client';
+import { fragments } from './ValuePropsSet.fragments';
 import { getClient, getBrowserClient } from '@/lib/apollo-client';
 
 /**
@@ -95,14 +96,4 @@ export default function ValuePropsSet() {
 
 ValuePropsSet.displayName = 'AcfValuePropsSet';
 
-// The block has no ACF fields of its own (content is global, fetched above),
-// so the fragment only asserts the typename — enough for templates to spread
-// it uniformly once the `acf/value-props-set` block exists in the WP schema.
-ValuePropsSet.fragments = {
-  key: `AcfValuePropsSetFragment`,
-  entry: gql`
-    fragment AcfValuePropsSetFragment on AcfValuePropsSet {
-      __typename
-    }
-  `,
-};
+ValuePropsSet.fragments = fragments;

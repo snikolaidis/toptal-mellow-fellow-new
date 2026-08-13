@@ -1,4 +1,5 @@
-import { gql } from '@apollo/client';
+import { fragments } from './ImageCarousel.fragments';
+import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay } from 'swiper/modules';
 import 'swiper/css';
@@ -66,12 +67,12 @@ export default function ImageCarousel(props: ImageCarouselProps) {
     >
       {images.map((img, i) => (
         <SwiperSlide key={i}>
-          <img
-            src={img.sourceUrl ?? undefined}
+          <Image
+            src={img.sourceUrl!}
             alt={img.altText || ''}
-            width={img.mediaDetails?.width ?? undefined}
-            height={img.mediaDetails?.height ?? undefined}
-            loading="lazy"
+            width={img.mediaDetails?.width ?? 200}
+            height={img.mediaDetails?.height ?? 80}
+            style={{ width: '100%', height: 'auto' }}
           />
         </SwiperSlide>
       ))}
@@ -114,30 +115,4 @@ export default function ImageCarousel(props: ImageCarouselProps) {
 
 ImageCarousel.displayName = 'AcfImageCarousel';
 
-ImageCarousel.fragments = {
-  key: `AcfImageCarouselFragment`,
-  entry: gql`
-    fragment AcfImageCarouselFragment on AcfImageCarousel {
-      imageCarousel {
-        title
-        images {
-          nodes {
-            altText
-            sourceUrl
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-        link {
-          url
-          title
-          target
-        }
-        linkStyle
-        backgroundVariant
-      }
-    }
-  `,
-};
+ImageCarousel.fragments = fragments;

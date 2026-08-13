@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './QuizHero.fragments';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -20,7 +20,9 @@ interface QuizHeroProps {
   } | null;
 }
 
-const DEFAULT_MOBILE_IMAGE = '/quiz-hero-can-pineapple-orange.png';
+const DEFAULT_MOBILE_IMAGE = '/quiz-hero-can-pineapple-orange.webp';
+
+const COVER_STYLE = { objectFit: 'cover', objectPosition: 'center' } as const;
 
 export default function QuizHero(props: QuizHeroProps) {
   const { quizHero } = props;
@@ -39,9 +41,8 @@ export default function QuizHero(props: QuizHeroProps) {
           src={mobileImageUrl}
           alt=""
           fill
-          priority
           sizes="100vw"
-          style={{ objectFit: 'cover', objectPosition: 'center' }}
+          style={COVER_STYLE}
         />
       </div>
 
@@ -73,32 +74,4 @@ export default function QuizHero(props: QuizHeroProps) {
 
 QuizHero.displayName = 'AcfQuizHero';
 
-QuizHero.fragments = {
-  key: `AcfQuizHeroFragment`,
-  entry: gql`
-    fragment AcfQuizHeroFragment on AcfQuizHero {
-      quizHero {
-        eyebrow
-        heading
-        subheading
-        ctaButton {
-          url
-          title
-          target
-        }
-        ctaHighlight
-        mobileImage {
-          node {
-            id
-            altText
-            sourceUrl
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+QuizHero.fragments = fragments;

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { gql } from '@apollo/client';
+import { fragments } from './ResponsiveImage.fragments';
 
 /**
  * Backend-managed responsive image (ACF block `acf/responsive-image`).
@@ -108,50 +108,4 @@ export default function ResponsiveImage(props: ResponsiveImageProps) {
 
 ResponsiveImage.displayName = 'AcfResponsiveImage';
 
-ResponsiveImage.fragments = {
-  key: `AcfResponsiveImageFragment`,
-  entry: gql`
-    fragment AcfResponsiveImageFragment on AcfResponsiveImage {
-      responsiveImage {
-        borderRadius
-        width
-        eagerLoad
-        link {
-          url
-          title
-          target
-        }
-        mobileImage {
-          node {
-            altText
-            sourceUrl
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-        tabletImage {
-          node {
-            altText
-            sourceUrl
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-        desktopImage {
-          node {
-            altText
-            sourceUrl
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+ResponsiveImage.fragments = fragments;

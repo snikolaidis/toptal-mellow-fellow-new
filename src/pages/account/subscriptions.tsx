@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
 import Layout from '@/components/Layout';
@@ -131,9 +132,14 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   if (!auth) return redirectToLogin(ctx);
 
   try {
-    const data = await serverSideGraphQL(CUSTOMER_SUBSCRIPTIONS_QUERY, auth.accessToken);
+    const [data, menuClient] = await Promise.all([
+      serverSideGraphQL(CUSTOMER_SUBSCRIPTIONS_QUERY, auth.accessToken),
+      prefetchMenus(),
+    ]);
     const nodes: SubscriptionNode[] = data?.customer?.subscriptions?.nodes || [];
-    return { props: { subscriptions: nodes.map(mapSubscription) } };
+    const props: Record<string, any> = { subscriptions: nodes.map(mapSubscription) };
+    mergeMenuState(props, menuClient);
+    return { props };
   } catch {
     return { props: { subscriptions: [] } };
   }

@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './CollectionLinks.fragments';
 
 /**
  * Backend-managed collection links (ACF block `acf/collection-links`). Replaces
@@ -103,35 +103,4 @@ export default function CollectionLinks(props: CollectionLinksProps) {
 
 CollectionLinks.displayName = 'AcfCollectionLinks';
 
-CollectionLinks.fragments = {
-  key: `AcfCollectionLinksFragment`,
-  entry: gql`
-    fragment AcfCollectionLinksFragment on AcfCollectionLinks {
-      collectionLinks {
-        sectionHeading
-        layout
-        links {
-          titleOverride
-          collection {
-            nodes {
-              __typename
-              ... on Collection {
-                name
-                uri
-                slug
-                collectionFields {
-                  thumbnailImage {
-                    node {
-                      sourceUrl
-                      altText
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+CollectionLinks.fragments = fragments;

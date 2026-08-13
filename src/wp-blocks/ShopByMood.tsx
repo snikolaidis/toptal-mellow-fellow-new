@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './ShopByMood.fragments';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -14,6 +14,8 @@ interface MoodCard {
   label?: string | null;
   link?: { url?: string | null; title?: string | null; target?: string | null } | null;
 }
+
+const COVER_STYLE = { objectFit: 'cover' } as const;
 
 interface ShopByMoodProps {
   shopByMood?: {
@@ -35,7 +37,7 @@ function CardInner({ card }: { card: MoodCard }) {
           alt={image.altText || ''}
           fill
           sizes="(max-width: 767px) 50vw, 33vw"
-          style={{ objectFit: 'cover' }}
+          style={COVER_STYLE}
         />
       )}
       {card.label && <span className="shop-by-mood__label">{card.label}</span>}
@@ -83,33 +85,4 @@ export default function ShopByMood(props: ShopByMoodProps) {
 
 ShopByMood.displayName = 'AcfShopByMood';
 
-ShopByMood.fragments = {
-  key: `AcfShopByMoodFragment`,
-  entry: gql`
-    fragment AcfShopByMoodFragment on AcfShopByMood {
-      shopByMood {
-        heading
-        subheading
-        cards {
-          label
-          link {
-            url
-            title
-            target
-          }
-          image {
-            node {
-              id
-              altText
-              sourceUrl
-              mediaDetails {
-                width
-                height
-              }
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+ShopByMood.fragments = fragments;

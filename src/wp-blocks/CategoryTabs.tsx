@@ -1,5 +1,5 @@
-import { gql } from '@apollo/client';
-import { useEffect } from 'react';
+import { fragments } from './CategoryTabs.fragments';
+import { useCallback, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCollectionFilter } from '@/context/CollectionFilterContext';
@@ -63,7 +63,8 @@ export default function CategoryTabs(props: CategoryTabsProps) {
   const group = data?.filterGroup || '';
   const { selected, select } = useCollectionFilter(group);
   const tabs = data?.tabs ?? [];
-  const defaultTerm = tabTerm(tabs.find((t) => t.isActive) || tabs.find((t) => tabTerm(t)) || {});
+  const tabTerms = useMemo(() => tabs.map((t) => tabTerm(t)), [tabs]);
+  const defaultTerm = tabTerms[tabs.findIndex((t) => t.isActive)] ?? tabTerms.find(Boolean) ?? null;
   const defaultSlug = defaultTerm?.slug || '';
   const defaultTaxonomy = defaultTerm?.taxonomy || '';
 
@@ -88,7 +89,7 @@ export default function CategoryTabs(props: CategoryTabsProps) {
       {tabs.length > 0 && (
         <div className="category-tabs__row">
           {tabs.map((tab, i) => {
-            const term = tabTerm(tab);
+            const term = tabTerms[i];
             const filters = Boolean(group && term);
             const isActive = filters ? term?.slug === activeSlug : Boolean(tab.isActive);
             const className = `category-tabs__tab${
@@ -133,41 +134,4 @@ export default function CategoryTabs(props: CategoryTabsProps) {
 
 CategoryTabs.displayName = 'AcfCategoryTabs';
 
-CategoryTabs.fragments = {
-  key: `AcfCategoryTabsFragment`,
-  entry: gql`
-    fragment AcfCategoryTabsFragment on AcfCategoryTabs {
-      categoryTabs {
-        heading
-        subheading
-        filterGroup
-        tabs {
-          label
-          isActive
-          collection {
-            nodes {
-              __typename
-              ... on Collection {
-                databaseId
-                name
-                slug
-              }
-            }
-          }
-          link {
-            url
-            title
-            target
-          }
-          icon {
-            node {
-              id
-              altText
-              sourceUrl
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+CategoryTabs.fragments = fragments;

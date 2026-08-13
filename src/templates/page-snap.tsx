@@ -3,6 +3,7 @@ import { FaustTemplate } from '@faustwp/core';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import Layout from '@/components/Layout';
 import blocks from '@/wp-blocks';
+import * as blockFragments from '@/wp-blocks/fragments';
 
 interface SnapPageData {
   page?: {
@@ -32,11 +33,11 @@ const SnapPage: FaustTemplate<SnapPageData> = (props) => {
 };
 
 SnapPage.query = gql`
-  ${blocks.AcfValuePropsSet.fragments.entry}
-  ${blocks.AcfCollectionSlider.fragments.entry}
-  ${blocks.AcfCollectionCardsSet.fragments.entry}
-  ${blocks.AcfShoppableHero.fragments.entry}
-  ${blocks.AcfFeaturedCollection.fragments.entry}
+  ${blockFragments.AcfValuePropsSet.entry}
+  ${blockFragments.AcfCollectionSlider.entry}
+  ${blockFragments.AcfCollectionCardsSet.entry}
+  ${blockFragments.AcfShoppableHero.entry}
+  ${blockFragments.AcfFeaturedCollection.entry}
   query GetSnapPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       title
@@ -49,11 +50,11 @@ SnapPage.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blocks.AcfValuePropsSet.fragments.key}
-        ...${blocks.AcfCollectionSlider.fragments.key}
-        ...${blocks.AcfCollectionCardsSet.fragments.key}
-        ...${blocks.AcfShoppableHero.fragments.key}
-        ...${blocks.AcfFeaturedCollection.fragments.key}
+        ...${blockFragments.AcfValuePropsSet.key}
+        ...${blockFragments.AcfCollectionSlider.key}
+        ...${blockFragments.AcfCollectionCardsSet.key}
+        ...${blockFragments.AcfShoppableHero.key}
+        ...${blockFragments.AcfFeaturedCollection.key}
       }
     }
   }

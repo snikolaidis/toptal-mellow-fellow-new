@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { gql } from '@apollo/client';
+import { fragments } from './WhatSetsUsApart.fragments';
 import Image from 'next/image';
 
 interface MediaItem {
@@ -70,24 +70,4 @@ export default function WhatSetsUsApart(props: WhatSetsUsApartProps) {
 
 WhatSetsUsApart.displayName = 'AcfWhatSetsUsApart';
 
-WhatSetsUsApart.fragments = {
-  key: `AcfWhatSetsUsApartFragment`,
-  entry: gql`
-    fragment AcfWhatSetsUsApartFragment on AcfWhatSetsUsApart {
-      whatSetsUsApart {
-        heading
-        items {
-          label
-          labelColor
-          icon {
-            node {
-              id
-              altText
-              sourceUrl
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+WhatSetsUsApart.fragments = fragments;

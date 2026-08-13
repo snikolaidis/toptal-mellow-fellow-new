@@ -1,15 +1,19 @@
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { MellowFellowLogo, UserIcon, CartIcon } from '@/components/icons';
-import SearchModal from '@/components/SearchModal';
 import { GET_NAV, NavMenuItem } from '@/graphql/queries/menus';
 import AnnouncementBar from './AnnouncementBar';
 import SearchTrigger from './SearchTrigger';
 import PrimaryNav from './PrimaryNav';
 import MenuDrawer from './MenuDrawer';
+
+const SearchModal = dynamic(() => import('@/components/SearchModal'), {
+  ssr: false,
+});
 
 const CONDENSE_AT = 150;
 const DIRECTION_DELTA = 8;

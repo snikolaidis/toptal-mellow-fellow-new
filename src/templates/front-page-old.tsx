@@ -2,6 +2,7 @@ import { gql } from '@apollo/client';
 import { FaustTemplate } from '@faustwp/core';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import blocks from '@/wp-blocks';
+import * as blockFragments from '@/wp-blocks/fragments';
 import Layout from '@/components/Layout';
 
 interface FrontPageData {
@@ -69,20 +70,20 @@ const FrontPage: FaustTemplate<FrontPageData> = (props) => {
 // fragment here. Product-driven blocks (collection slider / featured
 // collection) fetch their own products client-side.
 FrontPage.query = gql`
-  ${blocks.AcfHeroSlider.fragments.entry}
-  ${blocks.AcfCollectionLinks.fragments.entry}
-  ${blocks.AcfCollectionSlider.fragments.entry}
-  ${blocks.AcfImageSlider.fragments.entry}
-  ${blocks.AcfHighlightsGroup.fragments.entry}
-  ${blocks.AcfResponsiveImage.fragments.entry}
-  ${blocks.AcfImageCarousel.fragments.entry}
-  ${blocks.AcfFeaturedCollection.fragments.entry}
-  ${blocks.AcfUgcCarousel.fragments.entry}
-  ${blocks.AcfBlogPosts.fragments.entry}
-  ${blocks.AcfFaq.fragments.entry}
-  ${blocks.AcfReviewsCarousel.fragments.entry}
-  ${blocks.AcfPromoSlider.fragments.entry}
-  ${blocks.CoreImage.fragments.entry}
+  ${blockFragments.AcfHeroSlider.entry}
+  ${blockFragments.AcfCollectionLinks.entry}
+  ${blockFragments.AcfCollectionSlider.entry}
+  ${blockFragments.AcfImageSlider.entry}
+  ${blockFragments.AcfHighlightsGroup.entry}
+  ${blockFragments.AcfResponsiveImage.entry}
+  ${blockFragments.AcfImageCarousel.entry}
+  ${blockFragments.AcfFeaturedCollection.entry}
+  ${blockFragments.AcfUgcCarousel.entry}
+  ${blockFragments.AcfBlogPosts.entry}
+  ${blockFragments.AcfFaq.entry}
+  ${blockFragments.AcfReviewsCarousel.entry}
+  ${blockFragments.AcfPromoSlider.entry}
+  ${blockFragments.CoreImage.entry}
   query FrontPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       editorBlocks(flat: false) {
@@ -90,20 +91,20 @@ FrontPage.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blocks.AcfHeroSlider.fragments.key}
-        ...${blocks.AcfCollectionLinks.fragments.key}
-        ...${blocks.AcfCollectionSlider.fragments.key}
-        ...${blocks.AcfImageSlider.fragments.key}
-        ...${blocks.AcfHighlightsGroup.fragments.key}
-        ...${blocks.AcfResponsiveImage.fragments.key}
-        ...${blocks.AcfImageCarousel.fragments.key}
-        ...${blocks.AcfFeaturedCollection.fragments.key}
-        ...${blocks.AcfUgcCarousel.fragments.key}
-        ...${blocks.AcfBlogPosts.fragments.key}
-        ...${blocks.AcfFaq.fragments.key}
-        ...${blocks.AcfReviewsCarousel.fragments.key}
-        ...${blocks.AcfPromoSlider.fragments.key}
-        ...${blocks.CoreImage.fragments.key}
+        ...${blockFragments.AcfHeroSlider.key}
+        ...${blockFragments.AcfCollectionLinks.key}
+        ...${blockFragments.AcfCollectionSlider.key}
+        ...${blockFragments.AcfImageSlider.key}
+        ...${blockFragments.AcfHighlightsGroup.key}
+        ...${blockFragments.AcfResponsiveImage.key}
+        ...${blockFragments.AcfImageCarousel.key}
+        ...${blockFragments.AcfFeaturedCollection.key}
+        ...${blockFragments.AcfUgcCarousel.key}
+        ...${blockFragments.AcfBlogPosts.key}
+        ...${blockFragments.AcfFaq.key}
+        ...${blockFragments.AcfReviewsCarousel.key}
+        ...${blockFragments.AcfPromoSlider.key}
+        ...${blockFragments.CoreImage.key}
       }
     }
   }

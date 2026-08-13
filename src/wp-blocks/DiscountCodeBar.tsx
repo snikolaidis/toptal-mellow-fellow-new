@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { gql } from '@apollo/client';
+import { fragments } from './DiscountCodeBar.fragments';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -95,19 +95,4 @@ export default function DiscountCodeBar(props: DiscountCodeBarProps) {
 
 DiscountCodeBar.displayName = 'AcfDiscountCodeBar';
 
-DiscountCodeBar.fragments = {
-  key: `AcfDiscountCodeBarFragment`,
-  entry: gql`
-    fragment AcfDiscountCodeBarFragment on AcfDiscountCodeBar {
-      discountCodeBar {
-        text
-        discountCode
-        textColor
-        highlightColor
-        backgroundColor
-        buttonBackgroundColor
-        buttonTextColor
-      }
-    }
-  `,
-};
+DiscountCodeBar.fragments = fragments;
