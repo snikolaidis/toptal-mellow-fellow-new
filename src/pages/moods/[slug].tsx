@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import { GET_ALL_MOOD_SLUGS } from '@/graphql/queries/moods';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
@@ -33,6 +33,26 @@ import moodStyles from '@/styles/pages/mood.module.css';
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
+
+interface CategoryChip {
+  label: string;
+  icon: string;
+  width: number;
+  height: number;
+  glowColor: string;
+  glowSize: number;
+  glowBlur: number;
+  glowOpacity: number;
+}
+
+const CATEGORY_CHIPS: CategoryChip[] = [
+  { label: 'Flower', icon: '/flower-megamenu.png', width: 200, height: 200, glowColor: '#DD6E7A', glowSize: 63.156, glowBlur: 13.85, glowOpacity: 0.8 },
+  { label: 'Vapes', icon: '/disposable-vapes-megamenu.png', width: 200, height: 200, glowColor: '#207685', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.46 },
+  { label: 'Edibles', icon: '/edibles-megamenu.png', width: 200, height: 181, glowColor: '#A1B28F', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 1 },
+  { label: 'Drinks', icon: '/drinks-megamenu.png', width: 200, height: 200, glowColor: '#FFCC4F', glowSize: 56, glowBlur: 13.5, glowOpacity: 0.92 },
+  { label: 'Carts', icon: '/vape-cartridges-megamenu.png', width: 200, height: 200, glowColor: '#A997BB', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.79 },
+  { label: 'Concentrates', icon: '/concentrates-megamenu.png', width: 200, height: 200, glowColor: '#E08A45', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.8 },
+];
 
 interface MoodPageProps {
   mood: Mood;
@@ -167,6 +187,32 @@ export default function MoodPage({
           <span className={moodStyles.separator}>/</span>
           <span className={moodStyles.current}>{mood.name}</span>
         </nav>
+
+        <div className={moodStyles.chipsRow}>
+          {CATEGORY_CHIPS.map((chip) => (
+            <div key={chip.label} className={moodStyles.chip}>
+              <span
+                className={moodStyles.chipIcon}
+                style={{
+                  '--glow-color': chip.glowColor,
+                  '--glow-size': `${chip.glowSize}px`,
+                  '--glow-blur': `${chip.glowBlur}px`,
+                  '--glow-opacity': String(chip.glowOpacity),
+                } as CSSProperties}
+              >
+                <span className={moodStyles.chipGlow} aria-hidden="true" />
+                <Image
+                  className={moodStyles.chipImage}
+                  src={chip.icon}
+                  alt=""
+                  width={chip.width}
+                  height={chip.height}
+                />
+              </span>
+              <span className={moodStyles.chipLabel}>{chip.label}</span>
+            </div>
+          ))}
+        </div>
 
         <header className={moodStyles.header}>
           {/* Always h2: the banner slot above provides the page's h1 in both the

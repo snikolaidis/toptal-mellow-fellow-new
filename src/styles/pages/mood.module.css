@@ -93,6 +93,88 @@
   }
 }
 
+.chipsRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  /* Not spacing. A scroll container clips at its padding box, so this is the
+     room the blur needs to fade; the negative margins cancel it back out.
+     Deleting both together leaves the layout identical and silently
+     reinstates the clipping. */
+  padding: 30px 16px;
+  margin: -30px -16px -3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent 100%);
+}
+
+.chipsRow::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .chipsRow {
+    flex-wrap: wrap;
+    padding: 0;
+    margin: 0 0 27px;
+    overflow-x: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+.chip {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  padding: 4.7px 16px 0;
+}
+
+.chipIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 63.156px;
+  height: 63.156px;
+  margin-bottom: 4.7px;
+}
+
+.chipGlow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--glow-size);
+  height: var(--glow-size);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--glow-color, transparent);
+  filter: blur(var(--glow-blur));
+  opacity: var(--glow-opacity, 1);
+}
+
+.chipImage {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.chipLabel {
+  margin-top: 5.77px;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: normal;
+  color: #000000;
+  white-space: nowrap;
+}
+
 .header {
   margin-bottom: 38px;
 }
