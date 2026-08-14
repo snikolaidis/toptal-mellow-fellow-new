@@ -103,7 +103,6 @@ export interface ProductACF {
   // Link field (url + title + target)
   userManual?: { url?: string | null; title?: string | null; target?: string | null } | null;
   // Image fields
-  blendsHighlights?: AcfImageField | null;
   timelineImage?: AcfImageField | null;
   // Post-object references (single)
   deviceFaqsReference?: { nodes?: Array<{ id?: string; title?: string; content?: string }> } | null;

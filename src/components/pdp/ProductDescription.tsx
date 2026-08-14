@@ -1,5 +1,4 @@
 import ProductCoaLink from '@/components/pdp/ProductCoaLink';
-import ProductBlendsHighlights from '@/components/pdp/ProductBlendsHighlights';
 import PdpTrustBadges from '@/components/pdp/PdpTrustBadges';
 import { Product } from '@/types/woocommerce';
 
@@ -23,7 +22,6 @@ export default function ProductDescription({ product }: Props) {
           <PdpTrustBadges />
         </div>
         <div className="column">
-          <ProductBlendsHighlights product={product} />
           <ProductCoaLink product={product} />
         </div>
       </div>

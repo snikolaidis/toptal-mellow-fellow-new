@@ -7,7 +7,11 @@
   $button-weight: 400,
   $button-padding-horizontal: 20px,
   $button-padding-vertical: 10px,
-  $navbar-burger-color: #000000
+  $navbar-burger-color: #000000,
+  $breadcrumb-item-color: #C1B5A5,
+  $breadcrumb-item-separator-color: #C1B5A5,
+  $breadcrumb-item-padding-horizontal: 3px,
+  $breadcrumb-item-active-color: #3E484F
 );
 
 @use 'fonts';

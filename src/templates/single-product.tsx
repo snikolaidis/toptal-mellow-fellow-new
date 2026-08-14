@@ -10,8 +10,10 @@ import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether'
 import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
+import Nutrition from '@/components/pdp/Nutrition';
 import FlavorsBox from '@/components/pdp/FlavorsBox';
 import AvailableOptions from '@/components/pdp/AvailableOptions';
+import Breadcrumb from '@/components/Breadcrumb';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
@@ -72,7 +74,6 @@ const SingleProduct: React.FC<SingleProductProps> & {
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [subSchemes, setSubSchemes] = useState<
     Array<{ period: string; interval: number; price: string; discount: number }>
@@ -146,7 +147,6 @@ const SingleProduct: React.FC<SingleProductProps> & {
     setQuantity(1);
     setSelectedVariation(null);
     setAddedToCart(false);
-    setActiveImageIndex(0);
   }, [product?.id]);
 
   useEffect(() => {
@@ -287,18 +287,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
       }}
     >
       <div className="container">
-        {/* Breadcrumb */}
-        <nav className="breadcrumb">
-          <Link href="/">Home</Link>
-          <span className="separator">/</span>
-          <Link href="/shop">Shop</Link>
-          {categories.length > 0 && (
-            <>
-              <span className="separator">/</span>
-              <Link href={`/shop?category=${categories[0].slug}`}>{categories[0].name}</Link>
-            </>
-          )}
-        </nav>
+        <Breadcrumb product={product} />
 
         <div className="columns">
           <div className="column">
@@ -691,6 +680,8 @@ const SingleProduct: React.FC<SingleProductProps> & {
                   <p>This item is out of stock. Check back soon!</p>
                 </div>
               )}
+
+              <Nutrition product={product} />
 
               <FrequentlyBoughtTogether
                 productId={product.databaseId}

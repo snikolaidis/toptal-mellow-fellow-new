@@ -22,16 +22,6 @@ export const PRODUCT_DETAILS_FIELDS = gql`
         }
       }
     }
-    blendsHighlights {
-      node {
-        sourceUrl
-        altText
-        mediaDetails {
-          width
-          height
-        }
-      }
-    }
     deviceFaqsReference {
       nodes {
         id
