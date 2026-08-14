@@ -9,6 +9,7 @@ import {
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
+import { decodeEntities } from '@/lib/decodeEntities';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import RichText from '@/components/RichText';
@@ -411,22 +412,25 @@ export default function CollectionsPage({
             <section className={styles.relatedCollections}>
               <h2 className={styles.relatedCollectionsTitle}>{relatedTitle}</h2>
               <div className={styles.relatedCollectionsTiles}>
-                {related.map((rc) => (
-                  <Link key={rc.id} href={`/collections/${rc.slug}`} className={styles.relatedCollectionTile}>
-                    {rc.collectionFields?.thumbnailImage?.node?.sourceUrl && (
-                      <span className={styles.relatedCollectionImageWrap}>
-                        <Image
-                          src={rc.collectionFields.thumbnailImage.node.sourceUrl}
-                          alt={rc.collectionFields.thumbnailImage.node.altText || rc.name}
-                          fill
-                          sizes="(max-width: 640px) 40vw, 200px"
-                          className={styles.relatedCollectionImage}
-                        />
-                      </span>
-                    )}
-                    <span className={styles.relatedCollectionLabel}>{rc.name}</span>
-                  </Link>
-                ))}
+                {related.map((rc) => {
+                  const rcName = decodeEntities(rc.name);
+                  return (
+                    <Link key={rc.id} href={`/collections/${rc.slug}`} className={styles.relatedCollectionTile}>
+                      {rc.collectionFields?.thumbnailImage?.node?.sourceUrl && (
+                        <span className={styles.relatedCollectionImageWrap}>
+                          <Image
+                            src={rc.collectionFields.thumbnailImage.node.sourceUrl}
+                            alt={rc.collectionFields.thumbnailImage.node.altText || rcName}
+                            fill
+                            sizes="(max-width: 640px) 40vw, 200px"
+                            className={styles.relatedCollectionImage}
+                          />
+                        </span>
+                      )}
+                      <span className={styles.relatedCollectionLabel}>{rcName}</span>
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           );
@@ -496,7 +500,22 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       return { notFound: true };
     }
 
-    const collection = metaRes.collection;
+    const raw = metaRes.collection;
+
+    // `description` must not be added here: it is real HTML rendered with
+    // dangerouslySetInnerHTML, so decoding it turns escaped markup into live
+    // markup.
+    const collection: Collection = {
+      ...raw,
+      name: decodeEntities(raw.name),
+      seo: raw.seo
+        ? {
+            ...raw.seo,
+            title: decodeEntities(raw.seo.title),
+            opengraphTitle: decodeEntities(raw.seo.opengraphTitle),
+          }
+        : raw.seo,
+    };
 
     // Facets from REST endpoint (single SQL query, ~10ms)
     const facetTerms = facetsRes?.success ? facetsRes.terms : {};
@@ -515,8 +534,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / PAGE_SIZE) : 0);
 
     // Related posts are matched server-side via the mu-plugin (mellow-fellow-related-posts.php)
-    // and exposed on the Collection type as `relatedPosts`.
-    const relatedPosts: BlogPostCard[] = collection.relatedPosts || [];
+    // and returned on the endpoint payload, not on the Collection type, so this
+    // reads from `raw` rather than the annotated `collection`.
+    const relatedPosts: BlogPostCard[] = raw.relatedPosts || [];
 
     const result = {
       props: {
