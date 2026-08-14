@@ -108,10 +108,6 @@ export default function MoodPage({
   const mobileSrc = heroMobile?.sourceUrl || heroDesktop?.sourceUrl;
   const hasHero = Boolean(desktopSrc || mobileSrc);
 
-  // With a banner the overlaid name is the h1, so this heading is a second-level
-  // repeat. Without one it is the page's only heading and has to be the h1.
-  const SectionHeading = hasHero ? 'h2' : 'h1';
-
   return (
     <Layout
       title={mood.name}
@@ -132,7 +128,7 @@ export default function MoodPage({
       )}
 
       <div className={moodStyles.page}>
-        {hasHero && (
+        {hasHero ? (
           <div className={moodStyles.hero}>
             {desktopSrc && (
               <div className={`${moodStyles.heroImageWrap} ${moodStyles.heroDesktop}`}>
@@ -160,6 +156,8 @@ export default function MoodPage({
             )}
             <h1 className={moodStyles.heroTitle}>{mood.name}</h1>
           </div>
+        ) : (
+          <h1 className={moodStyles.pageTitle}>{mood.name}</h1>
         )}
 
         <nav className={moodStyles.breadcrumb}>
@@ -171,7 +169,9 @@ export default function MoodPage({
         </nav>
 
         <header className={moodStyles.header}>
-          <SectionHeading className={moodStyles.sectionTitle}>{mood.name}</SectionHeading>
+          {/* Always h2: the banner slot above provides the page's h1 in both the
+              hero and no-hero cases. */}
+          <h2 className={moodStyles.sectionTitle}>{mood.name}</h2>
           {mood.description && (
             <>
               <div

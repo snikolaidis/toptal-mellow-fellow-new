@@ -76,6 +76,23 @@
   }
 }
 
+.pageTitle {
+  margin: 0 0 calc(47px - 0.294em);
+  font-family: var(--font-family-display);
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 0.9;
+  font-variant-caps: all-small-caps;
+  text-align: left;
+  color: var(--color-ink);
+}
+
+@media (min-width: 768px) {
+  .pageTitle {
+    font-size: 96px;
+  }
+}
+
 .header {
   margin-bottom: 38px;
 }
