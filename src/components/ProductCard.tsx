@@ -5,6 +5,7 @@ import { useCart } from '@/context/CartContext';
 import { ReactNode, useState } from 'react';
 import QuickView from '@/components/shop/QuickView';
 import { recordWidgetSource, WidgetSource } from '@/lib/widgetAttribution';
+import { decodeEntities } from '@/lib/decodeEntities';
 
 interface ProductCardProps {
   product: Product;
@@ -49,9 +50,9 @@ export default function ProductCard({ product, badge, priority = false, source }
 
   // Product attribute taxonomies (first assigned term of each).
   const strainType = product.strainTypes?.nodes?.[0]?.name;
-  const strainName = product.strainNames?.nodes?.[0]?.name;
+  const strainName = decodeEntities(product.strainNames?.nodes?.[0]?.name);
   const blendType = product.blendTypes?.nodes?.[0]?.name;
-  const lineCollection = product.productLines?.nodes?.[0]?.name;
+  const lineCollection = decodeEntities(product.productLines?.nodes?.[0]?.name);
   const size = product.size?.nodes?.[0]?.name;
   const mG = product.mG?.nodes?.[0]?.name;
   const pieces = product.pieces?.nodes?.[0]?.name;
