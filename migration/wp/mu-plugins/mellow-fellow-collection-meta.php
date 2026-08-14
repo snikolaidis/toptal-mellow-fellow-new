@@ -82,9 +82,11 @@ function mf_get_collection_meta( WP_REST_Request $request ) {
     // -----------------------------------------------------------------------
     // Text fields
     // -----------------------------------------------------------------------
-    $warning   = mf_acf_get( $acf, [ 'warning_message', 'warningMessage' ] );
-    $faq_title = mf_acf_get( $acf, [ 'faq_section_title', 'faqSectionTitle' ] );
-    $rel_title = mf_acf_get( $acf, [ 'related_collection_title', 'relatedCollectionTitle' ] );
+    $warning       = mf_acf_get( $acf, [ 'warning_message', 'warningMessage' ] );
+    $faq_title     = mf_acf_get( $acf, [ 'faq_section_title', 'faqSectionTitle' ] );
+    $rel_title     = mf_acf_get( $acf, [ 'related_collection_title', 'relatedCollectionTitle' ] );
+    $intro_heading = mf_acf_get( $acf, [ 'intro_heading', 'introHeading' ] );
+    $intro_text    = mf_acf_get( $acf, [ 'intro_text', 'introText' ] );
 
     // -----------------------------------------------------------------------
     // Thumbnail image (used when this collection appears as a related collection)
@@ -198,6 +200,8 @@ function mf_get_collection_meta( WP_REST_Request $request ) {
                 $term_tax . 'HeroDesktop'  => $hero_desktop ? [ 'node' => $hero_desktop ] : null,
                 $term_tax . 'HeroMobile'   => $hero_mobile ? [ 'node' => $hero_mobile ] : null,
                 'warningMessage'           => $warning ?: null,
+                'introHeading'             => $intro_heading ?: null,
+                'introText'                => $intro_text ?: null,
                 'faqSectionTitle'          => $faq_title ?: null,
                 'faqs'                     => [ 'nodes' => $faqs ],
                 'relatedCollectionTitle'   => $rel_title ?: null,
