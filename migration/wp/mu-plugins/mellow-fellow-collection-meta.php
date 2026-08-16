@@ -14,7 +14,13 @@ add_action( 'rest_api_init', function () {
         'callback'            => 'mf_get_collection_meta',
         'permission_callback' => '__return_true',
         'args'                => [
-            'slug' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_title' ],
+            'slug'     => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_title' ],
+            // Deliberately no sanitize_callback. WP applies it to the raw value during
+            // dispatch, so taxonomy[]=x hands an array to sanitize_title() and fatals
+            // before mf_resolve_taxonomy_param() runs. No 'type' either: it would make
+            // WP reject an array with a 400 rather than falling back, and falling back
+            // is the contract. The allowlist is the control.
+            'taxonomy' => [ 'required' => false, 'default' => 'collection' ],
         ],
     ] );
 } );
@@ -51,33 +57,36 @@ function mf_acf_get( $fields, $keys ) {
 
 function mf_get_collection_meta( WP_REST_Request $request ) {
     $slug = $request->get_param( 'slug' );
+    $term_tax = function_exists( 'mf_resolve_taxonomy_param' ) ? mf_resolve_taxonomy_param( $request ) : 'collection';
 
-    $cache_key = 'mf_cmeta_' . md5( $slug );
+    $cache_key = 'mf_cmeta_' . md5( $term_tax . ':' . $slug );
     $cached = get_transient( $cache_key );
     if ( $cached !== false ) {
         return new WP_REST_Response( $cached, 200 );
     }
 
-    $term = get_term_by( 'slug', $slug, 'collection' );
+    $term = get_term_by( 'slug', $slug, $term_tax );
     if ( ! $term || is_wp_error( $term ) ) {
-        return new WP_REST_Response( [ 'success' => false, 'message' => 'Collection not found' ], 404 );
+        return new WP_REST_Response( [ 'success' => false, 'message' => ucfirst( $term_tax ) . ' not found' ], 404 );
     }
 
     $tid = $term->term_id;
-    $acf = function_exists( 'get_fields' ) ? ( get_fields( 'collection_' . $tid ) ?: [] ) : [];
+    $acf = function_exists( 'get_fields' ) ? ( get_fields( $term_tax . '_' . $tid ) ?: [] ) : [];
 
     // -----------------------------------------------------------------------
     // Hero images
     // -----------------------------------------------------------------------
-    $hero_desktop = mf_resolve_image( mf_acf_get( $acf, [ 'collection_hero_desktop', 'collectionHeroDesktop' ] ) );
-    $hero_mobile  = mf_resolve_image( mf_acf_get( $acf, [ 'collection_hero_mobile', 'collectionHeroMobile' ] ) );
+    $hero_desktop = mf_resolve_image( mf_acf_get( $acf, [ $term_tax . '_hero_desktop', 'collectionHeroDesktop' ] ) );
+    $hero_mobile  = mf_resolve_image( mf_acf_get( $acf, [ $term_tax . '_hero_mobile', 'collectionHeroMobile' ] ) );
 
     // -----------------------------------------------------------------------
     // Text fields
     // -----------------------------------------------------------------------
-    $warning   = mf_acf_get( $acf, [ 'warning_message', 'warningMessage' ] );
-    $faq_title = mf_acf_get( $acf, [ 'faq_section_title', 'faqSectionTitle' ] );
-    $rel_title = mf_acf_get( $acf, [ 'related_collection_title', 'relatedCollectionTitle' ] );
+    $warning       = mf_acf_get( $acf, [ 'warning_message', 'warningMessage' ] );
+    $faq_title     = mf_acf_get( $acf, [ 'faq_section_title', 'faqSectionTitle' ] );
+    $rel_title     = mf_acf_get( $acf, [ 'related_collection_title', 'relatedCollectionTitle' ] );
+    $intro_heading = mf_acf_get( $acf, [ 'intro_heading', 'introHeading' ] );
+    $intro_text    = mf_acf_get( $acf, [ 'intro_text', 'introText' ] );
 
     // -----------------------------------------------------------------------
     // Thumbnail image (used when this collection appears as a related collection)
@@ -116,17 +125,17 @@ function mf_get_collection_meta( WP_REST_Request $request ) {
     foreach ( $rel_raw as $rc ) {
         $rc_tid  = is_object( $rc ) ? $rc->term_id : ( is_numeric( $rc ) ? (int) $rc : 0 );
         if ( ! $rc_tid ) continue;
-        $rc_term = is_object( $rc ) ? $rc : get_term( $rc_tid, 'collection' );
+        $rc_term = is_object( $rc ) ? $rc : get_term( $rc_tid, $term_tax );
         if ( ! $rc_term || is_wp_error( $rc_term ) ) continue;
 
-        $rc_acf  = function_exists( 'get_fields' ) ? ( get_fields( 'collection_' . $rc_tid ) ?: [] ) : [];
+        $rc_acf  = function_exists( 'get_fields' ) ? ( get_fields( $term_tax . '_' . $rc_tid ) ?: [] ) : [];
         $rc_thumb = mf_resolve_image( mf_acf_get( $rc_acf, [ 'thumbnail_image', 'thumbnailImage' ] ) );
 
         $related_collections[] = [
-            'id'               => base64_encode( 'collection:' . $rc_tid ),
+            'id'               => base64_encode( $term_tax . ':' . $rc_tid ),
             'name'             => $rc_term->name,
             'slug'             => $rc_term->slug,
-            'collectionFields' => [
+            $term_tax . 'Fields' => [
                 'thumbnailImage' => $rc_thumb ? [ 'node' => $rc_thumb ] : null,
             ],
         ];
@@ -179,18 +188,20 @@ function mf_get_collection_meta( WP_REST_Request $request ) {
     // Assemble
     // -----------------------------------------------------------------------
     $result = [
-        'success'    => true,
-        'collection' => [
-            'id'               => base64_encode( 'collection:' . $tid ),
+        'success'  => true,
+        $term_tax  => [
+            'id'               => base64_encode( $term_tax . ':' . $tid ),
             'databaseId'       => $tid,
             'name'             => $term->name,
             'slug'             => $term->slug,
-            'description'      => term_description( $tid, 'collection' ),
+            'description'      => term_description( $tid, $term_tax ),
             'count'            => (int) $term->count,
-            'collectionFields' => [
-                'collectionHeroDesktop'    => $hero_desktop ? [ 'node' => $hero_desktop ] : null,
-                'collectionHeroMobile'     => $hero_mobile ? [ 'node' => $hero_mobile ] : null,
+            $term_tax . 'Fields' => [
+                $term_tax . 'HeroDesktop'  => $hero_desktop ? [ 'node' => $hero_desktop ] : null,
+                $term_tax . 'HeroMobile'   => $hero_mobile ? [ 'node' => $hero_mobile ] : null,
                 'warningMessage'           => $warning ?: null,
+                'introHeading'             => $intro_heading ?: null,
+                'introText'                => $intro_text ?: null,
                 'faqSectionTitle'          => $faq_title ?: null,
                 'faqs'                     => [ 'nodes' => $faqs ],
                 'relatedCollectionTitle'   => $rel_title ?: null,

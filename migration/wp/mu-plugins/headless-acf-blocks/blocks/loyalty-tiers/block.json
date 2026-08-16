@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/loyalty-tiers",
+	"title": "Loyalty Tiers",
+	"description": "A gradient panel with a badge, heading, copy, a CTA and a tier benefits table. Rendered on the frontend by the Faust.js app.",
+	"category": "headless-blocks",
+	"icon": "awards",
+	"keywords": [ "loyalty", "rewards", "tiers", "club" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\LoyaltyTiers\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

@@ -1,4 +1,5 @@
 import { gql, useQuery } from '@apollo/client';
+import { fragments } from './UgcCarousel.fragments';
 import UGCGallery, { UGCItem } from '@/components/affiliate/UGCGallery';
 import { getClient, getBrowserClient } from '@/lib/apollo-client';
 
@@ -86,13 +87,4 @@ export default function UgcCarousel(props: UgcCarouselProps) {
 
 UgcCarousel.displayName = 'AcfUgcCarousel';
 
-UgcCarousel.fragments = {
-  key: `AcfUgcCarouselFragment`,
-  entry: gql`
-    fragment AcfUgcCarouselFragment on AcfUgcCarousel {
-      ugcCarousel {
-        title
-      }
-    }
-  `,
-};
+UgcCarousel.fragments = fragments;

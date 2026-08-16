@@ -13,6 +13,8 @@ add_action( 'acf/init', 'mf_register_site_settings_options_page' );
 add_action( 'acf/init', 'mf_register_site_settings_fields' );
 add_action( 'acf/init', 'mf_register_landing_page_icon_row_fields' );
 add_action( 'acf/init', 'mf_register_value_props_fields' );
+add_action( 'acf/init', 'mf_register_announcement_bar_fields' );
+add_action( 'acf/init', 'mf_register_mega_menu_featured_fields' );
 
 function mf_register_site_settings_options_page() {
     if ( ! function_exists( 'acf_add_options_page' ) ) {
@@ -220,5 +222,142 @@ function mf_register_landing_page_icon_row_fields() {
         'active'             => true,
         'show_in_graphql'    => 1,
         'graphql_field_name' => 'landingPageIconRow',
+    ] );
+}
+
+function mf_register_announcement_bar_fields() {
+    if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+        return;
+    }
+
+    acf_add_local_field_group( [
+        'key'    => 'group_mf_announcement_bar',
+        'title'  => 'Announcement Bar',
+        'fields' => [
+            [
+                'key'          => 'field_mf_ann_items',
+                'label'        => 'Announcements',
+                'name'         => 'items',
+                'type'         => 'repeater',
+                'instructions' => 'The rotating bar above the site header. Drag rows to set the display order. Leave empty to keep the built-in defaults.',
+                'layout'       => 'block',
+                'button_label' => 'Add Announcement',
+                'min'          => 0,
+                'sub_fields'   => [
+                    [
+                        'key'      => 'field_mf_ann_label',
+                        'label'    => 'Label',
+                        'name'     => 'label',
+                        'type'     => 'text',
+                        'required' => 1,
+                        'wrapper'  => [ 'width' => '30' ],
+                    ],
+                    [
+                        'key'           => 'field_mf_ann_label_color',
+                        'label'         => 'Label colour',
+                        'name'          => 'label_color',
+                        'type'          => 'color_picker',
+                        'instructions'  => 'Colours the label text only, not the bar.',
+                        'return_format' => 'string',
+                        'required'      => 0,
+                        'wrapper'       => [ 'width' => '20' ],
+                    ],
+                    [
+                        'key'           => 'field_mf_ann_icon',
+                        'label'         => 'Icon',
+                        'name'          => 'icon',
+                        'type'          => 'image',
+                        'instructions'  => 'Rendered at 16x16. SVG is fine.',
+                        'return_format' => 'array',
+                        'preview_size'  => 'thumbnail',
+                        'required'      => 0,
+                        'wrapper'       => [ 'width' => '25' ],
+                    ],
+                    [
+                        'key'          => 'field_mf_ann_link',
+                        'label'        => 'Link',
+                        'name'         => 'link',
+                        'type'         => 'link',
+                        'instructions' => 'Optional. Makes the announcement clickable.',
+                        'required'     => 0,
+                        'wrapper'      => [ 'width' => '25' ],
+                    ],
+                ],
+            ],
+        ],
+        'location' => [ [ [
+            'param'    => 'options_page',
+            'operator' => '==',
+            'value'    => 'mf-site-settings',
+        ] ] ],
+        'active'             => true,
+        'show_in_graphql'    => 1,
+        'graphql_field_name' => 'announcementBar',
+    ] );
+}
+
+function mf_register_mega_menu_featured_fields() {
+    if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+        return;
+    }
+
+    acf_add_local_field_group( [
+        'key'    => 'group_mf_mega_menu_featured',
+        'title'  => 'Mega Menu Featured Panel',
+        'fields' => [
+            [
+                'key'           => 'field_mf_feat_image',
+                'label'         => 'Image',
+                'name'          => 'image',
+                'type'          => 'image',
+                'return_format' => 'array',
+                'preview_size'  => 'medium',
+                'required'      => 0,
+                'wrapper'       => [ 'width' => '50' ],
+            ],
+            [
+                'key'      => 'field_mf_feat_caption',
+                'label'    => 'Caption',
+                'name'     => 'caption',
+                'type'     => 'text',
+                'required' => 0,
+                'wrapper'  => [ 'width' => '50' ],
+            ],
+            [
+                'key'          => 'field_mf_feat_links',
+                'label'        => 'Links',
+                'name'         => 'links',
+                'type'         => 'repeater',
+                'instructions' => 'Up to three text links below the image. Drag rows to set the display order.',
+                'layout'       => 'table',
+                'button_label' => 'Add Link',
+                'min'          => 0,
+                'max'          => 3,
+                'sub_fields'   => [
+                    [
+                        'key'      => 'field_mf_feat_row_label',
+                        'label'    => 'Label',
+                        'name'     => 'label',
+                        'type'     => 'text',
+                        'required' => 1,
+                    ],
+                    [
+                        'key'      => 'field_mf_feat_row_link',
+                        'label'    => 'Link',
+                        'name'     => 'link',
+                        'type'     => 'link',
+                        'required' => 1,
+                    ],
+                ],
+            ],
+        ],
+        'location' => [ [ [
+            'param'    => 'options_page',
+            'operator' => '==',
+            'value'    => 'mf-site-settings',
+        ] ] ],
+        'active'             => true,
+        'show_in_graphql'    => 1,
+        'graphql_field_name' => 'megaMenuFeatured',
     ] );
 }

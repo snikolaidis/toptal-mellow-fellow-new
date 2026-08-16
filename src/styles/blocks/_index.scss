@@ -1,4 +1,5 @@
 @use 'blog-posts';
+@use 'category-tabs';
 @use 'collection-cards-set';
 @use 'collection-group';
 @use 'collection-links';
@@ -8,7 +9,12 @@
 @use 'featured-collection';
 @use 'image-carousel';
 @use 'image-slider';
+@use 'loyalty-tiers';
 @use 'promo-slider';
+@use 'quiz-hero';
+@use 'shop-by-mood';
 @use 'shoppable-hero';
+@use 'social-proof-strip';
 @use 'ugc-carousel';
 @use 'value-props-set';
+@use 'what-sets-us-apart';

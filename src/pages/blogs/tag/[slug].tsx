@@ -1,6 +1,7 @@
 import { GetStaticPaths, GetStaticProps } from 'next';
 import { gql } from '@apollo/client';
 import { getClient } from '@/lib/apollo-client';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { fetchAllTags } from '@/graphql/queries/posts';
 import Layout from '@/components/Layout';
 import BlogIndex from '@/templates/blogs/BlogIndex';
@@ -125,24 +126,25 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   try {
     const client = getClient();
 
-    const [tagResult, posts, allTags] = await Promise.all([
+    const [tagResult, posts, allTags, menuClient] = await Promise.all([
       client.query({ query: GET_TAG_META, variables: { id: slug } }),
       fetchTagPosts(client, slug),
       fetchAllTags(client),
+      prefetchMenus(),
     ]);
 
     if (!tagResult.data?.tag || !posts.length) {
       return { notFound: true };
     }
 
-    return {
-      props: {
-        tag: tagResult.data.tag,
-        posts,
-        allTags,
-      },
-      revalidate: 60,
+    const props: Record<string, any> = {
+      tag: tagResult.data.tag,
+      posts,
+      allTags,
     };
+    mergeMenuState(props, menuClient);
+
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error('Error fetching tag posts:', error);
     return { notFound: true };

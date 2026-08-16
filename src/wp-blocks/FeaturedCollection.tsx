@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './FeaturedCollection.fragments';
 import { useState, useEffect } from 'react';
 import { Product } from '@/types/woocommerce';
 import ProductCard from '@/components/ProductCard';
@@ -79,29 +79,4 @@ export default function FeaturedCollection(props: FeaturedCollectionProps) {
 
 FeaturedCollection.displayName = 'AcfFeaturedCollection';
 
-FeaturedCollection.fragments = {
-  key: `AcfFeaturedCollectionFragment`,
-  entry: gql`
-    fragment AcfFeaturedCollectionFragment on AcfFeaturedCollection {
-      featuredCollection {
-        title
-        productCount
-        button {
-          url
-          title
-          target
-        }
-        collection {
-          nodes {
-            __typename
-            ... on Collection {
-              databaseId
-              name
-              slug
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+FeaturedCollection.fragments = fragments;

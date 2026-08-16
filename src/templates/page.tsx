@@ -3,6 +3,7 @@ import { FaustTemplate } from '@faustwp/core';
 import Layout from '@/components/Layout';
 import ContentPage from '@/components/ContentPage';
 import blocks from '@/wp-blocks';
+import * as blockFragments from '@/wp-blocks/fragments';
 import type { ContentPageData } from '@/types/mellow-fellow';
 
 interface PageData {
@@ -21,11 +22,11 @@ const Page: FaustTemplate<PageData> = (props) => {
 };
 
 Page.query = gql`
-  ${blocks.AcfFaq.fragments.entry}
-  ${blocks.AcfUgcCarousel.fragments.entry}
-  ${blocks.AcfPromoSlider.fragments.entry}
-  ${blocks.AcfBlogPosts.fragments.entry}
-  ${blocks.AcfReviewsCarousel.fragments.entry}
+  ${blockFragments.AcfFaq.entry}
+  ${blockFragments.AcfUgcCarousel.entry}
+  ${blockFragments.AcfPromoSlider.entry}
+  ${blockFragments.AcfBlogPosts.entry}
+  ${blockFragments.AcfReviewsCarousel.entry}
   query GenericPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       title
@@ -33,11 +34,11 @@ Page.query = gql`
       editorBlocks(flat: false) {
         __typename
         renderedHtml
-        ...${blocks.AcfFaq.fragments.key}
-        ...${blocks.AcfUgcCarousel.fragments.key}
-        ...${blocks.AcfPromoSlider.fragments.key}
-        ...${blocks.AcfBlogPosts.fragments.key}
-        ...${blocks.AcfReviewsCarousel.fragments.key}
+        ...${blockFragments.AcfFaq.key}
+        ...${blockFragments.AcfUgcCarousel.key}
+        ...${blockFragments.AcfPromoSlider.key}
+        ...${blockFragments.AcfBlogPosts.key}
+        ...${blockFragments.AcfReviewsCarousel.key}
       }
       seo {
         title

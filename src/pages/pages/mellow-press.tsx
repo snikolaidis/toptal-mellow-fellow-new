@@ -1,4 +1,5 @@
 import { GetStaticProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import ContentPage from '@/components/ContentPage';
 import ContactForm from '@/components/ContactForm';
@@ -27,12 +28,13 @@ export default function MellowPressPage({ page, articles }: PressPageProps) {
 export const getStaticProps: GetStaticProps<PressPageProps> = async () => {
   try {
     const client = getClient();
-    const [pageResult, newsResult] = await Promise.all([
+    const [pageResult, newsResult, menuClient] = await Promise.all([
       client.query({
         query: GET_CONTENT_PAGE_BY_SLUG,
         variables: { slug: '/mellow-press' },
       }),
       client.query({ query: GET_NEWS_ARTICLES }),
+      prefetchMenus(),
     ]);
     const articles = [...(newsResult.data?.newsArticles?.nodes ?? [])].sort((a, b) => {
       const ta = Date.parse(a?.newsArticleDetails?.publicationDate ?? '');
@@ -41,13 +43,9 @@ export const getStaticProps: GetStaticProps<PressPageProps> = async () => {
       const vb = Number.isNaN(tb) ? -Infinity : tb;
       return vb - va;
     });
-    return {
-      props: {
-        page: pageResult.data?.page ?? null,
-        articles,
-      },
-      revalidate: 60,
-    };
+    const props = { page: pageResult.data?.page ?? null, articles } as any;
+    mergeMenuState(props, menuClient);
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error('Error fetching mellow-press page:', error);
     return { props: { page: null, articles: [] }, revalidate: 60 };

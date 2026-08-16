@@ -1,4 +1,5 @@
 import { GetStaticProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import type LType from 'leaflet';
@@ -222,14 +223,15 @@ export default function StoreLocatorPage({ stores }: StoreLocatorProps) {
 
 export const getStaticProps: GetStaticProps = async () => {
   try {
-    const res = await fetch(STORES_ENDPOINT);
-    const data = await res.json();
-    return {
-      props: {
-        stores: Array.isArray(data?.stores) ? data.stores : [],
-      },
-      revalidate: 1800,
+    const [storesRes, menuClient] = await Promise.all([
+      fetch(STORES_ENDPOINT).then((r) => r.json()),
+      prefetchMenus(),
+    ]);
+    const props: Record<string, any> = {
+      stores: Array.isArray(storesRes?.stores) ? storesRes.stores : [],
     };
+    mergeMenuState(props, menuClient);
+    return { props, revalidate: 1800 };
   } catch {
     return {
       props: { stores: [] },

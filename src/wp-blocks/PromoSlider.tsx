@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './PromoSlider.fragments';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -80,32 +80,4 @@ export default function PromoSlider(props: PromoSliderProps) {
 
 PromoSlider.displayName = 'AcfPromoSlider';
 
-PromoSlider.fragments = {
-  key: `AcfPromoSliderFragment`,
-  entry: gql`
-    fragment AcfPromoSliderFragment on AcfPromoSlider {
-      promoSlider {
-        slides {
-          heading
-          subheading
-          buttonText
-          buttonLink {
-            url
-            title
-            target
-          }
-          image {
-            node {
-              sourceUrl
-              altText
-              mediaDetails {
-                width
-                height
-              }
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+PromoSlider.fragments = fragments;

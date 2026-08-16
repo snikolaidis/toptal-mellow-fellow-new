@@ -1,0 +1,75 @@
+{
+    "key": "group_quiz_hero",
+    "title": "Quiz Hero Fields",
+    "fields": [
+        {
+            "key": "field_quiz_hero_eyebrow",
+            "label": "Eyebrow",
+            "name": "eyebrow",
+            "type": "text",
+            "required": 0
+        },
+        {
+            "key": "field_quiz_hero_heading",
+            "label": "Heading",
+            "name": "heading",
+            "type": "text",
+            "required": 1
+        },
+        {
+            "key": "field_quiz_hero_subheading",
+            "label": "Subheading",
+            "name": "subheading",
+            "type": "textarea",
+            "rows": 3,
+            "required": 0
+        },
+        {
+            "key": "field_quiz_hero_cta_button",
+            "label": "CTA Button",
+            "name": "cta_button",
+            "type": "link",
+            "required": 0
+        },
+        {
+            "key": "field_quiz_hero_cta_highlight",
+            "label": "CTA Highlight",
+            "name": "cta_highlight",
+            "type": "text",
+            "instructions": "Emphasized part of the button label, for example 15% OFF.",
+            "required": 0
+        },
+        {
+            "key": "field_quiz_hero_mobile_image",
+            "label": "Mobile Image",
+            "name": "mobile_image",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "medium",
+            "instructions": "Product image shown on the right, mobile only. Leave empty to use the default.",
+            "required": 0
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/quiz-hero"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "quizHero",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfQuizHero"
+    ]
+}

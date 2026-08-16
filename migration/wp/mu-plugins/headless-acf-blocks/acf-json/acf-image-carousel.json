@@ -11,6 +11,21 @@
             "required": 0
         },
         {
+            "key": "field_ic_background_variant",
+            "label": "Background",
+            "name": "background_variant",
+            "type": "button_group",
+            "instructions": "Default keeps the page background. Featured bar draws the full width teal band.",
+            "choices": {
+                "default": "Default",
+                "featured_bar": "Featured bar"
+            },
+            "default_value": "default",
+            "return_format": "value",
+            "allow_null": 0,
+            "required": 0
+        },
+        {
             "key": "field_ic_images",
             "label": "Images",
             "name": "images",

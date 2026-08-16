@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './HeroSlider.fragments';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination, Navigation } from 'swiper/modules';
 import 'swiper/css';
@@ -107,49 +107,4 @@ export default function HeroSlider(props: HeroSliderProps) {
 
 HeroSlider.displayName = 'AcfHeroSlider';
 
-HeroSlider.fragments = {
-  key: `AcfHeroSliderFragment`,
-  entry: gql`
-    fragment AcfHeroSliderFragment on AcfHeroSlider {
-      heroSlider {
-        slides {
-          link {
-            url
-            title
-            target
-          }
-          mobileImage {
-            node {
-              altText
-              sourceUrl
-              mediaDetails {
-                width
-                height
-              }
-            }
-          }
-          tabletImage {
-            node {
-              altText
-              sourceUrl
-              mediaDetails {
-                width
-                height
-              }
-            }
-          }
-          desktopImage {
-            node {
-              altText
-              sourceUrl
-              mediaDetails {
-                width
-                height
-              }
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+HeroSlider.fragments = fragments;

@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './ImageSlider.fragments';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Mousewheel } from 'swiper/modules';
 import 'swiper/css';
@@ -118,34 +118,4 @@ export default function ImageSlider(props: ImageSliderProps) {
 
 ImageSlider.displayName = 'AcfImageSlider';
 
-ImageSlider.fragments = {
-  key: `AcfImageSliderFragment`,
-  entry: gql`
-    fragment AcfImageSliderFragment on AcfImageSlider {
-      imageSlider {
-        globalTitle
-        slides {
-          heading
-          subheading
-          tertiaryHeading
-          textColor
-          link {
-            url
-            title
-            target
-          }
-          image {
-            node {
-              altText
-              sourceUrl
-              mediaDetails {
-                width
-                height
-              }
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+ImageSlider.fragments = fragments;

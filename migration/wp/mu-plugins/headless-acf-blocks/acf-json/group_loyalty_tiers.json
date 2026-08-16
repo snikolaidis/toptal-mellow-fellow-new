@@ -1,0 +1,145 @@
+{
+    "key": "group_loyalty_tiers",
+    "title": "Loyalty Tiers Fields",
+    "fields": [
+        {
+            "key": "field_lt_badge_icon",
+            "label": "Badge icon",
+            "name": "badge_icon",
+            "type": "image",
+            "return_format": "array",
+            "preview_size": "thumbnail",
+            "instructions": "Small icon shown on both sides of the badge.",
+            "required": 0
+        },
+        {
+            "key": "field_lt_badge_text",
+            "label": "Badge text",
+            "name": "badge_text",
+            "type": "text",
+            "instructions": "Shown uppercase. Type it in normal case.",
+            "required": 0
+        },
+        {
+            "key": "field_lt_heading",
+            "label": "Heading",
+            "name": "heading",
+            "type": "text",
+            "required": 1
+        },
+        {
+            "key": "field_lt_body",
+            "label": "Body",
+            "name": "body",
+            "type": "textarea",
+            "rows": 3,
+            "required": 0
+        },
+        {
+            "key": "field_lt_cta",
+            "label": "Button",
+            "name": "cta",
+            "type": "link",
+            "required": 0
+        },
+        {
+            "key": "field_lt_tiers_title",
+            "label": "Table title",
+            "name": "tiers_title",
+            "type": "text",
+            "instructions": "Shown uppercase. Type it in normal case.",
+            "required": 0
+        },
+        {
+            "key": "field_lt_tiers",
+            "label": "Tiers",
+            "name": "tiers",
+            "type": "repeater",
+            "layout": "block",
+            "button_label": "Add tier",
+            "required": 0,
+            "sub_fields": [
+                {
+                    "key": "field_lt_tier_icon",
+                    "label": "Icon",
+                    "name": "icon",
+                    "type": "image",
+                    "return_format": "array",
+                    "preview_size": "thumbnail",
+                    "required": 0
+                },
+                {
+                    "key": "field_lt_tier_icon_bg",
+                    "label": "Icon background",
+                    "name": "icon_bg",
+                    "type": "color_picker",
+                    "return_format": "string",
+                    "required": 0
+                },
+                {
+                    "key": "field_lt_tier_name",
+                    "label": "Tier name",
+                    "name": "name",
+                    "type": "text",
+                    "required": 1
+                },
+                {
+                    "key": "field_lt_tier_points",
+                    "label": "Points range",
+                    "name": "points",
+                    "type": "text",
+                    "required": 0
+                },
+                {
+                    "key": "field_lt_tier_benefits",
+                    "label": "Benefits",
+                    "name": "benefits",
+                    "type": "repeater",
+                    "layout": "table",
+                    "button_label": "Add benefit",
+                    "required": 0,
+                    "sub_fields": [
+                        {
+                            "key": "field_lt_benefit_icon",
+                            "label": "Icon",
+                            "name": "icon",
+                            "type": "image",
+                            "return_format": "array",
+                            "preview_size": "thumbnail",
+                            "required": 0
+                        },
+                        {
+                            "key": "field_lt_benefit_label",
+                            "label": "Label",
+                            "name": "label",
+                            "type": "text",
+                            "required": 1
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/loyalty-tiers"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "loyaltyTiers",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfLoyaltyTiers"
+    ]
+}

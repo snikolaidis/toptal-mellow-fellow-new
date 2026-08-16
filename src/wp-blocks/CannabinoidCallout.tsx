@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './CannabinoidCallout.fragments';
 import Image from 'next/image';
 import Link from 'next/link';
 import RichText from '@/components/RichText';
@@ -93,34 +93,4 @@ export default function CannabinoidCallout(props: CannabinoidCalloutProps) {
 
 CannabinoidCallout.displayName = 'AcfCannabinoidCallout';
 
-CannabinoidCallout.fragments = {
-  key: `AcfCannabinoidCalloutFragment`,
-  entry: gql`
-    fragment AcfCannabinoidCalloutFragment on AcfCannabinoidCallout {
-      cannabinoidCallout {
-        name
-        description
-        icon {
-          node {
-            sourceUrl
-            altText
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-        learnLink {
-          url
-          title
-          target
-        }
-        shopLink {
-          url
-          title
-          target
-        }
-      }
-    }
-  `,
-};
+CannabinoidCallout.fragments = fragments;

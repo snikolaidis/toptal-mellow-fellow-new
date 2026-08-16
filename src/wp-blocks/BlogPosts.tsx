@@ -1,5 +1,6 @@
-import { gql, useQuery } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import Link from 'next/link';
+import { fragments } from './BlogPosts.fragments';
 import Image from 'next/image';
 import { getClient, getBrowserClient } from '@/lib/apollo-client';
 import { GET_LATEST_POSTS } from '@/graphql/queries/posts';
@@ -15,6 +16,7 @@ interface PostNode {
 interface BlogPostsProps {
   blogPosts?: {
     title?: string | null;
+    subheading?: string | null;
     postCount?: number | null;
     buttonText?: string | null;
     buttonLink?: { url?: string | null; title?: string | null; target?: string | null } | null;
@@ -33,6 +35,7 @@ const formatDate = (value?: string | null) => {
 export default function BlogPosts(props: BlogPostsProps) {
   const data = props.blogPosts;
   const title = data?.title || 'From the blog';
+  const subheading = data?.subheading || '';
   const count = Math.max(2, Math.floor(data?.postCount || 5));
   const buttonText = data?.buttonText || '';
   const buttonUrl = data?.buttonLink?.url || '/blogs';
@@ -56,9 +59,7 @@ export default function BlogPosts(props: BlogPostsProps) {
       <div className="container">
         <div className="blog-posts__header">
           <h3 className="blog-posts__title">{title}</h3>
-          <Link href="/blogs" className="blog-posts__view-all">
-            View all
-          </Link>
+          {subheading && <p className="blog-posts__subheading">{subheading}</p>}
         </div>
 
         <div className="blog-posts__layout">
@@ -119,20 +120,4 @@ export default function BlogPosts(props: BlogPostsProps) {
 
 BlogPosts.displayName = 'AcfBlogPosts';
 
-BlogPosts.fragments = {
-  key: `AcfBlogPostsFragment`,
-  entry: gql`
-    fragment AcfBlogPostsFragment on AcfBlogPosts {
-      blogPosts {
-        title
-        postCount
-        buttonText
-        buttonLink {
-          url
-          title
-          target
-        }
-      }
-    }
-  `,
-};
+BlogPosts.fragments = fragments;

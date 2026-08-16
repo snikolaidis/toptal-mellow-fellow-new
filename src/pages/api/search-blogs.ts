@@ -1,9 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Meilisearch } from 'meilisearch';
 import { withRateLimitOnly } from '@/lib/middleware';
+import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-client';
 
-const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
-const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
 const POSTS_INDEX = 'posts';
 const DEFAULT_LIMIT = 4;
 const MAX_LIMIT = 12;
@@ -35,15 +33,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     Math.min(MAX_LIMIT, Number.isFinite(firstRaw) ? firstRaw : DEFAULT_LIMIT)
   );
 
-  if (!MEILI_HOST || !MEILI_SEARCH_KEY) {
+  if (!isSearchConfigured()) {
     return res
       .status(503)
       .json({ success: false, message: 'Search is not configured', posts: [] });
   }
 
   try {
-    const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
-    const result = await client.index(POSTS_INDEX).search<PostHit>(q, {
+    const result = await getSearchClient().index(POSTS_INDEX).search<PostHit>(capQuery(q), {
       limit: first,
       sort: ['date:desc'],
       attributesToRetrieve: ['databaseId', 'title', 'slug', 'date', 'excerpt', 'featuredImage'],
@@ -67,7 +64,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     return res.status(200).json({ success: true, posts });
   } catch (error) {
-    console.error('[Search Blogs API] Query failed');
+    console.error('[Search Blogs API] Query failed:', error);
     return res.status(500).json({ success: false, message: 'Search failed', posts: [] });
   }
 }

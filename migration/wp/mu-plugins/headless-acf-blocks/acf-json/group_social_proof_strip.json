@@ -1,0 +1,72 @@
+{
+    "key": "group_social_proof_strip",
+    "title": "Social Proof Strip Fields",
+    "fields": [
+        {
+            "key": "field_sps_heading",
+            "label": "Heading",
+            "name": "heading",
+            "type": "text",
+            "instructions": "Shown uppercase. Type it in normal case.",
+            "required": 1
+        },
+        {
+            "key": "field_sps_subheading",
+            "label": "Subheading",
+            "name": "subheading",
+            "type": "text",
+            "required": 0
+        },
+        {
+            "key": "field_sps_thumbs",
+            "label": "Product thumbs",
+            "name": "thumbs",
+            "type": "repeater",
+            "layout": "table",
+            "button_label": "Add thumb",
+            "instructions": "The row scrolls sideways, so any number of thumbs is fine.",
+            "required": 0,
+            "sub_fields": [
+                {
+                    "key": "field_sps_thumb_image",
+                    "label": "Product image",
+                    "name": "image",
+                    "type": "image",
+                    "return_format": "array",
+                    "preview_size": "thumbnail",
+                    "required": 1
+                },
+                {
+                    "key": "field_sps_thumb_glow",
+                    "label": "Glow colour",
+                    "name": "glow_color",
+                    "type": "color_picker",
+                    "return_format": "string",
+                    "required": 0
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/social-proof-strip"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "show_in_graphql": 1,
+    "graphql_field_name": "socialProofStrip",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "AcfSocialProofStrip"
+    ]
+}

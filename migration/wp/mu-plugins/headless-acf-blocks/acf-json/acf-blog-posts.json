@@ -13,6 +13,15 @@
             "wrapper": { "width": "60" }
         },
         {
+            "key": "field_bp_subheading",
+            "label": "Subheading",
+            "name": "subheading",
+            "type": "text",
+            "instructions": "Optional line under the heading.",
+            "required": 0,
+            "wrapper": { "width": "60" }
+        },
+        {
             "key": "field_bp_post_count",
             "label": "Number of posts",
             "name": "post_count",

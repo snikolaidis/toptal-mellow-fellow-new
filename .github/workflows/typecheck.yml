@@ -1,0 +1,56 @@
+name: Typecheck
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+concurrency:
+  group: typecheck-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: TypeScript compiles
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Restore node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node20-${{ hashFiles('package-lock.json', 'package.json') }}
+
+      - name: Install dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  notify:
+    needs: typecheck
+    # Push only. A pull request failure already shows in the checks list, so
+    # dropping this clause posts a duplicate of what the PR is already saying.
+    if: failure() && github.event_name == 'push'
+    permissions:
+      actions: read
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit

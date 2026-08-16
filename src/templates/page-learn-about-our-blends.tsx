@@ -3,6 +3,7 @@ import { FaustTemplate } from '@faustwp/core';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import Layout from '@/components/Layout';
 import blocks from '@/wp-blocks';
+import * as blockFragments from '@/wp-blocks/fragments';
 
 interface LearnAboutOurBlendsData {
   page?: {
@@ -33,9 +34,9 @@ const PageLearnAboutOurBlends: FaustTemplate<LearnAboutOurBlendsData> = (props) 
 };
 
 PageLearnAboutOurBlends.query = gql`
-  ${blocks.AcfBlendCallout.fragments.entry}
-  ${blocks.AcfFeaturedCollection.fragments.entry}
-  ${blocks.CoreParagraph.fragments.entry}
+  ${blockFragments.AcfBlendCallout.entry}
+  ${blockFragments.AcfFeaturedCollection.entry}
+  ${blockFragments.CoreParagraph.entry}
   query GetLearnAboutOurBlends($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       title
@@ -48,9 +49,9 @@ PageLearnAboutOurBlends.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blocks.AcfBlendCallout.fragments.key}
-        ...${blocks.AcfFeaturedCollection.fragments.key}
-        ...${blocks.CoreParagraph.fragments.key}
+        ...${blockFragments.AcfBlendCallout.key}
+        ...${blockFragments.AcfFeaturedCollection.key}
+        ...${blockFragments.CoreParagraph.key}
       }
     }
   }

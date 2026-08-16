@@ -1,7 +1,9 @@
 import { GetStaticProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { gql } from '@apollo/client';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import blocks from '@/wp-blocks';
+import * as blockFragments from '@/wp-blocks/fragments';
 import { getClient } from '@/lib/apollo-client';
 import Layout from '@/components/Layout';
 import styles from '@/styles/pages/collections.module.css';
@@ -28,9 +30,9 @@ interface CollectionsPageProps {
 // intro copy. CoreHeading is deliberately excluded (known textAlign/align
 // schema mismatch in the bundled fragment) — the h1 is hardcoded instead.
 const GET_COLLECTIONS_CATALOG_PAGE = gql`
-  ${blocks.AcfCollectionLinks.fragments.entry}
-  ${blocks.AcfReviewsCarousel.fragments.entry}
-  ${blocks.CoreParagraph.fragments.entry}
+  ${blockFragments.AcfCollectionLinks.entry}
+  ${blockFragments.AcfReviewsCarousel.entry}
+  ${blockFragments.CoreParagraph.entry}
   query CollectionsCatalogPage($uri: ID!) {
     page(id: $uri, idType: URI) {
       title
@@ -39,9 +41,9 @@ const GET_COLLECTIONS_CATALOG_PAGE = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blocks.AcfCollectionLinks.fragments.key}
-        ...${blocks.AcfReviewsCarousel.fragments.key}
-        ...${blocks.CoreParagraph.fragments.key}
+        ...${blockFragments.AcfCollectionLinks.key}
+        ...${blockFragments.AcfReviewsCarousel.key}
+        ...${blockFragments.CoreParagraph.key}
       }
       seo {
         title
@@ -74,15 +76,18 @@ export default function CollectionsPage({ page }: CollectionsPageProps) {
 export const getStaticProps: GetStaticProps<CollectionsPageProps> = async () => {
   try {
     const client = getClient();
-    const { data } = await client.query({
-      query: GET_COLLECTIONS_CATALOG_PAGE,
-      variables: { uri: '/collections' },
-    });
+    const [{ data }, menuClient] = await Promise.all([
+      client.query({
+        query: GET_COLLECTIONS_CATALOG_PAGE,
+        variables: { uri: '/collections' },
+      }),
+      prefetchMenus(),
+    ]);
 
-    return {
-      props: { page: data?.page ?? null },
-      revalidate: 60,
-    };
+    const props = { page: data?.page ?? null } as any;
+    mergeMenuState(props, menuClient);
+
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error('Error fetching collections catalog page:', error);
     return {

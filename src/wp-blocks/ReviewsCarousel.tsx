@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { gql } from '@apollo/client';
+import { fragments } from './ReviewsCarousel.fragments';
 
 interface ReviewsCarouselProps {
   reviewsCarousel?: {
@@ -29,13 +29,4 @@ export default function ReviewsCarousel(props: ReviewsCarouselProps) {
 
 ReviewsCarousel.displayName = 'AcfReviewsCarousel';
 
-ReviewsCarousel.fragments = {
-  key: `AcfReviewsCarouselFragment`,
-  entry: gql`
-    fragment AcfReviewsCarouselFragment on AcfReviewsCarousel {
-      reviewsCarousel {
-        title
-      }
-    }
-  `,
-};
+ReviewsCarousel.fragments = fragments;

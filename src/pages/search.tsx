@@ -1,4 +1,5 @@
 import { GetServerSideProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -11,7 +12,7 @@ import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
-import { Meilisearch } from 'meilisearch';
+import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-client';
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
@@ -99,12 +100,16 @@ interface SearchPageProps {
   query: string;
   allProducts: Product[];
   blogPosts: BlogPost[];
+  productsFailed: boolean;
+  blogsFailed: boolean;
 }
 
 export default function SearchPage({
   query,
   allProducts,
   blogPosts,
+  productsFailed,
+  blogsFailed,
 }: SearchPageProps) {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState(query);
@@ -118,6 +123,10 @@ export default function SearchPage({
     if (trimmed.length >= 2) {
       router.push(`/search?q=${encodeURIComponent(trimmed)}`);
     }
+  };
+
+  const retrySearch = () => {
+    router.replace(router.asPath);
   };
 
   // Filter → sort → paginate — all client-side, instant
@@ -165,8 +174,10 @@ export default function SearchPage({
 
   const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
-  const noProductMatches = Boolean(query) && allProducts.length === 0;
+  const searchUnavailable = Boolean(query) && productsFailed;
+  const noProductMatches = Boolean(query) && !productsFailed && allProducts.length === 0;
   const articlesOnly = noProductMatches && blogPosts.length > 0;
+  const articlesStandalone = articlesOnly || (searchUnavailable && blogPosts.length > 0);
 
   return (
     <Layout
@@ -202,6 +213,22 @@ export default function SearchPage({
         {!query ? (
           <div className={styles.emptySearch}>
             <p>Search for products, collections, and articles across the store.</p>
+          </div>
+        ) : searchUnavailable ? (
+          <div className={styles.empty}>
+            <h2>
+              {blogsFailed
+                ? 'Search is temporarily unavailable'
+                : 'Product search is temporarily unavailable'}
+            </h2>
+            <p>
+              Something went wrong on our end, not with your search. Please try again in a
+              moment.
+            </p>
+            <button type="button" onClick={retrySearch} className="btn-primary">
+              Try again
+            </button>
+            <Link href="/shop" className="btn-secondary">Browse all products</Link>
           </div>
         ) : articlesOnly ? (
           <p className={styles.articlesLead}>
@@ -279,10 +306,10 @@ export default function SearchPage({
 
         {blogPosts.length > 0 && (
           <section
-            className={articlesOnly ? `${styles.blogSection} ${styles.blogSectionOnly}` : styles.blogSection}
+            className={articlesStandalone ? `${styles.blogSection} ${styles.blogSectionOnly}` : styles.blogSection}
           >
             <h2 className={styles.blogTitle}>
-              {articlesOnly ? 'Articles' : 'Related Articles'}
+              {articlesStandalone ? 'Articles' : 'Related Articles'}
             </h2>
             <div className={styles.blogGrid}>
               {blogPosts.map((post) => (
@@ -315,8 +342,6 @@ export default function SearchPage({
   );
 }
 
-const MEILI_HOST = process.env.MEILISEARCH_HOST || '';
-const MEILI_SEARCH_KEY = process.env.MEILISEARCH_SEARCH_KEY || '';
 const PRODUCTS_INDEX = 'products';
 const POSTS_INDEX = 'posts';
 const SEARCH_RESULT_WINDOW = 100;
@@ -342,19 +367,27 @@ function meiliHitToProduct(hit: Record<string, any>): Product {
     databaseId: hit.databaseId,
     name: hit.name ?? '',
     slug: hit.slug ?? '',
-    type: hit.type ?? undefined,
     date: hit.date ?? null,
     price: hit.price ?? '',
     regularPrice: hit.regularPrice ?? '',
     salePrice: hit.salePrice ?? '',
     stockStatus: hit.stockStatus ?? 'IN_STOCK',
-    image: hit.image?.sourceUrl
-      ? { sourceUrl: hit.image.sourceUrl, altText: hit.image.altText ?? hit.name ?? '' }
-      : undefined,
     bbLinkedBundleId: hit.bbLinkedBundleId ?? null,
     bbFromPrice: hit.bbFromPrice ?? null,
-    uniqueSellingProps: hit.uniqueSellingProps ?? undefined,
   };
+
+  // Left off entirely rather than set to undefined. The index stores null for all
+  // three, getServerSideProps refuses to serialize undefined and fails the whole
+  // page, and Product declares them optional but not nullable.
+  if (hit.type) product.type = hit.type;
+  if (hit.image?.sourceUrl) {
+    product.image = {
+      sourceUrl: hit.image.sourceUrl,
+      altText: hit.image.altText ?? hit.name ?? '',
+    };
+  }
+  if (hit.uniqueSellingProps) product.uniqueSellingProps = hit.uniqueSellingProps;
+
   for (const { meili, woo } of MEILI_TAXONOMY) {
     const slugs: string[] = hit[`${meili}Slugs`] || [];
     const names: string[] = hit[`${meili}Names`] || [];
@@ -364,18 +397,16 @@ function meiliHitToProduct(hit: Record<string, any>): Product {
 }
 
 async function searchProducts(query: string): Promise<Product[]> {
-  if (!MEILI_HOST || !MEILI_SEARCH_KEY) return [];
-  const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
-  const result = await client
+  if (!isSearchConfigured()) throw new Error('Search is not configured');
+  const result = await getSearchClient()
     .index(PRODUCTS_INDEX)
     .search<Record<string, any>>(query, { limit: SEARCH_RESULT_WINDOW });
   return result.hits.map(meiliHitToProduct);
 }
 
 async function searchBlogPosts(query: string): Promise<BlogPost[]> {
-  if (!MEILI_HOST || !MEILI_SEARCH_KEY) return [];
-  const client = new Meilisearch({ host: MEILI_HOST, apiKey: MEILI_SEARCH_KEY });
-  const result = await client.index(POSTS_INDEX).search<Record<string, any>>(query, {
+  if (!isSearchConfigured()) throw new Error('Search is not configured');
+  const result = await getSearchClient().index(POSTS_INDEX).search<Record<string, any>>(query, {
     limit: BLOG_RESULT_LIMIT,
     sort: ['date:desc'],
     attributesToRetrieve: ['databaseId', 'title', 'slug', 'date', 'excerpt', 'featuredImage'],
@@ -395,31 +426,47 @@ async function searchBlogPosts(query: string): Promise<BlogPost[]> {
 export const getServerSideProps: GetServerSideProps = async ({ query: params, res }) => {
   res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
 
-  const query = typeof params.q === 'string' ? params.q.trim() : '';
+  const query = typeof params.q === 'string' ? capQuery(params.q.trim()) : '';
 
   if (!query) {
-    return {
-      props: { query: '', allProducts: [], blogPosts: [] },
+    const menuClient = await prefetchMenus();
+    const props: Record<string, any> = {
+      query: '',
+      allProducts: [],
+      blogPosts: [],
+      productsFailed: false,
+      blogsFailed: false,
     };
+    mergeMenuState(props, menuClient);
+    return { props };
   }
 
-  try {
-    const [products, blogPosts] = await Promise.all([
-      searchProducts(query),
-      searchBlogPosts(query).catch(() => []),
-    ]);
+  const [products, blogPosts, menuClient] = await Promise.all([
+    searchProducts(query).catch((error) => {
+      console.error('[Search Page] Product query failed:', error);
+      return null;
+    }),
+    searchBlogPosts(query).catch((error) => {
+      console.error('[Search Page] Blog query failed:', error);
+      return null;
+    }),
+    prefetchMenus(),
+  ]);
 
-    return {
-      props: {
-        query,
-        allProducts: products,
-        blogPosts,
-      },
-    };
-  } catch (error) {
-    console.error('[Search Page] Query failed:', error);
-    return {
-      props: { query, allProducts: [], blogPosts: [] },
-    };
+  // Overrides the header set above, which would otherwise pin a degraded page
+  // for two minutes and serve it stale for ten more.
+  if (products === null || blogPosts === null) {
+    res.setHeader('Cache-Control', 'no-store');
   }
+
+  const props: Record<string, any> = {
+    query,
+    allProducts: products ?? [],
+    blogPosts: blogPosts ?? [],
+    productsFailed: products === null,
+    blogsFailed: blogPosts === null,
+  };
+  mergeMenuState(props, menuClient);
+
+  return { props };
 };

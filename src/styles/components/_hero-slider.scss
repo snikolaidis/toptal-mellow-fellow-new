@@ -1,5 +1,13 @@
 .hero-slider {
   // Slide images reuse the .responsive-banner__image / __wrapper rules.
+  margin: 20px 14px 0;
+
+  @media screen and (min-width: 768px) {
+    --swiper-pagination-bullet-horizontal-gap: 0px;
+
+    margin: 34px 40px 14px;
+  }
+
   .swiper-slide {
     a,
     .responsive-banner__wrapper {
@@ -10,10 +18,44 @@
       display: block;
       width: 100%;
       height: auto;
+      border-radius: 20px;
     }
   }
-  .swiper-pagination-bullet-active{
-    background-color: #fff;
-    transform: scale(1.2);
+
+  .swiper {
+    padding-bottom: 19px;
+
+    @media screen and (min-width: 768px) {
+      padding-bottom: 44px;
+    }
+  }
+
+  .swiper-pagination {
+    position: absolute;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+
+    @media screen and (min-width: 768px) {
+      gap: 12px;
+    }
+  }
+
+  .swiper-pagination-bullet {
+    width: 7px;
+    height: 7px;
+    margin: 0;
+    opacity: 1;
+    border-radius: 999px;
+    background-color: var(--color-brown-40);
+    transition: width 0.2s ease, background-color 0.2s ease;
+  }
+
+  .swiper-pagination-bullet-active {
+    width: 33px;
+    background-color: var(--color-teal-85);
+    transform: none;
   }
 }

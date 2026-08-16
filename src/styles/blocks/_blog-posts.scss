@@ -1,27 +1,51 @@
 .blog-posts {
   margin-bottom: 3rem;
-  
+
+  @media only screen and (min-width: 1024px) {
+    padding-top: 60px;
+    padding-bottom: 26px;
+    margin-bottom: 0;
+  }
+
   &__header {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 16px;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
     margin-bottom: 20px;
+    text-align: center;
+
+    @media only screen and (min-width: 1024px) {
+      gap: 0;
+      margin-bottom: 18px;
+    }
   }
 
   &__title {
-    font-family: 'MrEavesXLSanNarOT';
+    font-family: var(--font-family-display-wide);
     font-weight: 700;
     font-size: 40px;
-    line-height: 1;
+    line-height: 34px;
     margin: 0;
+    color: var(--color-deep-teal);
+
+    @media only screen and (min-width: 1024px) {
+      font-size: 48px;
+      line-height: 60px;
+    }
   }
 
-  &__view-all {
+  &__subheading {
+    margin: 0;
+    font-family: var(--font-family-body);
+    font-weight: 500;
     font-size: 15px;
-    color: inherit;
-    text-decoration: underline;
-    white-space: nowrap;
+    line-height: 24px;
+    color: var(--color-teal-85);
+
+    @media only screen and (min-width: 1024px) {
+      font-size: 16px;
+    }
   }
 
   &__layout {
@@ -151,24 +175,36 @@
 
   &__actions {
     margin-top: 36px;
+    text-align: center;
+
+    @media only screen and (min-width: 1024px) {
+      margin-top: 40px;
+    }
   }
 
   &__button {
     display: inline-block;
-    padding: 10px 26px;
+    min-width: 195px;
+    padding: 13px 26px;
     border: 1px solid transparent;
     border-radius: 999px;
-    background-color: #0f0f0f;
-    color: #fff;
+    background-color: var(--color-gold-cream);
+    font-family: var(--font-family-body);
+    color: var(--color-deep-teal);
     font-weight: 700;
-    font-size: 14px;
+    font-size: 16px;
+    line-height: 24px;
+    text-align: center;
     text-decoration: none;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    transition: filter 0.2s ease;
 
     &:hover {
-      background-color: transparent;
-      color: #000;
-      border-color: #000;
+      filter: brightness(0.95);
+    }
+
+    @media only screen and (min-width: 1024px) {
+      min-width: 223px;
+      padding: 15px 47px;
     }
   }
 }

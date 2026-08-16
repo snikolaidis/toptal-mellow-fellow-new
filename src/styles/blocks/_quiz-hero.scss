@@ -1,0 +1,130 @@
+.quiz-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+  min-height: 397px;
+  background: linear-gradient(180deg, var(--color-hero-gold) 0%, rgba(255, 255, 255, 0) 112%);
+  padding: 21px 17px 46px;
+
+  @media screen and (min-width: 483px) {
+    align-items: flex-start;
+    min-height: 399px;
+    padding: 32px 40px 40px;
+  }
+
+  &__media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+
+    @media screen and (min-width: 483px) {
+      display: none;
+    }
+  }
+
+  &__content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    max-width: 225px;
+
+    @media screen and (min-width: 483px) {
+      max-width: 520px;
+    }
+  }
+
+  &__eyebrow {
+    margin: 0 0 12px;
+    font-family: var(--font-family-body);
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 20px;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+    color: var(--color-ink);
+
+    @media screen and (min-width: 483px) {
+      margin-bottom: 20px;
+      line-height: 20px;
+    }
+  }
+
+  &__heading {
+    margin: 0 0 3px;
+    font-family: var(--font-family-body);
+    font-weight: 700;
+    font-size: 48px;
+    line-height: 50px;
+    color: var(--color-ink);
+
+    @media screen and (min-width: 483px) {
+      margin-bottom: 23px;
+      line-height: 1.05;
+    }
+
+    @media screen and (min-width: 1024px) {
+      font-size: 72px;
+      line-height: 76px;
+      white-space: nowrap;
+    }
+  }
+
+  &__subheading {
+    margin: 0 0 19px;
+    max-width: 225px;
+    font-family: var(--font-family-body);
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 24px;
+    color: var(--color-ink);
+
+    @media screen and (min-width: 483px) {
+      margin-bottom: 32px;
+      max-width: 400px;
+      font-size: 17px;
+      line-height: 27px;
+    }
+  }
+
+  &__cta {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 208px;
+    margin-left: -14px;
+    padding: 16px 23px;
+    border: 3px solid var(--color-text-inverse);
+    border-radius: 999px;
+    background: var(--color-teal-85);
+    box-shadow: 1px 0 2px rgba(0, 0, 0, 0.5);
+    font-family: var(--font-family-body);
+    font-weight: 500;
+    font-size: 18px;
+    line-height: 21px;
+    text-align: center;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--color-hero-cta-peach);
+    transition: filter 0.2s ease;
+
+    @media screen and (min-width: 483px) {
+      width: 346px;
+      height: 65px;
+      margin-left: 0;
+      padding: 0 43px;
+      line-height: 59px;
+      white-space: nowrap;
+    }
+
+    &:hover {
+      filter: brightness(0.95);
+    }
+  }
+
+  &__cta-highlight {
+    font-weight: 800;
+    color: var(--color-text-inverse);
+  }
+}

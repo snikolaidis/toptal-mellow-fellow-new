@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/social-proof-strip",
+	"title": "Social Proof Strip",
+	"description": "A scrolling row of product thumbs on coloured glows, above a heading and subheading. Rendered on the frontend by the Faust.js app.",
+	"category": "headless-blocks",
+	"icon": "star-filled",
+	"keywords": [ "reviews", "social proof", "strip", "products" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\SocialProofStrip\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

@@ -44,6 +44,25 @@ img {
   --color-brand-accent: #C9A962;
 
   /* ===================
+      REDESIGN 2026 - Conversion palette
+      =================== */
+  --color-hero-gold: #fdc777;
+  --color-teal-85: #3E484F;
+  --color-hero-cta-peach: #fedca9;
+  --color-ink: #1e1e1e;
+  --color-deep-teal: #1D2B33;
+  --color-gold-cream: #D9C79E;
+  --color-featured-teal: #01546E;
+  --color-brown-40: #C1B5A5;
+  --color-gold-light: #FFEAA8;
+  --color-dark: #222222;
+  --color-sage: #5F8A69;
+  --color-olive: #C4C492;
+  --color-club-purple: #7C629E;
+  --color-club-lilac: #D4C9E3;
+  --color-tan: #9A9080;
+
+  /* ===================
       SURFACE COLORS - Backgrounds
       =================== */
   --color-surface-primary: #ffffff;
@@ -94,6 +113,7 @@ img {
       TYPOGRAPHY - Mellow Fellow Fonts
       =================== */
   --font-family-display: MrEavesXLSanNarOT, sans-serif;
+  --font-family-display-wide: "mr-eaves-sans", MrEavesXLSanNarOT, sans-serif;
   --font-family-body: "DM Sans", sans-serif;
   --font-family-loyalty: "Georgia Pro", Georgia, "Times New Roman", serif;
   --color-loyalty-dark: #2c2c2c;

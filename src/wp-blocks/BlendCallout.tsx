@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { gql } from '@apollo/client';
+import { fragments } from './BlendCallout.fragments';
 import Image from 'next/image';
 import Link from 'next/link';
 import RichText from '@/components/RichText';
@@ -119,34 +119,4 @@ export default function BlendCallout(props: BlendCalloutProps) {
 
 BlendCallout.displayName = 'AcfBlendCallout';
 
-BlendCallout.fragments = {
-  key: `AcfBlendCalloutFragment`,
-  entry: gql`
-    fragment AcfBlendCalloutFragment on AcfBlendCallout {
-      blendCallout {
-        heading
-        description
-        image {
-          node {
-            sourceUrl
-            altText
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-        learnLink {
-          url
-          title
-          target
-        }
-        shopLink {
-          url
-          title
-          target
-        }
-      }
-    }
-  `,
-};
+BlendCallout.fragments = fragments;

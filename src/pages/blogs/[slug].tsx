@@ -1,5 +1,6 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
 import { getClient } from '@/lib/apollo-client';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import {
   GET_POST_BY_SLUG,
   GET_ALL_POST_SLUGS,
@@ -100,10 +101,11 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   try {
     const client = getClient();
 
-    const [postResult, latestResult, allTags] = await Promise.all([
+    const [postResult, latestResult, allTags, menuClient] = await Promise.all([
       client.query({ query: GET_POST_BY_SLUG, variables: { slug: params?.slug } }),
       client.query({ query: GET_LATEST_POSTS, variables: { first: 4 } }),
       fetchAllTags(client),
+      prefetchMenus(),
     ]);
 
     if (!postResult.data?.post) {
@@ -133,15 +135,15 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       }
     }
 
-    return {
-      props: {
-        post,
-        latestPosts: latestResult.data?.posts?.nodes || [],
-        allTags,
-        relatedProducts,
-      },
-      revalidate: 60,
+    const props: Record<string, any> = {
+      post,
+      latestPosts: latestResult.data?.posts?.nodes || [],
+      allTags,
+      relatedProducts,
     };
+    mergeMenuState(props, menuClient);
+
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error('Error fetching post:', error);
     return { notFound: true };

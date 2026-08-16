@@ -52,6 +52,15 @@ function register_blocks() {
 			continue;
 		}
 
+		// Each block.json names a renderCallback that lives in its render.php.
+		// Without loading the file the callback does not exist, ACF renders
+		// nothing, and the block collapses to zero height in the editor.
+		$render_path = $block_dir . '/render.php';
+
+		if ( file_exists( $render_path ) ) {
+			require_once $render_path;
+		}
+
 		\register_block_type( $block_dir );
 	}
 }

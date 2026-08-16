@@ -3,6 +3,7 @@ import { FaustTemplate } from '@faustwp/core';
 import { WordPressBlocksViewer } from '@faustwp/blocks';
 import Layout from '@/components/Layout';
 import blocks from '@/wp-blocks';
+import * as blockFragments from '@/wp-blocks/fragments';
 import DoublePointsDaily from '@/wp-blocks/DoublePointsDaily';
 import CollectionGroup, { CollectionGroupItem } from '@/wp-blocks/CollectionGroup';
 import { Product } from '@/types/woocommerce';
@@ -57,9 +58,9 @@ const MellowDay2026: FaustTemplate<MellowDay2026Data> = (props) => {
 // actually used on this page) plus the three collection-group product lists via
 // GraphQL field aliases (COLLECTION taxonomy filter, capped at 16 each).
 MellowDay2026.query = gql`
-  ${blocks.AcfHeroSection.fragments.entry}
-  ${blocks.AcfSaleCountdownHero.fragments.entry}
-  ${blocks.CoreParagraph.fragments.entry}
+  ${blockFragments.AcfHeroSection.entry}
+  ${blockFragments.AcfSaleCountdownHero.entry}
+  ${blockFragments.CoreParagraph.entry}
   ${SIMPLE_PRODUCT_FIELDS}
   ${VARIABLE_PRODUCT_FIELDS}
   ${EXTERNAL_PRODUCT_FIELDS}
@@ -76,9 +77,9 @@ MellowDay2026.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blocks.AcfHeroSection.fragments.key}
-        ...${blocks.AcfSaleCountdownHero.fragments.key}
-        ...${blocks.CoreParagraph.fragments.key}
+        ...${blockFragments.AcfHeroSection.key}
+        ...${blockFragments.AcfSaleCountdownHero.key}
+        ...${blockFragments.CoreParagraph.key}
       }
     }
     bestSellers: products(first: 16, where: {

@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "acf/what-sets-us-apart",
+	"title": "What Sets Us Apart",
+	"description": "A heading and a row of icons with coloured labels underneath. Rendered on the frontend by the Faust.js app.",
+	"category": "headless-blocks",
+	"icon": "awards",
+	"keywords": [ "trust", "icons", "usp" ],
+	"acf": {
+		"mode": "preview",
+		"renderCallback": "HeadlessAcfBlocks\\Blocks\\WhatSetsUsApart\\render"
+	},
+	"supports": {
+		"anchor": true,
+		"align": [ "wide", "full" ]
+	}
+}

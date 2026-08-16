@@ -12,6 +12,53 @@
   }
 }
 
+.image-carousel--featured-bar {
+  margin-bottom: 0;
+  padding: 21px 0 19px;
+  background-color: var(--color-featured-teal);
+
+  @media screen and (min-width: 1024px) {
+    padding: 24px 0 22px;
+  }
+
+  .section__title {
+    margin: 0 0 9px;
+    font-family: var(--font-family-body);
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--color-text-inverse);
+
+    @media screen and (min-width: 1024px) {
+      margin-bottom: 5px;
+    }
+  }
+
+  .swiper-slide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 42px;
+
+    @media screen and (min-width: 1024px) {
+      height: 69px;
+    }
+  }
+
+  img {
+    max-height: 42px;
+    width: auto;
+    object-fit: contain;
+
+    @media screen and (min-width: 1024px) {
+      max-height: 48px;
+    }
+  }
+}
+
 // "Whole carousel clickable" mode — reset the anchor so it doesn't look
 // like a plain text link while wrapping the title + carousel.
 a.image-carousel--linked {

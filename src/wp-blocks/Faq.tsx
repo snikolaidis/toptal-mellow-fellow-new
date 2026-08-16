@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { gql } from '@apollo/client';
+import { fragments } from './Faq.fragments';
 
 interface FaqQuestion {
   question?: string | null;
@@ -77,20 +77,4 @@ export default function Faq(props: FaqProps) {
 
 Faq.displayName = 'AcfFaq';
 
-Faq.fragments = {
-  key: `AcfFaqFragment`,
-  entry: gql`
-    fragment AcfFaqFragment on AcfFaq {
-      faqBlock {
-        groups {
-          groupTitle
-          footerLinks
-          questions {
-            question
-            answer
-          }
-        }
-      }
-    }
-  `,
-};
+Faq.fragments = fragments;

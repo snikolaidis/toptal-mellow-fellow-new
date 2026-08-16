@@ -4,7 +4,7 @@
  * Description: Creates WooCommerce orders from explicit line items, bypassing
  *              session-based cart resolution. Used by the headless checkout to
  *              decouple order creation from any specific cart session mechanism.
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -18,9 +18,12 @@ add_action( 'rest_api_init', function() {
 } );
 
 function mf_verify_faust_secret( WP_REST_Request $request ) {
-    $secret = defined( 'FAUSTWP_SECRET_KEY' )
-        ? FAUSTWP_SECRET_KEY
-        : get_option( 'faustwp_secret_key' );
+    if ( defined( 'FAUSTWP_SECRET_KEY' ) ) {
+        $secret = FAUSTWP_SECRET_KEY;
+    } else {
+        $settings = get_option( 'faustwp_settings' );
+        $secret = is_array( $settings ) ? ( $settings['secret_key'] ?? '' ) : '';
+    }
     if ( ! $secret ) return false;
 
     $auth = $request->get_header( 'Authorization' );
@@ -50,6 +53,25 @@ function mf_create_order( WP_REST_Request $request ) {
     $shipping_lines = $body['shippingLines'] ?? [];
     $meta_data      = $body['metaData'] ?? [];
     $customer_id    = absint( $body['customerId'] ?? 0 );
+    $realid_check_id = sanitize_text_field( $body['realIdCheckId'] ?? '' );
+
+    /**
+     * Real ID (getverdict.com) identity verification is currently enforced only
+     * client-side (see RealIdVerification.tsx / checkout.tsx) - the browser just
+     * disables the Pay button until verified. That's not a real security boundary:
+     * anyone can call this endpoint directly and skip it entirely. This filter is
+     * the server-side backstop - see mellow-fellow-realid-order-guard.php, which
+     * hooks in here to independently re-confirm verification before we allow an
+     * order to be created. Return a WP_Error to reject; anything else allows it.
+     */
+    $realid_allowed = apply_filters( 'mf_realid_order_allowed', true, $realid_check_id, $billing );
+    if ( is_wp_error( $realid_allowed ) ) {
+        return new WP_REST_Response( [
+            'success' => false,
+            'code'    => $realid_allowed->get_error_code(),
+            'message' => $realid_allowed->get_error_message(),
+        ], 403 );
+    }
 
     try {
         $order = wc_create_order( [

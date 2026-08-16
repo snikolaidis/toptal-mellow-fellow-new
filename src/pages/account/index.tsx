@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { useLogout } from '@faustwp/core';
 import type { GetServerSideProps } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
 import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
@@ -76,8 +77,13 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   if (!auth) return redirectToLogin(ctx);
 
   try {
-    const data = await serverSideGraphQL(CUSTOMER_ORDERS_QUERY, auth.accessToken);
-    return { props: { customer: data?.customer || null } };
+    const [data, menuClient] = await Promise.all([
+      serverSideGraphQL(CUSTOMER_ORDERS_QUERY, auth.accessToken),
+      prefetchMenus(),
+    ]);
+    const props: Record<string, any> = { customer: data?.customer || null };
+    mergeMenuState(props, menuClient);
+    return { props };
   } catch {
     return { props: { customer: null } };
   }

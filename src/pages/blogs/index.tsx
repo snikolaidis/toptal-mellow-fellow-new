@@ -1,5 +1,6 @@
 import { GetStaticProps } from 'next';
 import { getClient } from '@/lib/apollo-client';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_POSTS, GET_CATEGORY_BY_SLUG, fetchAllTags } from '@/graphql/queries/posts';
 import Layout from '@/components/Layout';
 import BlogIndex from '@/templates/blogs/BlogIndex';
@@ -71,21 +72,22 @@ export const getStaticProps: GetStaticProps = async () => {
   try {
     const client = getClient();
 
-    const [posts, allTags, categoryResult] = await Promise.all([
+    const [posts, allTags, categoryResult, menuClient] = await Promise.all([
       fetchAllPosts(client),
       fetchAllTags(client),
       client.query({ query: GET_CATEGORY_BY_SLUG, variables: { slug: BLOG_CATEGORY_SLUG } }),
+      prefetchMenus(),
     ]);
 
-    return {
-      props: {
-        posts,
-        allTags,
-        categoryTitle: categoryResult.data?.category?.name || '',
-        categoryDescription: categoryResult.data?.category?.description || '',
-      },
-      revalidate: 60,
+    const props: Record<string, any> = {
+      posts,
+      allTags,
+      categoryTitle: categoryResult.data?.category?.name || '',
+      categoryDescription: categoryResult.data?.category?.description || '',
     };
+    mergeMenuState(props, menuClient);
+
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error('Error fetching blog index:', error);
     return {

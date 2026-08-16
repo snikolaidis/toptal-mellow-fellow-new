@@ -1,4 +1,5 @@
-import { gql } from '@apollo/client';
+import { fragments } from './ImageCarousel.fragments';
+import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay } from 'swiper/modules';
 import 'swiper/css';
@@ -29,6 +30,7 @@ interface ImageCarouselProps {
     images?: { nodes?: MediaItem[] | null } | null;
     link?: LinkField | null;
     linkStyle?: string | null;
+    backgroundVariant?: string | null;
   } | null;
 }
 
@@ -45,6 +47,11 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   const linkUrl = link?.url;
   const wholeCarouselClickable = linkUrl && props.imageCarousel?.linkStyle === 'whole_carousel';
 
+  const variantClass =
+    props.imageCarousel?.backgroundVariant === 'featured_bar'
+      ? ' image-carousel--featured-bar'
+      : '';
+
   const carousel = (
     <Swiper
       slidesPerView={2}
@@ -60,12 +67,12 @@ export default function ImageCarousel(props: ImageCarouselProps) {
     >
       {images.map((img, i) => (
         <SwiperSlide key={i}>
-          <img
-            src={img.sourceUrl ?? undefined}
+          <Image
+            src={img.sourceUrl!}
             alt={img.altText || ''}
-            width={img.mediaDetails?.width ?? undefined}
-            height={img.mediaDetails?.height ?? undefined}
-            loading="lazy"
+            width={img.mediaDetails?.width ?? 200}
+            height={img.mediaDetails?.height ?? 80}
+            style={{ width: '100%', height: 'auto' }}
           />
         </SwiperSlide>
       ))}
@@ -75,7 +82,7 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   if (wholeCarouselClickable) {
     return (
       <a
-        className="image-carousel image-carousel--linked"
+        className={`image-carousel image-carousel--linked${variantClass}`}
         href={linkUrl!}
         target={link?.target || undefined}
         rel={link?.target === '_blank' ? 'noopener noreferrer' : undefined}
@@ -87,7 +94,7 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   }
 
   return (
-    <section className="image-carousel">
+    <section className={`image-carousel${variantClass}`}>
       <div className="container">
         {title && <h3 className="section__title">{title}</h3>}
         {carousel}
@@ -108,29 +115,4 @@ export default function ImageCarousel(props: ImageCarouselProps) {
 
 ImageCarousel.displayName = 'AcfImageCarousel';
 
-ImageCarousel.fragments = {
-  key: `AcfImageCarouselFragment`,
-  entry: gql`
-    fragment AcfImageCarouselFragment on AcfImageCarousel {
-      imageCarousel {
-        title
-        images {
-          nodes {
-            altText
-            sourceUrl
-            mediaDetails {
-              width
-              height
-            }
-          }
-        }
-        link {
-          url
-          title
-          target
-        }
-        linkStyle
-      }
-    }
-  `,
-};
+ImageCarousel.fragments = fragments;

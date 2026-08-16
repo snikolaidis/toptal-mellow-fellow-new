@@ -1,4 +1,5 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
@@ -163,21 +164,22 @@ export const getStaticPaths: GetStaticPaths = async () => {
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   try {
     const client = getClient();
-    const { data } = await client.query({
-      query: GET_COLLECTION_BY_SLUG,
-      variables: { slug: params?.slug, collectionSlug: params?.slug },
-    });
+    const [{ data }, menuClient] = await Promise.all([
+      client.query({
+        query: GET_COLLECTION_BY_SLUG,
+        variables: { slug: params?.slug, collectionSlug: params?.slug },
+      }),
+      prefetchMenus(),
+    ]);
 
     if (!data?.collection) {
       return { notFound: true };
     }
 
-    return {
-      props: {
-        collection: data.collection,
-      },
-      revalidate: 60,
-    };
+    const props: Record<string, any> = { collection: data.collection };
+    mergeMenuState(props, menuClient);
+
+    return { props, revalidate: 60 };
   } catch (error) {
     console.error('Error fetching collection:', error);
     return { notFound: true };

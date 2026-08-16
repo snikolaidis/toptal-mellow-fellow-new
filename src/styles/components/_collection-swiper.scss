@@ -55,4 +55,54 @@
       stroke-width: 2px;
     }
   }
+
+  @include large-up {
+    .container {
+      width: min(1315px, 100%);
+    }
+  }
+}
+
+.collection-swiper--green-panel {
+  margin: 0 14px;
+  padding: 28px 0 32px;
+  border-radius: 24px;
+  background: linear-gradient(
+    180deg,
+    var(--color-sage) 0%,
+    var(--color-olive) 100%
+  );
+
+  .section__title {
+    color: var(--color-text-inverse);
+  }
+
+  @media screen and (min-width: 768px) {
+    margin: 0 45px;
+  }
+
+  @include large-up {
+    margin-bottom: 60px;
+    padding: 39px 0 29px;
+
+    .section__title {
+      font-size: 48px;
+      line-height: 60px;
+      margin-bottom: 27px;
+    }
+  }
+}
+
+.collection-swiper--gold-panel {
+  padding: 34px 0 28px;
+  background: linear-gradient(
+    180deg,
+    var(--color-hero-gold) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+
+  @include large-up {
+    margin-bottom: 0;
+    padding: 29px 0 5px;
+  }
 }

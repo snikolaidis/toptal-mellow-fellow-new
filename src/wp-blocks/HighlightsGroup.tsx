@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { fragments } from './HighlightsGroup.fragments';
 
 /**
  * Backend-managed highlights group (ACF block `acf/highlights-group`).
@@ -110,31 +110,4 @@ export default function HighlightsGroup(props: HighlightsGroupProps) {
 
 HighlightsGroup.displayName = 'AcfHighlightsGroup';
 
-HighlightsGroup.fragments = {
-  key: `AcfHighlightsGroupFragment`,
-  entry: gql`
-    fragment AcfHighlightsGroupFragment on AcfHighlightsGroup {
-      highlightsGroup {
-        heading
-        description
-        highlights {
-          bigText
-          bigColor
-          smallText
-          smallColor
-          link {
-            url
-            title
-            target
-          }
-          image {
-            node {
-              altText
-              sourceUrl
-            }
-          }
-        }
-      }
-    }
-  `,
-};
+HighlightsGroup.fragments = fragments;

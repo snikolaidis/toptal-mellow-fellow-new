@@ -36,6 +36,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'cdn.shopify.com' },
       { protocol: 'http', hostname: 'localhost' },
       { protocol: 'https', hostname: 'mf-headless-wp.local' },
+      { protocol: 'http', hostname: 'mf-headless-wp.local' },
       { protocol: 'https', hostname: 'headless-e-comm.local' },
       { protocol: 'http', hostname: 'headless-e-comm.local' },
       { protocol: 'https', hostname: 'mellowfellow.local' },

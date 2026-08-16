@@ -4,54 +4,42 @@ export const PRODUCTS_INDEX = 'products';
 export const COLLECTIONS_INDEX = 'collections';
 export const POSTS_INDEX = 'posts';
 
+// Each fetch builds its own signal, never a shared one hoisted out of the loop:
+// the clock starts when the signal is constructed, so a single signal would give
+// every page of a paginated fetch one shared budget. Products pages four times
+// and takes 22 to 29 seconds in total, so that would abort it partway through.
+const REQUEST_TIMEOUT_MS = 30_000;
+
+const PRODUCT_FIELDS = `
+  id databaseId name slug type date
+  description shortDescription sku
+  price regularPrice salePrice
+  stockStatus
+  image { id sourceUrl altText }
+  collections { nodes { name slug } }
+  strainTypes { nodes { name slug } }
+  strainNames { nodes { name slug } }
+  blendTypes { nodes { name slug } }
+  productLines { nodes { name slug } }
+  size { nodes { name slug } }
+  mfproductTypes { nodes { name slug } }
+  cannabinoids { nodes { name slug } }
+  singleCannabinoid { nodes { name slug } }
+  mG { nodes { name slug } }
+  pieces { nodes { name slug } }
+  bbLinkedBundleId
+  bbFromPrice
+  uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
+`;
+
 const PRODUCT_QUERY = `
   query ReindexProducts($first: Int!, $after: String) {
     products(first: $first, after: $after, where: { status: "publish" }) {
       pageInfo { hasNextPage endCursor }
       nodes {
         __typename
-        ... on SimpleProduct {
-          id databaseId name slug type date
-          description shortDescription sku
-          price regularPrice salePrice
-          stockStatus
-          image { id sourceUrl altText }
-          collections { nodes { name slug } }
-          strainTypes { nodes { name slug } }
-          strainNames { nodes { name slug } }
-          blendTypes { nodes { name slug } }
-          productLines { nodes { name slug } }
-          size { nodes { name slug } }
-          mfproductTypes { nodes { name slug } }
-          cannabinoids { nodes { name slug } }
-          singleCannabinoid { nodes { name slug } }
-          mG { nodes { name slug } }
-          pieces { nodes { name slug } }
-          bbLinkedBundleId
-          bbFromPrice
-          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
-        }
-        ... on VariableProduct {
-          id databaseId name slug type date
-          description shortDescription sku
-          price regularPrice salePrice
-          stockStatus
-          image { id sourceUrl altText }
-          collections { nodes { name slug } }
-          strainTypes { nodes { name slug } }
-          strainNames { nodes { name slug } }
-          blendTypes { nodes { name slug } }
-          productLines { nodes { name slug } }
-          size { nodes { name slug } }
-          mfproductTypes { nodes { name slug } }
-          cannabinoids { nodes { name slug } }
-          singleCannabinoid { nodes { name slug } }
-          mG { nodes { name slug } }
-          pieces { nodes { name slug } }
-          bbLinkedBundleId
-          bbFromPrice
-          uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
-        }
+        ... on SimpleProduct { ${PRODUCT_FIELDS} }
+        ... on VariableProduct { ${PRODUCT_FIELDS} }
       }
     }
   }
@@ -163,17 +151,37 @@ const POST_SYNONYMS: Record<string, string[]> = {};
 
 const SYNONYM_GROUPS: string[][] = [
   ['butter', 'budder', 'badder', 'dab', 'dabs'],
-  ['ingestable', 'edible', 'edibles'],
+  ['ingestable', 'ingestible', 'edible', 'edibles'],
   ['510', 'eliquid', 'cartridge', 'cartridges'],
   ['baterry', 'battery'],
 ];
 
-const SYNONYMS = SYNONYM_GROUPS.reduce<Record<string, string[]>>((acc, group) => {
+// Deliberately one-directional, and deliberately not a group. Meilisearch matches
+// by prefix, so a term sitting mid-token is unreachable: "cbd" never finds h4cbd,
+// "berry" never finds strawberry. The reverse must not hold, or searching h4cbd
+// returns all 287 CBD products. A group cannot express that, because the reducer
+// below expands every member to every other.
+const SYNONYM_EXPANSIONS: Record<string, string[]> = {
+  cbd: ['h4cbd'],
+  berry: ['strawberry', 'blueberry', 'raspberry', 'blackberry'],
+};
+
+const GROUPED_SYNONYMS = SYNONYM_GROUPS.reduce<Record<string, string[]>>((acc, group) => {
   for (const term of group) {
     acc[term] = [...(acc[term] || []), ...group.filter((other) => other !== term)];
   }
   return acc;
 }, {});
+
+const SYNONYMS = Object.entries(SYNONYM_EXPANSIONS).reduce<Record<string, string[]>>(
+  (acc, [term, expansions]) => {
+    acc[term] = [...(acc[term] || []), ...expansions].filter(
+      (value, index, all) => all.indexOf(value) === index
+    );
+    return acc;
+  },
+  { ...GROUPED_SYNONYMS }
+);
 
 interface TaxonomyNode {
   name?: string | null;
@@ -293,6 +301,7 @@ async function fetchAllProducts(wpUrl: string): Promise<ProductDocument[]> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: PRODUCT_QUERY, variables: { first: 100, after } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -348,8 +357,8 @@ interface CollectionsResponse {
   data?: { collections?: CollectionsConnection | null } | null;
 }
 
-function isSlugLikeName(name: string): boolean {
-  return !/\s/.test(name) && name.includes('-');
+function isSlugLikeName(name: string, slug: string): boolean {
+  return !/\s/.test(name) && name.includes('-') && name === slug;
 }
 
 async function fetchAllCollections(wpUrl: string): Promise<CollectionDocument[]> {
@@ -361,6 +370,7 @@ async function fetchAllCollections(wpUrl: string): Promise<CollectionDocument[]>
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: COLLECTION_QUERY, variables: { first: 100, after } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -383,11 +393,12 @@ async function fetchAllCollections(wpUrl: string): Promise<CollectionDocument[]>
       const count = node.count ?? 0;
       if (count <= 0) continue;
       const name = node.name ?? '';
-      if (isSlugLikeName(name)) continue;
+      const slug = node.slug ?? '';
+      if (isSlugLikeName(name, slug)) continue;
       documents.push({
         databaseId: node.databaseId,
         name,
-        slug: node.slug ?? '',
+        slug,
         count,
       });
     }
@@ -465,6 +476,7 @@ async function fetchAllPosts(wpUrl: string): Promise<PostDocument[]> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: POST_QUERY, variables: { first: 100, after } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
