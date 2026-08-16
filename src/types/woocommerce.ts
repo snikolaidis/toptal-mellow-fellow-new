@@ -91,6 +91,16 @@ export interface ProductTaxonomyTerm {
   extraTaxonomyFields?: { propIcon?: AcfImageField | null } | null;
 }
 
+// MellowMeter terms carry their icon under a dedicated ACF group
+// (`mellowMeterFields`) rather than `extraTaxonomyFields`, so they don't fit
+// ProductTaxonomyTerm.
+export interface MellowMeterTerm {
+  id: string;
+  name: string;
+  slug?: string;
+  mellowMeterFields?: { meterImage?: AcfImageField | null } | null;
+}
+
 export interface ProductACF {
   // Text / textarea / wysiwyg
   coaLink?: string | null;
@@ -160,6 +170,7 @@ export interface Product {
   vibes?: { nodes: ProductTaxonomyTerm[] };
   feelings?: { nodes: ProductTaxonomyTerm[] };
   settings?: { nodes: ProductTaxonomyTerm[] };
+  mellowMeters?: { nodes: MellowMeterTerm[] };
   blendTypes?: { nodes: Array<{ name: string }> };
   productLines?: { nodes: Array<{ name: string }> };
   size?: { nodes: Array<{ name: string }> };
