@@ -10,7 +10,7 @@ interface Props {
 export default function ProductDescription({ product }: Props) {
   return (
     <section className="product-description-section">
-      <div className="columns">
+      <div className="columns is-8-desktop">
         <div className="column">
           {product.description && (
             <div className="description-box">

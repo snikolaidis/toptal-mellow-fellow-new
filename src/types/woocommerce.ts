@@ -101,6 +101,15 @@ export interface MellowMeterTerm {
   mellowMeterFields?: { meterImage?: AcfImageField | null } | null;
 }
 
+// The `Nutrition` ACF group, attached directly to products (not nested under
+// productDetails). Fields are ACF "text" (not "number"), so GraphQL returns
+// them as strings, not floats. `carbs` also exists on the group but is
+// unused so far.
+export interface ProductNutrition {
+  calories?: string | null;
+  sugar?: string | null;
+}
+
 export interface ProductACF {
   // Text / textarea / wysiwyg
   coaLink?: string | null;
@@ -163,6 +172,7 @@ export interface Product {
     nodes: ProductVariation[];
   };
   productDetails?: ProductACF;
+  nutrition?: ProductNutrition | null;
   // Product attribute taxonomies (migrated from Shopify), surfaced on cards.
   strainTypes?: { nodes: Array<{ name: string }> };
   strainNames?: { nodes: Array<{ name: string }> };
