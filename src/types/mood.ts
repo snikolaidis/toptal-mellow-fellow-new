@@ -11,6 +11,8 @@ export interface MoodFields {
   moodHeroDesktop?: MediaNode | null;
   moodHeroMobile?: MediaNode | null;
   warningMessage?: string | null;
+  introHeading?: string | null;
+  introText?: string | null;
   faqSectionTitle?: string | null;
   faqs?: { nodes: Array<{ id: string; title: string; content: string }> };
   thumbnailImage?: MediaNode | null;

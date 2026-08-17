@@ -123,7 +123,7 @@ export default function MoodPage({
   useEffect(() => {
     if (!descRef.current) return;
     setDescTruncatable(descRef.current.scrollHeight > descRef.current.clientHeight + 1);
-  }, [mood?.description]);
+  }, [mood?.moodFields?.introText]);
 
   useEffect(() => {
     const row = pillsRowRef.current;
@@ -168,10 +168,22 @@ export default function MoodPage({
   const mobileSrc = heroMobile?.sourceUrl || heroDesktop?.sourceUrl;
   const hasHero = Boolean(desktopSrc || mobileSrc);
 
+  const introHeading = mood.moodFields?.introHeading;
+  const introText = mood.moodFields?.introText;
+  const warningMessage = mood.moodFields?.warningMessage;
+  const hasHeader = Boolean(introHeading || introText || warningMessage);
+
+  // Strip first, decode second. Decoding first turns an escaped "&lt;" into a
+  // real "<" and the tag stripper then eats everything up to the next ">", so
+  // "THC &lt;0.3% by dry weight" comes out as "THC ".
+  const metaDescription = decodeEntities(
+    mood.description?.replace(/<[^>]+>/g, '')
+  )?.slice(0, 160);
+
   return (
     <Layout
       title={mood.name}
-      description={mood.description?.replace(/<[^>]+>/g, '').slice(0, 160) || undefined}
+      description={metaDescription || undefined}
       seo={{
         title: mood.seo?.title,
         metaDesc: mood.seo?.metaDesc,
@@ -275,34 +287,37 @@ export default function MoodPage({
           </nav>
         )}
 
-        <header className={moodStyles.header}>
-          {/* Always h2: the banner slot above provides the page's h1 in both the
-              hero and no-hero cases. */}
-          <h2 className={moodStyles.sectionTitle}>{mood.name}</h2>
-          {mood.description && (
-            <>
-              <div
-                ref={descRef}
-                className={`${moodStyles.sentence} ${!descExpanded ? moodStyles.sentenceClamped : ''}`}
-                dangerouslySetInnerHTML={{ __html: mood.description }}
-              />
-              {descTruncatable && (
-                <button
-                  type="button"
-                  className={styles.descriptionToggle}
-                  onClick={() => setDescExpanded((v) => !v)}
+        {hasHeader && (
+          <header className={moodStyles.header}>
+            {/* Always h2: the banner slot above provides the page's h1 in both the
+                hero and no-hero cases. */}
+            {introHeading && <h2 className={moodStyles.sectionTitle}>{introHeading}</h2>}
+            {introText && (
+              <>
+                <div
+                  ref={descRef}
+                  className={`${moodStyles.sentence} ${!descExpanded ? moodStyles.sentenceClamped : ''}`}
                 >
-                  {descExpanded ? 'Read less' : 'Read more'}
-                </button>
-              )}
-            </>
-          )}
-          {mood.moodFields?.warningMessage && (
-            <p className={styles.warningMessage}>
-              <span aria-hidden="true">⚠️</span> {mood.moodFields.warningMessage}
-            </p>
-          )}
-        </header>
+                  {introText}
+                </div>
+                {descTruncatable && (
+                  <button
+                    type="button"
+                    className={styles.descriptionToggle}
+                    onClick={() => setDescExpanded((v) => !v)}
+                  >
+                    {descExpanded ? 'Read less' : 'Read more'}
+                  </button>
+                )}
+              </>
+            )}
+            {warningMessage && (
+              <p className={styles.warningMessage}>
+                <span aria-hidden="true">⚠️</span> {warningMessage}
+              </p>
+            )}
+          </header>
+        )}
 
         {isEmpty ? (
           <section className={moodStyles.emptyState}>
@@ -464,12 +479,17 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
     const raw = metaRes.mood;
 
-    // `description` must not be added here: it is real HTML rendered with
-    // dangerouslySetInnerHTML, so decoding it turns escaped markup into live
-    // markup.
     const mood: Mood = {
       ...raw,
       name: decodeEntities(raw.name),
+      moodFields: raw.moodFields
+        ? {
+            ...raw.moodFields,
+            introHeading: decodeEntities(raw.moodFields.introHeading),
+            introText: decodeEntities(raw.moodFields.introText),
+            warningMessage: decodeEntities(raw.moodFields.warningMessage),
+          }
+        : raw.moodFields,
       seo: raw.seo
         ? {
             ...raw.seo,

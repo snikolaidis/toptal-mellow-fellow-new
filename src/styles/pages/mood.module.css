@@ -246,10 +246,6 @@
   text-align: left;
 }
 
-.sentence p {
-  margin: 0;
-}
-
 .sentenceClamped {
   display: -webkit-box;
   -webkit-box-orient: vertical;
