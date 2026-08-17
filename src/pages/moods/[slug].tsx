@@ -2,7 +2,6 @@ import { GetStaticProps, GetStaticPaths } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
-import dynamic from 'next/dynamic';
 import { CSSProperties, useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import { GET_ALL_MOOD_SLUGS, GET_ALL_MOODS } from '@/graphql/queries/moods';
@@ -12,14 +11,13 @@ import { useTaxonomyProducts } from '@/lib/useTaxonomyProducts';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import RichText from '@/components/RichText';
-import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
-import BlogPostsCarousel from '@/components/BlogPostsCarousel';
+import CollectionSlider from '@/wp-blocks/CollectionSlider';
+import BlogPosts from '@/wp-blocks/BlogPosts';
 import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
 import { Mood, MoodPill } from '@/types/mood';
-import { BlogPostCard } from '@/types/blog';
 import {
   PAGE_SIZE,
   SORT_OPTIONS,
@@ -29,8 +27,6 @@ import {
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 import moodStyles from '@/styles/pages/mood.module.css';
-
-const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 
@@ -68,6 +64,23 @@ const moodRank = (slug: string) => {
   return i === -1 ? MOOD_ORDER.length : i;
 };
 
+// Same copy the homepage holds in ACF. Editing the homepage block does not
+// reach these, so the two drift apart silently.
+const BESTSELLERS_SLIDER = {
+  title: "Explore this Month's Bestsellers",
+  productCount: 8,
+  backgroundVariant: 'green_panel',
+  collection: { nodes: [{ __typename: 'Collection', slug: 'best-sellers' }] },
+};
+
+const BLOG_POSTS = {
+  title: 'New to THC? Start Here',
+  subheading: 'Quick reads for first-time buyers.',
+  postCount: 5,
+  buttonText: 'Browse All Blogs',
+  buttonLink: { url: '/blogs' },
+};
+
 interface MoodPageProps {
   mood: Mood;
   moodPills: MoodPill[];
@@ -77,7 +90,6 @@ interface MoodPageProps {
   initialHasNextPage: boolean;
   initialTotalPages: number;
   moodSlug: string;
-  relatedPosts: BlogPostCard[];
 }
 
 export default function MoodPage({
@@ -89,7 +101,6 @@ export default function MoodPage({
   initialHasNextPage,
   initialTotalPages,
   moodSlug,
-  relatedPosts,
 }: MoodPageProps) {
   const {
     products,
@@ -402,12 +413,8 @@ export default function MoodPage({
           </div>
         )}
 
-        <div className={styles.reviewsSection}>
-          <ReviewsCarousel />
-        </div>
-
-        <div className={styles.blogPostsSection}>
-          <BlogPostsCarousel title="Learn About Our Products" posts={relatedPosts} />
+        <div className={moodStyles.bestsellers}>
+          <CollectionSlider collectionSlider={BESTSELLERS_SLIDER} />
         </div>
 
         {(() => {
@@ -427,7 +434,7 @@ export default function MoodPage({
           );
         })()}
 
-        <RecentlyViewed currentSlug="" titleClassName={styles.recentlyViewedTitle} />
+        <BlogPosts blogPosts={BLOG_POSTS} />
       </div>
     </Layout>
   );
@@ -514,8 +521,6 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const initialHasNextPage = productsRes?.hasNextPage || false;
     const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / PAGE_SIZE) : 0);
 
-    const relatedPosts: BlogPostCard[] = mood.relatedPosts || [];
-
     const moodPills: MoodPill[] = (moodsRes?.data?.moods?.nodes || [])
       .map((m: { name: string; slug: string }) => ({
         name: decodeEntities(m.name),
@@ -533,7 +538,6 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         initialHasNextPage,
         initialTotalPages,
         moodSlug: slug,
-        relatedPosts,
       } as Record<string, any>,
       revalidate: 60,
     };

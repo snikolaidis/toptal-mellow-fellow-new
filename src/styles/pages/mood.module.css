@@ -224,6 +224,25 @@
   color: var(--color-text-inverse);
 }
 
+/* TODO(figma): section gaps for the two sections that do not exist yet.
+   bestsellers bottom -> You May Also Like top: 22px
+   You May Also Like bottom -> Fam Club top:     11px
+   Fam Club bottom -> blog block container top:  60px
+   Only the last is reachable today, and only once Fam Club is built. Until
+   then bestsellers sits where Fam Club will, so the gap below it is the
+   panel's own margin-bottom rather than any of these. */
+.bestsellers {
+  margin-top: 61.05px;
+}
+
+/* The panel measures its own side gutter from the page edge, which is right on
+   the homepage where it sits at full width. Inside .page that gutter adds to
+   the 60px padding and lands the panel 45px inside the hero. */
+.bestsellers :global(.collection-swiper--green-panel) {
+  margin-left: 0;
+  margin-right: 0;
+}
+
 .header {
   margin-bottom: 38px;
 }
