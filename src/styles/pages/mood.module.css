@@ -224,23 +224,27 @@
   color: var(--color-text-inverse);
 }
 
-/* TODO(figma): section gaps for the two sections that do not exist yet.
-   bestsellers bottom -> You May Also Like top: 22px
-   You May Also Like bottom -> Fam Club top:     11px
-   Fam Club bottom -> blog block container top:  60px
-   Only the last is reachable today, and only once Fam Club is built. Until
-   then bestsellers sits where Fam Club will, so the gap below it is the
-   panel's own margin-bottom rather than any of these. */
+/* TODO(figma): section gaps for the sections that do not exist yet.
+   You May Also Like bottom -> Fam Club top:    11px
+   Fam Club bottom -> blog block container top: 60px
+   Neither is reachable until Fam Club is built. Until then the carousel is
+   followed by the blog block, an adjacency the frame does not have, so the gap
+   below it is the blog block's own spacing rather than either of these. */
 .bestsellers {
   margin-top: 61.05px;
 }
 
-/* The panel measures its own side gutter from the page edge, which is right on
-   the homepage where it sits at full width. Inside .page that gutter adds to
-   the 60px padding and lands the panel 45px inside the hero. */
+/* The panel's margin box is authored for the homepage, where it sits full
+   width with nothing after it. Narrowing this shorthand reinstates both
+   defects: the gutters land it 45px inside the hero, and the large-up 60px
+   bottom escapes this bare wrapper to collapse with the next section, where
+   max() picks 60 and no value set below can win. */
 .bestsellers :global(.collection-swiper--green-panel) {
-  margin-left: 0;
-  margin-right: 0;
+  margin: 0;
+}
+
+.nextMood {
+  margin-top: 22px;
 }
 
 .header {

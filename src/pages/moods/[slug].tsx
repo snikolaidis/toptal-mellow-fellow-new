@@ -13,6 +13,7 @@ import ProductCard from '@/components/ProductCard';
 import RichText from '@/components/RichText';
 import CollectionSlider from '@/wp-blocks/CollectionSlider';
 import BlogPosts from '@/wp-blocks/BlogPosts';
+import YouMayAlsoLike from '@/components/pdp/YouMayAlsoLike';
 import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
@@ -178,6 +179,12 @@ export default function MoodPage({
   const desktopSrc = heroDesktop?.sourceUrl || heroMobile?.sourceUrl;
   const mobileSrc = heroMobile?.sourceUrl || heroDesktop?.sourceUrl;
   const hasHero = Boolean(desktopSrc || mobileSrc);
+
+  const pillIndex = moodPills.findIndex((p) => p.slug === moodSlug);
+  const nextMood =
+    moodPills.length > 1 && pillIndex !== -1
+      ? moodPills[(pillIndex + 1) % moodPills.length]
+      : null;
 
   const introHeading = mood.moodFields?.introHeading;
   const introText = mood.moodFields?.introText;
@@ -416,6 +423,16 @@ export default function MoodPage({
         <div className={moodStyles.bestsellers}>
           <CollectionSlider collectionSlider={BESTSELLERS_SLIDER} />
         </div>
+
+        {nextMood && (
+          <YouMayAlsoLike
+            source={{ kind: 'taxonomy', slug: nextMood.slug, taxonomy: 'mood', count: 8 }}
+            title={`Explore ${nextMood.name} Products`}
+            layout="carousel"
+            attribution="next_mood"
+            className={moodStyles.nextMood}
+          />
+        )}
 
         {(() => {
           const faqs = mood.moodFields?.faqs?.nodes || [];
