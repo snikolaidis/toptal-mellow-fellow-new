@@ -175,6 +175,55 @@
   white-space: nowrap;
 }
 
+.pillsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  margin: 0 -16px 24.5px;
+  overflow-x: auto;
+  scroll-padding-inline-end: 48px;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent 100%);
+}
+
+.pillsRow::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .pillsRow {
+    flex-wrap: wrap;
+    padding: 0;
+    margin: 0 0 24.5px;
+    overflow-x: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+.pill {
+  flex: 0 0 auto;
+  padding: 8px 20px;
+  border: 1px solid var(--color-brown-40);
+  border-radius: 27px;
+  background: var(--color-gold-cream-20);
+  font-family: var(--font-family-body);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  color: var(--color-deep-teal);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pillActive {
+  background: var(--color-club-purple);
+  font-weight: 700;
+  color: var(--color-text-inverse);
+}
+
 .header {
   margin-bottom: 38px;
 }

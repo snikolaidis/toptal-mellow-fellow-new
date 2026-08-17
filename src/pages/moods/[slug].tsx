@@ -5,7 +5,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { CSSProperties, useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
-import { GET_ALL_MOOD_SLUGS } from '@/graphql/queries/moods';
+import { GET_ALL_MOOD_SLUGS, GET_ALL_MOODS } from '@/graphql/queries/moods';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { decodeEntities } from '@/lib/decodeEntities';
 import { useTaxonomyProducts } from '@/lib/useTaxonomyProducts';
@@ -18,7 +18,7 @@ import ShopSidebar from '@/components/shop/ShopSidebar';
 import MobileFilters from '@/components/shop/MobileFilters';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
-import { Mood } from '@/types/mood';
+import { Mood, MoodPill } from '@/types/mood';
 import { BlogPostCard } from '@/types/blog';
 import {
   PAGE_SIZE,
@@ -54,8 +54,23 @@ const CATEGORY_CHIPS: CategoryChip[] = [
   { label: 'Concentrates', icon: '/concentrates-megamenu.png', width: 200, height: 200, glowColor: '#E08A45', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.8 },
 ];
 
+const MOOD_ORDER = [
+  'sleep-better',
+  'relief',
+  'chill-out',
+  'energy-focus',
+  'happy-social',
+  'better-intimacy',
+];
+
+const moodRank = (slug: string) => {
+  const i = MOOD_ORDER.indexOf(slug);
+  return i === -1 ? MOOD_ORDER.length : i;
+};
+
 interface MoodPageProps {
   mood: Mood;
+  moodPills: MoodPill[];
   initialProducts: Product[];
   initialFilterGroups: FilterGroup[];
   totalProducts: number;
@@ -67,6 +82,7 @@ interface MoodPageProps {
 
 export default function MoodPage({
   mood,
+  moodPills,
   initialProducts,
   initialFilterGroups,
   totalProducts,
@@ -101,11 +117,35 @@ export default function MoodPage({
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
   const descRef = useRef<HTMLDivElement>(null);
+  const pillsRowRef = useRef<HTMLElement>(null);
+  const activePillRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!descRef.current) return;
     setDescTruncatable(descRef.current.scrollHeight > descRef.current.clientHeight + 1);
   }, [mood?.description]);
+
+  useEffect(() => {
+    const row = pillsRowRef.current;
+    const active = activePillRef.current;
+    if (!row || !active) return;
+
+    const reveal = () => {
+      if (row.scrollWidth > row.clientWidth) {
+        active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+      }
+    };
+
+    reveal();
+
+    // The row is 15px wider at mount than once the product grid has taken the
+    // vertical scrollbar, so the first pass measures against the wrong width
+    // and stops short of the active pill.
+    const observer = new ResizeObserver(reveal);
+    observer.observe(row);
+    observer.observe(active);
+    return () => observer.disconnect();
+  }, [moodSlug]);
 
   if (!mood) {
     return (
@@ -213,6 +253,27 @@ export default function MoodPage({
             </div>
           ))}
         </div>
+
+        {moodPills.length > 0 && (
+          <nav className={moodStyles.pillsRow} aria-label="Moods" ref={pillsRowRef}>
+            {moodPills.map((pill) =>
+              pill.slug === moodSlug ? (
+                <span
+                  key={pill.slug}
+                  ref={activePillRef}
+                  className={`${moodStyles.pill} ${moodStyles.pillActive}`}
+                  aria-current="page"
+                >
+                  {pill.name}
+                </span>
+              ) : (
+                <Link key={pill.slug} href={`/moods/${pill.slug}`} className={moodStyles.pill}>
+                  {pill.name}
+                </Link>
+              )
+            )}
+          </nav>
+        )}
 
         <header className={moodStyles.header}>
           {/* Always h2: the banner slot above provides the page's h1 in both the
@@ -378,7 +439,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
     const qs = `slug=${encodeURIComponent(slug)}&taxonomy=mood`;
 
-    const [menuClient, metaRes, facetsRes, productsRes] = await Promise.all([
+    const [menuClient, metaRes, facetsRes, productsRes, moodsRes] = await Promise.all([
       prefetchMenus(),
       fetch(`${wpUrl}/wp-json/mf/v1/collection-meta?${qs}`)
         .then((r) => r.json())
@@ -388,6 +449,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         .catch(() => null),
       fetch(`${wpUrl}/wp-json/mf/v1/collection-products?${qs}&per_page=${PAGE_SIZE}`)
         .then((r) => r.json())
+        .catch(() => null),
+      getClient()
+        .query({ query: GET_ALL_MOODS })
         .catch(() => null),
     ]);
 
@@ -432,9 +496,17 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
     const relatedPosts: BlogPostCard[] = mood.relatedPosts || [];
 
+    const moodPills: MoodPill[] = (moodsRes?.data?.moods?.nodes || [])
+      .map((m: { name: string; slug: string }) => ({
+        name: decodeEntities(m.name),
+        slug: m.slug,
+      }))
+      .sort((a: MoodPill, b: MoodPill) => moodRank(a.slug) - moodRank(b.slug));
+
     const result = {
       props: {
         mood,
+        moodPills,
         initialProducts,
         initialFilterGroups: filterGroupsData,
         totalProducts,

@@ -16,6 +16,11 @@ export interface MoodFields {
   thumbnailImage?: MediaNode | null;
 }
 
+export interface MoodPill {
+  name: string;
+  slug: string;
+}
+
 // relatedCollections / relatedCollectionTitle are omitted on purpose. The
 // endpoint resolves that ACF relationship inside the current taxonomy
 // (mellow-fellow-collection-meta.php:126), so on a mood term it returns other

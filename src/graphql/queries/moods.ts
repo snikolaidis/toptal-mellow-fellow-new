@@ -9,3 +9,14 @@ export const GET_ALL_MOOD_SLUGS = gql`
     }
   }
 `;
+
+export const GET_ALL_MOODS = gql`
+  query GetAllMoods {
+    moods(first: 100) {
+      nodes {
+        name
+        slug
+      }
+    }
+  }
+`;
