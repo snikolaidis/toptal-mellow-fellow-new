@@ -1,0 +1,403 @@
+.panel {
+  /* Whoever gutters the panel's rows sets this to 0. Hardcoding 16px on the
+     rows instead double-insets them wherever the container already pads. */
+  --panel-inset: 16px; /* TODO(figma) */
+  width: 100%;
+  font-family: var(--font-family-body);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 var(--panel-inset);
+  margin-bottom: 12px; /* TODO(figma) */
+}
+
+/* font-family, because globals.scss:118 sets the display face on every h1-h6
+   and an element's own matching rule beats the family inherited from .panel. */
+.heading {
+  margin: 0;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 25.5px;
+  color: #24241f;
+}
+
+.clearAll {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #a92331;
+  cursor: pointer;
+}
+
+.clearAll:disabled {
+  opacity: 0.4; /* TODO(figma) */
+  cursor: default;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px; /* TODO(figma) */
+  padding: 12px var(--panel-inset) 0; /* TODO(figma) */
+  border-top: 1px solid #e0e0e0; /* TODO(figma) */
+  margin-bottom: 16px; /* TODO(figma) */
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--color-teal-85);
+  color: var(--color-text-inverse);
+  cursor: pointer;
+}
+
+.chipLabel {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.chipX {
+  flex-shrink: 0;
+}
+
+.group {
+  border-top: 1px solid #e0e0e0; /* TODO(figma) */
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem var(--panel-inset); /* TODO(figma) */
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* TODO(figma) */
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 21px;
+  color: #24241f;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #005069;
+  color: var(--color-text-inverse);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16.5px;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: #24241f;
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.terms {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* TODO(figma) */
+  padding: 0 var(--panel-inset) 0.875rem; /* TODO(figma) */
+}
+
+.term {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px; /* TODO(figma) */
+  cursor: pointer;
+}
+
+.termInput {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #c4bfd4;
+  border-radius: 4px;
+  background: var(--color-surface-primary);
+  color: var(--color-text-inverse);
+}
+
+.termInput:checked + .checkbox {
+  border-color: var(--color-teal-85);
+  background: var(--color-teal-85);
+}
+
+.tick {
+  opacity: 0;
+}
+
+.termInput:checked + .checkbox .tick {
+  opacity: 1;
+}
+
+.termInput:focus-visible + .checkbox {
+  outline: 2px solid var(--color-teal-85);
+  outline-offset: 2px;
+}
+
+.termName {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: #24241f;
+}
+
+.termCount {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 21px;
+  color: var(--color-text-secondary);
+}
+
+/* flex-direction, because this container also carries .terms, which stacks
+   checkbox rows in a column. Without the reset the pills stack full width. */
+.pills {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px 7.69px;
+}
+
+/* The frame's 33.5px height is the sum of this box: 1 + 6 + 19.5 + 6 + 1.
+   Declaring it as well double-constrains the pill and fights the first label
+   that wraps. */
+.pill {
+  padding: 6px 16px;
+  border: 1px solid #c4bfd4;
+  border-radius: 9999px;
+  background: var(--color-surface-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  text-align: center;
+  color: #24241f;
+  cursor: pointer;
+}
+
+.pillActive {
+  border-color: var(--color-teal-85);
+  background: var(--color-teal-85);
+  color: var(--color-text-inverse);
+}
+
+.sheetRoot {
+  display: block;
+  margin-top: 33px;
+  margin-bottom: 1rem; /* TODO(figma) */
+}
+
+@media (min-width: 1024px) {
+  .sheetRoot {
+    display: none;
+  }
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 8px 20px;
+  border: 1px solid var(--color-brown-40);
+  border-radius: 27px;
+  background: var(--color-surface-primary);
+  font-family: var(--font-family-body);
+  font-size: 14px; /* TODO(figma) */
+  font-weight: 700; /* TODO(figma) */
+  color: #24241f;
+  cursor: pointer;
+}
+
+/* The vh line below is the fallback for the dvh one, not a duplicate. */
+.sheet {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 60px);
+  max-height: calc(100dvh - 60px);
+  /* No horizontal padding. It gutters every child alike, which is what stopped
+     the bar, the dividers and the footer 16px short of the sheet's edges. Each
+     of them owns its own inset instead, so only their contents move in. */
+  background: var(--color-surface-primary);
+  box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Grid rather than the frame's space-between: the close button and Clear All
+   are different widths, so space-between sets the heading between them rather
+   than in the middle of the bar. Equal 1fr rails centre it either way. */
+.sheetBar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  flex-shrink: 0;
+  height: 40px;
+  padding: 4px 16px;
+  border-radius: 12px 12px 0 0;
+  border-bottom: 1px solid #cbc4cf;
+  background: #f9f9f9;
+}
+
+.sheetBarHeading {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: 17px; /* TODO(figma) */
+  font-weight: 700; /* TODO(figma) */
+  line-height: 25.5px; /* TODO(figma) */
+  color: #24241f;
+}
+
+.sheetBarAction {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+}
+
+.sheetClose {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: #24241f;
+  cursor: pointer;
+}
+
+.sheetBody {
+  /* basis auto, not 0: with flex-basis 0 this contributes nothing to the
+     sheet's intrinsic height and the whole panel collapses. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px 16px 0;
+  /* A classic scrollbar takes its width out of this content box and the
+     dividers stop short of the bar. Hidden as the mood page hides its own. */
+  scrollbar-width: none;
+}
+
+.sheetBody::-webkit-scrollbar {
+  display: none;
+}
+
+/* The frame's 24px between sections, as padding and not its gap: a gap sits
+   outside the box the divider is on, so the line lands against the next
+   section instead of between them. */
+.sheetBody .groupHeader {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.sheetBody .terms {
+  padding-bottom: 12px;
+}
+
+.sheetBody .group:first-child {
+  border-top: none;
+}
+
+.sheetBody .panel {
+  --panel-inset: 0;
+}
+
+.sheetBody .chips {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* The one divider that runs to the sheet's edges rather than stopping at the
+   gutter: the negative margin takes its border box back out to full width, the
+   padding puts its contents back where the other sections' are. */
+.sheetBody .chips + .group {
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+
+.sheetFooter {
+  flex-shrink: 0;
+  padding: 16px 16px max(16px, env(safe-area-inset-bottom)); /* TODO(figma) */
+  border-top: 1px solid #e0e0e0; /* TODO(figma) */
+  background: var(--color-surface-primary);
+}
+
+.showBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  border: 2px solid var(--color-gold-cream);
+  border-radius: 9999px;
+  background: var(--color-gold-cream);
+  font-family: var(--font-family-body);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 24px;
+  text-align: center;
+  color: #000000;
+  cursor: pointer;
+}

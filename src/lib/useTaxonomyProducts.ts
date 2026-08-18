@@ -38,6 +38,10 @@ export function useTaxonomyProducts({
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
   const [currentTotalPages, setCurrentTotalPages] = useState(initialTotalPages);
+  // The endpoint's own count of everything matching the filters, which
+  // `products.length` is not: that is capped at PAGE_SIZE. null while the page
+  // is on its unfiltered initial data and the caller's own total applies.
+  const [filteredTotal, setFilteredTotal] = useState<number | null>(null);
 
   const usingInitialData = useRef(true);
 
@@ -70,6 +74,7 @@ export function useTaxonomyProducts({
           setProducts(data.products || []);
           setHasNextPage(data.hasNextPage || false);
           setCurrentTotalPages(data.totalPages || 1);
+          setFilteredTotal(typeof data.total === 'number' ? data.total : null);
           usingInitialData.current = false;
         }
       } catch {
@@ -91,6 +96,7 @@ export function useTaxonomyProducts({
     setPage(1);
     setHasNextPage(initialHasNextPage);
     setCurrentTotalPages(initialTotalPages);
+    setFilteredTotal(null);
     setLoading(false);
     usingInitialData.current = true;
 
@@ -119,6 +125,7 @@ export function useTaxonomyProducts({
           setFilterGroups(initialFilterGroups);
           setHasNextPage(initialHasNextPage);
           setCurrentTotalPages(initialTotalPages);
+          setFilteredTotal(null);
           usingInitialData.current = true;
         } else if (!noFilters) {
           fetchPage(next, selectedSort, 1);
@@ -152,6 +159,7 @@ export function useTaxonomyProducts({
         setFilterGroups(initialFilterGroups);
         setHasNextPage(initialHasNextPage);
         setCurrentTotalPages(initialTotalPages);
+        setFilteredTotal(null);
         usingInitialData.current = true;
       } else {
         fetchPage(activeFilters, newSort, 1);
@@ -184,6 +192,7 @@ export function useTaxonomyProducts({
       setProducts(initialProducts);
       setHasNextPage(initialHasNextPage);
       setCurrentTotalPages(initialTotalPages);
+      setFilteredTotal(null);
       usingInitialData.current = true;
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -207,6 +216,7 @@ export function useTaxonomyProducts({
     page,
     hasNextPage,
     totalPages: currentTotalPages,
+    filteredTotal,
     isFiltered,
     handleFilterChange,
     handleSortChange,

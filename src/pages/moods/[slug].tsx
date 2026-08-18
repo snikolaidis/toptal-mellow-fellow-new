@@ -14,22 +14,18 @@ import RichText from '@/components/RichText';
 import CollectionSlider from '@/wp-blocks/CollectionSlider';
 import BlogPosts from '@/wp-blocks/BlogPosts';
 import YouMayAlsoLike from '@/components/pdp/YouMayAlsoLike';
-import ShopSidebar from '@/components/shop/ShopSidebar';
-import MobileFilters from '@/components/shop/MobileFilters';
-import Select, { SelectOption } from '@/components/ui/Select';
+import FilterPanel from '@/components/shop/filters/FilterPanel';
+import FilterSheet from '@/components/shop/filters/FilterSheet';
 import { Product } from '@/types/woocommerce';
 import { Mood, MoodPill } from '@/types/mood';
 import {
   PAGE_SIZE,
-  SORT_OPTIONS,
   FILTER_GROUPS,
   FilterGroup,
   isHiddenTerm,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 import moodStyles from '@/styles/pages/mood.module.css';
-
-const sortOptions: SelectOption[] = SORT_OPTIONS;
 
 interface CategoryChip {
   label: string;
@@ -112,6 +108,7 @@ export default function MoodPage({
     page,
     hasNextPage,
     totalPages,
+    filteredTotal,
     isFiltered,
     handleFilterChange,
     handleSortChange,
@@ -172,7 +169,7 @@ export default function MoodPage({
   }
 
   const isEmpty = totalProducts === 0;
-  const displayCount = isFiltered ? products.length : totalProducts;
+  const displayCount = isFiltered && filteredTotal !== null ? filteredTotal : totalProducts;
 
   const heroDesktop = mood.moodFields?.moodHeroDesktop?.node;
   const heroMobile = mood.moodFields?.moodHeroMobile?.node;
@@ -354,42 +351,37 @@ export default function MoodPage({
           </section>
         ) : (
           <div className={styles.layout}>
-            <div className={styles.sidebarWrapper}>
-              <ShopSidebar
+            <div className={`${styles.sidebarWrapper} ${moodStyles.filterSidebar}`}>
+              {/* React reuses the component across mood-to-mood navigation, so
+                  without the key the accordions opened on one mood stay open
+                  on the next. */}
+              <FilterPanel
+                key={moodSlug}
                 filterGroups={filterGroups}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
+                sortValue={currentSort}
+                onSortChange={handleSortChange}
               />
             </div>
 
             <main className={styles.main}>
               <div className={styles.controls}>
                 <span className={styles.productCount}>
-                  {isFiltered
-                    ? `${displayCount}${hasNextPage ? '+' : ''} ${displayCount === 1 ? 'product' : 'products'}`
-                    : `${totalProducts} ${totalProducts === 1 ? 'product' : 'products'}`}
+                  {`${displayCount} ${displayCount === 1 ? 'product' : 'products'}`}
                 </span>
-                <div className={styles.sortWrapper}>
-                  <span className={styles.sortLabel}>Sort by</span>
-                  <div className={styles.sortSelect}>
-                    <Select
-                      options={sortOptions}
-                      value={currentSort}
-                      onChange={handleSortChange}
-                      instanceId="mood-sort-select"
-                    />
-                  </div>
-                </div>
               </div>
 
-              <MobileFilters
+              <FilterSheet
                 filterGroups={filterGroups}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 productCount={displayCount}
+                sortValue={currentSort}
+                onSortChange={handleSortChange}
               />
 
-              <div className={`products-grid ${loading ? styles.gridLoading : ''}`}>
+              <div className={`${moodStyles.productGrid} ${loading ? styles.gridLoading : ''}`}>
                 {products.length > 0 ? (
                   products.map((product, index) => (
                     <ProductCard key={product.id} product={product} priority={index < 12} />
