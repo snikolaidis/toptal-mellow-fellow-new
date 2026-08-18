@@ -437,10 +437,49 @@ export default function CartDrawer() {
                 })}
               </ul>
 
+
+              {/* Select 2 Products */}
+              {/*<div className={styles.selectProducts}>
+                <h3 className={styles.selectTitle}>Select 2 Products</h3>
+
+                <div className={styles.selectSlider}>
+                  {recommendations.slice(0, 4).map((product) => (
+                    <div key={product.id} className={styles.selectCard}>
+                      <div className={styles.selectImage}>
+                        {product.image?.sourceUrl ? (
+                          <Image
+                            src={product.image.sourceUrl}
+                            alt={product.image.altText || product.name}
+                            width={120}
+                            height={120}
+                          />
+                        ) : (
+                          <div className={styles.recImagePlaceholder} />
+                        )}
+                      </div>
+
+                      <h4 className={styles.selectName}>
+                        {product.name}
+                      </h4>
+
+                      <button
+                        className={styles.selectBtn}
+                        onClick={() => handleAddRecommendation(product)}
+                        disabled={addingProductId === product.databaseId}
+                      >
+                        {addingProductId === product.databaseId
+                          ? 'Adding...'
+                          : 'Add To Cart'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>*/}
+
               {/* Recommendations */}
               {recommendations.length > 0 && (
                 <div className={styles.recommendations}>
-                  <h3 className={styles.recsTitle}>You may also like</h3>
+                  <h3 className={styles.recsTitle}>  You May Also Like</h3>
                   <div className={styles.recsGrid}>
                     {recommendations.map((product) => (
                       <div key={product.id} className={styles.recCard}>
@@ -586,8 +625,15 @@ export default function CartDrawer() {
             <p className={styles.shippingNote}>
               Shipping calculated at checkout
             </p>
-            <Link
+           {/* <Link
               href="/checkout"
+              className={styles.checkoutBtn}
+              onClick={closeDrawer}
+            >
+              Checkout Now
+            </Link>*/}
+             <Link
+              href="/checkout-login"
               className={styles.checkoutBtn}
               onClick={closeDrawer}
             >

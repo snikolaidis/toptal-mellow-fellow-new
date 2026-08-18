@@ -30,7 +30,15 @@
   left: 0;
   height: 100%;
   border-radius: 999px;
-  background: var(--color-text-primary);
+  /*background: var(--color-text-primary);*/
+  background: linear-gradient(
+  90deg,
+  #00bfff 0%,
+  #00ff88 25%,
+  #ffe600 50%,
+  #ff8c00 75%,
+  #ff1493 100%
+);
   transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
 }
@@ -69,12 +77,12 @@
 }
 
 .milestone {
-  position: absolute;
+  /*position: absolute;*/
   top: 50%;
   transform: translate(-50%, -50%);
 }
 
-.dot {
+/*.dot {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -90,4 +98,4 @@
   background: var(--color-text-primary);
   border-color: var(--color-text-primary);
   color: var(--color-text-inverse);
-}
+}*/
