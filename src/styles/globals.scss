@@ -7,7 +7,11 @@
   $button-weight: 400,
   $button-padding-horizontal: 20px,
   $button-padding-vertical: 10px,
-  $navbar-burger-color: #000000
+  $navbar-burger-color: #000000,
+  $breadcrumb-item-color: #C1B5A5,
+  $breadcrumb-item-separator-color: #C1B5A5,
+  $breadcrumb-item-padding-horizontal: 3px,
+  $breadcrumb-item-active-color: #3E484F
 );
 
 @use 'fonts';
@@ -48,6 +52,7 @@ img {
   --color-ink: #1e1e1e;
   --color-deep-teal: #1D2B33;
   --color-gold-cream: #D9C79E;
+  --color-gold-cream-20: #F7F3EA;
   --color-featured-teal: #01546E;
   --color-brown-40: #C1B5A5;
   --color-gold-light: #FFEAA8;
@@ -57,6 +62,7 @@ img {
   --color-club-purple: #7C629E;
   --color-club-lilac: #D4C9E3;
   --color-tan: #9A9080;
+  --color-yellow-gold: #FFCC4F;
 
   /* ===================
       SURFACE COLORS - Backgrounds
@@ -211,6 +217,10 @@ img {
   to {
     transform: rotate(360deg);
   }
+}
+
+.button {
+  box-shadow: none;
 }
 
 /* Primary button - shared across pages */

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import ProductCard from '@/components/ProductCard';
 import { Product } from '@/types/woocommerce';
-import styles from './PdpProductRow.module.css';
 
 interface RecProduct {
   id: string;
@@ -78,8 +77,10 @@ export default function YouMayAlsoLike({ productId, productSlug, productPrice, t
   if (recs.length === 0) return null;
 
   return (
-    <section className={styles.section}>
-      <h2 className={styles.title}>You may also like</h2>
+    <section className="you-may-also-like">
+      <h2 className="section__title">
+        You may also like
+      </h2>
       <div className="products-grid">
         {recs.map((r) => (
           <ProductCard key={r.slug} product={toProduct(r)} source="you_may_also_like" />

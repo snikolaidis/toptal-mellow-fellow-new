@@ -1,0 +1,109 @@
+@use "bulma/sass/utilities/mixins";
+
+.product-nutrition {
+  --border-radius: 16px;
+
+  background-color: var(--color-gold-cream-20);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  &__heading {
+    background-color: var(--color-gold-cream);
+    border-radius: var(--border-radius);
+    text-align: center;
+    line-height: 2;
+    font-size: 20px;
+    font-family: var(--font-family-body);
+    font-weight: 600;
+    margin: 0;
+  }
+
+  &__badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background-color: var(--color-gold-cream-20);
+    border: 2px solid var(--color-gold-cream);
+  }
+
+  &__badge-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+  }
+
+  &__badge-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1;
+  }
+
+  &__badge-unit {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--color-text-primary);
+  }
+
+  &__tiles {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    @include mixins.tablet {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  &__tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 16px;
+    border-radius: 12px;
+    background-color: var(--tile-accent, var(--color-gold-cream-20));
+
+    &--calories {
+      --tile-accent: #F9D3D3;
+    }
+  }
+
+  &__tile-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1;
+  }
+
+  &__tile-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+}

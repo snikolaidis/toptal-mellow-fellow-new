@@ -1,7 +1,53 @@
 import { gql } from '@apollo/client';
 
+// The `productDetails` ACF group is shared by every product type, so it lives in
+// its own fragment rather than being repeated per product-type fragment.
+export const PRODUCT_DETAILS_FIELDS = gql`
+  fragment ProductDetailsFields on ProductDetails {
+    noidOrBlendDescriptionTitle
+    whatIsNoid
+    directionsForUse
+    deviceSpecifications
+    ingredientsV2
+    servingSize
+    disclaimers
+    coaLink
+    timelineImage {
+      node {
+        sourceUrl
+        altText
+        mediaDetails {
+          width
+          height
+        }
+      }
+    }
+    deviceFaqsReference {
+      nodes {
+        id
+        ... on FAQ {
+          title
+          content
+        }
+      }
+    }
+  }
+`;
+
+// The `Nutrition` ACF group is attached directly to products (not nested
+// under productDetails), and is likewise shared across all four product
+// types.
+export const NUTRITION_FIELDS = gql`
+  fragment NutritionFields on Nutrition {
+    calories
+    sugar
+  }
+`;
+
 // WooGraphQL returns products as a union type, so we need inline fragments for each type
 export const SIMPLE_PRODUCT_FIELDS = gql`
+  ${PRODUCT_DETAILS_FIELDS}
+  ${NUTRITION_FIELDS}
   fragment SimpleProductFields on SimpleProduct {
     id
     databaseId
@@ -45,6 +91,81 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
       nodes {
         name
         slug
+      }
+    }
+    flavors {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    vibes {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    feelings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    settings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    mellowMeters {
+      nodes {
+        id
+        name
+        slug
+        mellowMeterFields {
+          meterImage {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
       }
     }
     blendTypes {
@@ -112,23 +233,10 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
       }
     }
     productDetails {
-      noidOrBlendDescriptionTitle
-      whatIsNoid
-      directionsForUse
-      deviceSpecifications
-      ingredientsV2
-      servingSize
-      disclaimers
-      coaLink
-      deviceFaqsReference {
-        nodes {
-          id
-          ... on FAQ {
-            title
-            content
-          }
-        }
-      }
+      ...ProductDetailsFields
+    }
+    nutrition {
+      ...NutritionFields
     }
     collections(first: 50) {
       nodes {
@@ -141,6 +249,8 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
 `;
 
 export const VARIABLE_PRODUCT_FIELDS = gql`
+  ${PRODUCT_DETAILS_FIELDS}
+  ${NUTRITION_FIELDS}
   fragment VariableProductFields on VariableProduct {
     id
     databaseId
@@ -154,6 +264,20 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
     regularPrice
     salePrice
     stockStatus
+    stockQuantity
+    productDetails {
+      ...ProductDetailsFields
+    }
+    nutrition {
+      ...NutritionFields
+    }
+    collections(first: 50) {
+      nodes {
+        name
+        slug
+        count
+      }
+    }
     image {
       id
       sourceUrl
@@ -200,6 +324,81 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
       nodes {
         name
         slug
+      }
+    }
+    flavors {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    vibes {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    feelings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    settings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    mellowMeters {
+      nodes {
+        id
+        name
+        slug
+        mellowMeterFields {
+          meterImage {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
       }
     }
     blendTypes {
@@ -270,6 +469,7 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
 `;
 
 export const EXTERNAL_PRODUCT_FIELDS = gql`
+  ${NUTRITION_FIELDS}
   fragment ExternalProductFields on ExternalProduct {
     id
     databaseId
@@ -284,6 +484,9 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
     salePrice
     externalUrl
     buttonText
+    nutrition {
+      ...NutritionFields
+    }
     image {
       id
       sourceUrl
@@ -313,6 +516,81 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
       nodes {
         name
         slug
+      }
+    }
+    flavors {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    vibes {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    feelings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    settings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    mellowMeters {
+      nodes {
+        id
+        name
+        slug
+        mellowMeterFields {
+          meterImage {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
       }
     }
     blendTypes {
@@ -383,6 +661,7 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
 `;
 
 export const GROUP_PRODUCT_FIELDS = gql`
+  ${NUTRITION_FIELDS}
   fragment GroupProductFields on GroupProduct {
     id
     databaseId
@@ -393,6 +672,9 @@ export const GROUP_PRODUCT_FIELDS = gql`
     shortDescription
     sku
     price
+    nutrition {
+      ...NutritionFields
+    }
     image {
       id
       sourceUrl
@@ -422,6 +704,81 @@ export const GROUP_PRODUCT_FIELDS = gql`
       nodes {
         name
         slug
+      }
+    }
+    flavors {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    vibes {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    feelings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    settings {
+      nodes {
+        id
+        name
+        slug
+        extraTaxonomyFields {
+          propIcon {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
+      }
+    }
+    mellowMeters {
+      nodes {
+        id
+        name
+        slug
+        mellowMeterFields {
+          meterImage {
+            node {
+              sourceUrl
+              altText
+            }
+          }
+        }
       }
     }
     blendTypes {
@@ -577,6 +934,48 @@ export const GET_PRODUCT_BY_SLUG = gql`
   ${GROUP_PRODUCT_FIELDS}
   query GetProductBySlug($slug: ID!) {
     product(id: $slug, idType: SLUG) {
+      __typename
+      shopifyId
+      seo {
+        title
+        metaDesc
+        schema {
+          raw
+        }
+        opengraphTitle
+        opengraphDescription
+        opengraphImage {
+          sourceUrl
+        }
+      }
+      ... on SimpleProduct {
+        ...SimpleProductFields
+      }
+      ... on VariableProduct {
+        ...VariableProductFields
+      }
+      ... on ExternalProduct {
+        ...ExternalProductFields
+      }
+      ... on GroupProduct {
+        ...GroupProductFields
+      }
+    }
+  }
+`;
+
+/**
+ * Same selection as GET_PRODUCT_BY_SLUG but keyed by database ID — the shape
+ * Faust's `single-product` template needs, since the seed node resolved from the
+ * URI gives us a `databaseId` rather than a slug.
+ */
+export const GET_PRODUCT_BY_DATABASE_ID = gql`
+  ${SIMPLE_PRODUCT_FIELDS}
+  ${VARIABLE_PRODUCT_FIELDS}
+  ${EXTERNAL_PRODUCT_FIELDS}
+  ${GROUP_PRODUCT_FIELDS}
+  query GetProductByDatabaseId($databaseId: ID!) {
+    product(id: $databaseId, idType: DATABASE_ID) {
       __typename
       shopifyId
       seo {
