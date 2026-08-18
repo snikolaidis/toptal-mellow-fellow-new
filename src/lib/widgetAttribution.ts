@@ -1,4 +1,9 @@
-export type WidgetSource = 'fbt' | 'free_gift' | 'you_may_also_like' | 'recently_viewed';
+export type WidgetSource =
+  | 'fbt'
+  | 'free_gift'
+  | 'you_may_also_like'
+  | 'recently_viewed'
+  | 'next_mood';
 
 export function recordWidgetSource(productId: number, source: WidgetSource): void {
   if (typeof window === 'undefined' || !productId) {

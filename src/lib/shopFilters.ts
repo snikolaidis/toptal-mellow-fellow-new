@@ -20,18 +20,31 @@ export const FILTER_PARAM_MAP: Record<string, string> = {
   collection: 'collectionFilterIn',
 };
 
+export type FilterControl = 'checkbox' | 'pill';
+
+export interface FilterGroupDef {
+  key: string;
+  label: string;
+  dataKey: string;
+  control?: FilterControl;
+}
+
 // Filter group definitions: key (URL param), label (display), dataKey (from the
 // GET_SHOP_FILTER_TERMS response, used by the shop page).
-export const FILTER_GROUPS = [
+export const FILTER_GROUPS: FilterGroupDef[] = [
   { key: 'productType', label: 'Product Type', dataKey: 'productTypes' },
   { key: 'size', label: 'Size', dataKey: 'sizes' },
-  { key: 'strainType', label: 'Strain Type', dataKey: 'strainTypes' },
+  { key: 'strainType', label: 'Strain Type', dataKey: 'strainTypes', control: 'pill' },
   { key: 'blendType', label: 'Experience Type', dataKey: 'blendTypes' },
   { key: 'cannabinoid', label: 'Cannabinoid', dataKey: 'cannabinoids' },
   { key: 'singleCannabinoid', label: 'No Blend Single Cannabinoids', dataKey: 'singleCannabinoids' },
   { key: 'mg', label: 'MG', dataKey: 'mgs' },
   { key: 'pieces', label: 'Pieces', dataKey: 'pcs' },
 ];
+
+export function getGroupControl(key: string): FilterControl {
+  return FILTER_GROUPS.find((g) => g.key === key)?.control || 'checkbox';
+}
 
 export const EXCLUDED_TERM_SLUGS: Record<string, string[]> = {
   productType: ['donation'],
