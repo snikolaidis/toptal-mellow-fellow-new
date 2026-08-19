@@ -60,8 +60,6 @@ async function fetchProductNutrition(wpUrl: string, slug: string): Promise<Produ
       product(id: $slug, idType: SLUG) {
         ... on SimpleProduct { nutrition { calories sugar } }
         ... on VariableProduct { nutrition { calories sugar } }
-        ... on ExternalProduct { nutrition { calories sugar } }
-        ... on GroupProduct { nutrition { calories sugar } }
       }
     }
   `;
