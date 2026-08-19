@@ -1,10 +1,10 @@
 <?php
 /**
  * Plugin Name: Mellow Fellow Nutrition GraphQL Fix
- * Description: Correctly resolves the Nutrition field group's GraphQL
- *              fields. Replaces v1.0.0, which guessed wrong about $source's
- *              shape and returned null unconditionally for every field.
- * Version: 2.0.0
+ * Description: Resolves the Nutrition field group's GraphQL fields directly
+ *              via ACF, bypassing WPGraphQL-for-ACF's own resolver.
+ *              TEMPORARY DIAGNOSTIC BUILD — see note below.
+ * Version: 2.1.0-debug
  */
 
 if (!defined('ABSPATH')) {
@@ -12,19 +12,19 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * WPGraphQL-for-ACF's default scalar-field resolver discards a value when
- * empty($value) is true. In PHP, empty("0") — and empty(0), empty("") — all
- * evaluate to true, so a text/number field genuinely saved as "0" resolves
- * to null over GraphQL even though wp_postmeta holds "0", not an empty
- * string. Re-registering these three fields with an explicit null/''-only
- * check fixes it without touching how the value is stored or fetched.
+ * v2.0.0 guessed at the shape of $source (the WPGraphQL Product model
+ * passed into a field resolver on SimpleProduct/VariableProduct) to find
+ * the post ID, then called get_field('nutrition', $post_id) directly to
+ * avoid the bridge plugin's own (location-rule-dependent, empty("0")-prone)
+ * resolution. That guess was wrong too — `nutrition` itself now resolves to
+ * null, meaning either post_id extraction or get_field() is failing.
  *
- * $source for a field on the Nutrition type is the array of already-fetched
- * sub-field values the parent (`nutrition` on each product type) resolver
- * produced — so this reads $source[$field] directly rather than re-querying
- * ACF, keeping it consistent with whatever fetched the group in the first
- * place. Falls back to get_field() only if $source isn't array-like, in
- * case a future plugin version resolves the group differently.
+ * There's no server log access from this side, so rather than guess a
+ * third time, this build reports what $source and get_field() actually
+ * look like THROUGH the GraphQL response itself, via the `calories` string
+ * field. Query nutrition { calories } on a product of one of the two
+ * covered types and read the message back — that tells us the real shape,
+ * and the next build drops all of this and resolves properly.
  */
 add_action('graphql_register_types', function () {
     $product_types = ['SimpleProduct', 'VariableProduct'];
@@ -32,26 +32,68 @@ add_action('graphql_register_types', function () {
     foreach ($product_types as $type) {
         register_graphql_field($type, 'nutrition', [
             'type'        => 'Nutrition',
-            'description' => 'Nutrition field group (calories, sugar, carbs).',
+            'description' => 'Nutrition field group (calories, sugar, carbs). [debug build]',
             'resolve'     => function ($source) {
+                $debug = [];
+                $debug[] = 'source_type=' . gettype($source);
+
+                if (is_object($source)) {
+                    $debug[] = 'class=' . get_class($source);
+                    $props = array_keys(get_object_vars($source));
+                    $debug[] = 'public_props=[' . implode(',', $props) . ']';
+                } elseif (is_array($source)) {
+                    $debug[] = 'array_keys=[' . implode(',', array_keys($source)) . ']';
+                } else {
+                    $debug[] = 'value=' . var_export($source, true);
+                }
+
                 $post_id = null;
+                $tried = [];
                 if (is_object($source)) {
                     if (isset($source->databaseId)) {
                         $post_id = (int) $source->databaseId;
+                        $tried[] = 'databaseId=' . $source->databaseId;
                     } elseif (isset($source->ID)) {
                         $post_id = (int) $source->ID;
+                        $tried[] = 'ID=' . $source->ID;
+                    } elseif (method_exists($source, 'get_id')) {
+                        $post_id = (int) $source->get_id();
+                        $tried[] = 'get_id()=' . $post_id;
                     }
                 } elseif (is_array($source) && isset($source['databaseId'])) {
                     $post_id = (int) $source['databaseId'];
+                    $tried[] = 'array[databaseId]=' . $source['databaseId'];
                 }
+                $debug[] = 'post_id_found=' . ($post_id ?: 'NONE') . ' (' . implode(', ', $tried) . ')';
 
                 if (!$post_id) {
-                    return null;
+                    return [
+                        'calories' => 'DEBUG: ' . implode(' || ', $debug),
+                        'sugar'    => null,
+                        'carbs'    => null,
+                    ];
                 }
 
                 $fields = get_field('nutrition', $post_id);
+                $debug[] = 'get_field(nutrition,' . $post_id . ')_type=' . gettype($fields);
+                $debug[] = 'get_field_value=' . substr(print_r($fields, true), 0, 300);
+
                 if (!is_array($fields)) {
-                    return null;
+                    // Also try reading the sub-fields individually in case
+                    // this group isn't registered as a nested "group" field
+                    // (get_field on the group name only works for that
+                    // layout) — some ACF setups attach sub-fields directly
+                    // to the post instead.
+                    $direct_calories = get_field('calories', $post_id);
+                    $direct_sugar = get_field('sugar', $post_id);
+                    $debug[] = 'direct_get_field(calories)=' . var_export($direct_calories, true);
+                    $debug[] = 'direct_get_field(sugar)=' . var_export($direct_sugar, true);
+
+                    return [
+                        'calories' => 'DEBUG: ' . implode(' || ', $debug),
+                        'sugar'    => null,
+                        'carbs'    => null,
+                    ];
                 }
 
                 return [
@@ -69,6 +111,7 @@ add_action('graphql_register_types', function () {
             'description' => "Nutrition {$field_name} value (ACF text field).",
             'resolve'     => function ($source) use ($field_name) {
                 $value = is_array($source) ? ($source[$field_name] ?? null) : null;
+
                 if ($value === null || $value === false || $value === '') {
                     return null;
                 }
