@@ -21,6 +21,20 @@ export const GET_NAV = gql`
   }
 `;
 
+// Also warmed by prefetchMenus(). The panel renders only once opened, so an
+// unwarmed cache fetches on the click that opens it.
+export const GET_SHOP_MEGA_MENU = gql`
+  query GetShopMegaMenu {
+    menuItems(where: { location: SHOP_MEGA_MENU, parentId: 0 }, first: 100) {
+      nodes {
+        id
+        label
+        uri
+      }
+    }
+  }
+`;
+
 export interface NavMenuItem {
   id: string;
   label: string;

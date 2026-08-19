@@ -94,6 +94,26 @@
   --sh-nav-hover-color: var(--color-brand-primary);
   --sh-dropdown-bg: var(--sh-nav-cream);
 
+  --sh-mega-bg: var(--color-surface-primary);
+  --sh-mega-border: var(--color-border-default);
+  --sh-mega-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  --sh-mega-pad-block: 2rem;
+  --sh-mega-col-gap: 2rem;
+  --sh-mega-heading-size: 0.8125rem;
+  --sh-mega-heading-gap: 1rem;
+  --sh-mega-col-min-h: 220px;
+  --sh-mega-duration: 0.16s;
+  --sh-mega-item-gap: 0.125rem;
+  --sh-mega-link-gap: 0.75rem;
+  --sh-mega-link-pad-block: 0.375rem;
+  --sh-mega-link-pad-inline: 0.5rem;
+  --sh-mega-link-radius: 8px;
+  --sh-mega-link-size: 0.9375rem;
+  --sh-mega-link-hover-bg: var(--sh-nav-cream);
+  --sh-mega-icon-size: 36px;
+  --sh-mega-divider-gap: 0.75rem;
+  --sh-mega-plain-size: 0.875rem;
+
   --sh-drawer-bg: var(--sh-nav-cream);
   --sh-drawer-pad: 1rem;
 
@@ -599,6 +619,104 @@
   width: 1px;
   height: 1.25rem;
   background-color: var(--color-border-default);
+}
+
+.site-header__mega {
+  display: none;
+
+  @include mixins.desktop {
+    display: block;
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    z-index: 1;
+    background-color: var(--sh-mega-bg);
+    border-top: 1px solid var(--sh-mega-border);
+    box-shadow: var(--sh-mega-shadow);
+    animation: site-header-mega-in var(--sh-mega-duration) ease;
+  }
+}
+
+.site-header__mega-inner {
+  max-width: var(--sh-max-width);
+  margin-inline: auto;
+  padding-block: var(--sh-mega-pad-block);
+  padding-inline: var(--sh-inline-pad);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sh-mega-col-gap);
+}
+
+.site-header__mega-col {
+  min-height: var(--sh-mega-col-min-h);
+}
+
+.site-header__mega-heading {
+  margin: 0 0 var(--sh-mega-heading-gap);
+  color: var(--sh-nav-color);
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-heading-size);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.site-header__mega-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sh-mega-item-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-header__mega-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sh-mega-link-gap);
+  padding: var(--sh-mega-link-pad-block) var(--sh-mega-link-pad-inline);
+  border-radius: var(--sh-mega-link-radius);
+  color: var(--sh-nav-color);
+  font-size: var(--sh-mega-link-size);
+
+  &:hover {
+    background-color: var(--sh-mega-link-hover-bg);
+    color: var(--sh-nav-hover-color);
+  }
+}
+
+// width: auto is load bearing. next/image is given per-file dimensions, so
+// fixing both here would squash edibles and warn about the changed ratio.
+.site-header__mega-icon {
+  flex: 0 0 auto;
+  width: auto;
+  height: var(--sh-mega-icon-size);
+  object-fit: contain;
+}
+
+.site-header__mega-link--plain {
+  font-size: var(--sh-mega-plain-size);
+  font-weight: 600;
+}
+
+.site-header__mega-divider {
+  display: block;
+  height: 1px;
+  margin-block: var(--sh-mega-divider-gap);
+  background-color: var(--sh-mega-border);
+}
+
+@keyframes site-header-mega-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header__mega {
+    animation: none;
+  }
 }
 
 .site-header__nav-item {

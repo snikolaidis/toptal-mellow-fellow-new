@@ -5,11 +5,13 @@ import { useQuery } from '@apollo/client';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { MellowFellowLogo, UserIcon, CartIcon } from '@/components/icons';
-import { GET_NAV, NavMenuItem } from '@/graphql/queries/menus';
+import { GET_NAV, GET_SHOP_MEGA_MENU, NavMenuItem } from '@/graphql/queries/menus';
 import AnnouncementBar from './AnnouncementBar';
 import SearchTrigger from './SearchTrigger';
 import PrimaryNav from './PrimaryNav';
 import MenuDrawer from './MenuDrawer';
+import ShopMegaMenu from './ShopMegaMenu';
+import { useShopMegaMenu } from './useShopMegaMenu';
 
 const SearchModal = dynamic(() => import('@/components/SearchModal'), {
   ssr: false,
@@ -17,12 +19,16 @@ const SearchModal = dynamic(() => import('@/components/SearchModal'), {
 
 const CONDENSE_AT = 150;
 const DIRECTION_DELTA = 8;
+const MEGA_MENU_ID = 'shop-mega-menu';
 
 const useIsomorphicLayoutEffect =
   typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export default function SiteHeader() {
   const { data } = useQuery(GET_NAV);
+  // Read here rather than inside the panel. The panel mounts on open, so a query
+  // living there would start only once the user has already clicked.
+  const { data: megaData } = useQuery(GET_SHOP_MEGA_MENU);
   const { cart, cartReady, toggleDrawer } = useCart();
   const { isAuthenticated, isReady } = useAuth();
 
@@ -33,6 +39,16 @@ export default function SiteHeader() {
   const [hydrated, setHydrated] = useState(false);
 
   const menuItems: NavMenuItem[] = data?.menuItems?.nodes ?? [];
+  const megaMenuItems: NavMenuItem[] = megaData?.menuItems?.nodes ?? [];
+
+  const {
+    isOpen: megaMenuOpen,
+    shouldFocusPanel,
+    triggerRef: megaMenuTriggerRef,
+    panelRef: megaMenuPanelRef,
+    toggle: toggleMegaMenu,
+    close: closeMegaMenu,
+  } = useShopMegaMenu({ isCondensed });
 
   const headerRef = useRef<HTMLElement>(null);
   const condensedRef = useRef(false);
@@ -109,15 +125,17 @@ export default function SiteHeader() {
   // across the boundary and the burger that would close it is hidden.
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 1024px)');
-    const closeOnDesktop = (e: MediaQueryListEvent) => {
+    const closeOnBreakpoint = (e: MediaQueryListEvent) => {
       if (e.matches) {
         setIsOpen(false);
         setOpenMenus(new Set());
+      } else {
+        closeMegaMenu();
       }
     };
-    desktop.addEventListener('change', closeOnDesktop);
-    return () => desktop.removeEventListener('change', closeOnDesktop);
-  }, []);
+    desktop.addEventListener('change', closeOnBreakpoint);
+    return () => desktop.removeEventListener('change', closeOnBreakpoint);
+  }, [closeMegaMenu]);
 
   const toggleSubmenu = (id: string) => {
     setOpenMenus((prev) => {
@@ -202,7 +220,25 @@ export default function SiteHeader() {
           </div>
         </div>
 
-        <PrimaryNav items={menuItems} />
+        <PrimaryNav
+          items={menuItems}
+          megaMenuOpen={megaMenuOpen}
+          megaMenuId={MEGA_MENU_ID}
+          megaMenuTriggerRef={megaMenuTriggerRef}
+          onMegaMenuToggle={toggleMegaMenu}
+          onSiblingActivate={closeMegaMenu}
+          megaMenuPanel={
+            megaMenuOpen ? (
+              <ShopMegaMenu
+                id={MEGA_MENU_ID}
+                ref={megaMenuPanelRef}
+                labelledBy="nav-shop"
+                shouldFocus={shouldFocusPanel}
+                productItems={megaMenuItems}
+              />
+            ) : null
+          }
+        />
 
         <MenuDrawer
           items={menuItems}

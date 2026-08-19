@@ -1,12 +1,27 @@
 import Link from 'next/link';
+import { ReactNode, RefObject } from 'react';
 import { ChevronDownIcon, GridIcon } from '@/components/icons';
 import { NavMenuItem, isRealHref } from '@/graphql/queries/menus';
 
 interface PrimaryNavProps {
   items: NavMenuItem[];
+  megaMenuOpen: boolean;
+  megaMenuId: string;
+  megaMenuTriggerRef: RefObject<HTMLButtonElement>;
+  megaMenuPanel: ReactNode;
+  onMegaMenuToggle: (viaKeyboard: boolean) => void;
+  onSiblingActivate: () => void;
 }
 
-export default function PrimaryNav({ items }: PrimaryNavProps) {
+export default function PrimaryNav({
+  items,
+  megaMenuOpen,
+  megaMenuId,
+  megaMenuTriggerRef,
+  megaMenuPanel,
+  onMegaMenuToggle,
+  onSiblingActivate,
+}: PrimaryNavProps) {
   return (
     <div className="site-header__nav">
       <div className="site-header__nav-scroll">
@@ -14,13 +29,24 @@ export default function PrimaryNav({ items }: PrimaryNavProps) {
           <button
             type="button"
             id="nav-shop"
+            ref={megaMenuTriggerRef}
             className="site-header__shop-trigger"
-            aria-expanded="false"
-            data-mega-menu-trigger
+            aria-expanded={megaMenuOpen}
+            aria-controls={megaMenuId}
+            // Enter and Space fire a click whose detail is 0; a real pointer
+            // click reports 1 or more. It is the only signal separating the two
+            // here, and it decides whether opening moves focus into the panel.
+            onClick={(event) => onMegaMenuToggle(event.detail === 0)}
           >
             <GridIcon />
             <span>Shop</span>
           </button>
+
+          {/* Directly after the trigger so document order matches what the panel
+              looks like: Tab out of the trigger enters the panel instead of
+              skipping past the nav items sitting between them. */}
+          {megaMenuPanel}
+
           <span className="site-header__shop-divider" aria-hidden="true" />
         </div>
 
@@ -37,6 +63,8 @@ export default function PrimaryNav({ items }: PrimaryNavProps) {
               <div
                 key={item.id}
                 className="navbar-item has-dropdown is-hoverable site-header__nav-item"
+                onMouseEnter={onSiblingActivate}
+                onFocus={onSiblingActivate}
               >
                 {isRealHref(item.uri) ? (
                   <Link
@@ -88,6 +116,8 @@ export default function PrimaryNav({ items }: PrimaryNavProps) {
                 key={item.id}
                 id={`nav-item-${item.id}`}
                 className="navbar-item site-header__nav-item"
+                onMouseEnter={onSiblingActivate}
+                onFocus={onSiblingActivate}
               >
                 {item.label}
               </span>
@@ -100,6 +130,8 @@ export default function PrimaryNav({ items }: PrimaryNavProps) {
               id={`nav-item-${item.id}`}
               className="navbar-item site-header__nav-item"
               href={item.uri}
+              onMouseEnter={onSiblingActivate}
+              onFocus={onSiblingActivate}
             >
               {item.label}
             </Link>
