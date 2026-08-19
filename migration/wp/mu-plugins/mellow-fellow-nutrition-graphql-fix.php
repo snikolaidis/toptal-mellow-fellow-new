@@ -1,10 +1,10 @@
 <?php
 /**
  * Plugin Name: Mellow Fellow Nutrition GraphQL Fix
- * Description: Fixes the auto-generated WPGraphQL-for-ACF resolver for the
- *              Nutrition field group, which incorrectly returns null for a
- *              genuine value of "0" (PHP's empty("0") === true).
- * Version: 1.0.0
+ * Description: Correctly resolves the Nutrition field group's GraphQL
+ *              fields. Replaces v1.0.0, which guessed wrong about $source's
+ *              shape and returned null unconditionally for every field.
+ * Version: 2.0.0
  */
 
 if (!defined('ABSPATH')) {
@@ -27,23 +27,48 @@ if (!defined('ABSPATH')) {
  * case a future plugin version resolves the group differently.
  */
 add_action('graphql_register_types', function () {
+    $product_types = ['SimpleProduct', 'VariableProduct'];
+
+    foreach ($product_types as $type) {
+        register_graphql_field($type, 'nutrition', [
+            'type'        => 'Nutrition',
+            'description' => 'Nutrition field group (calories, sugar, carbs).',
+            'resolve'     => function ($source) {
+                $post_id = null;
+                if (is_object($source)) {
+                    if (isset($source->databaseId)) {
+                        $post_id = (int) $source->databaseId;
+                    } elseif (isset($source->ID)) {
+                        $post_id = (int) $source->ID;
+                    }
+                } elseif (is_array($source) && isset($source['databaseId'])) {
+                    $post_id = (int) $source['databaseId'];
+                }
+
+                if (!$post_id) {
+                    return null;
+                }
+
+                $fields = get_field('nutrition', $post_id);
+                if (!is_array($fields)) {
+                    return null;
+                }
+
+                return [
+                    'calories' => $fields['calories'] ?? null,
+                    'sugar'    => $fields['sugar'] ?? null,
+                    'carbs'    => $fields['carbs'] ?? null,
+                ];
+            },
+        ]);
+    }
+
     foreach (['calories', 'sugar', 'carbs'] as $field_name) {
         register_graphql_field('Nutrition', $field_name, [
             'type'        => 'String',
             'description' => "Nutrition {$field_name} value (ACF text field).",
             'resolve'     => function ($source) use ($field_name) {
-                if (is_array($source) && array_key_exists($field_name, $source)) {
-                    $value = $source[$field_name];
-                } elseif (is_object($source) && isset($source->ID)) {
-                    $value = get_field($field_name, $source->ID);
-                } elseif (is_numeric($source)) {
-                    $value = get_field($field_name, (int) $source);
-                } else {
-                    $value = null;
-                }
-
-                // get_field() returns false when a field has never been
-                // saved for the post; treat that the same as null/''.
+                $value = is_array($source) ? ($source[$field_name] ?? null) : null;
                 if ($value === null || $value === false || $value === '') {
                     return null;
                 }
