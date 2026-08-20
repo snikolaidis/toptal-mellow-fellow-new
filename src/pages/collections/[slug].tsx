@@ -369,6 +369,29 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const collection: Collection = {
       ...raw,
       name: decodeEntities(raw.name),
+      // `faqs.nodes[].content` is left alone for the same reason as
+      // `description`: it renders through RichText as real HTML.
+      collectionFields: raw.collectionFields
+        ? {
+            ...raw.collectionFields,
+            warningMessage: decodeEntities(raw.collectionFields.warningMessage),
+            relatedCollectionTitle: decodeEntities(
+              raw.collectionFields.relatedCollectionTitle
+            ),
+            faqSectionTitle: decodeEntities(raw.collectionFields.faqSectionTitle),
+            faqs: raw.collectionFields.faqs
+              ? {
+                  ...raw.collectionFields.faqs,
+                  nodes: (raw.collectionFields.faqs.nodes ?? []).map(
+                    (faq: { id: string; title: string; content: string }) => ({
+                      ...faq,
+                      title: decodeEntities(faq.title),
+                    })
+                  ),
+                }
+              : raw.collectionFields.faqs,
+          }
+        : raw.collectionFields,
       seo: raw.seo
         ? {
             ...raw.seo,
