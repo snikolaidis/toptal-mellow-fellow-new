@@ -94,15 +94,30 @@
   --sh-nav-hover-color: var(--color-brand-primary);
   --sh-dropdown-bg: var(--sh-nav-cream);
 
-  --sh-mega-bg: var(--color-surface-primary);
-  --sh-mega-border: var(--color-border-default);
-  --sh-mega-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-  --sh-mega-pad-block: 2rem;
-  --sh-mega-col-gap: 2rem;
+  --sh-mega-inset-start: 118px;
+  --sh-mega-inset-end: 119px;
+  --sh-mega-bg: #fff;
+  --sh-mega-border: rgba(194, 200, 193, 0.1);
+  --sh-mega-border-w: 1px;
+  --sh-mega-rule: rgba(0, 0, 0, 0.09);
+  --sh-mega-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
+  --sh-mega-radius: 48px;
+  --sh-mega-pad-top: 25px;
+  --sh-mega-pad-bottom: 28px;
+  --sh-mega-pad-start: 43px;
+  --sh-mega-gutter: 306px;
+  --sh-mega-col-gap: 74px;
   --sh-mega-heading-size: 0.8125rem;
   --sh-mega-heading-gap: 1rem;
-  --sh-mega-col-min-h: 220px;
   --sh-mega-duration: 0.16s;
+
+  --sh-mega-sub-w: 278.6px;
+  --sh-mega-sub-pad-top: 25px;
+  --sh-mega-sub-pad-bottom: 28px;
+  --sh-mega-sub-pad-inline: 40px;
+  --sh-mega-sub-gap: 24px;
+  --sh-mega-sub-bg: rgba(243, 244, 240, 0.5);
+  --sh-mega-sub-link-size: 0.875rem;
   --sh-mega-item-gap: 0.125rem;
   --sh-mega-link-gap: 0.75rem;
   --sh-mega-link-pad-block: 0.375rem;
@@ -627,28 +642,75 @@
   @include mixins.desktop {
     display: block;
     position: absolute;
-    inset-inline: 0;
+    inset-inline-start: var(--sh-mega-inset-start);
+    inset-inline-end: var(--sh-mega-inset-end);
     top: 100%;
     z-index: 1;
-    background-color: var(--sh-mega-bg);
-    border-top: 1px solid var(--sh-mega-border);
-    box-shadow: var(--sh-mega-shadow);
     animation: site-header-mega-in var(--sh-mega-duration) ease;
   }
 }
 
-.site-header__mega-inner {
-  max-width: var(--sh-max-width);
-  margin-inline: auto;
-  padding-block: var(--sh-mega-pad-block);
-  padding-inline: var(--sh-inline-pad);
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.site-header__mega-card {
+  display: flex;
+  align-items: flex-start;
   gap: var(--sh-mega-col-gap);
+  padding: var(--sh-mega-pad-top) var(--sh-mega-gutter)
+    var(--sh-mega-pad-bottom) var(--sh-mega-pad-start);
+  border: var(--sh-mega-border-w) solid var(--sh-mega-border);
+  border-radius: var(--sh-mega-radius);
+  background-color: var(--sh-mega-bg);
+  box-shadow: var(--sh-mega-shadow);
 }
 
+// Equal shares rather than content width, so the fourth column's right edge
+// lands on the gutter. Sized by content they stop short of it and the sub panel
+// drifts away from Featured.
 .site-header__mega-col {
-  min-height: var(--sh-mega-col-min-h);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+// Out of flow on purpose. As a flex item its content set the card's height, so
+// the card resized every time the active product item changed.
+.site-header__mega-sub {
+  position: absolute;
+  inset-block: var(--sh-mega-border-w);
+  inset-inline-end: var(--sh-mega-border-w);
+  width: var(--sh-mega-sub-w);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sh-mega-sub-gap);
+  padding: var(--sh-mega-sub-pad-top) var(--sh-mega-sub-pad-inline)
+    var(--sh-mega-sub-pad-bottom);
+  border-inline-start: 1px solid var(--sh-mega-rule);
+  border-start-end-radius: var(--sh-mega-radius);
+  border-end-end-radius: var(--sh-mega-radius);
+  background-color: var(--sh-mega-sub-bg);
+}
+
+.site-header__mega-sub .site-header__mega-heading {
+  margin-bottom: 0;
+}
+
+// The list scrolls, not the panel, so the bar clears the 48px corners. stretch
+// holds it at the padding edge rather than beside the longest label.
+.site-header__mega-sub .site-header__mega-list {
+  gap: var(--sh-mega-sub-gap);
+  align-self: stretch;
+  flex: 1 1 auto;
+  // Flex items floor at min-content, so without this the panel overflows.
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.site-header__mega-sub-link {
+  color: var(--sh-nav-color);
+  font-size: var(--sh-mega-sub-link-size);
+
+  &:hover {
+    color: var(--sh-nav-hover-color);
+  }
 }
 
 .site-header__mega-heading {
@@ -701,9 +763,8 @@
 
 .site-header__mega-divider {
   display: block;
-  height: 1px;
   margin-block: var(--sh-mega-divider-gap);
-  background-color: var(--sh-mega-border);
+  border-top: 1px solid var(--sh-mega-rule);
 }
 
 @keyframes site-header-mega-in {

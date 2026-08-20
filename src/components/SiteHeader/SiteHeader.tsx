@@ -235,6 +235,7 @@ export default function SiteHeader() {
                 labelledBy="nav-shop"
                 shouldFocus={shouldFocusPanel}
                 productItems={megaMenuItems}
+                navItems={menuItems}
               />
             ) : null
           }
