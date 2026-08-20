@@ -1,7 +1,7 @@
-import { Product } from '@/types/woocommerce';
+import { ProductNutrition } from '@/types/woocommerce';
 
 interface Props {
-  product?: Product;
+  nutrition?: ProductNutrition | null;
 }
 
 // `calories`/`sugar` are ACF text fields, not number fields, so an unset
@@ -10,10 +10,9 @@ function hasValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== '';
 }
 
-export default function Nutrition({ product }: Props) {
-  console.log(product);
+export default function Nutrition({ nutrition }: Props) {
   
-  const { calories, sugar } = product?.nutrition || {};
+  const { calories, sugar } = nutrition || {};
   const hasSugar = hasValue(sugar);
   const hasCalories = hasValue(calories);
 

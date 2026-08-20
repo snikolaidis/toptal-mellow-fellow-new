@@ -34,20 +34,9 @@ export const PRODUCT_DETAILS_FIELDS = gql`
   }
 `;
 
-// The `Nutrition` ACF group is attached directly to products (not nested
-// under productDetails), and is likewise shared across all four product
-// types.
-export const NUTRITION_FIELDS = gql`
-  fragment NutritionFields on Nutrition {
-    calories
-    sugar
-  }
-`;
-
 // WooGraphQL returns products as a union type, so we need inline fragments for each type
 export const SIMPLE_PRODUCT_FIELDS = gql`
   ${PRODUCT_DETAILS_FIELDS}
-  ${NUTRITION_FIELDS}
   fragment SimpleProductFields on SimpleProduct {
     id
     databaseId
@@ -235,9 +224,6 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
     productDetails {
       ...ProductDetailsFields
     }
-    nutrition {
-      ...NutritionFields
-    }
     collections(first: 50) {
       nodes {
         name
@@ -250,7 +236,6 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
 
 export const VARIABLE_PRODUCT_FIELDS = gql`
   ${PRODUCT_DETAILS_FIELDS}
-  ${NUTRITION_FIELDS}
   fragment VariableProductFields on VariableProduct {
     id
     databaseId
@@ -267,9 +252,6 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
     stockQuantity
     productDetails {
       ...ProductDetailsFields
-    }
-    nutrition {
-      ...NutritionFields
     }
     collections(first: 50) {
       nodes {
@@ -469,7 +451,6 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
 `;
 
 export const EXTERNAL_PRODUCT_FIELDS = gql`
-  ${NUTRITION_FIELDS}
   fragment ExternalProductFields on ExternalProduct {
     id
     databaseId
@@ -484,9 +465,6 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
     salePrice
     externalUrl
     buttonText
-    nutrition {
-      ...NutritionFields
-    }
     image {
       id
       sourceUrl
@@ -661,7 +639,6 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
 `;
 
 export const GROUP_PRODUCT_FIELDS = gql`
-  ${NUTRITION_FIELDS}
   fragment GroupProductFields on GroupProduct {
     id
     databaseId
@@ -672,9 +649,6 @@ export const GROUP_PRODUCT_FIELDS = gql`
     shortDescription
     sku
     price
-    nutrition {
-      ...NutritionFields
-    }
     image {
       id
       sourceUrl

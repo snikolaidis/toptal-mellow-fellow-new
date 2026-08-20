@@ -172,7 +172,6 @@ export interface Product {
     nodes: ProductVariation[];
   };
   productDetails?: ProductACF;
-  nutrition?: ProductNutrition | null;
   // Product attribute taxonomies (migrated from Shopify), surfaced on cards.
   strainTypes?: { nodes: Array<{ name: string }> };
   strainNames?: { nodes: Array<{ name: string }> };

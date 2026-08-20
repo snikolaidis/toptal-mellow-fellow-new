@@ -17,7 +17,7 @@ import Breadcrumb from '@/components/Breadcrumb';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
-import { Product } from '@/types/woocommerce';
+import { Product, ProductNutrition } from '@/types/woocommerce';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Thumbs, Pagination, FreeMode, Mousewheel } from 'swiper/modules';
 
@@ -50,6 +50,7 @@ export interface SingleProductExtras {
   availableOptions: Product[];
   availableOptionsBase: string;
   bundleSlug: string | null;
+  nutrition: ProductNutrition | null;
 }
 
 type SingleProductProps = FaustTemplateProps<SingleProductData, SingleProductExtras>;
@@ -68,6 +69,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   availableOptions = [],
   availableOptionsBase = '',
   bundleSlug = null,
+  nutrition = null,
 }) => {
   const product = data?.product as Product | undefined;
   const [quantity, setQuantity] = useState(1);
@@ -676,7 +678,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
               );
             })()}
 
-            <Nutrition product={product} />
+            <Nutrition nutrition={nutrition} />
 
             <FrequentlyBoughtTogether
               productId={product.databaseId}
