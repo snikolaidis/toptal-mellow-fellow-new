@@ -28,11 +28,15 @@
     @include mixins.tablet {
       // Tablet and up: revert to a grid, scroller properties reset.
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0.5rem;
       overflow-x: visible;
       scroll-snap-type: none;
       padding: 0;
+    }
+
+    @include mixins.desktop {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
 
