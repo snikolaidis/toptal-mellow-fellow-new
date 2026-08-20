@@ -132,6 +132,21 @@
   --sh-mega-divider-gap: 0.75rem;
   --sh-mega-plain-size: 0.875rem;
 
+  --sh-mobile-w: 293px;
+  --sh-mobile-radius: 20px;
+  --sh-mobile-pad-block: 25px;
+  --sh-mobile-pad-start: 40px;
+  --sh-mobile-pad-end: 43px;
+  --sh-mobile-gap: 25px;
+  --sh-mobile-bar-gap: 0.75rem;
+  --sh-mobile-heading-gap: 1rem;
+  --sh-mobile-item-gap: 0.25rem;
+  --sh-mobile-row-pad: 0.25rem;
+  --sh-mobile-control: 24px;
+  --sh-mobile-chevron: 20px;
+  --sh-mobile-duration: 0.2s;
+  --sh-mobile-z: 40;
+
   --sh-drawer-bg: var(--sh-nav-cream);
   --sh-drawer-pad: 1rem;
 
@@ -783,6 +798,157 @@
   display: block;
   margin-block: var(--sh-mega-divider-gap);
   border-top: 1px solid var(--sh-mega-rule);
+}
+
+// Fixed, so the panel holds still while the page behind it scrolls.
+.site-header__mobile {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: var(--sh-mobile-z);
+  width: var(--sh-mobile-w);
+  max-width: 100%;
+  overflow-y: auto;
+  border: var(--sh-mega-border-w) solid var(--sh-mega-border);
+  border-start-end-radius: var(--sh-mobile-radius);
+  border-end-end-radius: var(--sh-mobile-radius);
+  background-color: var(--sh-mega-bg);
+  box-shadow: var(--sh-mega-shadow);
+  animation: site-header-mobile-in var(--sh-mobile-duration) ease;
+
+  @include mixins.desktop {
+    display: none;
+  }
+}
+
+.site-header__mobile-view {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sh-mobile-gap);
+  padding: var(--sh-mobile-pad-block) var(--sh-mobile-pad-end)
+    var(--sh-mobile-pad-block) var(--sh-mobile-pad-start);
+  animation: site-header-mobile-view-in var(--sh-mobile-duration) ease;
+}
+
+.site-header__mobile-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sh-mobile-bar-gap);
+  align-self: stretch;
+}
+
+.site-header__mobile-close,
+.site-header__mobile-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sh-mobile-control);
+  height: var(--sh-mobile-control);
+  color: var(--color-ink);
+  cursor: pointer;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.site-header__mobile-back svg {
+  transform: rotate(90deg);
+}
+
+.site-header__mobile-section {
+  align-self: stretch;
+}
+
+.site-header__mobile-heading {
+  margin: 0 0 var(--sh-mobile-heading-gap);
+  color: var(--color-ink);
+  font-family: "MrEavesSanOT", sans-serif;
+  font-size: var(--sh-mega-heading-size);
+  font-weight: 700;
+  line-height: var(--sh-mega-heading-line);
+}
+
+.site-header__mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sh-mobile-item-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-header__mobile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sh-mobile-bar-gap);
+}
+
+.site-header__mobile-link {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--sh-mega-link-gap);
+  padding-block: var(--sh-mobile-row-pad);
+  color: var(--color-teal-85);
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-type-size);
+  font-weight: 500;
+  line-height: var(--sh-mega-type-line);
+}
+
+.site-header__mobile-icon {
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.site-header__mobile-chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sh-mobile-chevron);
+  height: var(--sh-mobile-chevron);
+  color: var(--color-teal-85);
+  cursor: pointer;
+
+  svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+}
+
+.site-header__mobile-text-link {
+  display: block;
+  padding-block: var(--sh-mobile-row-pad);
+  color: var(--color-teal-85);
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-type-size);
+  font-weight: 500;
+  line-height: var(--sh-mega-type-line);
+}
+
+@keyframes site-header-mobile-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes site-header-mobile-view-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header__mobile,
+  .site-header__mobile-view {
+    animation: none;
+  }
 }
 
 @keyframes site-header-mega-in {

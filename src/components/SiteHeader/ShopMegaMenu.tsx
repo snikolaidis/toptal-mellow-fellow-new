@@ -1,32 +1,17 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  MegaMenuFeaturedLink,
-  NavMenuItem,
-  isRealHref,
-} from '@/graphql/queries/menus';
-import { ProductIcon, getProductIcon, scaleIcon } from '@/lib/productIcons';
+import { NavMenuItem, isRealHref } from '@/graphql/queries/menus';
+import { ProductIcon, scaleIcon } from '@/lib/productIcons';
 import { decodeEntities } from '@/lib/decodeEntities';
-import { MoodPill } from '@/types/mood';
+import { MegaMenuModel, MegaMenuProduct } from './megaMenuModel';
 
 interface ShopMegaMenuProps {
   id: string;
   labelledBy: string;
   shouldFocus: boolean;
-  productItems: NavMenuItem[];
-  navItems: NavMenuItem[];
-  moods: MoodPill[];
-  featuredLinks: MegaMenuFeaturedLink[];
+  model: MegaMenuModel;
 }
-
-// HHC is deliberately absent: it became illegal.
-const CANNABINOID_LINKS = [
-  { label: 'Delta-8 THC', uri: '/collections/delta-8' },
-  { label: 'Delta-9 THC', uri: '/collections/delta-9' },
-  { label: 'THCp', uri: '/collections/thcp' },
-  { label: 'CBD / Wellness', uri: '/collections/cbd' },
-];
 
 const HEADING_IDS = {
   product: 'shop-mega-heading-product',
@@ -55,18 +40,9 @@ const UNTYPED_SLUG = 'all';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-// WordPress serves these without a trailing slash today, but the permalink
-// setting can add one, and then both the icon lookup and the PRIMARY match
-// below would silently miss on every item at once.
-const normalizeUri = (uri: string) => uri.replace(/\/+$/, '');
-
-const slugFromUri = (uri: string) => normalizeUri(uri).split('/').pop() ?? '';
-
 const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
-  function ShopMegaMenu(
-    { id, labelledBy, shouldFocus, productItems, navItems, moods, featuredLinks },
-    ref
-  ) {
+  function ShopMegaMenu({ id, labelledBy, shouldFocus, model }, ref) {
+    const { products, illustrated, plain, moods, cannabinoids, featured } = model;
     const navRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
@@ -77,74 +53,29 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
       (first ?? navRef.current)?.focus();
     }, [shouldFocus]);
 
-    // SHOP_MEGA_MENU is flat, so the sub items come from PRIMARY, matched on
-    // uri. Label is not usable as a key: the same destination is "Shop All
-    // Products" in one menu and "More" in the other.
-    const subsByUri = useMemo(() => {
-      const map = new Map<string, NavMenuItem[]>();
-      for (const item of navItems) {
-        const children = item.childItems?.nodes ?? [];
-        if (children.length > 0) map.set(normalizeUri(item.uri), children);
-      }
-      return map;
-    }, [navItems]);
-
-    // Splitting on whether artwork exists, rather than on position or slug,
-    // survives the menu being reordered in wp-admin. An item added without
-    // artwork drops below the divider instead of rendering a broken image.
-    const illustrated: {
-      item: NavMenuItem;
-      icon: ProductIcon;
-      box: { width: number; height: number };
-    }[] = [];
-    const plain: NavMenuItem[] = [];
-
-    for (const item of productItems) {
-      if (!isRealHref(item.uri)) continue;
-      const slug = slugFromUri(item.uri);
-      const icon = getProductIcon(slug);
-      if (icon) {
-        const box = ICON_BOX[slug] ?? scaleIcon(icon, ICON_FALLBACK_HEIGHT);
-        illustrated.push({ item, icon, box });
-      } else plain.push(item);
-    }
-
-    const featured = featuredLinks.flatMap((item) => {
-      const url = item.link?.url;
-      const label = item.label || item.link?.title;
-      if (!label || !url || url === '#') return [];
-      return [{ label, url, target: item.link?.target || undefined }];
-    });
-
     const [activeUri, setActiveUri] = useState<string | null>(null);
-
-    const fallbackUri =
-      productItems.find((item) => subsByUri.has(normalizeUri(item.uri)))?.uri ?? null;
 
     // Resolving the default at render rather than seeding state in an effect
     // keeps the panel populated on its very first paint, before any hover.
-    const currentUri = activeUri ?? (fallbackUri && normalizeUri(fallbackUri));
-    const activeItem = productItems.find(
-      (item) => normalizeUri(item.uri) === currentUri
-    );
-    const activeSubs = currentUri ? subsByUri.get(currentUri) ?? [] : [];
+    const currentUri =
+      activeUri ?? products.find((p) => p.hasChildren)?.key ?? null;
+    const active = products.find((p) => p.key === currentUri);
 
     // Items with no sub items leave the panel showing whatever was there, so it
     // is never empty.
-    const activate = (uri: string) => {
-      const key = normalizeUri(uri);
-      if (subsByUri.has(key)) setActiveUri(key);
+    const activate = (product: MegaMenuProduct) => {
+      if (product.hasChildren) setActiveUri(product.key);
     };
 
-    const productLink = (
-      item: NavMenuItem,
-      icon?: ProductIcon,
-      box?: { width: number; height: number }
-    ) => {
+    const productLink = (product: MegaMenuProduct) => {
+      const { item, icon, slug } = product;
+      const box = icon
+        ? ICON_BOX[slug] ?? scaleIcon(icon, ICON_FALLBACK_HEIGHT)
+        : null;
       const className = [
         'site-header__mega-link',
         icon ? '' : 'site-header__mega-link--plain',
-        slugFromUri(item.uri) === UNTYPED_SLUG ? '' : 'site-header__mega-type',
+        slug === UNTYPED_SLUG ? '' : 'site-header__mega-type',
       ]
         .filter(Boolean)
         .join(' ');
@@ -154,11 +85,9 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
           <Link
             href={item.uri}
             className={className}
-            aria-current={
-              normalizeUri(item.uri) === currentUri ? 'true' : undefined
-            }
-            onMouseEnter={() => activate(item.uri)}
-            onFocus={() => activate(item.uri)}
+            aria-current={product.key === currentUri ? 'true' : undefined}
+            onMouseEnter={() => activate(product)}
+            onFocus={() => activate(product)}
           >
             {icon && box && (
               <Image
@@ -193,9 +122,7 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
 
             {illustrated.length > 0 && (
               <ul className="site-header__mega-list">
-                {illustrated.map(({ item, icon, box }) =>
-                  productLink(item, icon, box)
-                )}
+                {illustrated.map(productLink)}
               </ul>
             )}
 
@@ -205,7 +132,7 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
 
             {plain.length > 0 && (
               <ul className="site-header__mega-list">
-                {plain.map((item) => productLink(item))}
+                {plain.map(productLink)}
               </ul>
             )}
           </div>
@@ -235,7 +162,7 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
               Cannabinoids
             </h2>
             <ul className="site-header__mega-list site-header__mega-list--text">
-              {CANNABINOID_LINKS.map((item) => (
+              {cannabinoids.map((item) => (
                 <li key={item.uri}>
                   <Link
                     href={item.uri}
@@ -276,13 +203,13 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
           </div>
 
           <div className="site-header__mega-sub">
-            {activeItem && (
+            {active && (
               <>
                 <h2 id={HEADING_IDS.sub} className="site-header__mega-heading">
-                  {activeItem.label}
+                  {active.item.label}
                 </h2>
                 <ul className="site-header__mega-list">
-                  {activeSubs.map((child) =>
+                  {active.children.map((child) =>
                     isRealHref(child.uri) ? (
                       <li key={child.id}>
                         <Link

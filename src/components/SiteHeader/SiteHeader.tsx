@@ -1,6 +1,6 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -20,6 +20,7 @@ import PrimaryNav from './PrimaryNav';
 import MenuDrawer from './MenuDrawer';
 import ShopMegaMenu from './ShopMegaMenu';
 import { useShopMegaMenu } from './useShopMegaMenu';
+import { buildMegaMenuModel } from './megaMenuModel';
 
 const SearchModal = dynamic(() => import('@/components/SearchModal'), {
   ssr: false,
@@ -53,6 +54,17 @@ export default function SiteHeader() {
   const megaMoods: MoodPill[] = moodData?.moods?.nodes ?? [];
   const megaFeatured: MegaMenuFeaturedLink[] =
     featuredData?.siteSettings?.megaMenuFeatured?.links ?? [];
+
+  const megaMenuModel = useMemo(
+    () =>
+      buildMegaMenuModel({
+        productItems: megaMenuItems,
+        navItems: menuItems,
+        moods: megaMoods,
+        featuredLinks: megaFeatured,
+      }),
+    [megaMenuItems, menuItems, megaMoods, megaFeatured]
+  );
 
   const {
     isOpen: megaMenuOpen,
@@ -247,10 +259,7 @@ export default function SiteHeader() {
                 ref={megaMenuPanelRef}
                 labelledBy="nav-shop"
                 shouldFocus={shouldFocusPanel}
-                productItems={megaMenuItems}
-                navItems={menuItems}
-                moods={megaMoods}
-                featuredLinks={megaFeatured}
+                model={megaMenuModel}
               />
             ) : null
           }
