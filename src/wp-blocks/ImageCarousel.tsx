@@ -8,9 +8,15 @@ import 'swiper/css';
  * Backend-managed image carousel (ACF block `acf/image-carousel`). Replaces
  * the hardcoded FeaturedIn component: the title and images (an ACF gallery
  * field) come from WordPress, while the carousel behaviour is fixed here —
- * autoplay every 5s, loop, 2 slides on mobile and all images visible from
+ * autoplay on a seamless loop, 2 slides on mobile and all images visible from
  * 768px up — matching the original FeaturedIn exactly.
+ *
+ * Swiper only loops when the track holds more slides than it shows at once, so
+ * the images are repeated until there are enough for the widest breakpoint.
  */
+
+const SLIDE_DELAY = 2500;
+const MIN_TRACK_SLIDES = 12;
 
 interface MediaItem {
   altText?: string | null;
@@ -43,6 +49,9 @@ export default function ImageCarousel(props: ImageCarouselProps) {
     return null;
   }
 
+  const copies = Math.max(3, Math.ceil(MIN_TRACK_SLIDES / images.length));
+  const track = Array.from({ length: copies }, () => images).flat();
+
   const link = props.imageCarousel?.link;
   const linkUrl = link?.url;
   const wholeCarouselClickable = linkUrl && props.imageCarousel?.linkStyle === 'whole_carousel';
@@ -57,15 +66,16 @@ export default function ImageCarousel(props: ImageCarouselProps) {
       slidesPerView={2}
       spaceBetween={30}
       modules={[Autoplay]}
-      autoplay={{ delay: 5000, disableOnInteraction: false }}
+      autoplay={{ delay: SLIDE_DELAY, disableOnInteraction: false }}
       loop
+      allowTouchMove={false}
       breakpoints={{
         768: {
           slidesPerView: images.length,
         },
       }}
     >
-      {images.map((img, i) => (
+      {track.map((img, i) => (
         <SwiperSlide key={i}>
           <Image
             src={img.sourceUrl!}
