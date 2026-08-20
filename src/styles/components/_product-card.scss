@@ -106,25 +106,24 @@
     align-items: self-start;
     gap: 5px;
     justify-content: space-between;
+    overflow: hidden;
 
     @media only screen and (min-width: 1024px) {
-      min-height: 28px;
+      min-height: 61px;
       margin-bottom: 20px;
     }
   }
 
+  // Wraps rather than sitting on one line: two long badges ("Disposable Vape"
+  // plus "Price Drop") overflow a 250px card and spill into the next slide.
+  // .product__tags reserves two rows so wrapping never shifts the image down.
   .product__tags-left {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: 5px;
-
-    @media only screen and (min-width: 1024px) {
-      flex-direction: row;
-      flex-wrap: nowrap;
-      align-items: center;
-      gap: 6px;
-    }
+    min-width: 0;
   }
 
   .product__usp-icons {
