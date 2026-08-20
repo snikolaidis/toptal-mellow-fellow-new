@@ -126,7 +126,6 @@
   --sh-mega-link-radius: 8px;
   --sh-mega-link-size: 0.9375rem;
   --sh-mega-link-hover-bg: var(--sh-nav-cream);
-  --sh-mega-icon-size: 36px;
   --sh-mega-divider-gap: 0.75rem;
   --sh-mega-plain-size: 0.875rem;
 
@@ -752,12 +751,11 @@
   }
 }
 
-// width: auto is load bearing. next/image is given per-file dimensions, so
-// fixing both here would squash edibles and warn about the changed ratio.
+// Size comes from the per item frame box, set inline. object-fit is load
+// bearing: those boxes do not match the files' ratios, and without it every
+// icon but drinks stretches.
 .site-header__mega-icon {
   flex: 0 0 auto;
-  width: auto;
-  height: var(--sh-mega-icon-size);
   object-fit: contain;
 }
 

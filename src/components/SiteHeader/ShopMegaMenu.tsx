@@ -36,7 +36,19 @@ const HEADING_IDS = {
   sub: 'shop-mega-heading-sub',
 };
 
-const ICON_HEIGHT = 36;
+// Frame box per item, not the files' own ratios. Four of them are the header's
+// existing search/cart icon size. object-fit keeps the artwork undistorted
+// inside a box it does not match.
+const ICON_BOX: Record<string, { width: number; height: number }> = {
+  'disposable-vapes': { width: 24.02, height: 28 },
+  'vape-cartridges': { width: 24.02, height: 28 },
+  flower: { width: 24.02, height: 28 },
+  concentrates: { width: 24.02, height: 28 },
+  edibles: { width: 24, height: 14 },
+  drinks: { width: 27, height: 27 },
+};
+
+const ICON_FALLBACK_HEIGHT = 28;
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -77,14 +89,21 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
     // Splitting on whether artwork exists, rather than on position or slug,
     // survives the menu being reordered in wp-admin. An item added without
     // artwork drops below the divider instead of rendering a broken image.
-    const illustrated: { item: NavMenuItem; icon: ProductIcon }[] = [];
+    const illustrated: {
+      item: NavMenuItem;
+      icon: ProductIcon;
+      box: { width: number; height: number };
+    }[] = [];
     const plain: NavMenuItem[] = [];
 
     for (const item of productItems) {
       if (!isRealHref(item.uri)) continue;
-      const icon = getProductIcon(slugFromUri(item.uri));
-      if (icon) illustrated.push({ item, icon });
-      else plain.push(item);
+      const slug = slugFromUri(item.uri);
+      const icon = getProductIcon(slug);
+      if (icon) {
+        const box = ICON_BOX[slug] ?? scaleIcon(icon, ICON_FALLBACK_HEIGHT);
+        illustrated.push({ item, icon, box });
+      } else plain.push(item);
     }
 
     const featured = featuredLinks.flatMap((item) => {
@@ -114,8 +133,11 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
       if (subsByUri.has(key)) setActiveUri(key);
     };
 
-    const productLink = (item: NavMenuItem, icon?: ProductIcon) => {
-      const size = icon ? scaleIcon(icon, ICON_HEIGHT) : null;
+    const productLink = (
+      item: NavMenuItem,
+      icon?: ProductIcon,
+      box?: { width: number; height: number }
+    ) => {
       return (
         <li key={item.id}>
           <Link
@@ -127,13 +149,16 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
             onMouseEnter={() => activate(item.uri)}
             onFocus={() => activate(item.uri)}
           >
-            {icon && size && (
+            {icon && box && (
               <Image
                 className="site-header__mega-icon"
                 src={icon.src}
                 alt=""
-                width={size.width}
-                height={size.height}
+                // Rounded for the srcset next/image generates; the exact frame
+                // size is the style below, which is what actually lays out.
+                width={Math.round(box.width)}
+                height={Math.round(box.height)}
+                style={{ width: `${box.width}px`, height: `${box.height}px` }}
               />
             )}
             <span>{item.label}</span>
@@ -157,7 +182,9 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
 
             {illustrated.length > 0 && (
               <ul className="site-header__mega-list">
-                {illustrated.map(({ item, icon }) => productLink(item, icon))}
+                {illustrated.map(({ item, icon, box }) =>
+                  productLink(item, icon, box)
+                )}
               </ul>
             )}
 
