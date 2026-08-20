@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import ProductCard from '@/components/ProductCard';
 import { Product } from '@/types/woocommerce';
+import { WidgetSource } from '@/lib/widgetAttribution';
+
+const ProductCarousel = dynamic(() => import('./ProductCarousel'), { ssr: false });
 
 interface RecProduct {
   id: string;
@@ -15,11 +19,27 @@ interface RecProduct {
   typeLabel?: string;
 }
 
+export type ProductRowSource =
+  | {
+      kind: 'recommendations';
+      productId: number;
+      productSlug: string;
+      productPrice: string;
+      typeSlugs: string[];
+    }
+  | {
+      kind: 'taxonomy';
+      slug: string;
+      taxonomy: 'collection' | 'mood';
+      count?: number;
+    };
+
 interface Props {
-  productId: number;
-  productSlug: string;
-  productPrice: string;
-  typeSlugs: string[];
+  source: ProductRowSource;
+  title?: string;
+  layout?: 'grid' | 'carousel';
+  attribution?: WidgetSource;
+  className?: string;
 }
 
 function parsePrice(price: string | undefined): number {
@@ -43,49 +63,77 @@ function toProduct(r: RecProduct): Product {
   } as Product;
 }
 
-export default function YouMayAlsoLike({ productId, productSlug, productPrice, typeSlugs }: Props) {
-  const [recs, setRecs] = useState<RecProduct[]>([]);
-  const typeKey = typeSlugs.join(',');
+function buildUrl(source: ProductRowSource): string {
+  if (source.kind === 'recommendations') {
+    const typeKey = source.typeSlugs.join(',');
+    if (!source.productId || !typeKey) return '';
+    return `/api/shop/recommendations?${new URLSearchParams({
+      productTypes: typeKey,
+      excludeProductIds: String(source.productId),
+      cartProductSlugs: source.productSlug,
+      cartTotal: String(parsePrice(source.productPrice)),
+      limit: '8',
+    })}`;
+  }
+
+  if (!source.slug) return '';
+  return `/api/shop/products?${new URLSearchParams({
+    collection: source.slug,
+    taxonomy: source.taxonomy,
+    first: String(source.count || 8),
+  })}`;
+}
+
+export default function YouMayAlsoLike({
+  source,
+  title,
+  layout = 'grid',
+  attribution = 'you_may_also_like',
+  className,
+}: Props) {
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // Strings, not `source`, in the dependency array below. The PDP builds
+  // typeSlugs inline, so the object's identity changes every render and
+  // depending on it refetches forever.
+  const url = buildUrl(source);
+  const kind = source.kind;
 
   useEffect(() => {
-    if (!productId || !typeKey) {
-      setRecs([]);
+    if (!url) {
+      setProducts([]);
       return;
     }
     let cancelled = false;
-    const params = new URLSearchParams({
-      productTypes: typeKey,
-      excludeProductIds: String(productId),
-      cartProductSlugs: productSlug,
-      cartTotal: String(parsePrice(productPrice)),
-      limit: '8',
-    });
-    fetch(`/api/shop/recommendations?${params}`)
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
-        setRecs(data.success ? data.products || [] : []);
+        const rows = data.success ? data.products || [] : [];
+        setProducts(kind === 'recommendations' ? rows.map(toProduct) : rows);
       })
       .catch(() => {
-        if (!cancelled) setRecs([]);
+        if (!cancelled) setProducts([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [productId, productSlug, productPrice, typeKey]);
+  }, [url, kind]);
 
-  if (recs.length === 0) return null;
+  if (products.length === 0) return null;
 
   return (
-    <section className="you-may-also-like">
-      <h2 className="section__title">
-        You may also like
-      </h2>
-      <div className="products-grid">
-        {recs.map((r) => (
-          <ProductCard key={r.slug} product={toProduct(r)} source="you_may_also_like" />
-        ))}
-      </div>
+    <section className={className ? `you-may-also-like ${className}` : 'you-may-also-like'}>
+      <h2 className="section__title">{title || 'You may also like'}</h2>
+      {layout === 'carousel' ? (
+        <ProductCarousel products={products} source={attribution} />
+      ) : (
+        <div className="products-grid">
+          {products.map((product) => (
+            <ProductCard key={product.slug} product={product} source={attribution} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

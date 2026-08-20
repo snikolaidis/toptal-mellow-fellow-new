@@ -2,14 +2,14 @@ import { GetStaticProps, GetStaticPaths } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/router';
+import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import {
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { decodeEntities } from '@/lib/decodeEntities';
+import { useTaxonomyProducts } from '@/lib/useTaxonomyProducts';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
 import RichText from '@/components/RichText';
@@ -21,13 +21,11 @@ import Select, { SelectOption } from '@/components/ui/Select';
 import { Collection, Product } from '@/types/woocommerce';
 import { BlogPostCard } from '@/types/blog';
 import {
+  PAGE_SIZE,
   SORT_OPTIONS,
   FILTER_GROUPS,
-  ActiveFilters,
   FilterGroup,
   isHiddenTerm,
-  parseFilterParams,
-  filtersToQueryParams,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 
@@ -35,7 +33,6 @@ const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), 
 
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
-const PAGE_SIZE = 24;
 
 interface CollectionsPageProps {
   collection: Collection;
@@ -58,175 +55,39 @@ export default function CollectionsPage({
   collectionSlug,
   relatedPosts,
 }: CollectionsPageProps) {
-  const router = useRouter();
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [filterGroups, setFilterGroups] = useState<FilterGroup[]>(initialFilterGroups);
-  const [loading, setLoading] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
-  const [selectedSort, setSelectedSort] = useState('default');
-  const [page, setPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
-  const [currentTotalPages, setCurrentTotalPages] = useState(initialTotalPages);
+  const {
+    products,
+    filterGroups,
+    loading,
+    activeFilters,
+    currentSort,
+    page,
+    hasNextPage,
+    totalPages,
+    isFiltered,
+    handleFilterChange,
+    handleSortChange,
+    goToNextPage,
+    goToPrevPage,
+  } = useTaxonomyProducts({
+    slug: collectionSlug,
+    taxonomy: 'collection',
+    initialProducts,
+    initialFilterGroups,
+    initialHasNextPage,
+    initialTotalPages,
+  });
+
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
   const descRef = useRef<HTMLDivElement>(null);
-
-  const usingInitialData = useRef(true);
 
   useEffect(() => {
     if (!descRef.current) return;
     setDescTruncatable(descRef.current.scrollHeight > descRef.current.clientHeight + 1);
   }, [collection?.description]);
 
-  const fetchPage = useCallback(
-    async (filters: ActiveFilters, sort: string, targetPage: number) => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
-        params.set('first', String(PAGE_SIZE));
-        params.set('collection', collectionSlug);
-        params.set('page', String(targetPage));
-        if (sort !== 'default') params.set('sort', sort);
-
-        for (const [key, slugs] of Object.entries(filters)) {
-          if (slugs.length > 0) params.set(key, slugs.join(','));
-        }
-
-        const res = await fetch(`/api/shop/products?${params.toString()}`);
-        const data = await res.json();
-
-        if (data.success) {
-          setProducts(data.products || []);
-          setHasNextPage(data.hasNextPage || false);
-          setCurrentTotalPages(data.totalPages || 1);
-          usingInitialData.current = false;
-        }
-      } catch {
-        // keep current products on network error
-      } finally {
-        setLoading(false);
-      }
-    },
-    [collectionSlug]
-  );
-
-  // Reset state when navigating between collections (React reuses the component)
-  // and apply any URL filter/sort params
-  useEffect(() => {
-    setProducts(initialProducts);
-    setFilterGroups(initialFilterGroups);
-    setActiveFilters({});
-    setSelectedSort('default');
-    setPage(1);
-    setHasNextPage(initialHasNextPage);
-    setCurrentTotalPages(initialTotalPages);
-    setLoading(false);
-    usingInitialData.current = true;
-
-    if (!router.isReady) return;
-    const urlFilters = parseFilterParams(router.query as Record<string, string | string[] | undefined>);
-    const urlSort = typeof router.query.sort === 'string' ? router.query.sort : 'default';
-    if (Object.keys(urlFilters).length > 0 || urlSort !== 'default') {
-      setActiveFilters(urlFilters);
-      setSelectedSort(urlSort);
-      fetchPage(urlFilters, urlSort, 1);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collectionSlug]);
-
-  const handleFilterChange = useCallback(
-    (key: string, slugs: string[]) => {
-      setActiveFilters((prev) => {
-        const next = { ...prev, [key]: slugs };
-        for (const k of Object.keys(next)) {
-          if (next[k].length === 0) delete next[k];
-        }
-
-        const noFilters = Object.keys(next).length === 0 && selectedSort === 'default';
-        if (noFilters && usingInitialData.current === false) {
-          setProducts(initialProducts);
-          setFilterGroups(initialFilterGroups);
-          setHasNextPage(initialHasNextPage);
-          setCurrentTotalPages(initialTotalPages);
-          usingInitialData.current = true;
-        } else if (!noFilters) {
-          fetchPage(next, selectedSort, 1);
-        }
-
-        setPage(1);
-
-        const queryParams = filtersToQueryParams(next, selectedSort);
-        router.push(
-          { pathname: router.pathname, query: { slug: router.query.slug, ...queryParams } },
-          undefined,
-          { shallow: true }
-        );
-
-        return next;
-      });
-    },
-    [selectedSort, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
-  );
-
-  const handleSortChange = useCallback(
-    (option: SelectOption | null) => {
-      if (!option) return;
-      const newSort = option.value;
-      setSelectedSort(newSort);
-      setPage(1);
-
-      const noFilters = Object.keys(activeFilters).length === 0 && newSort === 'default';
-      if (noFilters) {
-        setProducts(initialProducts);
-        setFilterGroups(initialFilterGroups);
-        setHasNextPage(initialHasNextPage);
-        setCurrentTotalPages(initialTotalPages);
-        usingInitialData.current = true;
-      } else {
-        fetchPage(activeFilters, newSort, 1);
-      }
-
-      const queryParams = filtersToQueryParams(activeFilters, newSort);
-      router.push(
-        { pathname: router.pathname, query: { slug: router.query.slug, ...queryParams } },
-        undefined,
-        { shallow: true }
-      );
-    },
-    [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
-  );
-
-  const goToNextPage = useCallback(() => {
-    if (!hasNextPage || loading) return;
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchPage(activeFilters, selectedSort, nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page, hasNextPage, loading, activeFilters, selectedSort, fetchPage]);
-
-  const goToPrevPage = useCallback(() => {
-    if (page <= 1 || loading) return;
-    const prevPage = page - 1;
-
-    if (prevPage === 1 && Object.keys(activeFilters).length === 0 && selectedSort === 'default') {
-      setPage(1);
-      setProducts(initialProducts);
-      setHasNextPage(initialHasNextPage);
-      setCurrentTotalPages(initialTotalPages);
-      usingInitialData.current = true;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    setPage(prevPage);
-    fetchPage(activeFilters, selectedSort, prevPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, initialHasNextPage, initialTotalPages]);
-
-  const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
   const displayCount = isFiltered ? products.length : totalProducts;
-  const totalPages = currentTotalPages;
-  const currentSort = sortOptions.find((o) => o.value === selectedSort) || sortOptions[0];
 
   if (!collection) {
     return (

@@ -1,0 +1,399 @@
+.page {
+  padding: 1.5rem 1rem 4rem;
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding: 2rem 60px 6rem;
+  }
+}
+
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  aspect-ratio: 16 / 9;
+  border-radius: 13px;
+  overflow: hidden;
+  margin-bottom: 36px;
+}
+
+.heroImageWrap {
+  position: absolute;
+  inset: 0;
+}
+
+.heroImage {
+  object-fit: cover;
+}
+
+.heroDesktop {
+  display: none;
+}
+
+.heroMobile {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .hero {
+    aspect-ratio: 1299 / 202;
+  }
+
+  .heroDesktop {
+    display: block;
+  }
+
+  .heroMobile {
+    display: none;
+  }
+}
+
+/* The offset is margin, not padding: box-sizing is border-box globally (Bulma
+   minireset), so padding would eat into the frame's 400px text box. */
+.heroTitle {
+  position: relative;
+  z-index: 1;
+  /* The bottom margin is not spacing. All-small-caps uses none of the ascender or
+     descender the line box reserves, so flex centring alone lands the glyphs 6px
+     low; this lifts them by half its value. Measured, not guessed. */
+  margin: 0 16px 0.125em;
+  font-family: var(--font-family-display);
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 0.9;
+  font-variant-caps: all-small-caps;
+  text-align: left;
+  color: var(--color-text-inverse);
+}
+
+@media (min-width: 768px) {
+  .heroTitle {
+    width: 400px;
+    margin: 0 0 0.125em 11px;
+    font-size: 96px;
+  }
+}
+
+.pageTitle {
+  margin: 0 0 calc(47px - 0.294em);
+  font-family: var(--font-family-display);
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 0.9;
+  font-variant-caps: all-small-caps;
+  text-align: left;
+  color: var(--color-ink);
+}
+
+@media (min-width: 768px) {
+  .pageTitle {
+    font-size: 96px;
+  }
+}
+
+.chipsRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  /* Not spacing. A scroll container clips at its padding box, so this is the
+     room the blur needs to fade; the negative margins cancel it back out.
+     Deleting both together leaves the layout identical and silently
+     reinstates the clipping. */
+  padding: 30px 16px;
+  margin: -30px -16px -3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent 100%);
+}
+
+.chipsRow::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .chipsRow {
+    flex-wrap: wrap;
+    padding: 0;
+    margin: 0 0 27px;
+    overflow-x: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+.chip {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  padding: 4.7px 16px 0;
+}
+
+.chipIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 63.156px;
+  height: 63.156px;
+  margin-bottom: 4.7px;
+}
+
+.chipGlow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--glow-size);
+  height: var(--glow-size);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--glow-color, transparent);
+  filter: blur(var(--glow-blur));
+  opacity: var(--glow-opacity, 1);
+}
+
+.chipImage {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.chipLabel {
+  margin-top: 5.77px;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: normal;
+  color: #000000;
+  white-space: nowrap;
+}
+
+.pillsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  margin: 0 -16px 24.5px;
+  overflow-x: auto;
+  scroll-padding-inline-end: 48px;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent 100%);
+}
+
+.pillsRow::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .pillsRow {
+    flex-wrap: wrap;
+    padding: 0;
+    margin: 0 0 24.5px;
+    overflow-x: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+.pill {
+  flex: 0 0 auto;
+  padding: 8px 20px;
+  border: 1px solid var(--color-brown-40);
+  border-radius: 27px;
+  background: var(--color-gold-cream-20);
+  font-family: var(--font-family-body);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  color: var(--color-deep-teal);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pillActive {
+  background: var(--color-club-purple);
+  font-weight: 700;
+  color: var(--color-text-inverse);
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 16px; /* TODO(figma) */
+}
+
+@media only screen and (min-width: 992px) {
+  .productGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* .page is here for specificity. collection.module.css sets width: 240px on
+   this same element, so a bare .filterSidebar wins or loses on import order.
+   The whole rule is inside the media query because that stylesheet only
+   shows the sidebar from 1024 up; below it the panel renders in the sheet. */
+@media (min-width: 1024px) {
+  .page .filterSidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 272px;
+    padding: 16px 0 0; /* TODO(figma) */
+    border: 1px solid #eeecf2;
+    border-radius: 16px;
+    background: var(--color-surface-primary);
+  }
+}
+
+/* TODO(figma): section gaps for the sections that do not exist yet.
+   You May Also Like bottom -> Fam Club top:    11px
+   Fam Club bottom -> blog block container top: 60px
+   Neither is reachable until Fam Club is built. Until then the carousel is
+   followed by the blog block, an adjacency the frame does not have, so the gap
+   below it is the blog block's own spacing rather than either of these. */
+.bestsellers {
+  margin-top: 61.05px;
+}
+
+/* The panel's margin box is authored for the homepage, where it sits full
+   width with nothing after it. Narrowing this shorthand reinstates both
+   defects: the gutters land it 45px inside the hero, and the large-up 60px
+   bottom escapes this bare wrapper to collapse with the next section, where
+   max() picks 60 and no value set below can win. */
+.bestsellers :global(.collection-swiper--green-panel) {
+  margin: 0;
+}
+
+.nextMood {
+  margin-top: 22px;
+}
+
+.header {
+  margin-bottom: 38px;
+}
+
+.sectionTitle {
+  margin: 0 0 8px;
+  font-family: "MrEavesSanOT", sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-deep-teal);
+  text-align: left;
+}
+
+.sentence {
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--color-teal-85);
+  text-align: left;
+}
+
+.sentenceClamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--color-brown-40);
+  margin-bottom: 22px;
+}
+
+.breadcrumb a {
+  color: var(--color-brown-40);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.breadcrumb a:hover {
+  color: var(--color-teal-85);
+}
+
+.separator,
+.crumb {
+  color: var(--color-brown-40);
+}
+
+.current {
+  color: var(--color-teal-85);
+}
+
+/* TODO(figma): spacing and type below are placeholders derived from
+   collection.module.css. Replace with the Dev Mode values. */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 4rem 1rem 5rem;
+}
+
+.emptyTitle {
+  font-family: var(--font-family-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+  margin: 0 0 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .emptyTitle {
+    font-size: 1.75rem;
+  }
+}
+
+.emptyBody {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin: 0 0 2rem;
+}
+
+.emptyActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+@media (min-width: 480px) {
+  .emptyActions {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+.emptyLink {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.emptyLink:hover {
+  color: var(--color-brand-primary);
+}

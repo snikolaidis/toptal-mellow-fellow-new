@@ -745,12 +745,15 @@ const SingleProduct: React.FC<SingleProductProps> & {
         )}
 
         <YouMayAlsoLike
-          productId={product.databaseId}
-          productSlug={product.slug}
-          productPrice={product.price || ''}
-          typeSlugs={(product.mfproductTypes?.nodes || [])
-            .map((t) => (t as { slug?: string }).slug || '')
-            .filter(Boolean)}
+          source={{
+            kind: 'recommendations',
+            productId: product.databaseId,
+            productSlug: product.slug,
+            productPrice: product.price || '',
+            typeSlugs: (product.mfproductTypes?.nodes || [])
+              .map((t) => (t as { slug?: string }).slug || '')
+              .filter(Boolean),
+          }}
         />
 
         <RecentlyViewed currentSlug={product.slug} />
