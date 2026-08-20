@@ -50,6 +50,9 @@ const ICON_BOX: Record<string, { width: number; height: number }> = {
 
 const ICON_FALLBACK_HEIGHT = 28;
 
+// Shop All Products is excepted from the panel typography, pending its own.
+const UNTYPED_SLUG = 'all';
+
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // WordPress serves these without a trailing slash today, but the permalink
@@ -138,11 +141,19 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
       icon?: ProductIcon,
       box?: { width: number; height: number }
     ) => {
+      const className = [
+        'site-header__mega-link',
+        icon ? '' : 'site-header__mega-link--plain',
+        slugFromUri(item.uri) === UNTYPED_SLUG ? '' : 'site-header__mega-type',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
       return (
         <li key={item.id}>
           <Link
             href={item.uri}
-            className={`site-header__mega-link${icon ? '' : ' site-header__mega-link--plain'}`}
+            className={className}
             aria-current={
               normalizeUri(item.uri) === currentUri ? 'true' : undefined
             }
@@ -209,7 +220,7 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
                   <li key={mood.slug}>
                     <Link
                       href={`/moods/${mood.slug}`}
-                      className="site-header__mega-text-link"
+                      className="site-header__mega-text-link site-header__mega-type"
                     >
                       {decodeEntities(mood.name)}
                     </Link>
@@ -226,7 +237,10 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
             <ul className="site-header__mega-list site-header__mega-list--text">
               {CANNABINOID_LINKS.map((item) => (
                 <li key={item.uri}>
-                  <Link href={item.uri} className="site-header__mega-text-link">
+                  <Link
+                    href={item.uri}
+                    className="site-header__mega-text-link site-header__mega-type"
+                  >
                     {item.label}
                   </Link>
                 </li>
@@ -273,14 +287,14 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
                       <li key={child.id}>
                         <Link
                           href={child.uri}
-                          className="site-header__mega-text-link"
+                          className="site-header__mega-text-link site-header__mega-type"
                         >
                           {child.label}
                         </Link>
                       </li>
                     ) : (
                       <li key={child.id}>
-                        <span className="site-header__mega-text-link">
+                        <span className="site-header__mega-text-link site-header__mega-type">
                           {child.label}
                         </span>
                       </li>

@@ -107,7 +107,8 @@
   --sh-mega-pad-start: 43px;
   --sh-mega-gutter: 306px;
   --sh-mega-col-gap: 74px;
-  --sh-mega-heading-size: 0.8125rem;
+  --sh-mega-heading-size: 1.5rem;
+  --sh-mega-heading-line: 1.75rem;
   --sh-mega-heading-gap: 1rem;
   --sh-mega-duration: 0.16s;
 
@@ -119,6 +120,8 @@
   --sh-mega-sub-bg: rgba(243, 244, 240, 0.5);
   --sh-mega-text-link-size: 0.875rem;
   --sh-mega-text-gap: 0.75rem;
+  --sh-mega-type-size: 0.875rem;
+  --sh-mega-type-line: 1.25rem;
   --sh-mega-item-gap: 0.125rem;
   --sh-mega-link-gap: 0.75rem;
   --sh-mega-link-pad-block: 0.375rem;
@@ -713,14 +716,16 @@
   }
 }
 
+// 700 on a family that ships only a 400 face, so this is synthesised bold, like
+// every other MrEavesSanOT heading here. The real bold is a Typekit family.
 .site-header__mega-heading {
+  align-self: stretch;
   margin: 0 0 var(--sh-mega-heading-gap);
-  color: var(--sh-nav-color);
-  font-family: var(--font-family-body);
+  color: var(--color-ink);
+  font-family: "MrEavesSanOT", sans-serif;
   font-size: var(--sh-mega-heading-size);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-weight: 700;
+  line-height: var(--sh-mega-heading-line);
 }
 
 .site-header__mega-list {
@@ -762,6 +767,16 @@
 .site-header__mega-link--plain {
   font-size: var(--sh-mega-plain-size);
   font-weight: 600;
+}
+
+// Must stay below the link rules above. It shares their specificity and
+// overrides their size, weight and colour on source order alone.
+.site-header__mega-type {
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-type-size);
+  font-weight: 500;
+  line-height: var(--sh-mega-type-line);
+  color: var(--color-teal-85);
 }
 
 .site-header__mega-divider {
