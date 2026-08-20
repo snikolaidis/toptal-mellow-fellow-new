@@ -1,8 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
-import { NavMenuItem, isRealHref } from '@/graphql/queries/menus';
+import {
+  MegaMenuFeaturedLink,
+  NavMenuItem,
+  isRealHref,
+} from '@/graphql/queries/menus';
 import { ProductIcon, getProductIcon, scaleIcon } from '@/lib/productIcons';
+import { decodeEntities } from '@/lib/decodeEntities';
+import { MoodPill } from '@/types/mood';
 
 interface ShopMegaMenuProps {
   id: string;
@@ -10,7 +16,17 @@ interface ShopMegaMenuProps {
   shouldFocus: boolean;
   productItems: NavMenuItem[];
   navItems: NavMenuItem[];
+  moods: MoodPill[];
+  featuredLinks: MegaMenuFeaturedLink[];
 }
+
+// HHC is deliberately absent: it became illegal.
+const CANNABINOID_LINKS = [
+  { label: 'Delta-8 THC', uri: '/collections/delta-8' },
+  { label: 'Delta-9 THC', uri: '/collections/delta-9' },
+  { label: 'THCp', uri: '/collections/thcp' },
+  { label: 'CBD / Wellness', uri: '/collections/cbd' },
+];
 
 const HEADING_IDS = {
   product: 'shop-mega-heading-product',
@@ -32,7 +48,10 @@ const normalizeUri = (uri: string) => uri.replace(/\/+$/, '');
 const slugFromUri = (uri: string) => normalizeUri(uri).split('/').pop() ?? '';
 
 const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
-  function ShopMegaMenu({ id, labelledBy, shouldFocus, productItems, navItems }, ref) {
+  function ShopMegaMenu(
+    { id, labelledBy, shouldFocus, productItems, navItems, moods, featuredLinks },
+    ref
+  ) {
     const navRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
@@ -67,6 +86,13 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
       if (icon) illustrated.push({ item, icon });
       else plain.push(item);
     }
+
+    const featured = featuredLinks.flatMap((item) => {
+      const url = item.link?.url;
+      const label = item.label || item.link?.title;
+      if (!label || !url || url === '#') return [];
+      return [{ label, url, target: item.link?.target || undefined }];
+    });
 
     const [activeUri, setActiveUri] = useState<string | null>(null);
 
@@ -150,18 +176,62 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
             <h2 id={HEADING_IDS.mood} className="site-header__mega-heading">
               Shop by Mood
             </h2>
+            {moods.length > 0 && (
+              <ul className="site-header__mega-list site-header__mega-list--text">
+                {moods.map((mood) => (
+                  <li key={mood.slug}>
+                    <Link
+                      href={`/moods/${mood.slug}`}
+                      className="site-header__mega-text-link"
+                    >
+                      {decodeEntities(mood.name)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="site-header__mega-col">
             <h2 id={HEADING_IDS.cannabinoids} className="site-header__mega-heading">
               Cannabinoids
             </h2>
+            <ul className="site-header__mega-list site-header__mega-list--text">
+              {CANNABINOID_LINKS.map((item) => (
+                <li key={item.uri}>
+                  <Link href={item.uri} className="site-header__mega-text-link">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="site-header__mega-col">
             <h2 id={HEADING_IDS.featured} className="site-header__mega-heading">
               Featured
             </h2>
+
+            {/* The image carousel goes here, above the links. It shares a Site
+                Settings group with the homepage carousel, which does not exist
+                yet, so there is nothing to render from. */}
+
+            {featured.length > 0 && (
+              <ul className="site-header__mega-list site-header__mega-list--text">
+                {featured.map(({ label, url, target }) => (
+                  <li key={url}>
+                    <Link
+                      href={url}
+                      className="site-header__mega-text-link"
+                      target={target}
+                      rel={target === '_blank' ? 'noreferrer' : undefined}
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="site-header__mega-sub">
@@ -176,14 +246,14 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
                       <li key={child.id}>
                         <Link
                           href={child.uri}
-                          className="site-header__mega-sub-link"
+                          className="site-header__mega-text-link"
                         >
                           {child.label}
                         </Link>
                       </li>
                     ) : (
                       <li key={child.id}>
-                        <span className="site-header__mega-sub-link">
+                        <span className="site-header__mega-text-link">
                           {child.label}
                         </span>
                       </li>

@@ -21,6 +21,7 @@ export interface MoodFields {
 export interface MoodPill {
   name: string;
   slug: string;
+  count?: number | null;
 }
 
 // relatedCollections / relatedCollectionTitle are omitted on purpose. The

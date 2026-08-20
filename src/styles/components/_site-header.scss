@@ -117,7 +117,8 @@
   --sh-mega-sub-pad-inline: 40px;
   --sh-mega-sub-gap: 24px;
   --sh-mega-sub-bg: rgba(243, 244, 240, 0.5);
-  --sh-mega-sub-link-size: 0.875rem;
+  --sh-mega-text-link-size: 0.875rem;
+  --sh-mega-text-gap: 0.75rem;
   --sh-mega-item-gap: 0.125rem;
   --sh-mega-link-gap: 0.75rem;
   --sh-mega-link-pad-block: 0.375rem;
@@ -704,9 +705,9 @@
   overflow-y: auto;
 }
 
-.site-header__mega-sub-link {
+.site-header__mega-text-link {
   color: var(--sh-nav-color);
-  font-size: var(--sh-mega-sub-link-size);
+  font-size: var(--sh-mega-text-link-size);
 
   &:hover {
     color: var(--sh-nav-hover-color);
@@ -730,6 +731,10 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.site-header__mega-list--text {
+  gap: var(--sh-mega-text-gap);
 }
 
 .site-header__mega-link {

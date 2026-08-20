@@ -5,7 +5,15 @@ import { useQuery } from '@apollo/client';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { MellowFellowLogo, UserIcon, CartIcon } from '@/components/icons';
-import { GET_NAV, GET_SHOP_MEGA_MENU, NavMenuItem } from '@/graphql/queries/menus';
+import {
+  GET_NAV,
+  GET_SHOP_MEGA_MENU,
+  GET_MEGA_MENU_FEATURED,
+  MegaMenuFeaturedLink,
+  NavMenuItem,
+} from '@/graphql/queries/menus';
+import { GET_ALL_MOODS } from '@/graphql/queries/moods';
+import { MoodPill } from '@/types/mood';
 import AnnouncementBar from './AnnouncementBar';
 import SearchTrigger from './SearchTrigger';
 import PrimaryNav from './PrimaryNav';
@@ -29,6 +37,8 @@ export default function SiteHeader() {
   // Read here rather than inside the panel. The panel mounts on open, so a query
   // living there would start only once the user has already clicked.
   const { data: megaData } = useQuery(GET_SHOP_MEGA_MENU);
+  const { data: moodData } = useQuery(GET_ALL_MOODS);
+  const { data: featuredData } = useQuery(GET_MEGA_MENU_FEATURED);
   const { cart, cartReady, toggleDrawer } = useCart();
   const { isAuthenticated, isReady } = useAuth();
 
@@ -40,6 +50,9 @@ export default function SiteHeader() {
 
   const menuItems: NavMenuItem[] = data?.menuItems?.nodes ?? [];
   const megaMenuItems: NavMenuItem[] = megaData?.menuItems?.nodes ?? [];
+  const megaMoods: MoodPill[] = moodData?.moods?.nodes ?? [];
+  const megaFeatured: MegaMenuFeaturedLink[] =
+    featuredData?.siteSettings?.megaMenuFeatured?.links ?? [];
 
   const {
     isOpen: megaMenuOpen,
@@ -236,6 +249,8 @@ export default function SiteHeader() {
                 shouldFocus={shouldFocusPanel}
                 productItems={megaMenuItems}
                 navItems={menuItems}
+                moods={megaMoods}
+                featuredLinks={megaFeatured}
               />
             ) : null
           }
