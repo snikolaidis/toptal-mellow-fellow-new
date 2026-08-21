@@ -186,7 +186,7 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
     // -----------------------------------------------------------------------
     // 4. Batch-fetch taxonomy terms
     // -----------------------------------------------------------------------
-    $tax_list = [ 'product-type', 'product-line', 'cannabinoid' ];
+    $tax_list = [ 'product-type', 'product-lines', 'cannabinoid' ];
     $tax_placeholders = implode( ',', array_fill( 0, count( $tax_list ), '%s' ) );
 
     $tax_sql = $wpdb->prepare(
@@ -262,7 +262,7 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
                          : null;
 
         $type_terms   = $t['product-type'] ?? [];
-        $line_terms   = $t['product-line'] ?? [];
+        $line_terms   = $t['product-lines'] ?? [];
         $cannab_terms = $t['cannabinoid'] ?? [];
 
         $type_label = ! empty( $type_terms ) ? $type_terms[0]['name'] : '';
