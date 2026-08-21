@@ -11,8 +11,8 @@ const CANNABINOID_LINKS = [
 ];
 
 // WordPress omits the trailing slash today, but the permalink setting can add
-// one, and then the icon lookup and the PRIMARY match both miss on every item.
-export const normalizeUri = (uri: string) => uri.replace(/\/+$/, '');
+// one, and then the icon lookup misses on every item.
+const normalizeUri = (uri: string) => uri.replace(/\/+$/, '');
 
 const slugFromUri = (uri: string) => normalizeUri(uri).split('/').pop() ?? '';
 
@@ -43,33 +43,22 @@ export interface MegaMenuModel {
 
 interface BuildArgs {
   productItems: NavMenuItem[];
-  navItems: NavMenuItem[];
   moods: MoodPill[];
   featuredLinks: MegaMenuFeaturedLink[];
 }
 
 export function buildMegaMenuModel({
   productItems,
-  navItems,
   moods,
   featuredLinks,
 }: BuildArgs): MegaMenuModel {
-  // Matched on uri, not label: the same destination is "Shop All Products" in
-  // one menu and "More" in the other.
-  const childrenByUri = new Map<string, NavMenuItem[]>();
-  for (const item of navItems) {
-    const children = item.childItems?.nodes ?? [];
-    if (children.length > 0) childrenByUri.set(normalizeUri(item.uri), children);
-  }
-
   const products: MegaMenuProduct[] = [];
   for (const item of productItems) {
     if (!isRealHref(item.uri)) continue;
-    const key = normalizeUri(item.uri);
     const slug = slugFromUri(item.uri);
-    const children = childrenByUri.get(key) ?? [];
+    const children = item.childItems?.nodes ?? [];
     products.push({
-      key,
+      key: normalizeUri(item.uri),
       slug,
       item,
       icon: getProductIcon(slug),

@@ -30,6 +30,13 @@ export const GET_SHOP_MEGA_MENU = gql`
         id
         label
         uri
+        childItems {
+          nodes {
+            id
+            label
+            uri
+          }
+        }
       }
     }
   }

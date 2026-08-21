@@ -118,6 +118,7 @@
   --sh-mega-sub-pad-inline: 40px;
   --sh-mega-sub-gap: 24px;
   --sh-mega-sub-bg: rgba(243, 244, 240, 0.5);
+  --sh-mega-sub-link-hover-bg: #e9e1cb;
   --sh-mega-text-link-size: 0.875rem;
   --sh-mega-text-gap: 0.75rem;
   --sh-mega-type-size: 0.875rem;
@@ -722,11 +723,21 @@
   overflow-y: auto;
 }
 
+// The other columns' cream reads as nothing here, at 1.18:1 against this panel's
+// background. Same cream deeper, matched to the product column's 1.24:1 on white.
+.site-header__mega-sub .site-header__mega-text-link:hover {
+  background-color: var(--sh-mega-sub-link-hover-bg);
+}
+
 .site-header__mega-text-link {
+  display: flex;
+  padding: var(--sh-mega-link-pad-block) var(--sh-mega-link-pad-inline);
+  border-radius: var(--sh-mega-link-radius);
   color: var(--sh-nav-color);
   font-size: var(--sh-mega-text-link-size);
 
   &:hover {
+    background-color: var(--sh-mega-link-hover-bg);
     color: var(--sh-nav-hover-color);
   }
 }

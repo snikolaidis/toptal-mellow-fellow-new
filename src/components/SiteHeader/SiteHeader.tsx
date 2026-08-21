@@ -59,11 +59,10 @@ export default function SiteHeader() {
     () =>
       buildMegaMenuModel({
         productItems: megaMenuItems,
-        navItems: menuItems,
         moods: megaMoods,
         featuredLinks: megaFeatured,
       }),
-    [megaMenuItems, menuItems, megaMoods, megaFeatured]
+    [megaMenuItems, megaMoods, megaFeatured]
   );
 
   const {
