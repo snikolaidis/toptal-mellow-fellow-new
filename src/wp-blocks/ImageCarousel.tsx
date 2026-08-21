@@ -1,4 +1,5 @@
 import { fragments } from './ImageCarousel.fragments';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay } from 'swiper/modules';
@@ -41,6 +42,18 @@ interface ImageCarouselProps {
 }
 
 export default function ImageCarousel(props: ImageCarouselProps) {
+  // Starts false so the server and the first client render agree; the media
+  // query result only lands after mount.
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReduceMotion(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
   const title = props.imageCarousel?.title;
   const images = (props.imageCarousel?.images?.nodes ?? []).filter(
     (img): img is MediaItem => Boolean(img?.sourceUrl)
@@ -66,7 +79,11 @@ export default function ImageCarousel(props: ImageCarouselProps) {
       slidesPerView={2}
       spaceBetween={30}
       modules={[Autoplay]}
-      autoplay={{ delay: SLIDE_DELAY, disableOnInteraction: false }}
+      autoplay={
+        reduceMotion
+          ? false
+          : { delay: SLIDE_DELAY, disableOnInteraction: false, pauseOnMouseEnter: true }
+      }
       loop
       allowTouchMove={false}
       breakpoints={{

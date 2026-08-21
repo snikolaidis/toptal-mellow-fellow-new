@@ -560,13 +560,22 @@
 
 .relatedSlide {
   height: auto;
+  display: flex;
 }
 
+/* min-height, not height: the card is a flex column that has to be able to grow
+   past 435px, otherwise a taller card gets its price and Add to cart clipped by
+   the overflow. Slides still come out uniform because the wrapper stretches
+   them to the tallest one. */
 .relatedSlide :global(.product-card) {
-  height: 435px;
+  min-height: 435px;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+}
+
+.relatedSwiper :global(.swiper-wrapper) {
+  align-items: stretch;
 }
 
 .relatedSlide :global(.product-card > a) {
@@ -582,7 +591,6 @@
 
 .relatedSlide :global(.product__info) {
   min-height: 0;
-  overflow: hidden;
 }
 
 /* Blog-posts carousel card — fixed height so cards stay uniform even when a
