@@ -328,11 +328,11 @@ function mf_register_mega_menu_featured_fields() {
                 'label'        => 'Links',
                 'name'         => 'links',
                 'type'         => 'repeater',
-                'instructions' => 'Up to three text links below the image. Drag rows to set the display order.',
+                'instructions' => 'Up to four text links below the image. Drag rows to set the display order.',
                 'layout'       => 'table',
                 'button_label' => 'Add Link',
                 'min'          => 0,
-                'max'          => 3,
+                'max'          => 4,
                 'sub_fields'   => [
                     [
                         'key'      => 'field_mf_feat_row_label',
