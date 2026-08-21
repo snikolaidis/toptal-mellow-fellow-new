@@ -23,6 +23,7 @@ export function getBodyClass(asPath: string): string {
     case 'pages':
       return `page page-${rest.join('-')}`;
     case 'product':
+    case 'products':
       return `single single-product product-${slug}`;
     case 'collection':
     case 'collections':
