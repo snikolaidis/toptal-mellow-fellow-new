@@ -16,6 +16,10 @@ const normalizeUri = (uri: string) => uri.replace(/\/+$/, '');
 
 const slugFromUri = (uri: string) => normalizeUri(uri).split('/').pop() ?? '';
 
+// The two entries the frame puts below the product column's divider. Once these
+// carry artwork too, icon presence no longer tells the groups apart.
+const TAIL_SLUGS = new Set(['bundles', 'all']);
+
 export interface MegaMenuProduct {
   key: string;
   slug: string;
@@ -23,6 +27,7 @@ export interface MegaMenuProduct {
   icon?: ProductIcon;
   children: NavMenuItem[];
   hasChildren: boolean;
+  isTail: boolean;
 }
 
 export interface MegaMenuFeatured {
@@ -33,9 +38,9 @@ export interface MegaMenuFeatured {
 
 export interface MegaMenuModel {
   products: MegaMenuProduct[];
-  /** Artwork presence is also the frame's chevron versus plain-link split. */
-  illustrated: MegaMenuProduct[];
-  plain: MegaMenuProduct[];
+  /** The two groups the frame's divider separates, in render order. */
+  categories: MegaMenuProduct[];
+  tail: MegaMenuProduct[];
   moods: MoodPill[];
   cannabinoids: typeof CANNABINOID_LINKS;
   featured: MegaMenuFeatured[];
@@ -64,6 +69,7 @@ export function buildMegaMenuModel({
       icon: getProductIcon(slug),
       children,
       hasChildren: children.length > 0,
+      isTail: TAIL_SLUGS.has(slug),
     });
   }
 
@@ -76,8 +82,8 @@ export function buildMegaMenuModel({
 
   return {
     products,
-    illustrated: products.filter((p) => p.icon),
-    plain: products.filter((p) => !p.icon),
+    categories: products.filter((p) => !p.isTail),
+    tail: products.filter((p) => p.isTail),
     moods,
     cannabinoids: CANNABINOID_LINKS,
     featured,

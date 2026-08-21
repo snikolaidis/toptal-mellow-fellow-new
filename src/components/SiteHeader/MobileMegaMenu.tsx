@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { CloseIcon, ChevronDownIcon } from '@/components/icons';
 import { isRealHref } from '@/graphql/queries/menus';
-import { scaleIcon } from '@/lib/productIcons';
+import { isVectorIcon, scaleIcon } from '@/lib/productIcons';
 import { decodeEntities } from '@/lib/decodeEntities';
 import { MegaMenuModel, MegaMenuProduct } from './megaMenuModel';
 
@@ -21,7 +21,7 @@ export default function MobileMegaMenu({
   onClose,
   model,
 }: MobileMegaMenuProps) {
-  const { products, illustrated, plain, moods, cannabinoids, featured } = model;
+  const { products, categories, tail, moods, cannabinoids, featured } = model;
 
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const active = products.find((p) => p.key === activeKey) ?? null;
@@ -95,6 +95,7 @@ export default function MobileMegaMenu({
               alt=""
               width={box.width}
               height={box.height}
+              unoptimized={isVectorIcon(icon)}
             />
           )}
           <span>{item.label}</span>
@@ -186,8 +187,8 @@ export default function MobileMegaMenu({
           <section className="site-header__mobile-section">
             <h2 className="site-header__mobile-heading">Shop by Product</h2>
             <ul className="site-header__mobile-list">
-              {illustrated.map(productRow)}
-              {plain.map(productRow)}
+              {categories.map(productRow)}
+              {tail.map(productRow)}
             </ul>
           </section>
 

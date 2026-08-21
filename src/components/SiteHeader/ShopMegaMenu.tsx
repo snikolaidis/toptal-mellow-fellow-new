@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { NavMenuItem, isRealHref } from '@/graphql/queries/menus';
-import { ProductIcon, scaleIcon } from '@/lib/productIcons';
+import { ProductIcon, isVectorIcon, scaleIcon } from '@/lib/productIcons';
 import { decodeEntities } from '@/lib/decodeEntities';
 import { MegaMenuModel, MegaMenuProduct } from './megaMenuModel';
 
@@ -51,7 +51,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
 
 const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
   function ShopMegaMenu({ id, labelledBy, shouldFocus, model }, ref) {
-    const { products, illustrated, plain, moods, cannabinoids, featured } = model;
+    const { products, categories, tail, moods, cannabinoids, featured } = model;
     const navRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
@@ -107,7 +107,7 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
         : null;
       const className = [
         'site-header__mega-link',
-        icon ? '' : 'site-header__mega-link--plain',
+        product.isTail ? 'site-header__mega-link--plain' : '',
         slug === UNTYPED_SLUG ? '' : 'site-header__mega-type',
       ]
         .filter(Boolean)
@@ -131,6 +131,7 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
                 // size is the style below, which is what actually lays out.
                 width={Math.round(box.width)}
                 height={Math.round(box.height)}
+                unoptimized={isVectorIcon(icon)}
                 style={{ width: `${box.width}px`, height: `${box.height}px` }}
               />
             )}
@@ -153,19 +154,19 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
               Shop by Product
             </h2>
 
-            {illustrated.length > 0 && (
+            {categories.length > 0 && (
               <ul className="site-header__mega-list">
-                {illustrated.map(productLink)}
+                {categories.map(productLink)}
               </ul>
             )}
 
-            {illustrated.length > 0 && plain.length > 0 && (
+            {categories.length > 0 && tail.length > 0 && (
               <span className="site-header__mega-divider" aria-hidden="true" />
             )}
 
-            {plain.length > 0 && (
+            {tail.length > 0 && (
               <ul className="site-header__mega-list">
-                {plain.map(productLink)}
+                {tail.map(productLink)}
               </ul>
             )}
           </div>
@@ -249,6 +250,13 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
                       alt=""
                       width={SUB_ICON.width}
                       height={SUB_ICON.height}
+                      unoptimized={isVectorIcon(active.icon)}
+                      // globals.scss puts height:auto on every img, so the
+                      // attribute alone renders this square. The style wins.
+                      style={{
+                        width: `${SUB_ICON.width}px`,
+                        height: `${SUB_ICON.height}px`,
+                      }}
                     />
                   )}
                 </div>

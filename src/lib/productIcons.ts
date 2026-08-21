@@ -25,7 +25,13 @@ export const PRODUCT_ICONS: Record<string, ProductIcon> = {
   drinks: { src: '/drinks-megamenu.png', width: 200, height: 200 },
   flower: { src: '/flower-megamenu.png', width: 200, height: 200 },
   concentrates: { src: '/concentrates-megamenu.png', width: 200, height: 200 },
+  bundles: { src: '/bundles-icon.svg', width: 25, height: 28 },
+  all: { src: '/shop-all-products-icon.svg', width: 25, height: 28 },
 };
+
+// The optimizer rejects SVG unless dangerouslyAllowSVG is set, and does so at
+// request time. Callers pass this as `unoptimized` to skip it.
+export const isVectorIcon = (icon: ProductIcon) => icon.src.endsWith('.svg');
 
 export const getProductIcon = (slug: string): ProductIcon | undefined =>
   PRODUCT_ICONS[slug];

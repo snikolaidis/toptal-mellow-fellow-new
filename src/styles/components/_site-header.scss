@@ -728,8 +728,12 @@
   border-top: 1px solid var(--sh-mega-rule);
 }
 
+// The narrow cut, and the only heading here not on MrEavesSanOT: beside the
+// icon this has 145.6px, and "Disposable Vapes" needs 151 in the wide face, so
+// unifying the family back wraps it. 700 is a real face here, not synthesised.
 .site-header__mega-sub .site-header__mega-heading {
   margin-bottom: 0;
+  font-family: var(--font-family-display);
 }
 
 // The list scrolls, not the panel, so the bar clears the 48px corners. stretch
