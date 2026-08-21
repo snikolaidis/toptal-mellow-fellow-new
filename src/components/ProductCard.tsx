@@ -7,6 +7,8 @@ import QuickView from '@/components/shop/QuickView';
 import { recordWidgetSource, WidgetSource } from '@/lib/widgetAttribution';
 import { decodeEntities } from '@/lib/decodeEntities';
 
+const LOW_STOCK_THRESHOLD = 2;
+
 interface ProductCardProps {
   product: Product;
   badge?: 'new' | 'sale' | 'limited';
@@ -47,6 +49,10 @@ export default function ProductCard({ product, badge, priority = false, source }
 
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);
+
+  const stockLeft = product.stockQuantity;
+  const isLowStock =
+    isInStock && typeof stockLeft === 'number' && stockLeft > 0 && stockLeft <= LOW_STOCK_THRESHOLD;
 
   // Product attribute taxonomies (first assigned term of each).
   const strainType = product.strainTypes?.nodes?.[0]?.name;
@@ -124,19 +130,6 @@ export default function ProductCard({ product, badge, priority = false, source }
       <div className="product-card">
         <Link href={`/product/${product.slug}`} className="block">
           <div className="product__media-badges">
-            {/* Inner container with padding to keep product images away from edges */}
-            <div className="image is-square">
-              <Image
-                src={imageUrl}
-                alt={product.image?.altText || product.name}
-                fill
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
-                className="object-contain object-center transition-transform duration-700 group-hover:scale-105"
-                priority={priority}
-              />
-            </div>
-
-            {/* Product type tags overlaying the image */}
             <div className="product__tags">
               <div className="product__tags-left">
                 {mfProductType && (
@@ -172,6 +165,18 @@ export default function ProductCard({ product, badge, priority = false, source }
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Inner container with padding to keep product images away from edges */}
+            <div className="image is-square">
+              <Image
+                src={imageUrl}
+                alt={product.image?.altText || product.name}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
+                className="object-contain object-center transition-transform duration-700 group-hover:scale-105"
+                priority={priority}
+              />
             </div>
           </div>
 
@@ -300,6 +305,12 @@ export default function ProductCard({ product, badge, priority = false, source }
             )}
           </div>
         )}
+
+        <div className="product__stock-slot">
+          {isLowStock && (
+            <span className="product__stock">Only {stockLeft} in Stock</span>
+          )}
+        </div>
       </div>
 
       {/* Quick View Modal */}

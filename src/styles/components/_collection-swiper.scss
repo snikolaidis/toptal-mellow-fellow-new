@@ -5,6 +5,24 @@
 
   @include swiper-product-carousel;
 
+  // Equal-height cards without clipping. The slide is the flex container and
+  // .product-card grows inside it; giving the card `height: 100%` instead makes
+  // it resolve against an auto-height slide, so tall cards overflow and the
+  // swiper's `overflow: hidden` cuts their bottom corners off.
+  .swiper {
+    height: auto;
+  }
+
+  .swiper-wrapper {
+    height: auto;
+    align-items: stretch;
+  }
+
+  .swiper-slide {
+    display: flex;
+    height: auto;
+  }
+
   @include large-up {
     .container {
       width: min(1315px, 100%);

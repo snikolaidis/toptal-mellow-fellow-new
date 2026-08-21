@@ -145,11 +145,22 @@
 }
 
 .footer-bottom {
-  background-color: var(--color-text-primary);
-  
+  background-color: var(--color-alert-red);
+  padding-top: 1rem;
+
   p {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     color: #ffffff;
     font-weight: 600;
     text-align: center;
+  }
+
+  &__icon {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
   }
 }

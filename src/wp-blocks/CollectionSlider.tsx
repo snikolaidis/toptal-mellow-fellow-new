@@ -1,7 +1,7 @@
 import { fragments } from './CollectionSlider.fragments';
 import { useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Pagination, Navigation } from 'swiper/modules';
+import { Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
@@ -9,10 +9,14 @@ import { Product } from '@/types/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import { useCollectionFilter } from '@/context/CollectionFilterContext';
 
+// Swiper only loops when the track holds more slides than it shows at once. With
+// 8 products at 4 per view it silently stops advancing, so the list is repeated
+// until the track clears this count. Do not collapse `track` back to `products`.
+const MIN_TRACK_SLIDES = 16;
+
 const SWIPER_BREAKPOINTS = {
   769: { slidesPerView: 2 },
-  992: { slidesPerView: 3 },
-  1400: { slidesPerView: 4 },
+  992: { slidesPerView: 4 },
 } as const;
 
 interface CollectionNode {
@@ -69,6 +73,9 @@ export default function CollectionSlider(props: CollectionSliderProps) {
     return null;
   }
 
+  const copies = Math.max(2, Math.ceil(MIN_TRACK_SLIDES / products.length));
+  const track = Array.from({ length: copies }, () => products).flat();
+
   const title = data?.title || '';
   const rawVariant = data?.backgroundVariant || '';
   const variant = rawVariant && rawVariant !== 'default' ? rawVariant : '';
@@ -88,14 +95,18 @@ export default function CollectionSlider(props: CollectionSliderProps) {
             slidesPerView={2}
             slidesOffsetAfter={8}
             slidesOffsetBefore={8}
-            modules={[Pagination, Navigation]}
-            pagination={{ clickable: true }}
-            navigation
+            modules={[Pagination, Autoplay]}
+            pagination={{ clickable: true, dynamicBullets: true }}
+            autoplay={{
+              delay: 4000,
+              disableOnInteraction: false,
+              pauseOnMouseEnter: true,
+            }}
+            loop
             breakpoints={SWIPER_BREAKPOINTS}
-            cssMode={true}
           >
-            {products.map((product) => (
-              <SwiperSlide key={product.id}>
+            {track.map((product, i) => (
+              <SwiperSlide key={`${product.id}-${i}`}>
                 <ProductCard product={product} />
               </SwiperSlide>
             ))}
