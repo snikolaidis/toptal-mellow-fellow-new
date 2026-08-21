@@ -27,6 +27,9 @@ export const PRODUCT_ICONS: Record<string, ProductIcon> = {
   concentrates: { src: '/concentrates-megamenu.png', width: 200, height: 200 },
   bundles: { src: '/bundles-icon.svg', width: 25, height: 28 },
   all: { src: '/shop-all-products-icon.svg', width: 25, height: 28 },
+  // Keyed by name, not by its collection slug: the menu item points at
+  // terp-sauce-2ml-syringes-thca-blends, which PROMOTED maps to this key.
+  syringes: { src: '/syringes-icon.png', width: 386, height: 1126 },
 };
 
 // The optimizer rejects SVG unless dangerouslyAllowSVG is set, and does so at

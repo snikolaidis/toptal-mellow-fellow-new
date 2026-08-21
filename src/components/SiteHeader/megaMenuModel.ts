@@ -18,7 +18,18 @@ const slugFromUri = (uri: string) => normalizeUri(uri).split('/').pop() ?? '';
 
 // The two entries the frame puts below the product column's divider. Once these
 // carry artwork too, icon presence no longer tells the groups apart.
-const TAIL_SLUGS = new Set(['bundles', 'all']);
+const CATCH_ALL_SLUG = 'all';
+const TAIL_SLUGS = new Set(['bundles', CATCH_ALL_SLUG]);
+
+// Lifted out of Shop All Products' children into the mobile product list.
+// Matched on the collection slug, so repointing one in wp-admin drops its row
+// rather than pointing it somewhere else.
+const PROMOTED: Array<{ slug: string; icon?: string }> = [
+  { slug: 'terp-sauce-2ml-syringes-thca-blends', icon: 'syringes' },
+  { slug: 'accessories' },
+];
+
+const LEARN_LABEL = 'learn';
 
 export interface MegaMenuProduct {
   key: string;
@@ -28,6 +39,12 @@ export interface MegaMenuProduct {
   children: NavMenuItem[];
   hasChildren: boolean;
   isTail: boolean;
+}
+
+export interface MegaMenuPromoted {
+  key: string;
+  item: NavMenuItem;
+  icon?: ProductIcon;
 }
 
 export interface MegaMenuFeatured {
@@ -41,19 +58,25 @@ export interface MegaMenuModel {
   /** The two groups the frame's divider separates, in render order. */
   categories: MegaMenuProduct[];
   tail: MegaMenuProduct[];
+  /** Mobile only: rows lifted out of the catch-all's children. */
+  promoted: MegaMenuPromoted[];
   moods: MoodPill[];
   cannabinoids: typeof CANNABINOID_LINKS;
   featured: MegaMenuFeatured[];
+  /** Mobile only: Primary's Learn children, which have no mega menu entry. */
+  learn: NavMenuItem[];
 }
 
 interface BuildArgs {
   productItems: NavMenuItem[];
+  navItems: NavMenuItem[];
   moods: MoodPill[];
   featuredLinks: MegaMenuFeaturedLink[];
 }
 
 export function buildMegaMenuModel({
   productItems,
+  navItems,
   moods,
   featuredLinks,
 }: BuildArgs): MegaMenuModel {
@@ -80,12 +103,33 @@ export function buildMegaMenuModel({
     return [{ label, url, target: entry.link?.target || undefined }];
   });
 
+  const catchAllChildren =
+    products.find((p) => p.slug === CATCH_ALL_SLUG)?.children ?? [];
+
+  const promoted: MegaMenuPromoted[] = PROMOTED.flatMap(({ slug, icon }) => {
+    const item = catchAllChildren.find((c) => slugFromUri(c.uri) === slug);
+    if (!item) return [];
+    return [
+      {
+        key: normalizeUri(item.uri),
+        item,
+        icon: icon ? getProductIcon(icon) : undefined,
+      },
+    ];
+  });
+
+  const learn =
+    navItems.find((i) => i.label.trim().toLowerCase() === LEARN_LABEL)
+      ?.childItems?.nodes ?? [];
+
   return {
     products,
     categories: products.filter((p) => !p.isTail),
     tail: products.filter((p) => p.isTail),
+    promoted,
     moods,
     cannabinoids: CANNABINOID_LINKS,
     featured,
+    learn,
   };
 }
