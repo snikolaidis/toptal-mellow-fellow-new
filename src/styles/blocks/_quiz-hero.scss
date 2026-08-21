@@ -4,7 +4,10 @@
   align-items: flex-start;
   overflow: hidden;
   min-height: 397px;
-  background: linear-gradient(180deg, var(--color-hero-gold) 0%, rgba(255, 255, 255, 0) 112%);
+  // Figma ends the ramp at 112%, which leaves roughly 11% of the gold still
+  // painted at the block's bottom edge and cuts a visible line against the white
+  // section below. Ending at 100% lets it reach the page background cleanly.
+  background: linear-gradient(180deg, var(--color-hero-gold) 0%, rgba(255, 255, 255, 0) 100%);
   padding: 21px 17px 46px;
 
   @media screen and (min-width: 483px) {
