@@ -74,9 +74,13 @@
     max-height: 100%;
     object-fit: contain;
 
-    &[src*='gummy'] {
-      max-width: 64%;
-      max-height: 64%;
+    // Both gummies are solid opaque blobs that fill their box edge to edge, so
+    // at full size they read much heavier than the bottles and cartridges next
+    // to them. Matched on filename because the src is a Next.js optimizer URL.
+    &[src*='gummy'],
+    &[src*='cherry'] {
+      max-width: 82%;
+      max-height: 82%;
     }
   }
 
