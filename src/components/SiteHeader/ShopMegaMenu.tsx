@@ -35,6 +35,15 @@ const ICON_BOX: Record<string, { width: number; height: number }> = {
 
 const ICON_FALLBACK_HEIGHT = 28;
 
+const SUB_ICON = { width: 41, height: 42 };
+
+// Word boundary, so an "Allergen" style label is not mistaken for a catch-all.
+const CATCH_ALL = /^all\b/i;
+
+const SUB_LINK = 'site-header__mega-text-link site-header__mega-type';
+const SUB_CATCH_ALL_LINK =
+  'site-header__mega-text-link site-header__mega-link--plain';
+
 // Shop All Products is excepted from the panel typography, pending its own.
 const UNTYPED_SLUG = 'all';
 
@@ -66,6 +75,30 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
     const activate = (product: MegaMenuProduct) => {
       if (product.hasChildren) setActiveUri(product.key);
     };
+
+    // Split on the last child's label rather than its position, so a list
+    // without a catch-all does not get a stray rule above its last item.
+    const subChildren = active?.children ?? [];
+    const subLast = subChildren[subChildren.length - 1];
+    const hasCatchAll =
+      subChildren.length > 1 && !!subLast && CATCH_ALL.test(subLast.label);
+    const subItems = hasCatchAll ? subChildren.slice(0, -1) : subChildren;
+
+    const subItem = (
+      child: NavMenuItem,
+      className: string,
+      itemClassName?: string
+    ) => (
+      <li key={child.id} className={itemClassName}>
+        {isRealHref(child.uri) ? (
+          <Link href={child.uri} className={className}>
+            {child.label}
+          </Link>
+        ) : (
+          <span className={className}>{child.label}</span>
+        )}
+      </li>
+    );
 
     const productLink = (product: MegaMenuProduct) => {
       const { item, icon, slug } = product;
@@ -205,28 +238,30 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
           <div className="site-header__mega-sub">
             {active && (
               <>
-                <h2 id={HEADING_IDS.sub} className="site-header__mega-heading">
-                  {active.item.label}
-                </h2>
-                <ul className="site-header__mega-list">
-                  {active.children.map((child) =>
-                    isRealHref(child.uri) ? (
-                      <li key={child.id}>
-                        <Link
-                          href={child.uri}
-                          className="site-header__mega-text-link site-header__mega-type"
-                        >
-                          {child.label}
-                        </Link>
-                      </li>
-                    ) : (
-                      <li key={child.id}>
-                        <span className="site-header__mega-text-link site-header__mega-type">
-                          {child.label}
-                        </span>
-                      </li>
-                    )
+                <div className="site-header__mega-sub-head">
+                  <h2 id={HEADING_IDS.sub} className="site-header__mega-heading">
+                    {active.item.label}
+                  </h2>
+                  {active.icon && (
+                    <Image
+                      className="site-header__mega-icon"
+                      src={active.icon.src}
+                      alt=""
+                      width={SUB_ICON.width}
+                      height={SUB_ICON.height}
+                    />
                   )}
+                </div>
+
+                <ul className="site-header__mega-list">
+                  {subItems.map((child) => subItem(child, SUB_LINK))}
+
+                  {hasCatchAll &&
+                    subItem(
+                      subLast,
+                      SUB_CATCH_ALL_LINK,
+                      'site-header__mega-catch-all'
+                    )}
                 </ul>
               </>
             )}

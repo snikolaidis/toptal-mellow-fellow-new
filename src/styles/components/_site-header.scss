@@ -119,6 +119,7 @@
   --sh-mega-sub-gap: 24px;
   --sh-mega-sub-bg: rgba(243, 244, 240, 0.5);
   --sh-mega-sub-link-hover-bg: #eceee9;
+  --sh-mega-catch-all-pad: 16px;
   --sh-mega-text-link-size: 0.875rem;
   --sh-mega-text-gap: 0.75rem;
   --sh-mega-type-size: 0.875rem;
@@ -706,6 +707,25 @@
   border-start-end-radius: var(--sh-mega-radius);
   border-end-end-radius: var(--sh-mega-radius);
   background-color: var(--sh-mega-sub-bg);
+}
+
+.site-header__mega-sub-head {
+  display: flex;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: var(--sh-mega-link-gap);
+}
+
+// The rule is this container's top border, not a separate element, so the list
+// holds only real items. stretch rather than the frame's flex-start, which
+// would shrink the hover bar to the text while every sibling spans.
+.site-header__mega-catch-all {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  align-self: stretch;
+  padding-top: var(--sh-mega-catch-all-pad);
+  border-top: 1px solid var(--sh-mega-rule);
 }
 
 .site-header__mega-sub .site-header__mega-heading {
