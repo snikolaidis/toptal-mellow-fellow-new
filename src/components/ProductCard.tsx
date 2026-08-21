@@ -7,7 +7,7 @@ import QuickView from '@/components/shop/QuickView';
 import { recordWidgetSource, WidgetSource } from '@/lib/widgetAttribution';
 import { decodeEntities } from '@/lib/decodeEntities';
 
-const LOW_STOCK_THRESHOLD = 2;
+const LOW_STOCK_THRESHOLD = 20;
 
 interface ProductCardProps {
   product: Product;

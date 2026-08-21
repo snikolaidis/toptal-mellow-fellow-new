@@ -116,7 +116,7 @@ function mf_get_product( WP_REST_Request $request ) {
         'strain-type'        => 'strainTypes',
         'strain-name'        => 'strainNames',
         'blend-types'        => 'blendTypes',
-        'product-line'       => 'productLines',
+        'product-lines'       => 'productLines',
         'size'               => 'size',
         'cannabinoid'        => 'cannabinoids',
         'single-cannabinoid' => 'singleCannabinoid',

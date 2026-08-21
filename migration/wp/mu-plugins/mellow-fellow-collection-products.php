@@ -237,7 +237,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     $tax_list = [
         'product_type',
         'product-type', 'strain-type', 'strain-name', 'blend-types',
-        'product-line', 'size', 'cannabinoid', 'single-cannabinoid', 'mg', 'pieces',
+        'product-lines', 'size', 'cannabinoid', 'single-cannabinoid', 'mg', 'pieces',
     ];
     $tax_placeholders = implode( ',', array_fill( 0, count( $tax_list ), '%s' ) );
 
@@ -312,7 +312,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         'strain-type'        => 'strainTypes',
         'strain-name'        => 'strainNames',
         'blend-types'        => 'blendTypes',
-        'product-line'       => 'productLines',
+        'product-lines'       => 'productLines',
         'size'               => 'size',
         'cannabinoid'        => 'cannabinoids',
         'single-cannabinoid' => 'singleCannabinoid',
