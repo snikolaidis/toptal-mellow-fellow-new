@@ -5,11 +5,14 @@
     padding: 30px 0 40px;
   }
 
+  // overflow-x: auto makes this a scroll container, which clips on the vertical
+  // axis too, so the track has to be tall enough to hold the blurred glow or a
+  // hard line cuts across the shadows.
   &__track {
     display: flex;
     align-items: center;
     gap: 10px;
-    height: 86px;
+    height: 132px;
     padding-left: 5px;
     overflow-x: auto;
     scrollbar-width: none;
@@ -72,8 +75,8 @@
     object-fit: contain;
 
     &[src*='gummy'] {
-      max-width: 82%;
-      max-height: 82%;
+      max-width: 64%;
+      max-height: 64%;
     }
   }
 
