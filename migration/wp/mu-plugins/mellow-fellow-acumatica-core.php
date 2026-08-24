@@ -13,6 +13,7 @@ define( 'MF_ACU_LOG_OPTION',     'mf_acu_log' );
 define( 'MF_ACU_STATUS_OPTION',  'mf_acu_status' );
 define( 'MF_ACU_CIRCUIT_OPTION', 'mf_acu_circuit' );
 define( 'MF_ACU_SESSION_KEY',    'mf_acu_session' );
+define( 'MF_ACU_SETTINGS_OPTION','mf_acu_settings' );
 define( 'MF_ACU_LOG_MAX',        50 );
 
 /* ── helpers to read config ──────────────────────────────────────── */
@@ -22,6 +23,12 @@ function mf_acu_config( $key, $default = '' ) {
     if ( defined( $const ) ) return (string) constant( $const );
     $env = getenv( $const );
     if ( $env !== false ) return (string) $env;
+
+    $settings = get_option( MF_ACU_SETTINGS_OPTION, array() );
+    if ( is_array( $settings ) && isset( $settings[ $key ] ) && '' !== $settings[ $key ] ) {
+        return (string) $settings[ $key ];
+    }
+
     return $default;
 }
 
@@ -289,6 +296,35 @@ add_action( 'admin_post_mf_acu_reset_circuit', function() {
     exit;
 } );
 
+add_action( 'admin_post_mf_acu_save_settings', function() {
+    if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Forbidden' );
+    check_admin_referer( 'mf_acu_save_settings' );
+
+    $existing = get_option( MF_ACU_SETTINGS_OPTION, array() );
+    if ( ! is_array( $existing ) ) $existing = array();
+
+    $fields = array( 'BASE_URL', 'USERNAME', 'COMPANY', 'BRANCH', 'ORDER_TYPE', 'CUSTOMER_CLASS', 'SYNC_SECRET' );
+    $updated = $existing;
+
+    foreach ( $fields as $field ) {
+        $posted = isset( $_POST[ 'mf_acu_' . $field ] ) ? sanitize_text_field( wp_unslash( $_POST[ 'mf_acu_' . $field ] ) ) : '';
+        $updated[ $field ] = $posted;
+    }
+
+    $password = isset( $_POST['mf_acu_PASSWORD'] ) ? wp_unslash( $_POST['mf_acu_PASSWORD'] ) : '';
+    if ( '' !== $password ) {
+        $updated['PASSWORD'] = sanitize_text_field( $password );
+    }
+
+    update_option( MF_ACU_SETTINGS_OPTION, $updated, false );
+    delete_transient( MF_ACU_SESSION_KEY );
+
+    mf_acu_log( 'Settings saved via admin UI', 'settings' );
+
+    wp_safe_redirect( add_query_arg( 'mf_acu_saved', '1', admin_url( 'options-general.php?page=mf-acumatica' ) ) );
+    exit;
+} );
+
 add_action( 'admin_notices', function() {
     if ( ! current_user_can( 'manage_options' ) ) return;
 
@@ -313,11 +349,76 @@ function mf_acu_render_admin_page() {
 
     if ( ! is_array( $status ) ) $status = array();
     if ( ! is_array( $log ) )    $log    = array();
+    $saved  = get_option( MF_ACU_SETTINGS_OPTION, array() );
+    if ( ! is_array( $saved ) ) $saved = array();
+
+    $has_const_or_env = function( $key ) {
+        $const = 'ACUMATICA_' . strtoupper( $key );
+        if ( defined( $const ) ) return 'constant';
+        if ( getenv( $const ) !== false ) return 'env';
+        return false;
+    };
     ?>
     <div class="wrap">
         <h1>Acumatica Sync</h1>
 
-        <h2>Configuration</h2>
+        <?php if ( isset( $_GET['mf_acu_saved'] ) ) : ?>
+            <div class="notice notice-success is-dismissible"><p>Settings saved.</p></div>
+        <?php endif; ?>
+
+        <h2>Credentials &amp; Settings</h2>
+        <p>Values set via PHP constants or server environment variables take priority. Fields locked by a constant/env var are shown as read-only.</p>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="max-width:900px">
+            <input type="hidden" name="action" value="mf_acu_save_settings" />
+            <?php wp_nonce_field( 'mf_acu_save_settings' ); ?>
+            <table class="form-table">
+                <?php
+                $fields = array(
+                    'BASE_URL'       => array( 'label' => 'Base URL',       'placeholder' => 'https://example.acumatica.com' ),
+                    'USERNAME'       => array( 'label' => 'Username',       'placeholder' => '' ),
+                    'PASSWORD'       => array( 'label' => 'Password',       'placeholder' => '', 'type' => 'password' ),
+                    'COMPANY'        => array( 'label' => 'Company',        'placeholder' => 'ARVIDA' ),
+                    'BRANCH'         => array( 'label' => 'Branch',         'placeholder' => 'MF' ),
+                    'ORDER_TYPE'     => array( 'label' => 'Order Type',     'placeholder' => 'MF' ),
+                    'CUSTOMER_CLASS' => array( 'label' => 'Customer Class', 'placeholder' => 'MFF' ),
+                    'SYNC_SECRET'    => array( 'label' => 'Sync Secret',    'placeholder' => 'Random 32+ char string', 'type' => 'password' ),
+                );
+
+                foreach ( $fields as $key => $meta ) :
+                    $override = $has_const_or_env( $key );
+                    $type     = isset( $meta['type'] ) ? $meta['type'] : 'text';
+                    $db_val   = isset( $saved[ $key ] ) ? $saved[ $key ] : '';
+                    $is_pw    = ( $type === 'password' );
+                ?>
+                    <tr>
+                        <th scope="row"><label for="mf_acu_<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $meta['label'] ); ?></label></th>
+                        <td>
+                            <?php if ( $override ) : ?>
+                                <input type="text" class="regular-text" value="<?php echo $is_pw ? '••••••••' : esc_attr( mf_acu_config( $key ) ); ?>" disabled />
+                                <p class="description">Locked — set via <?php echo esc_html( $override ); ?></p>
+                            <?php else : ?>
+                                <input
+                                    type="<?php echo esc_attr( $type ); ?>"
+                                    id="mf_acu_<?php echo esc_attr( $key ); ?>"
+                                    name="mf_acu_<?php echo esc_attr( $key ); ?>"
+                                    class="regular-text"
+                                    value="<?php echo $is_pw ? '' : esc_attr( $db_val ); ?>"
+                                    placeholder="<?php echo esc_attr( $meta['placeholder'] ); ?>"
+                                    autocomplete="off"
+                                />
+                                <?php if ( $is_pw && $db_val ) : ?>
+                                    <p class="description">A value is saved. Leave blank to keep it.</p>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+            <?php submit_button( 'Save Settings' ); ?>
+        </form>
+
+        <h2>Resolved Configuration</h2>
+        <p>Effective values after merging constants, env vars, and saved settings.</p>
         <table class="widefat striped" style="max-width:900px">
             <tbody>
                 <tr>
@@ -343,6 +444,10 @@ function mf_acu_render_admin_page() {
                 <tr>
                     <th>Password</th>
                     <td><?php echo mf_acu_password() ? 'Set' : '<strong>Not set</strong>'; ?></td>
+                </tr>
+                <tr>
+                    <th>Customer Class</th>
+                    <td><?php echo esc_html( mf_acu_config( 'CUSTOMER_CLASS', 'MFF' ) ); ?></td>
                 </tr>
                 <tr>
                     <th>Sync Secret</th>
