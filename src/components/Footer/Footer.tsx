@@ -141,21 +141,29 @@ export default function Footer() {
 
   return (
     <>
-      {/* Newsletter */}
-      <section className="footer-newsletter section">
-        <div className="container">
-          <p><span>Get 15% off your first purchase </span>when you join the Mellow Fam!</p>
-          <form className="newsletter-form">
+      {/* Signup band */}
+      <section className="footer-signup">
+        <p className="footer-signup__heading">
+          Get <span className="footer-signup__accent">15% off</span> your first
+          purchase when you sign up!!
+        </p>
+        <form className="footer-signup__form">
+          <div className="footer-signup__controls">
             <input
               type="email"
-              placeholder="your@email.com"
-              className="newsletter-input"
+              placeholder="Enter your email"
+              aria-label="Email address"
+              className="footer-signup__input"
             />
-            <button type="submit" className="newsletter-btn">
-              Subscribe
+            <button type="submit" className="footer-signup__button">
+              Join now
             </button>
-          </form>
-        </div>
+          </div>
+          <p className="footer-signup__consent">
+            By joining you agree to receive marketing emails. Unsubscribe
+            anytime.
+          </p>
+        </form>
       </section>
 
       <footer className="footer">
