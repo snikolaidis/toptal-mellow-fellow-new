@@ -94,6 +94,73 @@
   --sh-nav-hover-color: var(--color-brand-primary);
   --sh-dropdown-bg: var(--sh-nav-cream);
 
+  --sh-mega-inset-start: 118px;
+  --sh-mega-inset-end: 119px;
+  --sh-mega-bg: #fff;
+  --sh-mega-border: rgba(194, 200, 193, 0.1);
+  --sh-mega-border-w: 1px;
+  --sh-mega-rule: rgba(0, 0, 0, 0.09);
+  --sh-mega-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
+  --sh-mega-radius: 48px;
+  --sh-mega-pad-top: 25px;
+  --sh-mega-pad-bottom: 28px;
+  --sh-mega-pad-start: 43px;
+  --sh-mega-gutter: 306px;
+  --sh-mega-col-gap: 74px;
+  --sh-mega-heading-size: 1.5rem;
+  --sh-mega-heading-line: 1.75rem;
+  --sh-mega-heading-gap: 1rem;
+  --sh-mega-duration: 0.16s;
+
+  --sh-mega-sub-w: 278.6px;
+  --sh-mega-sub-pad-top: 25px;
+  --sh-mega-sub-pad-bottom: 28px;
+  --sh-mega-sub-pad-inline: 40px;
+  --sh-mega-sub-gap: 24px;
+  --sh-mega-sub-bg: rgba(243, 244, 240, 0.5);
+  --sh-mega-sub-link-hover-bg: #eceee9;
+  --sh-mega-catch-all-pad: 16px;
+  --sh-mega-text-link-size: 0.875rem;
+  --sh-mega-text-gap: 0.75rem;
+  --sh-mega-type-size: 0.875rem;
+  --sh-mega-type-line: 1.25rem;
+  --sh-mega-item-gap: 0.125rem;
+  --sh-mega-link-gap: 0.75rem;
+  --sh-mega-link-pad-block: 0.375rem;
+  --sh-mega-link-pad-inline: 0.5rem;
+  --sh-mega-link-radius: 8px;
+  --sh-mega-link-size: 0.9375rem;
+  --sh-mega-link-hover-bg: var(--sh-nav-cream);
+  --sh-mega-divider-gap: 0.75rem;
+  --sh-mega-plain-size: 0.875rem;
+
+  --sh-mobile-w: 293px;
+  --sh-mobile-radius: 20px;
+  --sh-mobile-pad-block: 25px;
+  --sh-mobile-pad-start: 40px;
+  --sh-mobile-pad-end: 43px;
+  --sh-mobile-gap: 25px;
+  --sh-mobile-bar-gap: 0.75rem;
+  --sh-mobile-heading-gap: 1rem;
+  --sh-mobile-item-gap: 0.25rem;
+  --sh-mobile-row-pad: 0.25rem;
+  --sh-mobile-icon-box: 28px;
+  --sh-mobile-feature-tracking: 0.04em;
+  // main now carries --color-alert-red at this value; point at it after rebase.
+  --sh-mobile-deal-color: #a92331;
+  --sh-mobile-control: 24px;
+  // Tap target, not the glyph. The frame's 12.01 by 13.988 is the svg below.
+  --sh-mobile-chevron: 24px;
+  --sh-mobile-chevron-w: 12.01px;
+  --sh-mobile-chevron-h: 13.988px;
+  --sh-mobile-divider-w: 157.003px;
+  --sh-mobile-divider-color: #d9c79e;
+  --sh-mobile-bar-w: 5px;
+  --sh-mobile-bar-radius: 4px;
+  --sh-mobile-bar-color: rgba(160, 165, 157, 0.4);
+  --sh-mobile-duration: 0.2s;
+  --sh-mobile-z: 40;
+
   --sh-drawer-bg: var(--sh-nav-cream);
   --sh-drawer-pad: 1rem;
 
@@ -599,6 +666,425 @@
   width: 1px;
   height: 1.25rem;
   background-color: var(--color-border-default);
+}
+
+.site-header__mega {
+  display: none;
+
+  @include mixins.desktop {
+    display: block;
+    position: absolute;
+    inset-inline-start: var(--sh-mega-inset-start);
+    inset-inline-end: var(--sh-mega-inset-end);
+    top: 100%;
+    z-index: 1;
+    animation: site-header-mega-in var(--sh-mega-duration) ease;
+  }
+}
+
+.site-header__mega-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sh-mega-col-gap);
+  padding: var(--sh-mega-pad-top) var(--sh-mega-gutter)
+    var(--sh-mega-pad-bottom) var(--sh-mega-pad-start);
+  border: var(--sh-mega-border-w) solid var(--sh-mega-border);
+  border-radius: var(--sh-mega-radius);
+  background-color: var(--sh-mega-bg);
+  box-shadow: var(--sh-mega-shadow);
+}
+
+// Equal shares rather than content width, so the fourth column's right edge
+// lands on the gutter. Sized by content they stop short of it and the sub panel
+// drifts away from Featured.
+.site-header__mega-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+// Out of flow on purpose. As a flex item its content set the card's height, so
+// the card resized every time the active product item changed.
+.site-header__mega-sub {
+  position: absolute;
+  inset-block: var(--sh-mega-border-w);
+  inset-inline-end: var(--sh-mega-border-w);
+  width: var(--sh-mega-sub-w);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sh-mega-sub-gap);
+  padding: var(--sh-mega-sub-pad-top) var(--sh-mega-sub-pad-inline)
+    var(--sh-mega-sub-pad-bottom);
+  border-inline-start: 1px solid var(--sh-mega-rule);
+  border-start-end-radius: var(--sh-mega-radius);
+  border-end-end-radius: var(--sh-mega-radius);
+  background-color: var(--sh-mega-sub-bg);
+}
+
+.site-header__mega-sub-head {
+  display: flex;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: var(--sh-mega-link-gap);
+}
+
+// The rule is this container's top border, not a separate element, so the list
+// holds only real items. stretch rather than the frame's flex-start, which
+// would shrink the hover bar to the text while every sibling spans.
+.site-header__mega-catch-all {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  align-self: stretch;
+  padding-top: var(--sh-mega-catch-all-pad);
+  border-top: 1px solid var(--sh-mega-rule);
+}
+
+// The narrow cut, and the only heading here not on MrEavesSanOT: beside the
+// icon this has 145.6px, and "Disposable Vapes" needs 151 in the wide face, so
+// unifying the family back wraps it. 700 is a real face here, not synthesised.
+.site-header__mega-sub .site-header__mega-heading {
+  margin-bottom: 0;
+  font-family: var(--font-family-display);
+}
+
+// The list scrolls, not the panel, so the bar clears the 48px corners. stretch
+// holds it at the padding edge rather than beside the longest label.
+.site-header__mega-sub .site-header__mega-list {
+  gap: var(--sh-mega-sub-gap);
+  align-self: stretch;
+  flex: 1 1 auto;
+  // Flex items floor at min-content, so without this the panel overflows.
+  min-height: 0;
+  overflow-y: auto;
+}
+
+// Deliberately not the other columns' cream, so this section reads as its own.
+// Darker than the panel rather than lighter: the panel sits at L* 98, leaving
+// two L* units of headroom, so a lighter fill has nowhere to go.
+.site-header__mega-sub .site-header__mega-text-link:hover {
+  background-color: var(--sh-mega-sub-link-hover-bg);
+}
+
+.site-header__mega-text-link {
+  display: flex;
+  padding: var(--sh-mega-link-pad-block) var(--sh-mega-link-pad-inline);
+  border-radius: var(--sh-mega-link-radius);
+  color: var(--sh-nav-color);
+  font-size: var(--sh-mega-text-link-size);
+
+  &:hover {
+    background-color: var(--sh-mega-link-hover-bg);
+    color: var(--sh-nav-hover-color);
+  }
+}
+
+// 700 on a family that ships only a 400 face, so this is synthesised bold, like
+// every other MrEavesSanOT heading here. The real bold is a Typekit family.
+.site-header__mega-heading {
+  align-self: stretch;
+  margin: 0 0 var(--sh-mega-heading-gap);
+  color: var(--color-ink);
+  font-family: "MrEavesSanOT", sans-serif;
+  font-size: var(--sh-mega-heading-size);
+  font-weight: 700;
+  line-height: var(--sh-mega-heading-line);
+}
+
+.site-header__mega-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sh-mega-item-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-header__mega-list--text {
+  gap: var(--sh-mega-text-gap);
+}
+
+.site-header__mega-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sh-mega-link-gap);
+  padding: var(--sh-mega-link-pad-block) var(--sh-mega-link-pad-inline);
+  border-radius: var(--sh-mega-link-radius);
+  color: var(--sh-nav-color);
+  font-size: var(--sh-mega-link-size);
+
+  &:hover {
+    background-color: var(--sh-mega-link-hover-bg);
+    color: var(--sh-nav-hover-color);
+  }
+}
+
+// Size comes from the per item frame box, set inline. object-fit is load
+// bearing: those boxes do not match the files' ratios, and without it every
+// icon but drinks stretches.
+.site-header__mega-icon {
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.site-header__mega-link--plain {
+  font-size: var(--sh-mega-plain-size);
+  font-weight: 600;
+}
+
+// Must stay below the link rules above. It shares their specificity and
+// overrides their size, weight and colour on source order alone.
+.site-header__mega-type {
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-type-size);
+  font-weight: 500;
+  line-height: var(--sh-mega-type-line);
+  color: var(--color-teal-85);
+}
+
+.site-header__mega-divider {
+  display: block;
+  margin-block: var(--sh-mega-divider-gap);
+  border-top: 1px solid var(--sh-mega-rule);
+}
+
+// Fixed, so the panel holds still while the page behind it scrolls.
+.site-header__mobile {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: var(--sh-mobile-z);
+  width: var(--sh-mobile-w);
+  max-width: 100%;
+  // hidden, not auto: the scroll lives on the view inside, and clipping here is
+  // what cuts its bar to the corner arc instead of letting it paint through.
+  overflow: hidden;
+  border: var(--sh-mega-border-w) solid var(--sh-mega-border);
+  border-start-end-radius: var(--sh-mobile-radius);
+  border-end-end-radius: var(--sh-mobile-radius);
+  background-color: var(--sh-mega-bg);
+  box-shadow: var(--sh-mega-shadow);
+  animation: site-header-mobile-in var(--sh-mobile-duration) ease;
+
+  @include mixins.desktop {
+    display: none;
+  }
+}
+
+.site-header__mobile-view {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sh-mobile-gap);
+  padding: var(--sh-mobile-pad-block) var(--sh-mobile-pad-end)
+    var(--sh-mobile-pad-block) var(--sh-mobile-pad-start);
+  animation: site-header-mobile-view-in var(--sh-mobile-duration) ease;
+
+  // Webkit pseudo-elements only: setting scrollbar-width or scrollbar-color
+  // switches Chromium to the standard bar, which ignores all three of these and
+  // cannot hit the frame's 5px width or 4px radius.
+  &::-webkit-scrollbar {
+    width: var(--sh-mobile-bar-w);
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    // Margin on the track, not padding on the view: padding would move the
+    // content.
+    margin: var(--sh-mobile-pad-block) 0;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: var(--sh-mobile-bar-radius);
+    background-color: var(--sh-mobile-bar-color);
+  }
+}
+
+.site-header__mobile-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sh-mobile-bar-gap);
+  align-self: stretch;
+}
+
+.site-header__mobile-close,
+.site-header__mobile-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sh-mobile-control);
+  height: var(--sh-mobile-control);
+  color: var(--color-ink);
+  cursor: pointer;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.site-header__mobile-back svg {
+  transform: rotate(90deg);
+}
+
+// The heading carries a bottom margin for its stacked use, and align-items
+// centres the margin box, so in this row it rides that much above the button.
+.site-header__mobile-bar .site-header__mobile-heading {
+  margin-bottom: 0;
+}
+
+.site-header__mobile-section {
+  align-self: stretch;
+}
+
+.site-header__mobile-heading {
+  margin: 0 0 var(--sh-mobile-heading-gap);
+  color: var(--color-ink);
+  font-family: "MrEavesSanOT", sans-serif;
+  font-size: var(--sh-mega-heading-size);
+  font-weight: 700;
+  line-height: var(--sh-mega-heading-line);
+}
+
+.site-header__mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sh-mobile-item-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-header__mobile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sh-mobile-bar-gap);
+}
+
+.site-header__mobile-link {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--sh-mega-link-gap);
+  padding-block: var(--sh-mobile-row-pad);
+  color: var(--color-teal-85);
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-type-size);
+  font-weight: 500;
+  line-height: var(--sh-mega-type-line);
+}
+
+// A fixed box rather than each file's own width, so every label starts on the
+// same x. At this height the artwork runs 31px wide down to the syringe's 10px.
+.site-header__mobile-icon {
+  flex: 0 0 auto;
+  width: var(--sh-mobile-icon-box);
+  height: var(--sh-mobile-icon-box);
+  object-fit: contain;
+}
+
+.site-header__mobile-chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sh-mobile-chevron);
+  height: var(--sh-mobile-chevron);
+  color: var(--color-teal-85);
+  cursor: pointer;
+
+  svg {
+    width: var(--sh-mobile-chevron-w);
+    height: var(--sh-mobile-chevron-h);
+  }
+}
+
+.site-header__mobile-text-link {
+  display: block;
+  padding-block: var(--sh-mobile-row-pad);
+  color: var(--color-teal-85);
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-type-size);
+  font-weight: 500;
+  line-height: var(--sh-mega-type-line);
+}
+
+.site-header__mobile-link--bold {
+  font-weight: 600;
+}
+
+.site-header__mobile-feature {
+  display: block;
+  padding-block: var(--sh-mobile-row-pad);
+  color: var(--color-teal-85);
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-type-size);
+  font-weight: 600;
+  line-height: var(--sh-mega-type-line);
+  letter-spacing: var(--sh-mobile-feature-tracking);
+  text-transform: uppercase;
+}
+
+.site-header__mobile-feature--deal {
+  color: var(--sh-mobile-deal-color);
+}
+
+// Its own rule, not the desktop divider: a fixed width in the panel's warm
+// gold, centred on the panel. Not auto margins, which would centre it in the
+// content box and land 1.5px off, since the frame's 40 and 43 are not equal.
+.site-header__mobile-divider {
+  display: block;
+  width: var(--sh-mobile-divider-w);
+  height: 1px;
+  margin-inline-start: calc(
+    (
+        var(--sh-mobile-w) - var(--sh-mega-border-w) * 2 -
+          var(--sh-mobile-divider-w)
+      ) / 2 - var(--sh-mobile-pad-start)
+  );
+  background-color: var(--sh-mobile-divider-color);
+}
+
+// A divider directly in a section separates sections, where one inside a list
+// separates rows. It is the section's first child, so the view's gap already
+// sits above it; this gives it the same below instead of the list's 4px.
+.site-header__mobile-section > .site-header__mobile-divider {
+  margin-bottom: var(--sh-mobile-gap);
+}
+
+@keyframes site-header-mobile-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes site-header-mobile-view-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header__mobile,
+  .site-header__mobile-view {
+    animation: none;
+  }
+}
+
+@keyframes site-header-mega-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header__mega {
+    animation: none;
+  }
 }
 
 .site-header__nav-item {

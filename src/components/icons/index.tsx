@@ -147,6 +147,16 @@ export const ChevronDownIcon = () => (
   </svg>
 );
 
+// Filled, not stroked like the pair above, so it colours through fill.
+export const ChevronRightIcon = () => (
+  <svg viewBox="0 0 13 14" fill="none">
+    <path
+      d="M4.07432 11.8512L3.21219 10.9891L7.20713 6.99418L3.21219 2.99924L4.07432 2.13711L8.93139 6.99418L4.07432 11.8512Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 // Phone icon
 export const PhoneIcon = () => (
   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">

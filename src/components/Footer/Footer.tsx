@@ -53,6 +53,9 @@ export const GET_FOOTER_MENU_2 = gql`
 export const GET_SOCIAL_LINKS = gql`
   query GetSocialLinks {
     siteSettings {
+      # See GET_MEGA_MENU_FEATURED: both write RootQuery.siteSettings, and
+      # without an id the later write replaces this one instead of merging.
+      id
       socialLinks {
         instagramUrl
         twitterUrl

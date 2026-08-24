@@ -7,6 +7,7 @@ import { getClient } from '@/lib/apollo-client';
 import { GET_ALL_MOOD_SLUGS, GET_ALL_MOODS } from '@/graphql/queries/moods';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { decodeEntities } from '@/lib/decodeEntities';
+import { getProductIcon } from '@/lib/productIcons';
 import { useTaxonomyProducts } from '@/lib/useTaxonomyProducts';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
@@ -28,10 +29,8 @@ import styles from '@/styles/pages/collection.module.css';
 import moodStyles from '@/styles/pages/mood.module.css';
 
 interface CategoryChip {
+  slug: string;
   label: string;
-  icon: string;
-  width: number;
-  height: number;
   glowColor: string;
   glowSize: number;
   glowBlur: number;
@@ -39,12 +38,12 @@ interface CategoryChip {
 }
 
 const CATEGORY_CHIPS: CategoryChip[] = [
-  { label: 'Flower', icon: '/flower-megamenu.png', width: 200, height: 200, glowColor: '#DD6E7A', glowSize: 63.156, glowBlur: 13.85, glowOpacity: 0.8 },
-  { label: 'Vapes', icon: '/disposable-vapes-megamenu.png', width: 200, height: 200, glowColor: '#207685', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.46 },
-  { label: 'Edibles', icon: '/edibles-megamenu.png', width: 200, height: 181, glowColor: '#A1B28F', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 1 },
-  { label: 'Drinks', icon: '/drinks-megamenu.png', width: 200, height: 200, glowColor: '#FFCC4F', glowSize: 56, glowBlur: 13.5, glowOpacity: 0.92 },
-  { label: 'Carts', icon: '/vape-cartridges-megamenu.png', width: 200, height: 200, glowColor: '#A997BB', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.79 },
-  { label: 'Concentrates', icon: '/concentrates-megamenu.png', width: 200, height: 200, glowColor: '#E08A45', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.8 },
+  { slug: 'flower', label: 'Flower', glowColor: '#DD6E7A', glowSize: 63.156, glowBlur: 13.85, glowOpacity: 0.8 },
+  { slug: 'disposable-vapes', label: 'Vapes', glowColor: '#207685', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.46 },
+  { slug: 'edibles', label: 'Edibles', glowColor: '#A1B28F', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 1 },
+  { slug: 'drinks', label: 'Drinks', glowColor: '#FFCC4F', glowSize: 56, glowBlur: 13.5, glowOpacity: 0.92 },
+  { slug: 'vape-cartridges', label: 'Carts', glowColor: '#A997BB', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.79 },
+  { slug: 'concentrates', label: 'Concentrates', glowColor: '#E08A45', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.8 },
 ];
 
 const MOOD_ORDER = [
@@ -256,29 +255,33 @@ export default function MoodPage({
         </nav>
 
         <div className={moodStyles.chipsRow}>
-          {CATEGORY_CHIPS.map((chip) => (
-            <div key={chip.label} className={moodStyles.chip}>
-              <span
-                className={moodStyles.chipIcon}
-                style={{
-                  '--glow-color': chip.glowColor,
-                  '--glow-size': `${chip.glowSize}px`,
-                  '--glow-blur': `${chip.glowBlur}px`,
-                  '--glow-opacity': String(chip.glowOpacity),
-                } as CSSProperties}
-              >
-                <span className={moodStyles.chipGlow} aria-hidden="true" />
-                <Image
-                  className={moodStyles.chipImage}
-                  src={chip.icon}
-                  alt=""
-                  width={chip.width}
-                  height={chip.height}
-                />
-              </span>
-              <span className={moodStyles.chipLabel}>{chip.label}</span>
-            </div>
-          ))}
+          {CATEGORY_CHIPS.map((chip) => {
+            const icon = getProductIcon(chip.slug);
+            if (!icon) return null;
+            return (
+              <div key={chip.slug} className={moodStyles.chip}>
+                <span
+                  className={moodStyles.chipIcon}
+                  style={{
+                    '--glow-color': chip.glowColor,
+                    '--glow-size': `${chip.glowSize}px`,
+                    '--glow-blur': `${chip.glowBlur}px`,
+                    '--glow-opacity': String(chip.glowOpacity),
+                  } as CSSProperties}
+                >
+                  <span className={moodStyles.chipGlow} aria-hidden="true" />
+                  <Image
+                    className={moodStyles.chipImage}
+                    src={icon.src}
+                    alt=""
+                    width={icon.width}
+                    height={icon.height}
+                  />
+                </span>
+                <span className={moodStyles.chipLabel}>{chip.label}</span>
+              </div>
+            );
+          })}
         </div>
 
         {moodPills.length > 0 && (
