@@ -5,6 +5,7 @@ import {
   getWordPressGraphQLUrl,
 } from '@/lib/http';
 import { withMiddleware, withPaymentRateLimit, withIdempotency } from '@/lib/middleware';
+import { verifyJwt, extractJwt } from '@/lib/jwt-auth';
 import { exchangeRefreshToken } from '@/lib/faust-auth';
 
 /**

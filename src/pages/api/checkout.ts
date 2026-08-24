@@ -139,20 +139,38 @@ function validateCheckoutRequest(body: CheckoutRequest): string | null {
 }
 
 /**
- * Get auth token for authenticated users from Faust.js
+ * Get auth context: JWT for fast identity, Faust exchange only when WPGraphQL token is needed.
  */
-async function getAuthTokenFromRequest(req: NextApiRequest): Promise<string | undefined> {
+async function getAuthFromRequest(req: NextApiRequest): Promise<{ userId: number; accessToken?: string } | null> {
   const cookies = req.headers.cookie || '';
 
+  // Fast path: JWT gives us userId without a network call
+  const { verifyJwt, extractJwt } = await import('@/lib/jwt-auth');
+  const jwt = extractJwt(cookies);
+  if (jwt) {
+    const result = verifyJwt(jwt);
+    if (result) {
+      // Lazily get WPGraphQL access token only when needed downstream
+      try {
+        const { exchangeRefreshToken } = await import('@/lib/faust-auth');
+        const tokens = await exchangeRefreshToken(cookies);
+        return { userId: result.userId, accessToken: tokens?.accessToken };
+      } catch {
+        return { userId: result.userId };
+      }
+    }
+  }
+
+  // Fallback: full Faust exchange
   try {
-    const { exchangeRefreshToken } = await import('@/lib/faust-auth');
-    const tokens = await exchangeRefreshToken(cookies);
-    if (tokens?.accessToken) return tokens.accessToken;
+    const { getAuthenticatedUserId } = await import('@/lib/faust-auth');
+    const auth = await getAuthenticatedUserId(cookies);
+    if (auth) return { userId: auth.userId, accessToken: auth.accessToken };
   } catch {
     // fall through
   }
 
-  return undefined;
+  return null;
 }
 
 function parseMoney(value: string | number | undefined | null): number {
@@ -461,6 +479,7 @@ async function createOrderWithPayment(
   req: NextApiRequest,
   body: CheckoutRequest,
   transactionId: string,
+  customerId: number,
   authToken?: string
 ): Promise<PendingOrder> {
   const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
@@ -468,22 +487,6 @@ async function createOrderWithPayment(
 
   if (!faustSecret) {
     throw new CheckoutError('Server configuration error', ErrorCode.ORDER_CREATION_FAILED);
-  }
-
-  // Resolve WP customer ID for authenticated users
-  let customerId = 0;
-  if (authToken) {
-    try {
-      const graphqlUrl = getWordPressGraphQLUrl();
-      const viewerRes = await makeHttpRequest({
-        url: graphqlUrl,
-        body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
-        authToken,
-      });
-      customerId = viewerRes.data?.data?.viewer?.databaseId || 0;
-    } catch {
-      console.warn('[Checkout] Could not resolve WP user ID; proceeding as guest');
-    }
   }
 
   // Build shipping lines from Store API cart
@@ -865,15 +868,16 @@ async function checkoutHandler(
       return;
     }
 
-    // Get auth token for authenticated users
-    const authToken = await getAuthTokenFromRequest(req);
+    // Get auth context: userId from JWT (instant), access token from Faust (lazy)
+    const authCtx = await getAuthFromRequest(req);
+    const authToken = authCtx?.accessToken;
 
     await storage.createReconciliationEntry({
       orderId: 'pending',
       amount: body.amount,
       status: 'pending',
       eventType: 'checkout_started',
-      metadata: JSON.stringify({ email: body.billing.email, isAuthenticated: !!authToken }),
+      metadata: JSON.stringify({ email: body.billing.email, isAuthenticated: !!authCtx }),
     });
 
     await applyCouponsToSession(req, body.coupons || [], authToken);
@@ -925,7 +929,7 @@ async function checkoutHandler(
     if (subscriptionScheme) {
       order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, subscriptionLines, subscriptionShipping, authToken);
     } else {
-      order = await createOrderWithPayment(req, body, transactionId, authToken);
+      order = await createOrderWithPayment(req, body, transactionId, authCtx?.userId || 0, authToken);
     }
     orderId = order.databaseId.toString();
     orderNumber = order.orderNumber;
@@ -1018,18 +1022,11 @@ async function checkoutHandler(
     // === POST-RESPONSE WORK (customer already has their confirmation) ===
 
     // STEP 4: Create CIM profile + handle subscriptions in the background
-    if (authToken && body.saveCard && !body.savedCard && transactionId && !subscriptionScheme) {
+    if (authCtx && body.saveCard && !body.savedCard && transactionId && !subscriptionScheme) {
       (async () => {
         try {
-          // Get WordPress user ID from the viewer query
-          const wpUrl = getWordPressGraphQLUrl();
-          const viewerRes = await makeHttpRequest({
-            url: wpUrl,
-            body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
-            authToken,
-          });
-          const wpUserId = viewerRes.data?.data?.viewer?.databaseId;
-          console.log(`[CIM] Viewer query result: userId=${wpUserId}, status=${viewerRes.status}`);
+          const wpUserId = authCtx.userId;
+          console.log(`[CIM] Using JWT userId=${wpUserId}`);
 
           if (wpUserId) {
             const profile = await createProfileFromTransaction(

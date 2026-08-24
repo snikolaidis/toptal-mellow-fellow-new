@@ -32,6 +32,12 @@ import {
   selectShippingRate,
   StoreApiError,
 } from '@/lib/store-api';
+import {
+  buildRecsCacheKey,
+  isRecsFresh,
+  setRecsCache,
+  fetchRecommendations,
+} from '@/lib/recsCache';
 import type { Cart as StoreCart, CartItem as StoreCartItem } from '@/lib/store-api';
 
 function decodeHtmlEntities(text: string): string {
@@ -746,6 +752,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setIsMutating(false);
     }
   }, []);
+
+  // Prefetch recommendations in the background whenever cart composition changes.
+  // This warms the cache so the CartDrawer shows recs instantly when opened.
+  const cartItemIds = cart?.items.map((i) => i.product.databaseId).join(',') || '';
+  const cartSubtotalStr = cart?.subtotal || '';
+  useEffect(() => {
+    if (!cart || cart.items.length === 0) return;
+    const productIds = cart.items.map((i) => i.product.databaseId);
+    const productSlugs = cart.items.map((i) => i.product.slug);
+    const subtotal = parseFloat(cart.subtotal.replace(/[^0-9.]/g, '')) || 0;
+    const key = buildRecsCacheKey(productIds, subtotal);
+    if (isRecsFresh(key)) return;
+    fetchRecommendations(productIds, productSlugs, subtotal)
+      .then((products) => setRecsCache(key, products))
+      .catch(() => {});
+  }, [cartItemIds, cartSubtotalStr]);
 
   return (
     <CartContext.Provider

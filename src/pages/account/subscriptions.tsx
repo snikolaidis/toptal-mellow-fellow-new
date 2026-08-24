@@ -7,7 +7,7 @@ import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
 import Layout from '@/components/Layout';
 import { CANCEL_SUBSCRIPTION, PAUSE_SUBSCRIPTION, RESUME_SUBSCRIPTION } from '@/graphql/mutations/subscriptions';
-import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
+import { getServerSideAuthWithToken, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 
 interface SubItem {
   name: string;
@@ -128,7 +128,7 @@ function mapSubscription(node: SubscriptionNode): Subscription {
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
 
-  const auth = await getServerSideAuth(ctx);
+  const auth = await getServerSideAuthWithToken(ctx);
   if (!auth) return redirectToLogin(ctx);
 
   try {

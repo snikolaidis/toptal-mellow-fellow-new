@@ -30,13 +30,13 @@ export default function LoginPage() {
   }, [isReady, isAuthenticated, redirectUrl]);
 
   useEffect(() => {
-    // A hard navigation, not router.push — Faust's useAuth() only checks
-    // authorization once per mount (no reactive update after login()
-    // resolves), so every other place reading isAuthenticated (CartContext
-    // included) would keep believing you're a guest until something forces
-    // a real reload. logout() already does this; mirror it here.
     if (data?.generateAuthorizationCode?.code) {
-      window.location.assign(redirectUrl);
+      // Issue a stateless JWT cookie so subsequent pages verify auth locally
+      // instead of round-tripping to WordPress. The hard navigation after
+      // ensures every context (AuthContext, CartContext) picks up the new state.
+      fetch('/api/auth/jwt', { method: 'POST', credentials: 'same-origin' })
+        .catch(() => {})
+        .finally(() => window.location.assign(redirectUrl));
     }
   }, [data, redirectUrl]);
 

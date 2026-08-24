@@ -1,22 +1,58 @@
-import { createContext, useContext, ReactNode } from 'react';
-import { useAuth as useFaustAuth } from '@faustwp/core';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
 interface AuthContextValue {
   isAuthenticated: boolean | null;
   isReady: boolean;
+  userId: number | null;
+  logout: (redirectTo?: string) => void;
 }
 
-const AuthContext = createContext<AuthContextValue>({ isAuthenticated: null, isReady: false });
+const AuthContext = createContext<AuthContextValue>({
+  isAuthenticated: null,
+  isReady: false,
+  userId: null,
+  logout: () => {},
+});
 
-// Faust's own useAuth() hits /api/faust/auth/token on every mount with no
-// shared state between instances - every component that called it directly
-// fired its own duplicate request (and its own 401 for guests). This provider
-// calls it exactly once and shares the result via context instead.
 export function useAuth(): AuthContextValue {
   return useContext(AuthContext);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isReady } = useFaustAuth();
-  return <AuthContext.Provider value={{ isAuthenticated, isReady }}>{children}</AuthContext.Provider>;
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setIsAuthenticated(data.authenticated ?? false);
+        setUserId(data.userId ?? null);
+        setIsReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIsAuthenticated(false);
+        setUserId(null);
+        setIsReady(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const logout = useCallback((redirectTo?: string) => {
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+      .catch(() => {})
+      .finally(() => {
+        window.location.assign(redirectTo || '/');
+      });
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ isAuthenticated, isReady, userId, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { useLogout } from '@faustwp/core';
+import { useAuth } from '@/context/AuthContext';
 import type { GetServerSideProps } from 'next';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
-import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
+import { getServerSideAuthWithToken, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
@@ -73,7 +73,7 @@ const CUSTOMER_ORDERS_QUERY = `
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
 
-  const auth = await getServerSideAuth(ctx);
+  const auth = await getServerSideAuthWithToken(ctx);
   if (!auth) return redirectToLogin(ctx);
 
   try {
@@ -90,7 +90,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 };
 
 export default function AccountPage({ customer }: AccountPageProps) {
-  const { logout } = useLogout();
+  const { logout } = useAuth();
   const { ready, token } = useYotpoLoyalty();
 
   const myRewards = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_MY_REWARDS_INSTANCE;

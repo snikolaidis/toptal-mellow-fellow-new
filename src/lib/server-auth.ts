@@ -1,58 +1,65 @@
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { makeHttpRequest, getWordPressGraphQLUrl } from './http';
-import { getSessionFromContext, type SessionData } from './session';
-import { exchangeRefreshToken } from './faust-auth';
+import { verifyJwt, extractJwt, signJwt, jwtCookieHeader } from './jwt-auth';
+import { exchangeRefreshToken, getAuthenticatedUserId } from './faust-auth';
 
 interface AuthResult {
-  accessToken: string;
+  accessToken?: string;
   userId: number;
 }
 
 export async function getServerSideAuth(
   ctx: GetServerSidePropsContext,
 ): Promise<AuthResult | null> {
-  const session = await getSessionFromContext(ctx);
+  const cookies = ctx.req.headers.cookie || '';
 
-  if (session.userId && session.accessToken && session.accessTokenExpiration) {
-    const now = Math.floor(Date.now() / 1000);
-    if (session.accessTokenExpiration > now + 30) {
-      return { accessToken: session.accessToken, userId: session.userId };
+  // Fast path: verify JWT locally (no network call)
+  const token = extractJwt(cookies);
+  if (token) {
+    const result = verifyJwt(token);
+    if (result) {
+      return { userId: result.userId };
     }
   }
 
-  const result = await exchangeFaustToken(ctx);
-  if (!result) return null;
+  // Fallback: exchange Faust refresh token (transition period)
+  const auth = await getAuthenticatedUserId(cookies);
+  if (!auth) return null;
 
-  session.userId = result.userId;
-  session.accessToken = result.accessToken;
-  session.accessTokenExpiration = result.accessTokenExpiration;
-  await session.save();
+  // Issue JWT retroactively so subsequent requests use the fast path
+  const jwt = signJwt(auth.userId);
+  ctx.res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
 
-  return { accessToken: result.accessToken, userId: result.userId };
+  return { accessToken: auth.accessToken, userId: auth.userId };
 }
 
-async function exchangeFaustToken(
+export async function getServerSideAuthWithToken(
   ctx: GetServerSidePropsContext,
-): Promise<(AuthResult & { accessTokenExpiration: number }) | null> {
+): Promise<{ accessToken: string; userId: number } | null> {
   const cookies = ctx.req.headers.cookie || '';
 
-  const tokens = await exchangeRefreshToken(cookies);
-  if (!tokens) return null;
+  // Even with JWT, we need a WPGraphQL access token for authenticated queries.
+  // Try JWT first for userId, then get token only if needed.
+  const token = extractJwt(cookies);
+  if (token) {
+    const jwtResult = verifyJwt(token);
+    if (jwtResult) {
+      // We know the user is authenticated — now get a WPGraphQL token
+      const tokens = await exchangeRefreshToken(cookies);
+      if (tokens?.accessToken) {
+        return { accessToken: tokens.accessToken, userId: jwtResult.userId };
+      }
+    }
+  }
 
-  const graphqlUrl = getWordPressGraphQLUrl();
-  const viewerRes = await makeHttpRequest({
-    url: graphqlUrl,
-    body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
-    authToken: tokens.accessToken,
-  });
-  const userId = viewerRes.data?.data?.viewer?.databaseId;
-  if (!userId) return null;
+  // Full fallback
+  const auth = await getAuthenticatedUserId(cookies);
+  if (!auth) return null;
 
-  return {
-    accessToken: tokens.accessToken,
-    userId,
-    accessTokenExpiration: tokens.accessTokenExpiration || 0,
-  };
+  const jwt = signJwt(auth.userId);
+  ctx.res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
+
+  return { accessToken: auth.accessToken, userId: auth.userId };
 }
 
 export function redirectToLogin(
