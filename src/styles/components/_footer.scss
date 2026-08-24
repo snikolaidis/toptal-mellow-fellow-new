@@ -53,6 +53,24 @@
   gap: 3rem;
 }
 
+/* Below 768 the single column leaves the whole right half of the footer empty
+   while the link list runs very long, so the sections pair up into two columns
+   as soon as there is room for them. */
+@media (min-width: 480px) and (max-width: 767px) {
+  .footer-content {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem 1.5rem;
+  }
+
+  /* The link labels are short but "Get in touch" and "Email us" are not, and at
+     this column width they break mid-phrase. */
+  .brand-section .section-title,
+  .brand-section .icon-text,
+  .social-links h6 {
+    white-space: nowrap;
+  }
+}
+
 @media (min-width: 768px) {
   .footer-content {
     grid-template-columns: repeat(3, 1fr);
@@ -62,6 +80,15 @@
 .brand-section {
   display: flex;
   justify-content: space-between;
+
+  /* Once the footer splits into two columns this section only has half the
+     width, and side by side leaves "Get in touch" and "Email us" about 89px to
+     live in, which breaks them mid-phrase. */
+  @media (min-width: 480px) and (max-width: 767px) {
+    flex-direction: column;
+    justify-content: start;
+    gap: 20px;
+  }
 
   @include medium-up {
     flex-direction: column;
