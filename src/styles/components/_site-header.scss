@@ -891,6 +891,9 @@
 
   &::-webkit-scrollbar-track {
     background: transparent;
+    // Margin on the track, not padding on the view: padding would move the
+    // content.
+    margin: var(--sh-mobile-pad-block) 0;
   }
 
   &::-webkit-scrollbar-thumb {
