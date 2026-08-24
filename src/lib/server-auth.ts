@@ -35,31 +35,42 @@ export async function getServerSideAuth(
 
 export async function getServerSideAuthWithToken(
   ctx: GetServerSidePropsContext,
-): Promise<{ accessToken: string; userId: number } | null> {
+): Promise<AuthResult | null> {
   const cookies = ctx.req.headers.cookie || '';
 
-  // Even with JWT, we need a WPGraphQL access token for authenticated queries.
-  // Try JWT first for userId, then get token only if needed.
+  // Step 1: Check JWT for identity (instant, no network)
   const token = extractJwt(cookies);
-  if (token) {
-    const jwtResult = verifyJwt(token);
-    if (jwtResult) {
-      // We know the user is authenticated — now get a WPGraphQL token
-      const tokens = await exchangeRefreshToken(cookies);
-      if (tokens?.accessToken) {
-        return { accessToken: tokens.accessToken, userId: jwtResult.userId };
+  const jwtUserId = token ? verifyJwt(token)?.userId ?? null : null;
+
+  // Step 2: Get WPGraphQL access token (needs WordPress)
+  try {
+    const tokens = await exchangeRefreshToken(cookies);
+    if (tokens?.accessToken) {
+      const userId = jwtUserId;
+      if (userId) {
+        return { accessToken: tokens.accessToken, userId };
+      }
+      // No JWT but Faust works — get userId and issue JWT retroactively
+      const auth = await getAuthenticatedUserId(cookies);
+      if (auth) {
+        const jwt = signJwt(auth.userId);
+        ctx.res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
+        return { accessToken: auth.accessToken, userId: auth.userId };
       }
     }
+  } catch {
+    // WordPress unavailable — fall through
   }
 
-  // Full fallback
-  const auth = await getAuthenticatedUserId(cookies);
-  if (!auth) return null;
+  // JWT proves identity but WordPress can't provide a data token.
+  // Return userId without accessToken so the page can show an error
+  // instead of redirecting to login (the user IS authenticated).
+  if (jwtUserId) {
+    return { userId: jwtUserId };
+  }
 
-  const jwt = signJwt(auth.userId);
-  ctx.res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
-
-  return { accessToken: auth.accessToken, userId: auth.userId };
+  // No JWT, no Faust — genuinely not authenticated
+  return null;
 }
 
 export function redirectToLogin(
@@ -76,9 +87,10 @@ export function redirectToLogin(
 
 export async function serverSideGraphQL(
   query: string,
-  accessToken: string,
+  accessToken: string | undefined,
   variables?: Record<string, unknown>,
 ): Promise<any> {
+  if (!accessToken) return null;
   const graphqlUrl = getWordPressGraphQLUrl();
   const body: Record<string, unknown> = { query };
   if (variables) body.variables = variables;

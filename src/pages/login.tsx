@@ -34,8 +34,15 @@ export default function LoginPage() {
       // Issue a stateless JWT cookie so subsequent pages verify auth locally
       // instead of round-tripping to WordPress. The hard navigation after
       // ensures every context (AuthContext, CartContext) picks up the new state.
-      fetch('/api/auth/jwt', { method: 'POST', credentials: 'same-origin' })
-        .catch(() => {})
+      // Retry once if the first attempt fails (WordPress may be warming up).
+      const issueJwt = () =>
+        fetch('/api/auth/jwt', { method: 'POST', credentials: 'same-origin' });
+
+      issueJwt()
+        .then((r) => {
+          if (!r.ok) return issueJwt().catch(() => {});
+        })
+        .catch(() => issueJwt().catch(() => {}))
         .finally(() => window.location.assign(redirectUrl));
     }
   }, [data, redirectUrl]);
