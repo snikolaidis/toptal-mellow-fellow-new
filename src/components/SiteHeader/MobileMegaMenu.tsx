@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { RefObject, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 import {
   CloseIcon,
@@ -197,7 +198,9 @@ export default function MobileMegaMenu({
     </ul>
   );
 
-  return (
+  // .site-header is sticky with a z-index, so it opens a stacking context the
+  // panel cannot escape from inside it.
+  return createPortal(
     <div
       id={id}
       ref={panelRef}
@@ -333,6 +336,7 @@ export default function MobileMegaMenu({
           )}
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
