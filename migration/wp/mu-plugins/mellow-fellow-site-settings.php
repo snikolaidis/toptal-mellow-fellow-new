@@ -15,6 +15,7 @@ add_action( 'acf/init', 'mf_register_landing_page_icon_row_fields' );
 add_action( 'acf/init', 'mf_register_value_props_fields' );
 add_action( 'acf/init', 'mf_register_announcement_bar_fields' );
 add_action( 'acf/init', 'mf_register_mega_menu_featured_fields' );
+add_action( 'acf/init', 'mf_register_promotional_slides_fields' );
 
 function mf_register_site_settings_options_page() {
     if ( ! function_exists( 'acf_add_options_page' ) ) {
@@ -359,5 +360,90 @@ function mf_register_mega_menu_featured_fields() {
         'active'             => true,
         'show_in_graphql'    => 1,
         'graphql_field_name' => 'megaMenuFeatured',
+    ] );
+}
+
+/**
+ * One shared set of promotional slides. The mega menu's Featured carousel and
+ * the Hero Slider block both read this, so a slide is authored once instead of
+ * being kept in step by hand in two places. Image fields mirror the hero-slider
+ * block (mobile / tablet / desktop) so the same row serves both.
+ */
+function mf_register_promotional_slides_fields() {
+    if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+        return;
+    }
+
+    acf_add_local_field_group( [
+        'key'    => 'group_mf_promotional_slides',
+        'title'  => 'Promotional Slides',
+        'fields' => [
+            [
+                'key'          => 'field_mf_promo_slides',
+                'label'        => 'Slides',
+                'name'         => 'slides',
+                'type'         => 'repeater',
+                'instructions' => 'Shared by the mega menu Featured carousel and the Hero Slider block. Drag rows to set the display order.',
+                'layout'       => 'block',
+                'button_label' => 'Add Slide',
+                'min'          => 0,
+                'sub_fields'   => [
+                    [
+                        'key'      => 'field_mf_promo_caption',
+                        'label'    => 'Caption',
+                        'name'     => 'caption',
+                        'type'     => 'text',
+                        'required' => 0,
+                        'wrapper'  => [ 'width' => '50' ],
+                    ],
+                    [
+                        'key'      => 'field_mf_promo_link',
+                        'label'    => 'Link',
+                        'name'     => 'link',
+                        'type'     => 'link',
+                        'required' => 0,
+                        'wrapper'  => [ 'width' => '50' ],
+                    ],
+                    [
+                        'key'           => 'field_mf_promo_desktop_image',
+                        'label'         => 'Desktop Image',
+                        'name'          => 'desktop_image',
+                        'type'          => 'image',
+                        'return_format' => 'array',
+                        'preview_size'  => 'medium',
+                        'required'      => 0,
+                        'wrapper'       => [ 'width' => '34' ],
+                    ],
+                    [
+                        'key'           => 'field_mf_promo_tablet_image',
+                        'label'         => 'Tablet Image',
+                        'name'          => 'tablet_image',
+                        'type'          => 'image',
+                        'return_format' => 'array',
+                        'preview_size'  => 'medium',
+                        'required'      => 0,
+                        'wrapper'       => [ 'width' => '33' ],
+                    ],
+                    [
+                        'key'           => 'field_mf_promo_mobile_image',
+                        'label'         => 'Mobile Image',
+                        'name'          => 'mobile_image',
+                        'type'          => 'image',
+                        'return_format' => 'array',
+                        'preview_size'  => 'medium',
+                        'required'      => 0,
+                        'wrapper'       => [ 'width' => '33' ],
+                    ],
+                ],
+            ],
+        ],
+        'location' => [ [ [
+            'param'    => 'options_page',
+            'operator' => '==',
+            'value'    => 'mf-site-settings',
+        ] ] ],
+        'active'             => true,
+        'show_in_graphql'    => 1,
+        'graphql_field_name' => 'promotionalSlides',
     ] );
 }
