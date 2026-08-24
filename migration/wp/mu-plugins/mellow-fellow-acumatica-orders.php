@@ -125,6 +125,7 @@ function mf_acu_order_fail( $order_id, $error_msg ) {
         return;
     }
 
+    $order->update_meta_data( '_acumatica_push_status', 'retrying' );
     $order->save();
 
     $delays    = array( 300, 600, 1200 );
@@ -306,6 +307,8 @@ function mf_acu_order_column_content( $column, $order_or_id ) {
         echo '<span style="color:#00a32a">&#10003; ' . esc_html( $nbr ) . '</span>';
     } elseif ( 'failed' === $status ) {
         echo '<span style="color:#d63638" title="' . esc_attr( $error ) . '">&#10007; Failed</span>';
+    } elseif ( 'retrying' === $status || $error ) {
+        echo '<span style="color:#dba617" title="' . esc_attr( $error ) . '">&#9888; Error</span>';
     } elseif ( $order->has_status( 'processing' ) ) {
         echo '<span style="color:#dba617">&#8230; Pending</span>';
     } else {
@@ -359,6 +362,8 @@ function mf_acu_render_order_metabox( $post_or_order ) {
     $cust_id = $order->get_meta( '_acumatica_customer_id' );
     $email   = $order->get_billing_email();
 
+    $attempts = (int) $order->get_meta( '_acumatica_push_attempts' );
+
     if ( 'yes' === $pushed && $nbr ) {
         echo '<p style="color:#00a32a;font-weight:600">&#10003; Pushed</p>';
         echo '<p><strong>Order:</strong> ' . esc_html( $nbr ) . '</p>';
@@ -370,6 +375,9 @@ function mf_acu_render_order_metabox( $post_or_order ) {
         if ( ! $email ) {
             echo '<p style="color:#d63638"><strong>Missing billing email.</strong> Add an email address and retry.</p>';
         }
+    } elseif ( $error ) {
+        echo '<p style="color:#dba617;font-weight:600">&#9888; Push error (attempt ' . $attempts . '/' . MF_ACU_ORDER_MAX_ATTEMPTS . ')</p>';
+        echo '<p>' . esc_html( $error ) . '</p>';
     } elseif ( $order->has_status( 'processing' ) ) {
         echo '<p style="color:#dba617;font-weight:600">&#8230; Pending push</p>';
     } else {
