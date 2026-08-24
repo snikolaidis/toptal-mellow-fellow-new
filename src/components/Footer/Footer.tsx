@@ -124,6 +124,37 @@ function footerHref(uri: string): { href: string; external: boolean } {
   }
 }
 
+function MenuColumn({ heading, items }: { heading: string; items: FooterMenuItem[] }) {
+  return (
+    <div className="footer-col">
+      <h3 className="footer-col__heading">{heading}</h3>
+      <ul className="footer-col__list">
+        {items.map((item) => {
+          const { href, external } = footerHref(item.uri);
+          return (
+            <li key={item.id}>
+              {external ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="footer-col__link"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link href={href} className="footer-col__link">
+                  {item.label}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default function Footer() {
   const { data } = useQuery(GET_FOOTER_MENU);
   const footerMenu = data?.menus?.nodes?.[0];
@@ -167,70 +198,36 @@ export default function Footer() {
       </section>
 
       <footer className="footer">
-        <div className="container">
+        <div className="footer__inner">
           <div className="footer-content">
-            {/* Backend-managed menu (WP "Footer 1" location) */}
-            <div className="link-section">
-              <h3 className="section-title">{footerMenu?.name ?? 'Shop'}</h3>
-              <ul className="link-list">
-                {footerItems.map((item) => {
-                  const { href, external } = footerHref(item.uri);
-                  return (
-                    <li key={item.id}>
-                      {external ? (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link"
-                        >
-                          {item.label}
-                        </a>
-                      ) : (
-                        <Link href={href} className="link">
-                          {item.label}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+            {/* Stay Mellow (WP "Footer 1" location) */}
+            <MenuColumn heading={footerMenu?.name ?? 'Stay Mellow'} items={footerItems} />
 
-            {/* Brand */}
-            <div className="brand-section">
-              <div className="email-link">
-                <h4 className="section-title">Get in touch</h4>
-                <a href="/pages/contact-us">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <EmailIcon />
-                    </span>
-                    <span>Email us</span>
-                  </span>
-                </a>
+            <div className="footer-col footer-col--contact">
+              <div>
+                <h3 className="footer-col__heading">Get in touch</h3>
+                <Link href="/pages/contact-us" className="footer-col__email">
+                  <EmailIcon />
+                  <span>Email us</span>
+                </Link>
               </div>
-              
-              <div className="social-links">
-                <h6>
-                  Follow us
-                </h6>
-                <ul>
+
+              <div>
+                <h4 className="footer-social__label">Follow us</h4>
+                <ul className="footer-social__list">
                   {SOCIAL_NETWORKS.map(({ key, label, Icon }) => {
                     const url = socialLinks?.[key];
                     if (!url) return null;
                     return (
-                      <li className="social-link" key={key}>
+                      <li key={key}>
                         <a
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="social-link"
+                          className="footer-social__link"
                           aria-label={label}
                         >
-                          <span className="icon">
-                            <Icon />
-                          </span>
+                          <Icon />
                         </a>
                       </li>
                     );
@@ -239,39 +236,20 @@ export default function Footer() {
               </div>
             </div>
 
-            {/* Backend-managed menu (WP "Footer 2" location) */}
-            <div className="link-section">
-              <h4 className="section-title">{footerMenu2?.name ?? 'Information'}</h4>
-              <ul className="link-list">
-                {footerItems2.map((item) => {
-                  const { href, external } = footerHref(item.uri);
-                  return (
-                    <li key={item.id}>
-                      {external ? (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link"
-                        >
-                          {item.label}
-                        </a>
-                      ) : (
-                        <Link href={href} className="link">
-                          {item.label}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+            <div className="footer-col">
+              <h3 className="footer-col__heading">We accept</h3>
+              {/* The five card logos (Amex, Discover, JCB, Mastercard, Visa)
+                  go here, as a <ul className="footer-col__accept"> of images.
+                  None of them exist in the repo or the media library yet, so
+                  the column renders its heading alone until they are sourced. */}
             </div>
+
+            {/* Legal (WP "Footer 2" location) */}
+            <MenuColumn heading={footerMenu2?.name ?? 'Legal'} items={footerItems2} />
           </div>
 
-          <div className="copyright-section section">
-            <p>
-              &copy; {new Date().getFullYear()} Mellow Fellow
-            </p>
+          <div className="footer-copyright">
+            <p>&copy; {new Date().getFullYear()} Mellow Fellow</p>
           </div>
         </div>
       </footer>

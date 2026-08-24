@@ -144,114 +144,195 @@
   color: #5a493a;
 }
 
+// A media query cannot read a custom property, so this sits beside the token
+// block rather than in it. 480 not the project's 576, to keep #103's breakpoint.
+$ft-bp-2col: 480px;
+
+/* Footer columns.
+   Every value in this block is approximate, read off the frame image rather
+   than Dev Mode. Correct them here, not in the rules below. */
 .footer {
-  background-color: #f0e6d0;
+  --ft-bg: #f0e6d0;
+  --ft-max-width: 1280px;
+  --ft-pad-block: 56px;
+  --ft-pad-inline: 20px;
+  --ft-pad-inline-wide: 40px;
+
+  --ft-grid-1: 1fr;
+  --ft-grid-2: repeat(2, 1fr);
+  --ft-grid-4: repeat(4, 1fr);
+  --ft-col-gap: 40px;
+  --ft-row-gap: 40px;
+
+  --ft-heading-font: 'MrEavesSanOT';
+  --ft-heading-size: 20px;
+  --ft-heading-color: var(--color-text-primary);
+  --ft-heading-gap: 16px;
+
+  --ft-link-size: 0.875rem;
+  --ft-link-gap: 8px;
+  --ft-link-color: var(--color-text-primary);
+  --ft-link-hover-color: var(--color-brand-primary);
+
+  --ft-contact-gap: 24px;
+  --ft-email-gap: 8px;
+  --ft-email-icon: 20px;
+
+  --ft-social-label-size: 0.875rem;
+  --ft-social-label-gap: 12px;
+  --ft-social-gap: 12px;
+  --ft-social-icon: 22px;
+  --ft-social-color: var(--color-text-primary);
+
+  // Reserved for the card logos, which do not exist yet. See the slot comment
+  // in Footer.tsx.
+  --ft-accept-gap: 10px;
+  --ft-accept-icon-h: 24px;
+
+  --ft-copyright-gap: 40px;
+  --ft-copyright-size: 13px;
+  --ft-copyright-color: var(--color-text-primary);
+
+  background-color: var(--ft-bg);
   padding-bottom: 0;
+}
 
-  .link-section {
-    display: flex;
-    flex-direction: column;
-  }
+.footer__inner {
+  max-width: var(--ft-max-width);
+  margin: 0 auto;
+  padding: var(--ft-pad-block) var(--ft-pad-inline);
 
-  .section-title {
-    font-family: MrEavesSanOT;
-    margin-bottom: 15px;
-  }
-
-  .link-list {
-    display: flex;
-    flex-direction: column;
-    gap: .25rem;
-  }
-
-  .link {
-    font-size: 0.875rem;
-    transition: color 0.2s;
+  @include medium-up {
+    padding-inline: var(--ft-pad-inline-wide);
   }
 }
 
 .footer-content {
-  max-width: 1920px;
-  margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 3rem;
-}
+  grid-template-columns: var(--ft-grid-1);
+  gap: var(--ft-row-gap) var(--ft-col-gap);
 
-/* Below 768 the single column leaves the whole right half of the footer empty
-   while the link list runs very long, so the sections pair up into two columns
-   as soon as there is room for them. */
-@media (min-width: 480px) and (max-width: 767px) {
-  .footer-content {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2rem 1.5rem;
+  // Four children, so two columns divide evenly and nothing is left stranded
+  // on a row of its own.
+  @media screen and (min-width: $ft-bp-2col) {
+    grid-template-columns: var(--ft-grid-2);
   }
 
-  /* The link labels are short but "Get in touch" and "Email us" are not, and at
-     this column width they break mid-phrase. */
-  .brand-section .section-title,
-  .brand-section .icon-text,
-  .social-links h6 {
-    white-space: nowrap;
+  @include large-up {
+    grid-template-columns: var(--ft-grid-4);
   }
 }
 
-@media (min-width: 768px) {
-  .footer-content {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.brand-section {
-  display: flex;
-  justify-content: space-between;
-
-  /* Once the footer splits into two columns this section only has half the
-     width, and side by side leaves "Get in touch" and "Email us" about 89px to
-     live in, which breaks them mid-phrase. */
-  @media (min-width: 480px) and (max-width: 767px) {
-    flex-direction: column;
-    justify-content: start;
-    gap: 20px;
-  }
-
-  @include medium-up {
-    flex-direction: column;
-    justify-content: start;
-    gap: 20px;
-  }
-}
-
-.social-links {
+.footer-col {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+}
 
-  ul {
-    display: flex;
-    gap: 10px;
+.footer-col__heading {
+  margin: 0 0 var(--ft-heading-gap);
+  font-family: var(--ft-heading-font);
+  font-size: var(--ft-heading-size);
+  color: var(--ft-heading-color);
+}
+
+.footer-col__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ft-link-gap);
+  list-style: none;
+  margin: 0;
+}
+
+.footer-col__link {
+  font-size: var(--ft-link-size);
+  color: var(--ft-link-color);
+  transition: color 0.2s;
+
+  &:hover {
+    color: var(--ft-link-hover-color);
+  }
+}
+
+// Socials sit beside Get in touch only in the single-column stack: once the
+// grid splits, the half-width column cannot hold both, as #103 also found.
+.footer-col--contact {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: var(--ft-contact-gap);
+
+  @media screen and (min-width: $ft-bp-2col) {
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+}
+
+.footer-col__email {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ft-email-gap);
+  font-size: var(--ft-link-size);
+  color: var(--ft-link-color);
+  transition: color 0.2s;
+
+  &:hover {
+    color: var(--ft-link-hover-color);
   }
 
   svg {
+    width: var(--ft-email-icon);
+    height: var(--ft-email-icon);
+  }
+}
+
+.footer-social__label {
+  margin: 0 0 var(--ft-social-label-gap);
+  font-size: var(--ft-social-label-size);
+  color: var(--ft-heading-color);
+}
+
+.footer-social__list {
+  display: flex;
+  gap: var(--ft-social-gap);
+  list-style: none;
+  margin: 0;
+}
+
+.footer-social__link {
+  display: inline-flex;
+  color: var(--ft-social-color);
+
+  svg {
+    width: var(--ft-social-icon);
+    height: var(--ft-social-icon);
+
     path {
-      fill: var(--color-text-primary);
+      fill: currentColor;
     }
   }
 }
 
-.social-link {
-  color: rgba(255, 255, 255, 0.6);
-  transition: color 0.2s;
+// The card logos slot in here as a row of images. Nothing renders under the
+// heading until they exist.
+.footer-col__accept {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ft-accept-gap);
+
+  img {
+    height: var(--ft-accept-icon-h);
+    width: auto;
+  }
 }
 
-.social-link:hover {
-  color: white;
-}
+.footer-copyright {
+  margin-top: var(--ft-copyright-gap);
+  text-align: center;
+  font-size: var(--ft-copyright-size);
+  color: var(--ft-copyright-color);
 
-.copyright-section {
   p {
-    text-align: center;
-    font-size: 13px;
+    margin: 0;
   }
 }
 
