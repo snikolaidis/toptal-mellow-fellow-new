@@ -1,6 +1,7 @@
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
-import { makeHttpRequest, makeHttpGetRequest, getWordPressGraphQLUrl } from './http';
+import { makeHttpRequest, getWordPressGraphQLUrl } from './http';
 import { getSessionFromContext, type SessionData } from './session';
+import { exchangeRefreshToken } from './faust-auth';
 
 interface AuthResult {
   accessToken: string;
@@ -34,35 +35,24 @@ async function exchangeFaustToken(
   ctx: GetServerSidePropsContext,
 ): Promise<(AuthResult & { accessTokenExpiration: number }) | null> {
   const cookies = ctx.req.headers.cookie || '';
-  const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-  const wpHost = new URL(wordpressUrl).host.replace(/[^a-zA-Z0-9.-]/g, '');
-  const rtCookiePattern = new RegExp(`https?${wpHost}-rt=([^;]+)`);
 
-  if (!cookies.match(rtCookiePattern)) return null;
+  const tokens = await exchangeRefreshToken(cookies);
+  if (!tokens) return null;
 
-  try {
-    const protocol = ctx.req.headers['x-forwarded-proto'] || 'https';
-    const host = ctx.req.headers.host || 'localhost:3001';
-    const tokenUrl = `${protocol}://${host}/api/faust/auth/token`;
-    const tokenRes = await makeHttpGetRequest(tokenUrl, cookies);
+  const graphqlUrl = getWordPressGraphQLUrl();
+  const viewerRes = await makeHttpRequest({
+    url: graphqlUrl,
+    body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
+    authToken: tokens.accessToken,
+  });
+  const userId = viewerRes.data?.data?.viewer?.databaseId;
+  if (!userId) return null;
 
-    const accessToken = tokenRes.data?.accessToken;
-    const accessTokenExpiration = tokenRes.data?.accessTokenExpiration;
-    if (!accessToken) return null;
-
-    const graphqlUrl = getWordPressGraphQLUrl();
-    const viewerRes = await makeHttpRequest({
-      url: graphqlUrl,
-      body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
-      authToken: accessToken,
-    });
-    const userId = viewerRes.data?.data?.viewer?.databaseId;
-    if (!userId) return null;
-
-    return { accessToken, userId, accessTokenExpiration: accessTokenExpiration || 0 };
-  } catch {
-    return null;
-  }
+  return {
+    accessToken: tokens.accessToken,
+    userId,
+    accessTokenExpiration: tokens.accessTokenExpiration || 0,
+  };
 }
 
 export function redirectToLogin(

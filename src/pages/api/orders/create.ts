@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import {
   makeHttpRequest,
-  makeHttpGetRequest,
   extractWcSessionToken,
   getWordPressGraphQLUrl,
 } from '@/lib/http';
 import { withMiddleware, withPaymentRateLimit, withIdempotency } from '@/lib/middleware';
+import { exchangeRefreshToken } from '@/lib/faust-auth';
 
 /**
  * Order Creation API Route
@@ -158,26 +158,12 @@ async function handler(
     const cookies = req.headers.cookie || '';
     const wcSessionToken = extractWcSessionToken(cookies);
 
-    // Try to get auth token for authenticated users
     let authToken: string | undefined;
-    const wpHost = new URL(wordpressUrl).host.replace(/[^a-zA-Z0-9.-]/g, '');
-    const rtCookiePattern = new RegExp(`https?${wpHost}-rt=([^;]+)`);
-    const rtMatch = cookies.match(rtCookiePattern);
-
-    if (rtMatch) {
-      try {
-        const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'https';
-        const host = req.headers.host || 'localhost:3001';
-        const tokenUrl = `${protocol}://${host}/api/faust/auth/token`;
-
-        const tokenResponse = await makeHttpGetRequest(tokenUrl, cookies);
-
-        if (tokenResponse.data?.accessToken) {
-          authToken = tokenResponse.data.accessToken;
-        }
-      } catch (err) {
-        // Continue as guest checkout if token fetch fails
-      }
+    try {
+      const tokens = await exchangeRefreshToken(cookies);
+      if (tokens?.accessToken) authToken = tokens.accessToken;
+    } catch {
+      // Continue as guest checkout if token exchange fails
     }
 
     const response = await makeHttpRequest({

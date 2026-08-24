@@ -6,46 +6,16 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { makeHttpRequest, getWordPressGraphQLUrl } from '@/lib/http';
 import { deletePaymentProfile } from '@/lib/authorize-net-cim';
+import { getAuthenticatedUserId as getAuthUser } from '@/lib/faust-auth';
 
 const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 const FAUST_SECRET = process.env.FAUST_SECRET_KEY || '';
 
 async function getAuthenticatedUserId(req: NextApiRequest): Promise<number | null> {
-  // Extract Faust.js refresh token from cookies to get auth token
   const cookies = req.headers.cookie || '';
-  const host = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const rtPattern = new RegExp(`https?${host.replace(/\./g, '\\.')}-rt=([^;]+)`);
-  const rtMatch = cookies.match(rtPattern);
-
-  if (!rtMatch) return null;
-
-  try {
-    // Exchange refresh token for access token
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const reqHost = req.headers.host || 'localhost:3000';
-    const tokenUrl = `${protocol}://${reqHost}/api/faust/auth/token`;
-    const tokenRes = await fetch(tokenUrl, {
-      headers: { Cookie: cookies },
-    });
-    const tokenData = await tokenRes.json();
-    const accessToken = tokenData?.accessToken;
-
-    if (!accessToken) return null;
-
-    // Get WordPress user ID
-    const wpUrl = getWordPressGraphQLUrl();
-    const viewerRes = await makeHttpRequest({
-      url: wpUrl,
-      body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
-      authToken: accessToken,
-    });
-
-    return viewerRes.data?.data?.viewer?.databaseId || null;
-  } catch {
-    return null;
-  }
+  const result = await getAuthUser(cookies);
+  return result?.userId ?? null;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

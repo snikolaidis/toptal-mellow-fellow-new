@@ -27,7 +27,6 @@ import {
 import { getStorage } from '@/lib/storage';
 import {
   makeHttpRequest,
-  makeHttpGetRequest,
   getWordPressGraphQLUrl,
 } from '@/lib/http';
 import { CheckoutError, ErrorCode, logError } from '@/lib/errors';
@@ -144,38 +143,16 @@ function validateCheckoutRequest(body: CheckoutRequest): string | null {
  */
 async function getAuthTokenFromRequest(req: NextApiRequest): Promise<string | undefined> {
   const cookies = req.headers.cookie || '';
-  const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-
-  // Look for Faust.js refresh token cookie
-  const wpHost = new URL(wordpressUrl).host.replace(/[^a-zA-Z0-9.-]/g, '');
-  const rtCookiePattern = new RegExp(`https?${wpHost}-rt=([^;]+)`);
-  const rtMatch = cookies.match(rtCookiePattern);
-
-  if (!rtMatch) {
-    console.log('[Checkout] No Faust.js refresh token found - guest checkout');
-    return undefined;
-  }
-
-  console.log('[Checkout] Faust.js refresh token found, getting access token...');
 
   try {
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers.host || 'localhost:3001';
-    const tokenUrl = `${protocol}://${host}/api/faust/auth/token`;
-
-    const tokenResponse = await makeHttpGetRequest(tokenUrl, cookies);
-
-    if (tokenResponse.data?.accessToken) {
-      console.log('[Checkout] Successfully obtained access token for authenticated checkout');
-      return tokenResponse.data.accessToken;
-    } else {
-      console.log('[Checkout] Could not get access token from token endpoint');
-      return undefined;
-    }
-  } catch (err) {
-    console.log('[Checkout] Failed to get access token:', err);
-    return undefined;
+    const { exchangeRefreshToken } = await import('@/lib/faust-auth');
+    const tokens = await exchangeRefreshToken(cookies);
+    if (tokens?.accessToken) return tokens.accessToken;
+  } catch {
+    // fall through
   }
+
+  return undefined;
 }
 
 function parseMoney(value: string | number | undefined | null): number {

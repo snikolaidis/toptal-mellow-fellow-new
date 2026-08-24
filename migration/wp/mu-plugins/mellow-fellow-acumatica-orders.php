@@ -383,6 +383,17 @@ function mf_acu_render_order_metabox( $post_or_order ) {
     } else {
         echo '<p>Not pushed</p>';
     }
+
+    if ( 'yes' !== $pushed ) {
+        ?>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:12px">
+            <input type="hidden" name="action" value="mf_acu_retry_push" />
+            <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>" />
+            <?php wp_nonce_field( 'mf_acu_retry_push_' . $order->get_id() ); ?>
+            <button type="submit" class="button button-primary" style="width:100%">Push to Acumatica Now</button>
+        </form>
+        <?php
+    }
 }
 
 /* ── dashboard notice: orders stuck in failed state ──────────────── */
@@ -435,4 +446,28 @@ add_action( 'woocommerce_order_action_mf_acu_push_order', function( $order ) {
     $order->save();
 
     mf_acu_push_order( $order->get_id() );
+} );
+
+add_action( 'admin_post_mf_acu_retry_push', function() {
+    if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Forbidden' );
+
+    $order_id = absint( $_POST['order_id'] ?? 0 );
+    if ( ! $order_id ) wp_die( 'Missing order ID' );
+
+    check_admin_referer( 'mf_acu_retry_push_' . $order_id );
+
+    $order = wc_get_order( $order_id );
+    if ( ! $order ) wp_die( 'Order not found' );
+
+    $order->delete_meta_data( '_acumatica_order_pushed' );
+    $order->delete_meta_data( '_acumatica_push_status' );
+    $order->delete_meta_data( '_acumatica_push_error' );
+    $order->update_meta_data( '_acumatica_push_attempts', 0 );
+    $order->save();
+
+    mf_acu_push_order( $order_id );
+
+    $edit_url = $order->get_edit_order_url();
+    wp_safe_redirect( $edit_url );
+    exit;
 } );

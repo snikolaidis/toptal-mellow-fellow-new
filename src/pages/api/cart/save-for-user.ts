@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { makeHttpRequest, makeHttpGetRequest, getWordPressGraphQLUrl } from '@/lib/http';
+import { makeHttpRequest, getWordPressGraphQLUrl } from '@/lib/http';
 import { withRateLimitOnly } from '@/lib/middleware';
+import { exchangeRefreshToken } from '@/lib/faust-auth';
 
 function extractCartToken(cookies: string): string | null {
   const match = cookies.match(/wc_cart_token=([^;]+)/);
@@ -9,20 +10,9 @@ function extractCartToken(cookies: string): string | null {
 
 async function getAuthTokenFromRequest(req: NextApiRequest): Promise<string | undefined> {
   const cookies = req.headers.cookie || '';
-  const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-
-  const wpHost = new URL(wordpressUrl).host.replace(/[^a-zA-Z0-9.-]/g, '');
-  const rtCookiePattern = new RegExp(`https?${wpHost}-rt=([^;]+)`);
-  const rtMatch = cookies.match(rtCookiePattern);
-
-  if (!rtMatch) return undefined;
-
   try {
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers.host || 'localhost:3001';
-    const tokenUrl = `${protocol}://${host}/api/faust/auth/token`;
-    const tokenResponse = await makeHttpGetRequest(tokenUrl, cookies);
-    return tokenResponse.data?.accessToken || undefined;
+    const tokens = await exchangeRefreshToken(cookies);
+    return tokens?.accessToken || undefined;
   } catch {
     return undefined;
   }
