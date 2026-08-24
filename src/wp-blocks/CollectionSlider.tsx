@@ -8,6 +8,7 @@ import 'swiper/css/navigation';
 import { Product } from '@/types/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import { useCollectionFilter } from '@/context/CollectionFilterContext';
+import { taxonomyForTypename } from '@/lib/taxonomy';
 
 // Swiper only loops when the track holds more slides than it shows at once. With
 // 8 products at 4 per view it silently stops advancing, so the list is repeated
@@ -45,8 +46,7 @@ export default function CollectionSlider(props: CollectionSliderProps) {
   const count = Math.max(1, Math.floor(data?.productCount || 8));
   const { selected } = useCollectionFilter(data?.filterGroup);
   const slug = selected?.slug || collection?.slug || '';
-  const taxonomy =
-    selected?.taxonomy || (collection?.__typename || 'Collection').toLowerCase();
+  const taxonomy = selected?.taxonomy || taxonomyForTypename(collection?.__typename);
 
   const [products, setProducts] = useState<Product[]>([]);
 
