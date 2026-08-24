@@ -7,7 +7,10 @@ import QuickView from '@/components/shop/QuickView';
 import { recordWidgetSource, WidgetSource } from '@/lib/widgetAttribution';
 import { decodeEntities } from '@/lib/decodeEntities';
 
-const LOW_STOCK_THRESHOLD = 20;
+// Most of the catalogue sits at exactly 15, which is a default rather than real
+// stock, so anything from 15 up would badge roughly three quarters of the store
+// and stop meaning anything.
+const LOW_STOCK_THRESHOLD = 10;
 
 interface ProductCardProps {
   product: Product;
