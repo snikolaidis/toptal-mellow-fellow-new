@@ -1,6 +1,9 @@
 @use "bulma/sass/utilities/mixins";
 
-.site-header {
+// The mobile panel portals to <body>, so it is not a descendant of .site-header
+// and cannot inherit these.
+.site-header,
+.site-header__mobile {
   --sh-inline-pad: 1rem;
   --sh-bar-gap: 1rem;
   --sh-bar-pad-block: 0.75rem;
@@ -159,7 +162,8 @@
   --sh-mobile-bar-radius: 4px;
   --sh-mobile-bar-color: rgba(160, 165, 157, 0.4);
   --sh-mobile-duration: 0.2s;
-  --sh-mobile-z: 40;
+  // Clears the Yotpo loyalty floater, which injects itself fixed at 10000.
+  --sh-mobile-z: 10010;
 
   --sh-drawer-bg: var(--sh-nav-cream);
   --sh-drawer-pad: 1rem;
@@ -171,7 +175,9 @@
 
   --sh-sticky-z: 30;
   --sh-condensed-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
 
+.site-header {
   position: sticky;
   top: 0;
   z-index: var(--sh-sticky-z);
