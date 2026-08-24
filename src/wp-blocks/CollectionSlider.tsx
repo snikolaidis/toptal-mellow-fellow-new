@@ -85,6 +85,9 @@ export default function CollectionSlider(props: CollectionSliderProps) {
       className={`collection-swiper${
         variant ? ` collection-swiper--${variant.replace(/_/g, '-')}` : ''
       }`}
+      // Lets the panel behind the products carry the same colour as the active
+      // mood tab above it, instead of staying gold whatever mood is picked.
+      data-term={taxonomy === 'mood' ? slug : undefined}
     >
       <div className="container">
         {title.length > 0 && <h3 className="section__title">{title}</h3>}

@@ -90,6 +90,47 @@
       var(--color-gold-light) 0%,
       var(--color-hero-gold) 100%
     );
+
+    // Mood colours are section 04 of the MF.fun Moodboard, keyed on the taxonomy
+    // term slug, so a tab that is not a mood keeps the gold above and a new mood
+    // only needs a pair added here. The stops run light to saturated downwards,
+    // the reverse of the moodboard swatch, so the tab meets the products panel
+    // on its saturated end the same way the gold category tab already does.
+    // The label sets its own colour, so it has to be told to follow the tab on
+    // the darker gradients or it stays near-black and disappears.
+    &[data-term] .category-tabs__label {
+      color: inherit;
+    }
+
+    &[data-term='sleep-better'] {
+      background: linear-gradient(180deg, #d4c9e3 0%, #7c629e 100%);
+      color: #f4f4f4;
+    }
+
+    &[data-term='relief'] {
+      background: linear-gradient(180deg, #fff6da 0%, #ffcc4f 100%);
+      color: #191b1b;
+    }
+
+    &[data-term='chill-out'] {
+      background: linear-gradient(180deg, #f4f4f4 0%, #005069 100%);
+      color: #ffffff;
+    }
+
+    &[data-term='energy-focus'] {
+      background: linear-gradient(180deg, #fff2e0 0%, #fcbb77 100%);
+      color: var(--color-deep-teal-85, #3e484f);
+    }
+
+    &[data-term='happy-social'] {
+      background: linear-gradient(180deg, #c2c391 0%, #628b6a 100%);
+      color: #f4f4f4;
+    }
+
+    &[data-term='better-intimacy'] {
+      background: linear-gradient(180deg, #ffe7e5 0%, #dd6e7a 100%);
+      color: #191b1b;
+    }
   }
 
   &__icon {

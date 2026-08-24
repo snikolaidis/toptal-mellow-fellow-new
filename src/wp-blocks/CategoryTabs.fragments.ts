@@ -4,6 +4,11 @@ export const fragments = {
   key: `AcfCategoryTabsFragment`,
   entry: gql`
     fragment AcfCategoryTabsFragment on AcfCategoryTabs {
+      moodTerms {
+        name
+        slug
+        count
+      }
       categoryTabs {
         heading
         subheading
