@@ -198,7 +198,12 @@ export default function SiteHeader() {
                 <UserIcon />
               </span>
               <span className="site-header__account-text">
-                {isReady && isAuthenticated ? (
+                {!isReady ? (
+                  <>
+                    <span className="site-header__account-line">&nbsp;</span>
+                    <span className="site-header__account-line">Account</span>
+                  </>
+                ) : isAuthenticated ? (
                   <>
                     <span className="site-header__account-line">My</span>
                     <span className="site-header__account-line">Account</span>

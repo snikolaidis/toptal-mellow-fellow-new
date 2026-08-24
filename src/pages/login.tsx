@@ -25,9 +25,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isReady && isAuthenticated) {
-      router.push(redirectUrl);
+      window.location.assign(redirectUrl);
     }
-  }, [isReady, isAuthenticated, router, redirectUrl]);
+  }, [isReady, isAuthenticated, redirectUrl]);
 
   useEffect(() => {
     // A hard navigation, not router.push — Faust's useAuth() only checks
