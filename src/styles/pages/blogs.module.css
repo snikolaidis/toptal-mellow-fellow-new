@@ -550,11 +550,17 @@
 }
 
 .relatedPagination :global(.swiper-pagination-bullet) {
-  background: #000;
-  opacity: 0.25;
+  width: 7px;
+  height: 7px;
+  margin: 0 6px;
+  background: var(--color-brown-40);
+  opacity: 1;
 }
 
 .relatedPagination :global(.swiper-pagination-bullet-active) {
+  width: 33px;
+  border-radius: 10px;
+  background: var(--color-teal-85);
   opacity: 1;
 }
 
