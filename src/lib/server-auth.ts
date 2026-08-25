@@ -46,16 +46,21 @@ export async function getServerSideAuthWithToken(
   try {
     const tokens = await exchangeRefreshToken(cookies);
     if (tokens?.accessToken) {
-      const userId = jwtUserId;
-      if (userId) {
-        return { accessToken: tokens.accessToken, userId };
+      if (jwtUserId) {
+        return { accessToken: tokens.accessToken, userId: jwtUserId };
       }
-      // No JWT but Faust works — get userId and issue JWT retroactively
-      const auth = await getAuthenticatedUserId(cookies);
-      if (auth) {
-        const jwt = signJwt(auth.userId);
+      // No JWT but Faust works — get userId from viewer query and issue JWT
+      const graphqlUrl = getWordPressGraphQLUrl();
+      const viewerRes = await makeHttpRequest({
+        url: graphqlUrl,
+        body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
+        authToken: tokens.accessToken,
+      });
+      const userId = viewerRes.data?.data?.viewer?.databaseId;
+      if (userId) {
+        const jwt = signJwt(userId);
         ctx.res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
-        return { accessToken: auth.accessToken, userId: auth.userId };
+        return { accessToken: tokens.accessToken, userId };
       }
     }
   } catch {
