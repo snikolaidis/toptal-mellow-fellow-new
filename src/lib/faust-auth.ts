@@ -14,7 +14,15 @@ function extractRefreshToken(cookies: string): string | null {
   const host = new URL(WP_URL).host.replace(/[^a-zA-Z0-9.-]/g, '');
   const pattern = new RegExp(`https?${host}-rt=([^;]+)`);
   const match = cookies.match(pattern);
-  return match ? decodeURIComponent(match[1]) : null;
+  if (!match) return null;
+  // Faust stores the refresh token as base64(token), then cookie.serialize
+  // URI-encodes it. We need to reverse both layers.
+  const uriDecoded = decodeURIComponent(match[1]);
+  try {
+    return Buffer.from(uriDecoded, 'base64').toString('utf8');
+  } catch {
+    return uriDecoded;
+  }
 }
 
 export async function exchangeRefreshToken(
