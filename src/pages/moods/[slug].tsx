@@ -20,13 +20,14 @@ import FilterSheet from '@/components/shop/filters/FilterSheet';
 import { Product } from '@/types/woocommerce';
 import { Mood, MoodPill } from '@/types/mood';
 import {
-  PAGE_SIZE,
   FILTER_GROUPS,
   FilterGroup,
   isHiddenTerm,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 import moodStyles from '@/styles/pages/mood.module.css';
+
+const MOOD_PAGE_SIZE = 12;
 
 interface CategoryChip {
   slug: string;
@@ -120,6 +121,7 @@ export default function MoodPage({
     initialFilterGroups,
     initialHasNextPage,
     initialTotalPages,
+    pageSize: MOOD_PAGE_SIZE,
   });
 
   const [descExpanded, setDescExpanded] = useState(false);
@@ -481,7 +483,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       fetch(`${wpUrl}/wp-json/mf/v1/collection-facets?${qs}`)
         .then((r) => r.json())
         .catch(() => null),
-      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?${qs}&per_page=${PAGE_SIZE}`)
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?${qs}&per_page=${MOOD_PAGE_SIZE}`)
         .then((r) => r.json())
         .catch(() => null),
       getClient()
@@ -543,7 +545,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
     const initialProducts = productsRes?.products || [];
     const initialHasNextPage = productsRes?.hasNextPage || false;
-    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / PAGE_SIZE) : 0);
+    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / MOOD_PAGE_SIZE) : 0);
 
     const moodPills: MoodPill[] = (moodsRes?.data?.moods?.nodes || [])
       .map((m: { name: string; slug: string }) => ({
