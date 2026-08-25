@@ -31,41 +31,6 @@
     padding: 0;
   }
 
-  &__badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background-color: var(--color-gold-cream-20);
-    border: 2px solid var(--color-gold-cream);
-  }
-
-  &__badge-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--color-text-primary);
-  }
-
-  &__badge-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    line-height: 1;
-  }
-
-  &__badge-unit {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: var(--color-text-primary);
-  }
-
   &__tiles {
     display: grid;
     grid-template-columns: 1fr;
