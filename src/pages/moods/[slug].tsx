@@ -507,6 +507,18 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
             introHeading: decodeEntities(raw.moodFields.introHeading),
             introText: decodeEntities(raw.moodFields.introText),
             warningMessage: decodeEntities(raw.moodFields.warningMessage),
+            faqSectionTitle: decodeEntities(raw.moodFields.faqSectionTitle),
+            faqs: raw.moodFields.faqs
+              ? {
+                  ...raw.moodFields.faqs,
+                  nodes: (raw.moodFields.faqs.nodes ?? []).map(
+                    (faq: { id: string; title: string; content: string }) => ({
+                      ...faq,
+                      title: decodeEntities(faq.title),
+                    })
+                  ),
+                }
+              : raw.moodFields.faqs,
           }
         : raw.moodFields,
       seo: raw.seo
