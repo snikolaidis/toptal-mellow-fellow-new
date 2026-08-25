@@ -25,7 +25,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       userId: auth.userId,
       expiresIn: ACCESS_TTL,
     });
-  } catch {
+  } catch (err) {
+    console.error('[auth/jwt] Token issuance failed:', err);
     return res.status(500).json({ success: false, message: 'Token issuance failed' });
   }
 }
