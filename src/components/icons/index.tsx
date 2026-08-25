@@ -16,18 +16,6 @@ export const MellowFellowLogo = () => (
   />
 );
 
-// Twenty One Logo - Main branding (black version for light backgrounds)
-export const TwentyOneLogo = ({ className = 'h-10 w-auto' }: { className?: string }) => (
-  <Image
-    src="/logo-black.png"
-    alt="Twenty One Cannabis"
-    width={200}
-    height={50}
-    className={className}
-    style={{ height: 'auto', width: 'auto' }}
-  />
-);
-
 // Twenty One Logo - White version for dark backgrounds (footer, etc.)
 export const TwentyOneLogoWhite = ({ className = 'h-8 w-auto' }: { className?: string }) => (
   <Image
@@ -41,7 +29,6 @@ export const TwentyOneLogoWhite = ({ className = 'h-8 w-auto' }: { className?: s
 );
 
 // Legacy exports for backward compatibility
-export const CasaIcon = TwentyOneLogo;
 export const CasaIconSmall = TwentyOneLogoWhite;
 
 export const EmailIcon = () => (
@@ -85,13 +72,6 @@ export const CartIcon = () => (
 export const GridIcon = () => (
   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" />
-  </svg>
-);
-
-// Hamburger menu icon
-export const MenuIcon = () => (
-  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
   </svg>
 );
 
