@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { useRouter } from 'next/router';
 
 interface AuthContextValue {
   isAuthenticated: boolean | null;
   isReady: boolean;
   userId: number | null;
+  authenticate: (uid: number, expiresIn: number) => void;
   logout: (redirectTo?: string) => void;
 }
 
@@ -11,6 +13,7 @@ const AuthContext = createContext<AuthContextValue>({
   isAuthenticated: null,
   isReady: false,
   userId: null,
+  authenticate: () => {},
   logout: () => {},
 });
 
@@ -19,6 +22,7 @@ export function useAuth(): AuthContextValue {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
@@ -47,6 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, delay);
   }, []);
 
+  const authenticate = useCallback((uid: number, expiresIn: number) => {
+    setIsAuthenticated(true);
+    setUserId(uid);
+    setIsReady(true);
+    scheduleRefresh(expiresIn);
+  }, [scheduleRefresh]);
+
   useEffect(() => {
     let cancelled = false;
     fetch('/api/auth/me', { credentials: 'same-origin' })
@@ -74,15 +85,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback((redirectTo?: string) => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    setIsAuthenticated(false);
+    setUserId(null);
     fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
       .catch(() => {})
       .finally(() => {
-        window.location.assign(redirectTo || '/');
+        router.push(redirectTo || '/');
       });
-  }, []);
+  }, [router]);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isReady, userId, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isReady, userId, authenticate, logout }}>
       {children}
     </AuthContext.Provider>
   );

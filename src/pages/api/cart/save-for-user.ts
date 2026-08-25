@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { makeHttpRequest } from '@/lib/http';
 import { withRateLimitOnly } from '@/lib/middleware';
 import { verifyJwt, extractJwt } from '@/lib/jwt-auth';
+import { validateSession } from '@/lib/session-manager';
 
 function extractCartToken(cookies: string): string | null {
   const match = cookies.match(/wc_cart_token=([^;]+)/);
@@ -23,7 +24,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const jwt = extractJwt(cookies);
     const auth = jwt ? verifyJwt(jwt) : null;
-    if (!auth) {
+    if (!auth || !(await validateSession(auth.sessionId))) {
       return res.status(200).json({ success: true, saved: false });
     }
 

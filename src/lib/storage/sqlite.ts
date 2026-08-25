@@ -551,13 +551,14 @@ export class SQLiteStorage implements IStorage {
 
   async getAuthSessionById(sessionId: string): Promise<AuthSession | null> {
     const db = this.getDb();
+    const now = Date.now();
     const row = db
       .prepare(
         `SELECT session_id, user_id, refresh_token_hash, user_agent, ip_address,
                 created_at, last_used_at, expires_at, revoked
-         FROM auth_sessions WHERE session_id = ?`,
+         FROM auth_sessions WHERE session_id = ? AND expires_at > ?`,
       )
-      .get(sessionId) as Record<string, unknown> | undefined;
+      .get(sessionId, now) as Record<string, unknown> | undefined;
     return row ? this.mapSessionRow(row) : null;
   }
 

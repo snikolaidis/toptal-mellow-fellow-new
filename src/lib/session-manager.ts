@@ -23,9 +23,14 @@ function getClientIp(req: NextApiRequest): string {
   return req.socket?.remoteAddress || 'unknown';
 }
 
+interface RequestInfo {
+  userAgent: string;
+  ipAddress: string;
+}
+
 export async function createSession(
   userId: number,
-  req: NextApiRequest,
+  reqInfo: NextApiRequest | RequestInfo,
 ): Promise<{
   accessToken: string;
   refreshToken: string;
@@ -37,12 +42,16 @@ export async function createSession(
   const refreshToken = crypto.randomBytes(32).toString('hex');
   const now = Date.now();
 
+  const info = 'headers' in reqInfo
+    ? { userAgent: (reqInfo.headers['user-agent'] as string) || '', ipAddress: getClientIp(reqInfo as NextApiRequest) }
+    : reqInfo;
+
   const session: AuthSession = {
     sessionId,
     userId,
     refreshTokenHash: hashToken(refreshToken),
-    userAgent: (req.headers['user-agent'] as string) || '',
-    ipAddress: getClientIp(req),
+    userAgent: info.userAgent,
+    ipAddress: info.ipAddress,
     createdAt: now,
     lastUsedAt: now,
     expiresAt: now + REFRESH_TOKEN_TTL_MS,

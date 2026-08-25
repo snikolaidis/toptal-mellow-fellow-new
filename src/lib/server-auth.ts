@@ -1,14 +1,25 @@
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { makeHttpRequest, getWordPressGraphQLUrl } from './http';
-import { verifyJwt, extractJwt, signJwt, jwtCookieHeader, refreshCookieHeader } from './jwt-auth';
+import { verifyJwt, extractJwt } from './jwt-auth';
 import { exchangeRefreshToken, getAuthenticatedUserId } from './faust-auth';
 import { validateSession, createSession } from './session-manager';
-import { getStorage } from '@/lib/storage';
-import crypto from 'crypto';
 
 interface AuthResult {
   accessToken?: string;
   userId: number;
+}
+
+function extractRequestInfo(ctx: GetServerSidePropsContext) {
+  const forwarded = ctx.req.headers['x-forwarded-for'];
+  let ipAddress = 'unknown';
+  if (typeof forwarded === 'string') ipAddress = forwarded.split(',')[0].trim();
+  else if (Array.isArray(forwarded)) ipAddress = forwarded[0];
+  else if (ctx.req.socket?.remoteAddress) ipAddress = ctx.req.socket.remoteAddress;
+
+  return {
+    userAgent: (ctx.req.headers['user-agent'] as string) || '',
+    ipAddress,
+  };
 }
 
 export async function getServerSideAuth(
@@ -30,8 +41,8 @@ export async function getServerSideAuth(
   const auth = await getAuthenticatedUserId(cookies);
   if (!auth) return null;
 
-  const sessionResult = await createServerSession(auth.userId, ctx);
-  ctx.res.setHeader('Set-Cookie', sessionResult.setCookieHeaders);
+  const session = await createSession(auth.userId, extractRequestInfo(ctx));
+  ctx.res.setHeader('Set-Cookie', session.setCookieHeaders);
 
   return { accessToken: auth.accessToken, userId: auth.userId };
 }
@@ -66,8 +77,8 @@ export async function getServerSideAuthWithToken(
       });
       const userId = viewerRes.data?.data?.viewer?.databaseId;
       if (userId) {
-        const sessionResult = await createServerSession(userId, ctx);
-        ctx.res.setHeader('Set-Cookie', sessionResult.setCookieHeaders);
+        const session = await createSession(userId, extractRequestInfo(ctx));
+        ctx.res.setHeader('Set-Cookie', session.setCookieHeaders);
         return { accessToken: tokens.accessToken, userId };
       }
     }
@@ -80,44 +91,6 @@ export async function getServerSideAuthWithToken(
   }
 
   return null;
-}
-
-async function createServerSession(
-  userId: number,
-  ctx: GetServerSidePropsContext,
-): Promise<{ setCookieHeaders: string[] }> {
-  const storage = await getStorage();
-  const sessionId = crypto.randomUUID();
-  const refreshToken = crypto.randomBytes(32).toString('hex');
-  const now = Date.now();
-
-  await storage.createAuthSession({
-    sessionId,
-    userId,
-    refreshTokenHash: crypto.createHash('sha256').update(refreshToken).digest('hex'),
-    userAgent: (ctx.req.headers['user-agent'] as string) || '',
-    ipAddress: getClientIp(ctx),
-    createdAt: now,
-    lastUsedAt: now,
-    expiresAt: now + 30 * 24 * 60 * 60 * 1000,
-    revoked: false,
-  });
-
-  const accessToken = signJwt(userId, sessionId);
-
-  return {
-    setCookieHeaders: [
-      jwtCookieHeader(accessToken),
-      refreshCookieHeader(refreshToken),
-    ],
-  };
-}
-
-function getClientIp(ctx: GetServerSidePropsContext): string {
-  const forwarded = ctx.req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
-  if (Array.isArray(forwarded)) return forwarded[0];
-  return ctx.req.socket?.remoteAddress || 'unknown';
 }
 
 export function redirectToLogin(

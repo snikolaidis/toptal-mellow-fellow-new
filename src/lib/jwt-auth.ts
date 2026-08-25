@@ -10,7 +10,7 @@ function getSecret(): string {
   return s;
 }
 
-const ACCESS_TTL = 2 * 60; // 2 minutes (TESTING — revert to 15 * 60 after verification)
+const ACCESS_TTL = 15 * 60; // 15 minutes
 const REFRESH_TTL = 30 * 24 * 60 * 60; // 30 days
 const ACCESS_COOKIE = 'mf_jwt';
 const REFRESH_COOKIE = 'mf_refresh';

@@ -3,7 +3,7 @@ import { getAuthenticatedUserId } from '@/lib/faust-auth';
 import { createSession } from '@/lib/session-manager';
 import { withRateLimitOnly } from '@/lib/middleware';
 
-const ACCESS_TTL = 2 * 60; // TESTING — revert to 15 * 60
+const ACCESS_TTL = 15 * 60;
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {

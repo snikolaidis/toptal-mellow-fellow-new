@@ -146,10 +146,11 @@ async function getAuthFromRequest(req: NextApiRequest): Promise<{ userId: number
 
   // Fast path: JWT gives us userId without a network call
   const { verifyJwt, extractJwt } = await import('@/lib/jwt-auth');
+  const { validateSession } = await import('@/lib/session-manager');
   const jwt = extractJwt(cookies);
   if (jwt) {
     const result = verifyJwt(jwt);
-    if (result) {
+    if (result && (await validateSession(result.sessionId))) {
       // Lazily get WPGraphQL access token only when needed downstream
       try {
         const { exchangeRefreshToken } = await import('@/lib/faust-auth');
