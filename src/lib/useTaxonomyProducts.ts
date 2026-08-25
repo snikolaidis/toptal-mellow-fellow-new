@@ -19,6 +19,7 @@ interface UseTaxonomyProductsArgs {
   initialFilterGroups: FilterGroup[];
   initialHasNextPage: boolean;
   initialTotalPages: number;
+  pageSize?: number;
 }
 
 export function useTaxonomyProducts({
@@ -28,6 +29,7 @@ export function useTaxonomyProducts({
   initialFilterGroups,
   initialHasNextPage,
   initialTotalPages,
+  pageSize = PAGE_SIZE,
 }: UseTaxonomyProductsArgs) {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -50,7 +52,7 @@ export function useTaxonomyProducts({
       setLoading(true);
       try {
         const params = new URLSearchParams();
-        params.set('first', String(PAGE_SIZE));
+        params.set('first', String(pageSize));
 
         // Both of these fail silently with a 200 if changed. The slug travels
         // under `collection` for every taxonomy: the BFF branches on that param
@@ -83,7 +85,7 @@ export function useTaxonomyProducts({
         setLoading(false);
       }
     },
-    [slug, taxonomy]
+    [slug, taxonomy, pageSize]
   );
 
   // Reset state when navigating between terms (React reuses the component)
