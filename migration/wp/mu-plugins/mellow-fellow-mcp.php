@@ -71,6 +71,12 @@ function mf_mcp_date( $date ) {
 
 /* ── summaries ───────────────────────────────────────────────────── */
 
+// WordPress permalinks say /products/{slug} but the headless frontend serves the
+// product page at /product/{slug}, so the raw permalink 404s for anyone who clicks it.
+function mf_mcp_product_url( WC_Product $product ) {
+    return str_replace( '/products/', '/product/', $product->get_permalink() );
+}
+
 function mf_mcp_summarize_product( WC_Product $product ) {
     $categories = array();
     foreach ( $product->get_category_ids() as $term_id ) {
@@ -84,7 +90,7 @@ function mf_mcp_summarize_product( WC_Product $product ) {
     return array(
         'id'            => $product->get_id(),
         'name'          => $product->get_name(),
-        'url'           => $product->get_permalink(),
+        'url'           => mf_mcp_product_url( $product ),
         'price'         => (string) $product->get_price(),
         'regularPrice'  => (string) $product->get_regular_price(),
         'onSale'        => (bool) $product->is_on_sale(),
