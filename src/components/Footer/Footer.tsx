@@ -140,9 +140,17 @@ function footerHref(uri: string): { href: string; external: boolean } {
   }
 }
 
-function MenuColumn({ heading, items }: { heading: string; items: FooterMenuItem[] }) {
+function MenuColumn({
+  heading,
+  items,
+  modifier,
+}: {
+  heading: string;
+  items: FooterMenuItem[];
+  modifier: string;
+}) {
   return (
-    <div className="footer-col">
+    <div className={`footer-col ${modifier}`}>
       <h3 className="footer-col__heading">{heading}</h3>
       <ul className="footer-col__list">
         {items.map((item) => {
@@ -217,7 +225,30 @@ export default function Footer() {
         <div className="footer__inner">
           <div className="footer-content">
             {/* Stay Mellow (WP "Footer 1" location) */}
-            <MenuColumn heading={footerMenu?.name ?? 'Stay Mellow'} items={footerItems} />
+            <MenuColumn
+              heading={footerMenu?.name ?? 'Stay Mellow'}
+              items={footerItems}
+              modifier="footer-col--menu-1"
+            />
+
+            <div className="footer-col footer-col--payment">
+              <h3 className="footer-col__heading">We accept</h3>
+              <ul className="footer-col__accept">
+                {PAYMENT_MARKS.map(({ label, Icon }) => (
+                  <li key={label}>
+                    <Icon />
+                    <span className="is-sr-only">{label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Legal (WP "Footer 2" location) */}
+            <MenuColumn
+              heading={footerMenu2?.name ?? 'Legal'}
+              items={footerItems2}
+              modifier="footer-col--menu-2"
+            />
 
             <div className="footer-col footer-col--contact">
               <div>
@@ -251,21 +282,6 @@ export default function Footer() {
                 </ul>
               </div>
             </div>
-
-            <div className="footer-col">
-              <h3 className="footer-col__heading">We accept</h3>
-              <ul className="footer-col__accept">
-                {PAYMENT_MARKS.map(({ label, Icon }) => (
-                  <li key={label}>
-                    <Icon />
-                    <span className="is-sr-only">{label}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Legal (WP "Footer 2" location) */}
-            <MenuColumn heading={footerMenu2?.name ?? 'Legal'} items={footerItems2} />
           </div>
 
           <div className="footer-copyright">

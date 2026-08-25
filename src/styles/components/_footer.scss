@@ -221,6 +221,22 @@ $ft-bp-2col: 480px;
 
   @include large-up {
     grid-template-columns: var(--ft-grid-4);
+
+    .footer-col--menu-1 {
+      order: 1;
+    }
+
+    .footer-col--contact {
+      order: 2;
+    }
+
+    .footer-col--payment {
+      order: 3;
+    }
+
+    .footer-col--menu-2 {
+      order: 4;
+    }
   }
 }
 
