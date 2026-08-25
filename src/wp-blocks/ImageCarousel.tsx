@@ -9,7 +9,7 @@ import 'swiper/css';
  * Backend-managed image carousel (ACF block `acf/image-carousel`). Replaces
  * the hardcoded FeaturedIn component: the title and images (an ACF gallery
  * field) come from WordPress, while the carousel behaviour is fixed here —
- * autoplay on a seamless loop, 2 slides on mobile and all images visible from
+ * autoplay on a seamless loop, 3 slides on mobile and all images visible from
  * 768px up — matching the original FeaturedIn exactly.
  *
  * Swiper only loops when the track holds more slides than it shows at once, so
@@ -76,7 +76,7 @@ export default function ImageCarousel(props: ImageCarouselProps) {
 
   const carousel = (
     <Swiper
-      slidesPerView={2}
+      slidesPerView={3}
       spaceBetween={30}
       modules={[Autoplay]}
       autoplay={
