@@ -71,10 +71,24 @@ function mf_mcp_date( $date ) {
 
 /* ── summaries ───────────────────────────────────────────────────── */
 
-// WordPress permalinks say /products/{slug} but the headless frontend serves the
-// product page at /product/{slug}, so the raw permalink 404s for anyone who clicks it.
+// get_permalink() returns the WordPress backend domain with a /products/{slug} path.
+// Customers must never be sent there: the storefront is the headless frontend and it
+// serves /product/{slug}. Faust already stores the frontend origin, so that is the
+// default, with a setting to override it when the public domain changes.
+function mf_mcp_storefront_url() {
+    $override = mf_mcp_config( 'STOREFRONT_URL' );
+    if ( '' !== $override ) return rtrim( $override, '/' );
+
+    $faust = get_option( 'faustwp_settings' );
+    if ( is_array( $faust ) && ! empty( $faust['frontend_uri'] ) ) {
+        return rtrim( (string) $faust['frontend_uri'], '/' );
+    }
+
+    return rtrim( home_url(), '/' );
+}
+
 function mf_mcp_product_url( WC_Product $product ) {
-    return str_replace( '/products/', '/product/', $product->get_permalink() );
+    return mf_mcp_storefront_url() . '/product/' . $product->get_slug();
 }
 
 function mf_mcp_summarize_product( WC_Product $product ) {
@@ -489,6 +503,10 @@ add_action( 'admin_post_mf_mcp_save_settings', function () {
     $token = isset( $_POST['mf_mcp_BEARER_TOKEN'] ) ? sanitize_text_field( wp_unslash( $_POST['mf_mcp_BEARER_TOKEN'] ) ) : '';
     if ( '' !== $token ) $settings['BEARER_TOKEN'] = $token;
 
+    $settings['STOREFRONT_URL'] = isset( $_POST['mf_mcp_STOREFRONT_URL'] )
+        ? esc_url_raw( wp_unslash( $_POST['mf_mcp_STOREFRONT_URL'] ) )
+        : '';
+
     update_option( MF_MCP_SETTINGS_OPTION, $settings, false );
 
     wp_safe_redirect( add_query_arg( 'mf_mcp_saved', '1', admin_url( 'options-general.php?page=mf-mcp' ) ) );
@@ -521,6 +539,13 @@ function mf_mcp_render_admin_page() {
                     <td>
                         <input name="mf_mcp_BEARER_TOKEN" id="mf_mcp_BEARER_TOKEN" type="password" class="regular-text" autocomplete="off" placeholder="<?php echo $has_token ? 'unchanged' : 'paste the token'; ?>" />
                         <p class="description">Leave blank to keep the current token. Must match the token set on the FlowHunt connector.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="mf_mcp_STOREFRONT_URL">Storefront URL</label></th>
+                    <td>
+                        <input name="mf_mcp_STOREFRONT_URL" id="mf_mcp_STOREFRONT_URL" type="url" class="regular-text" value="<?php echo esc_attr( mf_mcp_config( 'STOREFRONT_URL' ) ); ?>" placeholder="<?php echo esc_attr( mf_mcp_storefront_url() ); ?>" />
+                        <p class="description">Where product links point. Leave blank to use the headless frontend Faust already knows about, currently <code><?php echo esc_html( mf_mcp_storefront_url() ); ?></code>. Set it when the public domain changes.</p>
                     </td>
                 </tr>
             </table>
