@@ -1,8 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { verifyJwt, extractJwt, jwtCookieHeader, signJwt } from '@/lib/jwt-auth';
-import { exchangeRefreshToken, getAuthenticatedUserId } from '@/lib/faust-auth';
+import { verifyJwt, extractJwt } from '@/lib/jwt-auth';
+import { getAuthenticatedUserId } from '@/lib/faust-auth';
+import { validateSession, createSession } from '@/lib/session-manager';
+import { withRateLimitOnly } from '@/lib/middleware';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+const ACCESS_TTL = 2 * 60; // TESTING — revert to 15 * 60
+
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -11,27 +15,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const cookies = req.headers.cookie || '';
 
-  // Fast path: verify JWT locally (no network call)
   const token = extractJwt(cookies);
   if (token) {
     const result = verifyJwt(token);
     if (result) {
-      return res.status(200).json({ authenticated: true, userId: result.userId });
+      const sessionValid = await validateSession(result.sessionId);
+      if (!sessionValid) {
+        return res.status(200).json({ authenticated: false, userId: null });
+      }
+      const expiresIn = result.exp - Math.floor(Date.now() / 1000);
+      return res.status(200).json({
+        authenticated: true,
+        userId: result.userId,
+        expiresIn,
+      });
     }
   }
 
-  // Fallback: exchange Faust refresh token (for users who logged in before JWT rollout)
   try {
     const auth = await getAuthenticatedUserId(cookies);
     if (auth) {
-      // Issue JWT retroactively so subsequent requests use the fast path
-      const jwt = signJwt(auth.userId);
-      res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
-      return res.status(200).json({ authenticated: true, userId: auth.userId });
+      const session = await createSession(auth.userId, req);
+      res.setHeader('Set-Cookie', session.setCookieHeaders);
+      return res.status(200).json({
+        authenticated: true,
+        userId: auth.userId,
+        expiresIn: ACCESS_TTL,
+      });
     }
   } catch {
-    // Faust exchange failed — not authenticated
+    // Faust exchange failed
   }
 
   return res.status(200).json({ authenticated: false, userId: null });
 }
+
+export default withRateLimitOnly(60)(handler);

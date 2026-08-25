@@ -17,6 +17,7 @@ import type {
   IdempotencyEntry,
   CsrfTokenEntry,
   ReconciliationEntry,
+  AuthSession,
 } from './types';
 
 const SCHEMA = `
@@ -69,6 +70,22 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_reconciliation_transaction ON reconciliation_log(transaction_id);
   CREATE INDEX IF NOT EXISTS idx_reconciliation_status ON reconciliation_log(status);
   CREATE INDEX IF NOT EXISTS idx_reconciliation_created ON reconciliation_log(created_at);
+
+  -- Auth Sessions Table
+  CREATE TABLE IF NOT EXISTS auth_sessions (
+    session_id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    refresh_token_hash TEXT NOT NULL UNIQUE,
+    user_agent TEXT NOT NULL DEFAULT '',
+    ip_address TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    revoked INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_sessions_user ON auth_sessions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_sessions_refresh ON auth_sessions(refresh_token_hash);
+  CREATE INDEX IF NOT EXISTS idx_sessions_expires ON auth_sessions(expires_at);
 `;
 
 export class SQLiteStorage implements IStorage {
@@ -510,6 +527,109 @@ export class SQLiteStorage implements IStorage {
   }
 
   // ============================================================================
+  // Auth Sessions
+  // ============================================================================
+
+  async createAuthSession(session: AuthSession): Promise<AuthSession> {
+    const db = this.getDb();
+    db.prepare(
+      `INSERT INTO auth_sessions
+       (session_id, user_id, refresh_token_hash, user_agent, ip_address, created_at, last_used_at, expires_at, revoked)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+    ).run(
+      session.sessionId,
+      session.userId,
+      session.refreshTokenHash,
+      session.userAgent,
+      session.ipAddress,
+      session.createdAt,
+      session.lastUsedAt,
+      session.expiresAt,
+    );
+    return session;
+  }
+
+  async getAuthSessionById(sessionId: string): Promise<AuthSession | null> {
+    const db = this.getDb();
+    const row = db
+      .prepare(
+        `SELECT session_id, user_id, refresh_token_hash, user_agent, ip_address,
+                created_at, last_used_at, expires_at, revoked
+         FROM auth_sessions WHERE session_id = ?`,
+      )
+      .get(sessionId) as Record<string, unknown> | undefined;
+    return row ? this.mapSessionRow(row) : null;
+  }
+
+  async getAuthSessionByRefreshTokenHash(
+    hash: string,
+  ): Promise<AuthSession | null> {
+    const db = this.getDb();
+    const row = db
+      .prepare(
+        `SELECT session_id, user_id, refresh_token_hash, user_agent, ip_address,
+                created_at, last_used_at, expires_at, revoked
+         FROM auth_sessions WHERE refresh_token_hash = ?`,
+      )
+      .get(hash) as Record<string, unknown> | undefined;
+    return row ? this.mapSessionRow(row) : null;
+  }
+
+  async getAuthSessionsByUserId(userId: number): Promise<AuthSession[]> {
+    const db = this.getDb();
+    const now = Date.now();
+    const rows = db
+      .prepare(
+        `SELECT session_id, user_id, refresh_token_hash, user_agent, ip_address,
+                created_at, last_used_at, expires_at, revoked
+         FROM auth_sessions
+         WHERE user_id = ? AND expires_at > ? AND revoked = 0
+         ORDER BY last_used_at DESC`,
+      )
+      .all(userId, now) as Record<string, unknown>[];
+    return rows.map((r) => this.mapSessionRow(r));
+  }
+
+  async updateAuthSessionRefreshToken(
+    sessionId: string,
+    newHash: string,
+  ): Promise<void> {
+    const db = this.getDb();
+    const now = Date.now();
+    db.prepare(
+      `UPDATE auth_sessions SET refresh_token_hash = ?, last_used_at = ? WHERE session_id = ?`,
+    ).run(newHash, now, sessionId);
+  }
+
+  async revokeAuthSession(sessionId: string): Promise<void> {
+    const db = this.getDb();
+    db.prepare(
+      `UPDATE auth_sessions SET revoked = 1 WHERE session_id = ?`,
+    ).run(sessionId);
+  }
+
+  async revokeAllUserAuthSessions(userId: number): Promise<void> {
+    const db = this.getDb();
+    db.prepare(
+      `UPDATE auth_sessions SET revoked = 1 WHERE user_id = ?`,
+    ).run(userId);
+  }
+
+  private mapSessionRow(row: Record<string, unknown>): AuthSession {
+    return {
+      sessionId: row.session_id as string,
+      userId: row.user_id as number,
+      refreshTokenHash: row.refresh_token_hash as string,
+      userAgent: row.user_agent as string,
+      ipAddress: row.ip_address as string,
+      createdAt: row.created_at as number,
+      lastUsedAt: row.last_used_at as number,
+      expiresAt: row.expires_at as number,
+      revoked: (row.revoked as number) === 1,
+    };
+  }
+
+  // ============================================================================
   // Cleanup
   // ============================================================================
 
@@ -517,6 +637,7 @@ export class SQLiteStorage implements IStorage {
     rateLimits: number;
     idempotency: number;
     csrf: number;
+    sessions: number;
   }> {
     const db = this.getDb();
     const now = Date.now();
@@ -533,10 +654,17 @@ export class SQLiteStorage implements IStorage {
       .prepare(`DELETE FROM csrf_tokens WHERE expires_at < ?`)
       .run(now);
 
+    const sessionsResult = db
+      .prepare(
+        `DELETE FROM auth_sessions WHERE expires_at < ? OR (revoked = 1 AND last_used_at < ?)`,
+      )
+      .run(now, now - 86400000);
+
     return {
       rateLimits: rateLimitsResult.changes,
       idempotency: idempotencyResult.changes,
       csrf: csrfResult.changes,
+      sessions: sessionsResult.changes,
     };
   }
 }

@@ -1,8 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { signJwt, jwtCookieHeader } from '@/lib/jwt-auth';
 import { getAuthenticatedUserId } from '@/lib/faust-auth';
+import { createSession } from '@/lib/session-manager';
+import { withRateLimitOnly } from '@/lib/middleware';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+const ACCESS_TTL = 2 * 60; // TESTING — revert to 15 * 60
+
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -15,10 +18,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
 
-    const jwt = signJwt(auth.userId);
-    res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
-    return res.status(200).json({ success: true, userId: auth.userId });
+    const session = await createSession(auth.userId, req);
+    res.setHeader('Set-Cookie', session.setCookieHeaders);
+    return res.status(200).json({
+      success: true,
+      userId: auth.userId,
+      expiresIn: ACCESS_TTL,
+    });
   } catch {
     return res.status(500).json({ success: false, message: 'Token issuance failed' });
   }
 }
+
+export default withRateLimitOnly(5)(handler);
