@@ -3,7 +3,8 @@
 // The mobile panel portals to <body>, so it is not a descendant of .site-header
 // and cannot inherit these.
 .site-header,
-.site-header__mobile {
+.site-header__mobile,
+.site-header__mobile-modal {
   --sh-inline-pad: 1rem;
   --sh-bar-gap: 1rem;
   --sh-bar-pad-block: 0.75rem;
@@ -164,6 +165,13 @@
   --sh-mobile-duration: 0.2s;
   // Clears the Yotpo loyalty floater, which injects itself fixed at 10000.
   --sh-mobile-z: 10010;
+  --sh-mobile-scrim: rgba(0, 0, 0, 0.5);
+  --sh-mobile-close-w: 24px;
+  --sh-mobile-close-h: 30px;
+  // Emma's viewBox, not the 16.012 spec: at 16.012 the glyph shrinks 6%.
+  --sh-mobile-close-icon: 17px;
+  --sh-mobile-close-gap: 16px;
+  --sh-mobile-close-top: 16px;
 
   --sh-drawer-bg: var(--sh-nav-cream);
   --sh-drawer-pad: 1rem;
@@ -854,7 +862,22 @@
   border-top: 1px solid var(--sh-mega-rule);
 }
 
-// Fixed, so the panel holds still while the page behind it scrolls.
+.site-header__mobile-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sh-mobile-z);
+
+  @include mixins.desktop {
+    display: none;
+  }
+}
+
+.site-header__mobile-scrim {
+  position: absolute;
+  inset: 0;
+  background-color: var(--sh-mobile-scrim);
+}
+
 .site-header__mobile {
   position: fixed;
   inset-block: 0;
@@ -915,7 +938,6 @@
   align-self: stretch;
 }
 
-.site-header__mobile-close,
 .site-header__mobile-back {
   display: inline-flex;
   align-items: center;
@@ -928,6 +950,27 @@
   svg {
     width: 100%;
     height: 100%;
+  }
+}
+
+.site-header__mobile-close {
+  position: absolute;
+  inset-block-start: var(--sh-mobile-close-top);
+  inset-inline-start: min(
+    calc(var(--sh-mobile-w) + var(--sh-mobile-close-gap)),
+    calc(100% - var(--sh-mobile-close-w) - var(--sh-mobile-close-gap))
+  );
+  z-index: calc(var(--sh-mobile-z) + 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sh-mobile-close-w);
+  height: var(--sh-mobile-close-h);
+  cursor: pointer;
+
+  svg {
+    width: var(--sh-mobile-close-icon);
+    height: var(--sh-mobile-close-icon);
   }
 }
 
