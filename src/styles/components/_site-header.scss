@@ -165,9 +165,6 @@
   // Clears the Yotpo loyalty floater, which injects itself fixed at 10000.
   --sh-mobile-z: 10010;
 
-  --sh-drawer-bg: var(--sh-nav-cream);
-  --sh-drawer-pad: 1rem;
-
   --sh-focus-ring-w: 2px;
   --sh-focus-ring-color: var(--color-brand-primary);
   --sh-focus-ring-offset: 3px;
@@ -411,8 +408,7 @@
 
 .site-header__search,
 .site-header__action,
-.site-header__shop-trigger,
-.site-header__drawer-trigger {
+.site-header__shop-trigger {
   appearance: none;
   background: none;
   border: none;
@@ -1162,57 +1158,6 @@
       &:hover {
         text-decoration: underline;
       }
-    }
-  }
-}
-
-.site-header__drawer {
-  display: none;
-  background-color: var(--sh-drawer-bg);
-  padding: var(--sh-drawer-pad) var(--sh-inline-pad);
-
-  @include mixins.touch {
-    &.is-active {
-      display: block;
-    }
-  }
-}
-
-.site-header__drawer-link,
-.site-header__drawer-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding-block: 0.6rem;
-  color: var(--color-text-primary);
-  font-size: var(--sh-nav-font-size);
-  text-align: start;
-}
-
-.site-header__drawer-caret {
-  display: inline-flex;
-  transition: transform 0.25s ease;
-
-  svg {
-    width: 1rem;
-    height: 1rem;
-  }
-}
-
-.site-header__drawer-group {
-  .site-header__drawer-submenu {
-    display: none;
-    padding-inline-start: 1rem;
-  }
-
-  &.is-open {
-    .site-header__drawer-submenu {
-      display: block;
-    }
-
-    .site-header__drawer-caret {
-      transform: rotate(180deg);
     }
   }
 }
