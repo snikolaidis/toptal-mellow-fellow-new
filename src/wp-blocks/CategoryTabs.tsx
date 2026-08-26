@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCollectionFilter } from '@/context/CollectionFilterContext';
 import { taxonomyForTypename } from '@/lib/taxonomy';
+import { decodeEntities } from '@/lib/decodeEntities';
 
 interface MediaItem {
   id?: string;
@@ -27,13 +28,33 @@ interface Tab {
   isActive?: boolean | null;
 }
 
+interface MoodTerm {
+  name?: string | null;
+  slug?: string | null;
+  count?: number | null;
+}
+
 interface CategoryTabsProps {
+  moodTerms?: MoodTerm[] | null;
   categoryTabs?: {
     heading?: string | null;
     subheading?: string | null;
     filterGroup?: string | null;
     tabs?: Tab[] | null;
   } | null;
+}
+
+function moodToTab(term: MoodTerm): Tab | null {
+  if (!term.slug || !term.name) return null;
+  return {
+    label: decodeEntities(term.name),
+    // No icon: the only image a mood term carries is its full bleed hero, which
+    // reads as a cropped photo at 24px. Emma's mood tabs are text only.
+    icon: null,
+    collection: {
+      nodes: [{ __typename: 'Mood', name: term.name, slug: term.slug }],
+    },
+  };
 }
 
 // Product category wins over collection: the collection terms behind these tabs
@@ -72,7 +93,22 @@ export default function CategoryTabs(props: CategoryTabsProps) {
   const data = props.categoryTabs;
   const group = data?.filterGroup || '';
   const { selected, select } = useCollectionFilter(group);
-  const tabs = data?.tabs ?? [];
+
+  // The mood tabs come from the taxonomy so all six show up and stay in step
+  // with the mood pages. The hand maintained repeater is the fallback for the
+  // category tabs, and for environments where the taxonomy is absent.
+  const moodTabs = useMemo(
+    () =>
+      (props.moodTerms ?? [])
+        // A mood with no products would render a tab that empties the carousel
+        // underneath it. Assigning products to the mood brings its tab back on
+        // its own.
+        .filter((term) => (term.count ?? 0) > 0)
+        .map(moodToTab)
+        .filter((t): t is Tab => t !== null),
+    [props.moodTerms]
+  );
+  const tabs = group === 'moods' && moodTabs.length > 0 ? moodTabs : data?.tabs ?? [];
   const tabTerms = useMemo(() => tabs.map((t) => tabTerm(t)), [tabs]);
   const defaultTerm = tabTerms[tabs.findIndex((t) => t.isActive)] ?? tabTerms.find(Boolean) ?? null;
   const defaultSlug = defaultTerm?.slug || '';
@@ -112,6 +148,7 @@ export default function CategoryTabs(props: CategoryTabsProps) {
                   key={i}
                   type="button"
                   className={className}
+                  data-term={term.slug}
                   aria-pressed={isActive}
                   onClick={() => select(term)}
                 >

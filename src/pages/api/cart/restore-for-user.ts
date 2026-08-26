@@ -3,6 +3,7 @@ import https from 'https';
 import http from 'http';
 import { withRateLimitOnly } from '@/lib/middleware';
 import { verifyJwt, extractJwt } from '@/lib/jwt-auth';
+import { validateSession } from '@/lib/session-manager';
 
 const keepAliveAgent = new https.Agent({ keepAlive: true });
 const keepAliveAgentHttp = new http.Agent({ keepAlive: true });
@@ -47,7 +48,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const cookies = req.headers.cookie || '';
     const jwt = extractJwt(cookies);
     const auth = jwt ? verifyJwt(jwt) : null;
-    if (!auth) {
+    if (!auth || !(await validateSession(auth.sessionId))) {
       return res.status(200).json({ success: true, restored: false });
     }
 

@@ -347,7 +347,7 @@ const AffiliatePage: FaustTemplate<AffiliateData> = (props) => {
                       __html: product.shortDescription.replace(/<[^>]+>/g, '').slice(0, 100),
                     }} />
                   )}
-                  <Link href={`/product/${product.slug}`} className={styles.viewProductBtn}>
+                  <Link href={`/products/${product.slug}`} className={styles.viewProductBtn}>
                     View Product
                   </Link>
                 </div>

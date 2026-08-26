@@ -23,6 +23,38 @@
     height: auto;
   }
 
+  // One dot per page of real products. Swiper's own bullets count the repeated
+  // track, so they are replaced rather than styled. Same dot and active-pill
+  // treatment as the hero slider and the PDP gallery.
+  &__dots {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 18px;
+
+    @include large-up {
+      display: flex;
+    }
+  }
+
+  &__dot {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background-color: var(--color-brown-40);
+    cursor: pointer;
+    appearance: none;
+    transition: width 0.2s ease, background-color 0.2s ease;
+  }
+
+  &__dot--active {
+    width: 33px;
+    background-color: var(--color-teal-85);
+  }
+
   @include large-up {
     .container {
       width: min(1315px, 100%);
@@ -67,6 +99,32 @@
     var(--color-hero-gold) 0%,
     rgba(255, 255, 255, 0) 100%
   );
+
+  // The mood panel begins on the colour the tab ends on, so the two meet as one
+  // surface and then fade out together, exactly how the gold panel above works.
+  &[data-term='sleep-better'] {
+    background: linear-gradient(180deg, #7c629e 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='relief'] {
+    background: linear-gradient(180deg, #ffcc4f 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='chill-out'] {
+    background: linear-gradient(180deg, #005069 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='energy-focus'] {
+    background: linear-gradient(180deg, #fcbb77 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='happy-social'] {
+    background: linear-gradient(180deg, #628b6a 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='better-intimacy'] {
+    background: linear-gradient(180deg, #dd6e7a 0%, rgba(255, 255, 255, 0) 100%);
+  }
 
   @include large-up {
     margin-bottom: 0;

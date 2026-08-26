@@ -1,11 +1,25 @@
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { makeHttpRequest, getWordPressGraphQLUrl } from './http';
-import { verifyJwt, extractJwt, signJwt, jwtCookieHeader } from './jwt-auth';
+import { verifyJwt, extractJwt } from './jwt-auth';
 import { exchangeRefreshToken, getAuthenticatedUserId } from './faust-auth';
+import { validateSession, createSession } from './session-manager';
 
 interface AuthResult {
   accessToken?: string;
   userId: number;
+}
+
+function extractRequestInfo(ctx: GetServerSidePropsContext) {
+  const forwarded = ctx.req.headers['x-forwarded-for'];
+  let ipAddress = 'unknown';
+  if (typeof forwarded === 'string') ipAddress = forwarded.split(',')[0].trim();
+  else if (Array.isArray(forwarded)) ipAddress = forwarded[0];
+  else if (ctx.req.socket?.remoteAddress) ipAddress = ctx.req.socket.remoteAddress;
+
+  return {
+    userAgent: (ctx.req.headers['user-agent'] as string) || '',
+    ipAddress,
+  };
 }
 
 export async function getServerSideAuth(
@@ -13,22 +27,22 @@ export async function getServerSideAuth(
 ): Promise<AuthResult | null> {
   const cookies = ctx.req.headers.cookie || '';
 
-  // Fast path: verify JWT locally (no network call)
   const token = extractJwt(cookies);
   if (token) {
     const result = verifyJwt(token);
     if (result) {
-      return { userId: result.userId };
+      const sessionValid = await validateSession(result.sessionId);
+      if (sessionValid) {
+        return { userId: result.userId };
+      }
     }
   }
 
-  // Fallback: exchange Faust refresh token (transition period)
   const auth = await getAuthenticatedUserId(cookies);
   if (!auth) return null;
 
-  // Issue JWT retroactively so subsequent requests use the fast path
-  const jwt = signJwt(auth.userId);
-  ctx.res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
+  const session = await createSession(auth.userId, extractRequestInfo(ctx));
+  ctx.res.setHeader('Set-Cookie', session.setCookieHeaders);
 
   return { accessToken: auth.accessToken, userId: auth.userId };
 }
@@ -38,38 +52,44 @@ export async function getServerSideAuthWithToken(
 ): Promise<AuthResult | null> {
   const cookies = ctx.req.headers.cookie || '';
 
-  // Step 1: Check JWT for identity (instant, no network)
   const token = extractJwt(cookies);
-  const jwtUserId = token ? verifyJwt(token)?.userId ?? null : null;
+  const jwtResult = token ? verifyJwt(token) : null;
+  let jwtUserId: number | null = null;
 
-  // Step 2: Get WPGraphQL access token (needs WordPress)
+  if (jwtResult) {
+    const sessionValid = await validateSession(jwtResult.sessionId);
+    if (sessionValid) {
+      jwtUserId = jwtResult.userId;
+    }
+  }
+
   try {
     const tokens = await exchangeRefreshToken(cookies);
     if (tokens?.accessToken) {
-      const userId = jwtUserId;
-      if (userId) {
-        return { accessToken: tokens.accessToken, userId };
+      if (jwtUserId) {
+        return { accessToken: tokens.accessToken, userId: jwtUserId };
       }
-      // No JWT but Faust works — get userId and issue JWT retroactively
-      const auth = await getAuthenticatedUserId(cookies);
-      if (auth) {
-        const jwt = signJwt(auth.userId);
-        ctx.res.setHeader('Set-Cookie', jwtCookieHeader(jwt));
-        return { accessToken: auth.accessToken, userId: auth.userId };
+      const graphqlUrl = getWordPressGraphQLUrl();
+      const viewerRes = await makeHttpRequest({
+        url: graphqlUrl,
+        body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
+        authToken: tokens.accessToken,
+      });
+      const userId = viewerRes.data?.data?.viewer?.databaseId;
+      if (userId) {
+        const session = await createSession(userId, extractRequestInfo(ctx));
+        ctx.res.setHeader('Set-Cookie', session.setCookieHeaders);
+        return { accessToken: tokens.accessToken, userId };
       }
     }
   } catch {
-    // WordPress unavailable — fall through
+    // WordPress unavailable
   }
 
-  // JWT proves identity but WordPress can't provide a data token.
-  // Return userId without accessToken so the page can show an error
-  // instead of redirecting to login (the user IS authenticated).
   if (jwtUserId) {
     return { userId: jwtUserId };
   }
 
-  // No JWT, no Faust — genuinely not authenticated
   return null;
 }
 

@@ -95,6 +95,22 @@ export interface ReconciliationEntry {
 }
 
 // ============================================================================
+// Auth Session Types
+// ============================================================================
+
+export interface AuthSession {
+  sessionId: string;
+  userId: number;
+  refreshTokenHash: string;
+  userAgent: string;
+  ipAddress: string;
+  createdAt: number;
+  lastUsedAt: number;
+  expiresAt: number;
+  revoked: boolean;
+}
+
+// ============================================================================
 // Storage Interface
 // ============================================================================
 
@@ -145,10 +161,23 @@ export interface IStorage {
   ): Promise<ReconciliationEntry[]>;
   getPendingReconciliations(): Promise<ReconciliationEntry[]>;
 
+  // Auth Sessions
+  createAuthSession(session: AuthSession): Promise<AuthSession>;
+  getAuthSessionById(sessionId: string): Promise<AuthSession | null>;
+  getAuthSessionByRefreshTokenHash(hash: string): Promise<AuthSession | null>;
+  getAuthSessionsByUserId(userId: number): Promise<AuthSession[]>;
+  updateAuthSessionRefreshToken(
+    sessionId: string,
+    newHash: string,
+  ): Promise<void>;
+  revokeAuthSession(sessionId: string): Promise<void>;
+  revokeAllUserAuthSessions(userId: number): Promise<void>;
+
   // Cleanup
   cleanupExpiredEntries(): Promise<{
     rateLimits: number;
     idempotency: number;
     csrf: number;
+    sessions: number;
   }>;
 }

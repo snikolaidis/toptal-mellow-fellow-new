@@ -136,7 +136,7 @@ export default function CartPage() {
                                 />
                               )}
                               <div className={styles.productInfo}>
-                                <Link href={`/product/${item.product.slug}`}>
+                                <Link href={`/products/${item.product.slug}`}>
                                   {item.product.name}
                                 </Link>
                               </div>
@@ -167,7 +167,7 @@ export default function CartPage() {
                           />
                         )}
                         <div className={styles.productInfo}>
-                          <Link href={`/product/${item.product.slug}`}>
+                          <Link href={`/products/${item.product.slug}`}>
                             {item.product.name}
                           </Link>
                           {item.variation && (

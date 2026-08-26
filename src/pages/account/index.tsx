@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { gql, useQuery } from '@apollo/client';
+import { getApolloAuthClient } from '@faustwp/core';
 import { useAuth } from '@/context/AuthContext';
-import type { GetServerSideProps } from 'next';
-import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
-import Layout from '@/components/Layout';
-import { getServerSideAuthWithToken, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
+import AccountGuard from '@/components/account/AccountGuard';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
 import { initYotpoLoyaltyWidgets } from '@/lib/yotpoLoyalty';
 import LoyaltyRedeem from '@/components/LoyaltyRedeem';
@@ -29,10 +28,6 @@ interface CustomerData {
   orders: { nodes: OrderNode[] };
 }
 
-interface AccountPageProps {
-  customer: CustomerData;
-}
-
 function statusModifier(status: string): string {
   switch (status?.toLowerCase()) {
     case 'processing':
@@ -47,7 +42,7 @@ function statusModifier(status: string): string {
   }
 }
 
-const CUSTOMER_ORDERS_QUERY = `
+const CUSTOMER_ORDERS_QUERY = gql`
   query GetCustomerOrders {
     customer {
       email
@@ -70,28 +65,50 @@ const CUSTOMER_ORDERS_QUERY = `
   }
 `;
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
+function AccountSkeleton() {
+  return (
+    <div className="account">
+      <header className="account__header">
+        <div className="account__skeleton-bar" style={{ width: '220px', height: 36 }} />
+        <div className="account__skeleton-bar" style={{ width: '60px', height: 14 }} />
+      </header>
+      <div style={{ marginBottom: 28 }}>
+        <div className="account__skeleton-bar" style={{ width: '240px', height: 16, marginBottom: 8 }} />
+        <div className="account__skeleton-bar" style={{ width: '280px', height: 12 }} />
+      </div>
+      <div className="account__layout">
+        <div>
+          <div className="account__skeleton-bar" style={{ width: '140px', height: 20, marginBottom: 18 }} />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="account__skeleton-row">
+              <div className="account__skeleton-bar" style={{ width: '60px' }} />
+              <div className="account__skeleton-bar" style={{ width: '85px' }} />
+              <div className="account__skeleton-bar" style={{ width: '75px', height: 22, borderRadius: 2 }} />
+              <div className="account__skeleton-bar" style={{ width: '55px' }} />
+              <div className="account__skeleton-bar" style={{ width: '35px' }} />
+            </div>
+          ))}
+        </div>
+        <aside className="account__skeleton-sidebar">
+          <div className="account__skeleton-bar" style={{ width: '150px', height: 20 }} />
+          <div className="account__skeleton-bar" style={{ width: '180px', height: 16 }} />
+          <div className="account__skeleton-bar" style={{ width: '120px' }} />
+          <div className="account__skeleton-bar" style={{ width: '140px' }} />
+          <div className="account__skeleton-bar" style={{ width: '160px' }} />
+        </aside>
+      </div>
+    </div>
+  );
+}
 
-  const auth = await getServerSideAuthWithToken(ctx);
-  if (!auth) return redirectToLogin(ctx);
-
-  try {
-    const [data, menuClient] = await Promise.all([
-      serverSideGraphQL(CUSTOMER_ORDERS_QUERY, auth.accessToken),
-      prefetchMenus(),
-    ]);
-    const props: Record<string, any> = { customer: data?.customer || null };
-    mergeMenuState(props, menuClient);
-    return { props };
-  } catch {
-    return { props: { customer: null } };
-  }
-};
-
-export default function AccountPage({ customer }: AccountPageProps) {
+function AccountContent() {
   const { logout } = useAuth();
   const { ready, token } = useYotpoLoyalty();
+  const client = getApolloAuthClient();
+  const { data, loading } = useQuery(CUSTOMER_ORDERS_QUERY, {
+    client,
+    fetchPolicy: 'network-only',
+  });
 
   const myRewards = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_MY_REWARDS_INSTANCE;
   const campaign = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_CAMPAIGN_INSTANCE;
@@ -109,13 +126,15 @@ export default function AccountPage({ customer }: AccountPageProps) {
     logout('/');
   };
 
+  if (loading) return <AccountSkeleton />;
+
+  const customer: CustomerData | null = data?.customer || null;
+
   if (!customer) {
     return (
-      <Layout title="My account">
-        <div className="account">
-          <p className="account__empty">Error loading account data.</p>
-        </div>
-      </Layout>
+      <div className="account">
+        <p className="account__empty">Error loading account data.</p>
+      </div>
     );
   }
 
@@ -127,7 +146,7 @@ export default function AccountPage({ customer }: AccountPageProps) {
   ).length;
 
   return (
-    <Layout title="My account">
+    <>
       <div className="account">
         <header className="account__header">
           <h1 className="account__title">My account</h1>
@@ -224,6 +243,14 @@ export default function AccountPage({ customer }: AccountPageProps) {
         <LoyaltyRedeem variant="discounts" />
         {vipTiers && <YotpoWidget instanceId={vipTiers} />}
       </div>
-    </Layout>
+    </>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <AccountGuard title="My account">
+      <AccountContent />
+    </AccountGuard>
   );
 }

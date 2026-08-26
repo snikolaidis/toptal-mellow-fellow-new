@@ -27,6 +27,7 @@ add_action(
 					'databaseId'  => [ 'type' => 'Int' ],
 					'name'        => [ 'type' => 'String' ],
 					'slug'        => [ 'type' => 'String' ],
+					'count'       => [ 'type' => 'Int' ],
 					'description' => [ 'type' => 'String' ],
 					'imageUrl'    => [ 'type' => 'String' ],
 					'imageAlt'    => [ 'type' => 'String' ],
@@ -36,13 +37,7 @@ add_action(
 			]
 		);
 
-		register_graphql_field(
-			'AcfShopByMood',
-			'moodTerms',
-			[
-				'type'        => [ 'list_of' => 'MoodCardSource' ],
-				'description' => __( 'Every mood term, oldest first, so the card order follows the order the moods were created in. Empty when the taxonomy does not exist on this environment.', 'mellow-fellow' ),
-				'resolve'     => function () {
+		$resolve_mood_terms = function () {
 					if ( ! taxonomy_exists( 'mood' ) ) {
 						return [];
 					}
@@ -82,6 +77,7 @@ add_action(
 										'databaseId'  => (int) $term->term_id,
 										'name'        => $term->name,
 										'slug'        => $term->slug,
+										'count'       => (int) $term->count,
 										'description' => $term->description,
 										'imageUrl'    => $image_id ? wp_get_attachment_url( $image_id ) : null,
 										'imageAlt'    => $image_id ? get_post_meta( $image_id, '_wp_attachment_image_alt', true ) : null,
@@ -93,8 +89,20 @@ add_action(
 							)
 						)
 					);
-				},
-			]
-		);
+		};
+
+		// Both the Shop by Mood cards and the mood tabs render the same six terms,
+		// so they read the same source rather than each keeping its own list.
+		foreach ( [ 'AcfShopByMood', 'AcfCategoryTabs' ] as $graphql_type ) {
+			register_graphql_field(
+				$graphql_type,
+				'moodTerms',
+				[
+					'type'        => [ 'list_of' => 'MoodCardSource' ],
+					'description' => __( 'Every mood term, oldest first, so the order follows the order the moods were created in. Empty when the taxonomy does not exist on this environment.', 'mellow-fellow' ),
+					'resolve'     => $resolve_mood_terms,
+				]
+			);
+		}
 	}
 );

@@ -8,21 +8,23 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { deletePaymentProfile } from '@/lib/authorize-net-cim';
 import { verifyJwt, extractJwt } from '@/lib/jwt-auth';
+import { validateSession } from '@/lib/session-manager';
 
 const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 const FAUST_SECRET = process.env.FAUST_SECRET_KEY || '';
 
-function getAuthenticatedUserId(req: NextApiRequest): number | null {
+async function getAuthenticatedUserId(req: NextApiRequest): Promise<number | null> {
   const cookies = req.headers.cookie || '';
   const jwt = extractJwt(cookies);
   if (!jwt) return null;
   const result = verifyJwt(jwt);
-  return result?.userId ?? null;
+  if (!result || !(await validateSession(result.sessionId))) return null;
+  return result.userId;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    const userId = getAuthenticatedUserId(req);
+    const userId = await getAuthenticatedUserId(req);
     if (!userId) {
       return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
@@ -44,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'DELETE') {
-    const userId = getAuthenticatedUserId(req);
+    const userId = await getAuthenticatedUserId(req);
     if (!userId) {
       return res.status(401).json({ success: false, message: 'Not authenticated' });
     }

@@ -208,7 +208,7 @@ export default function QuickView({ product, isOpen, onClose }: QuickViewProps) 
             )}
 
             {/* View Full Details Link */}
-            <Link href={`/product/${product.slug}`} className="view-details-link" onClick={onClose}>
+            <Link href={`/products/${product.slug}`} className="view-details-link" onClick={onClose}>
               View Full Details
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

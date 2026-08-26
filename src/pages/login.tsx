@@ -6,18 +6,15 @@ import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout';
 import styles from '@/styles/pages/auth.module.css';
 
-const LoadingSpinner = () => (
-  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-);
-
 export default function LoginPage() {
   const router = useRouter();
-  const { isAuthenticated, isReady } = useAuth();
+  const { isAuthenticated, isReady, authenticate } = useAuth();
   const { login, loading, data, error } = useLogin();
 
   const [usernameEmail, setUsernameEmail] = useState('');
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const redirectUrl = (router.query.redirect as string) || '/account';
   const registeredSuccess = router.query.registered === 'true';
@@ -25,27 +22,46 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isReady && isAuthenticated) {
-      window.location.assign(redirectUrl);
+      router.push(redirectUrl);
     }
-  }, [isReady, isAuthenticated, redirectUrl]);
+  }, [isReady, isAuthenticated, redirectUrl, router]);
 
   useEffect(() => {
     if (data?.generateAuthorizationCode?.code) {
-      // Issue a stateless JWT cookie so subsequent pages verify auth locally
-      // instead of round-tripping to WordPress. The hard navigation after
-      // ensures every context (AuthContext, CartContext) picks up the new state.
-      // Retry once if the first attempt fails (WordPress may be warming up).
+      setIsRedirecting(true);
+
       const issueJwt = () =>
         fetch('/api/auth/jwt', { method: 'POST', credentials: 'same-origin' });
 
       issueJwt()
         .then((r) => {
-          if (!r.ok) return issueJwt().catch(() => {});
+          if (!r.ok) return issueJwt();
+          return r;
         })
-        .catch(() => issueJwt().catch(() => {}))
-        .finally(() => window.location.assign(redirectUrl));
+        .then((r) => r?.json())
+        .then((json) => {
+          if (json?.success && json.userId) {
+            authenticate(json.userId, json.expiresIn);
+            router.push(redirectUrl);
+          } else {
+            setIsRedirecting(false);
+          }
+        })
+        .catch(() => {
+          issueJwt()
+            .then((r) => r.json())
+            .then((json) => {
+              if (json?.success && json.userId) {
+                authenticate(json.userId, json.expiresIn);
+                router.push(redirectUrl);
+              } else {
+                setIsRedirecting(false);
+              }
+            })
+            .catch(() => setIsRedirecting(false));
+        });
     }
-  }, [data, redirectUrl]);
+  }, [data, redirectUrl, authenticate, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,32 +72,16 @@ export default function LoginPage() {
       return;
     }
 
-    // Don't clear WC session on login - WooCommerce will restore the user's cart
-    // This preserves cart items for returning users
     login(usernameEmail, password);
   };
 
-  if (!isReady) {
+  if (!isReady || isAuthenticated || isRedirecting) {
     return (
       <Layout title="Login">
         <div className={styles.container}>
           <div className={styles.card}>
-            <div className="flex items-center justify-center">
-              <div className="spinner h-8 w-8"></div>
-            </div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (isAuthenticated) {
-    return (
-      <Layout title="Login">
-        <div className={styles.container}>
-          <div className={styles.card}>
-            <div className="flex items-center justify-center">
-              <div className="spinner h-8 w-8"></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="spinner" style={{ width: '2rem', height: '2rem' }} />
             </div>
           </div>
         </div>
@@ -157,10 +157,10 @@ export default function LoginPage() {
               className={styles.submitBtn}
             >
               {loading ? (
-                <>
-                  <LoadingSpinner />
-                  <span className="ml-2">Signing in...</span>
-                </>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
+                  Signing in...
+                </span>
               ) : (
                 'Sign In'
               )}
