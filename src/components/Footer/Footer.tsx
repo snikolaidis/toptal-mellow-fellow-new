@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { gql, useQuery } from '@apollo/client';
 import {
@@ -93,6 +94,14 @@ interface FooterMenuItem {
   uri: string;
   target?: string | null;
 }
+
+const PAYMENT_MARKS = [
+  { src: '/visa.png', label: 'Visa', width: 1920, height: 622 },
+  { src: '/mastercard.png', label: 'Mastercard', width: 74, height: 52 },
+  { src: '/amex.png', label: 'American Express', width: 123, height: 79 },
+  { src: '/discover.png', label: 'Discover', width: 521, height: 342 },
+  { src: '/jcb.png', label: 'JCB', width: 1447, height: 1142 },
+];
 
 // Resolve a WordPress menu item URL to an app-appropriate href. WP items mix
 // relative paths (/contact-us/), full frontend-domain URLs (the headless app)
@@ -238,10 +247,18 @@ export default function Footer() {
 
             <div className="footer-col">
               <h3 className="footer-col__heading">We accept</h3>
-              {/* The five card logos (Amex, Discover, JCB, Mastercard, Visa)
-                  go here, as a <ul className="footer-col__accept"> of images.
-                  None of them exist in the repo or the media library yet, so
-                  the column renders its heading alone until they are sourced. */}
+              <ul className="footer-col__accept">
+                {PAYMENT_MARKS.map(({ src, label, width, height }) => (
+                  <li key={src}>
+                    <Image
+                      src={src}
+                      alt={label}
+                      width={width}
+                      height={height}
+                    />
+                  </li>
+                ))}
+              </ul>
             </div>
 
             {/* Legal (WP "Footer 2" location) */}
