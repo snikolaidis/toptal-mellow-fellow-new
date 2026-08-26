@@ -461,6 +461,8 @@ add_action( 'woocommerce_order_actions', function( $actions ) {
 } );
 
 add_action( 'woocommerce_order_action_mf_acu_push_order', function( $order ) {
+    mf_acu_log( 'Order action handler fired for order ' . $order->get_id(), 'retry' );
+
     $order->delete_meta_data( '_acumatica_order_pushed' );
     $order->delete_meta_data( '_acumatica_push_status' );
     $order->delete_meta_data( '_acumatica_push_error' );
@@ -472,12 +474,16 @@ add_action( 'woocommerce_order_action_mf_acu_push_order', function( $order ) {
 } );
 
 add_action( 'admin_post_mf_acu_retry_push', function() {
+    error_log( '[MF Acumatica] Retry button handler fired' );
+
     if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Forbidden' );
 
     $order_id = absint( $_POST['order_id'] ?? 0 );
     if ( ! $order_id ) wp_die( 'Missing order ID' );
 
     check_admin_referer( 'mf_acu_retry_push_' . $order_id );
+
+    mf_acu_log( "Retry button handler for order $order_id", 'retry' );
 
     $order = wc_get_order( $order_id );
     if ( ! $order ) wp_die( 'Order not found' );
