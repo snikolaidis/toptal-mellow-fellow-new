@@ -139,6 +139,9 @@ function mf_acu_login( $force = false ) {
     $company = mf_acu_company();
     if ( $company ) $payload['company'] = $company;
 
+    $branch = mf_acu_branch();
+    if ( $branch ) $payload['branch'] = $branch;
+
     $response = wp_remote_post( $base . '/entity/auth/login', array(
         'timeout' => 15,
         'headers' => array( 'Content-Type' => 'application/json' ),
