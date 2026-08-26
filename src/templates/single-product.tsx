@@ -42,7 +42,7 @@ interface SingleProductData {
  * Derived data that only the `mf/v1/product` REST endpoint produces — sibling
  * option grouping, collection lookup and bundle resolution are all computed in
  * PHP, so they're fetched alongside the seed query and passed through as extra
- * props by the `/product/[slug]` route.
+ * props by the `/products/[slug]` route.
  */
 export interface SingleProductExtras {
   collectionName: string | null;
@@ -270,7 +270,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
           price: seoPriceNumeric,
           priceCurrency: 'USD',
           availability: isInStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-          url: SITE_URL ? `${SITE_URL}/product/${product.slug}` : undefined,
+          url: SITE_URL ? `${SITE_URL}/products/${product.slug}` : undefined,
         }
       : undefined,
   });

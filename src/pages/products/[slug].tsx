@@ -13,10 +13,11 @@ import type { ProductNutrition } from '@/types/woocommerce';
  * `src/templates/single-product.tsx` — Faust resolves the seed node from the
  * URI and picks that template off the `product` CPT's hierarchy.
  *
- * Note the URL asymmetry: public URLs stay at `/product/<slug>` (singular) while
- * WordPress's product permalink base is `/products/` (plural). Since
+ * Public URLs match WordPress's product permalink base, `/products/<slug>`.
+ * That doesn't make the seed mapping below redundant, though: in SSG mode
  * `getWordPressProps` derives the seed URI purely from `ctx.params.wordpressNode`
- * in SSG mode, the mapping is done by handing it a synthetic param below.
+ * — it never reads `params.slug` — so the synthetic param is still required
+ * even though the two paths now agree.
  */
 export default function ProductRoute(props: Record<string, unknown>) {
   const router = useRouter();
@@ -82,8 +83,9 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
   const slug = typeof ctx.params?.slug === 'string' ? ctx.params.slug : '';
 
-  // Rewrite `/product/<slug>` to the WP permalink `/products/<slug>` for the
-  // seed query — getWordPressProps reads `params.wordpressNode` only.
+  // getWordPressProps reads `params.wordpressNode` only (not `params.slug`),
+  // so the seed URI still has to be built explicitly even though it matches
+  // the public path.
   const seedCtx = { ...ctx, params: { wordpressNode: ['products', slug] } };
 
   try {

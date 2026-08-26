@@ -255,7 +255,7 @@ export default function OrderDetailPage({ order }: OrderPageProps) {
                         />
                       )}
                       {slug ? (
-                        <Link href={`/product/${slug}`} className="account__link">
+                        <Link href={`/products/${slug}`} className="account__link">
                           {name}
                         </Link>
                       ) : (

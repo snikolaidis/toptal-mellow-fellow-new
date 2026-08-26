@@ -131,7 +131,7 @@ export default function ProductCard({ product, badge, priority = false, source }
   return (
     <>
       <div className="product-card">
-        <Link href={`/product/${product.slug}`} className="block">
+        <Link href={`/products/${product.slug}`} className="block">
           <div className="product__media-badges">
             <div className="product__tags">
               <div className="product__tags-left">
@@ -280,7 +280,7 @@ export default function ProductCard({ product, badge, priority = false, source }
                 which routes into the actual bundle builder. */}
             {isBundle && (
               <Link
-                href={`/product/${product.slug}`}
+                href={`/products/${product.slug}`}
                 className="button is-small add-to-cart is-fullwidth"
                 aria-label={`Create a bundle from ${product.name}`}
               >

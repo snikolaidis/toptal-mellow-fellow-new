@@ -32,7 +32,7 @@ export default function AvailableOptions({ options, currentProductId, baseName }
         {options.map((item) => (
           <Link
             key={item.id}
-            href={`/product/${item.slug}`}
+            href={`/products/${item.slug}`}
             scroll={false}
             prefetch
             className={`available-options__item ${

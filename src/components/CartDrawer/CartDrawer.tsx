@@ -294,7 +294,7 @@ export default function CartDrawer() {
                               <div className={styles.itemDetails}>
                                 <div className={styles.itemHeader}>
                                   <Link
-                                    href={`/product/${item.product.slug}`}
+                                    href={`/products/${item.product.slug}`}
                                     className={styles.itemName}
                                     onClick={closeDrawer}
                                   >
@@ -385,7 +385,7 @@ export default function CartDrawer() {
                       <div className={styles.itemDetails}>
                         <div className={styles.itemHeader}>
                           <Link
-                            href={`/product/${item.product.slug}`}
+                            href={`/products/${item.product.slug}`}
                             className={styles.itemName}
                             onClick={closeDrawer}
                           >
@@ -453,7 +453,7 @@ export default function CartDrawer() {
                     {recommendations.map((product) => (
                       <div key={product.id} className={styles.recCard}>
                         <Link
-                          href={`/product/${product.slug}`}
+                          href={`/products/${product.slug}`}
                           className={styles.recImageLink}
                           onClick={closeDrawer}
                         >
@@ -471,7 +471,7 @@ export default function CartDrawer() {
                         </Link>
                         <div className={styles.recInfo}>
                           <Link
-                            href={`/product/${product.slug}`}
+                            href={`/products/${product.slug}`}
                             className={styles.recName}
                             onClick={closeDrawer}
                           >

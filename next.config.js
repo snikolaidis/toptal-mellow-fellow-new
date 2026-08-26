@@ -27,6 +27,13 @@ const nextConfig = {
         destination: '/collections',
         statusCode: 301,
       },
+      // The PDP moved from /product/ to /products/. Old URLs are still indexed
+      // and linked externally, so keep them permanently redirected.
+      {
+        source: '/product/:slug',
+        destination: '/products/:slug',
+        statusCode: 301,
+      },
     ];
   },
   images: {
