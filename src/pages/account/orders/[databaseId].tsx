@@ -1,8 +1,7 @@
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { gql, useQuery } from '@apollo/client';
-import { getApolloAuthClient } from '@faustwp/core';
 import AccountGuard from '@/components/account/AccountGuard';
 
 interface LineItem {
@@ -111,7 +110,7 @@ function statusModifier(status: string): string {
   }
 }
 
-const ORDER_QUERY = gql`
+const ORDER_QUERY = `
   query GetAccountOrder($id: ID!) {
     order(id: $id, idType: DATABASE_ID) {
       databaseId
@@ -171,17 +170,25 @@ function OrderSkeleton() {
 function OrderContent() {
   const router = useRouter();
   const databaseId = router.query.databaseId as string | undefined;
-  const client = getApolloAuthClient();
-  const { data, loading } = useQuery(ORDER_QUERY, {
-    client,
-    variables: { id: databaseId },
-    skip: !databaseId,
-    fetchPolicy: 'network-only',
-  });
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!databaseId) return;
+
+    fetch('/api/account/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: ORDER_QUERY, variables: { id: databaseId } }),
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((res) => setOrder(res?.data?.order || null))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [databaseId]);
 
   if (loading || !databaseId) return <OrderSkeleton />;
-
-  const order: Order | null = data?.order || null;
 
   if (!order) {
     return (

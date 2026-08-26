@@ -1,6 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
-import { gql, useQuery } from '@apollo/client';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
 import AccountGuard from '@/components/account/AccountGuard';
@@ -33,7 +32,7 @@ function Field({
   );
 }
 
-const CUSTOMER_QUERY = gql`
+const CUSTOMER_QUERY = `
   query GetCustomerBilling {
     customer {
       email
@@ -67,10 +66,6 @@ function EditSkeleton() {
 
 function EditContent() {
   const client = getApolloAuthClient();
-  const { data, loading } = useQuery(CUSTOMER_QUERY, {
-    client,
-    fetchPolicy: 'network-only',
-  });
   const [updateCustomer, { loading: saving }] = useMutation(UPDATE_CUSTOMER, { client });
 
   const [firstName, setFirstName] = useState('');
@@ -79,16 +74,27 @@ function EditContent() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [status, setStatus] = useState<'idle' | 'saved' | 'error' | 'mismatch'>('idle');
-  const [initialized, setInitialized] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (data?.customer && !initialized) {
-      setFirstName(data.customer.firstName || '');
-      setLastName(data.customer.lastName || '');
-      setEmail(data.customer.email || '');
-      setInitialized(true);
-    }
-  }, [data, initialized]);
+    fetch('/api/account/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: CUSTOMER_QUERY }),
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        const c = res?.data?.customer;
+        if (c) {
+          setFirstName(c.firstName || '');
+          setLastName(c.lastName || '');
+          setEmail(c.email || '');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

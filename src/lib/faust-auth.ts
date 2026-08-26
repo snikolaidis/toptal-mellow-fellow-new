@@ -51,6 +51,43 @@ export async function exchangeRefreshToken(
   });
 }
 
+export async function exchangeAuthCode(
+  code: string,
+): Promise<{ userId: number; accessToken: string } | null> {
+  if (!code || !FAUST_SECRET) return null;
+
+  const result = await wpCircuit.execute(async () => {
+    const res = await fetch(`${WP_URL}/?rest_route=/faustwp/v1/authorize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-faustwp-secret': FAUST_SECRET,
+      },
+      body: JSON.stringify({ code }),
+    });
+
+    if (!res.ok) throw new Error(`WP returned ${res.status}`);
+
+    const data = await res.json();
+    if (!data.accessToken) throw new Error('No access token in response');
+    return data as FaustTokens;
+  });
+
+  if (!result) return null;
+
+  const graphqlUrl = getWordPressGraphQLUrl();
+  const viewerRes = await makeHttpRequest({
+    url: graphqlUrl,
+    body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
+    authToken: result.accessToken,
+  });
+
+  const userId = viewerRes.data?.data?.viewer?.databaseId;
+  if (!userId) return null;
+
+  return { userId, accessToken: result.accessToken };
+}
+
 export async function getAuthenticatedUserId(
   cookies: string,
 ): Promise<{ userId: number; accessToken: string } | null> {
