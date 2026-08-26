@@ -328,28 +328,28 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $branch = mf_acu_branch();
     $br_check = mf_acu_rest_get(
-        "/entity/Default/24.200.001/Branch?\$filter=BranchID eq '$branch'&\$top=1&\$select=BranchID",
+        "/entity/Default/24.200.001/SalesOrder?\$filter=Branch eq '$branch'&\$top=1&\$select=Branch",
         $session
     );
     if ( is_wp_error( $br_check ) ) {
-        $results[] = array( 'test' => "Branch '$branch'", 'ok' => false, 'detail' => $br_check->get_error_message() );
+        $results[] = array( 'test' => "Branch '$branch'", 'ok' => false, 'detail' => 'Could not verify — ' . $br_check->get_error_message() );
     } elseif ( is_array( $br_check ) && empty( $br_check ) ) {
-        $results[] = array( 'test' => "Branch '$branch'", 'ok' => false, 'detail' => 'Not found in Acumatica' );
+        $results[] = array( 'test' => "Branch '$branch'", 'ok' => false, 'detail' => 'No existing orders use this branch — verify it exists in Acumatica' );
     } else {
-        $results[] = array( 'test' => "Branch '$branch'", 'ok' => true, 'detail' => 'Found' );
+        $results[] = array( 'test' => "Branch '$branch'", 'ok' => true, 'detail' => 'Found on existing sales orders' );
     }
 
     $cc = mf_acu_config( 'CUSTOMER_CLASS', 'MFF' );
     $cc_check = mf_acu_rest_get(
-        "/entity/Default/24.200.001/CustomerClass?\$filter=CustomerClassID eq '$cc'&\$top=1&\$select=CustomerClassID",
+        "/entity/Default/24.200.001/Customer?\$filter=CustomerClass eq '$cc'&\$top=1&\$select=CustomerClass",
         $session
     );
     if ( is_wp_error( $cc_check ) ) {
-        $results[] = array( 'test' => "Customer Class '$cc'", 'ok' => false, 'detail' => $cc_check->get_error_message() );
+        $results[] = array( 'test' => "Customer Class '$cc'", 'ok' => false, 'detail' => 'Could not verify — ' . $cc_check->get_error_message() );
     } elseif ( is_array( $cc_check ) && empty( $cc_check ) ) {
-        $results[] = array( 'test' => "Customer Class '$cc'", 'ok' => false, 'detail' => 'Not found — new customers will fail to create' );
+        $results[] = array( 'test' => "Customer Class '$cc'", 'ok' => false, 'detail' => 'No customers use this class — it may not exist in Acumatica' );
     } else {
-        $results[] = array( 'test' => "Customer Class '$cc'", 'ok' => true, 'detail' => 'Found' );
+        $results[] = array( 'test' => "Customer Class '$cc'", 'ok' => true, 'detail' => 'Found on existing customers' );
     }
 
     $test_order = wc_get_orders( array(
