@@ -42,6 +42,11 @@ function mf_acu_push_order( $order_id ) {
         return;
     }
 
+    if ( ! mf_acu_environment_ok() ) {
+        mf_acu_log( "Order $order_id skipped — non-production environment (" . home_url() . ')', 'orders' );
+        return;
+    }
+
     $order = wc_get_order( $order_id );
     if ( ! $order ) {
         mf_acu_log( "Order $order_id not found, skipping push", 'orders' );
@@ -70,6 +75,17 @@ function mf_acu_push_order( $order_id ) {
     }
 
     $payload = mf_acu_build_sales_order_payload( $order, $customer_id );
+
+    mf_acu_log( sprintf(
+        'Pushing order %d: OrderType=%s, Branch=%s, CustomerID=%s, Lines=%d, SKUs=%s',
+        $order_id,
+        $payload['OrderType']['value'] ?? '?',
+        $payload['Branch']['value'] ?? '?',
+        $payload['CustomerID']['value'] ?? '?',
+        count( $payload['Details'] ?? [] ),
+        implode( ',', array_map( function( $l ) { return $l['InventoryID']['value'] ?? '?'; }, $payload['Details'] ?? [] ) )
+    ), 'orders' );
+
     $result  = mf_acu_rest_put( '/entity/Default/24.200.001/SalesOrder', $payload, $session );
 
     if ( is_wp_error( $result ) ) {

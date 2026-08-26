@@ -1,6 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
-import { gql, useQuery } from '@apollo/client';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
 import AccountGuard from '@/components/account/AccountGuard';
@@ -186,7 +185,7 @@ function AddressFieldset({
   );
 }
 
-const CUSTOMER_BILLING_QUERY = gql`
+const CUSTOMER_BILLING_QUERY = `
   query GetCustomerBilling {
     customer {
       email
@@ -233,24 +232,31 @@ function AddressesSkeleton() {
 
 function AddressesContent() {
   const client = getApolloAuthClient();
-  const { data, loading } = useQuery(CUSTOMER_BILLING_QUERY, {
-    client,
-    fetchPolicy: 'network-only',
-  });
   const [updateCustomer, { loading: saving }] = useMutation(UPDATE_CUSTOMER, { client });
 
   const [billing, setBilling] = useState<AddressState>(EMPTY);
   const [shipping, setShipping] = useState<AddressState>(EMPTY);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
-  const [initialized, setInitialized] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (data?.customer && !initialized) {
-      setBilling(fromApi(data.customer.billing));
-      setShipping(fromApi(data.customer.shipping));
-      setInitialized(true);
-    }
-  }, [data, initialized]);
+    fetch('/api/account/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: CUSTOMER_BILLING_QUERY }),
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        const c = res?.data?.customer;
+        if (c) {
+          setBilling(fromApi(c.billing));
+          setShipping(fromApi(c.shipping));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

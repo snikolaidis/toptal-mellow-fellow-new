@@ -1,7 +1,5 @@
-import { useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { gql, useQuery } from '@apollo/client';
-import { getApolloAuthClient } from '@faustwp/core';
 import { useAuth } from '@/context/AuthContext';
 import AccountGuard from '@/components/account/AccountGuard';
 import { useYotpoLoyalty } from '@/context/YotpoLoyaltyContext';
@@ -42,7 +40,7 @@ function statusModifier(status: string): string {
   }
 }
 
-const CUSTOMER_ORDERS_QUERY = gql`
+const CUSTOMER_ORDERS_QUERY = `
   query GetCustomerOrders {
     customer {
       email
@@ -104,15 +102,25 @@ function AccountSkeleton() {
 function AccountContent() {
   const { logout } = useAuth();
   const { ready, token } = useYotpoLoyalty();
-  const client = getApolloAuthClient();
-  const { data, loading } = useQuery(CUSTOMER_ORDERS_QUERY, {
-    client,
-    fetchPolicy: 'network-only',
-  });
+  const [customer, setCustomer] = useState<CustomerData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const myRewards = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_MY_REWARDS_INSTANCE;
   const campaign = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_CAMPAIGN_INSTANCE;
   const vipTiers = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_VIP_TIERS_INSTANCE;
+
+  useEffect(() => {
+    fetch('/api/account/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: CUSTOMER_ORDERS_QUERY }),
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((res) => setCustomer(res?.data?.customer || null))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     if (ready && (myRewards || campaign || vipTiers)) {
@@ -120,15 +128,13 @@ function AccountContent() {
     }
   }, [ready, token, myRewards, campaign, vipTiers]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await fetch('/api/cart/save-for-user', { method: 'POST' }).catch(() => {});
     await fetch('/api/cart/clear-session', { method: 'POST' }).catch(() => {});
     logout('/');
-  };
+  }, [logout]);
 
   if (loading) return <AccountSkeleton />;
-
-  const customer: CustomerData | null = data?.customer || null;
 
   if (!customer) {
     return (

@@ -1,6 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { gql, useQuery } from '@apollo/client';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
 import AccountGuard from '@/components/account/AccountGuard';
@@ -36,7 +35,7 @@ function formatDate(value: string): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-const CUSTOMER_SUBSCRIPTIONS_QUERY = gql`
+const CUSTOMER_SUBSCRIPTIONS_QUERY = `
   query CustomerSubscriptions {
     customer {
       subscriptions(first: 50) {
@@ -141,16 +140,35 @@ function SubscriptionsSkeleton() {
   );
 }
 
+function fetchSubscriptions(): Promise<Subscription[]> {
+  return fetch('/api/account/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: CUSTOMER_SUBSCRIPTIONS_QUERY }),
+    credentials: 'same-origin',
+  })
+    .then((r) => r.json())
+    .then((res) => {
+      const nodes: SubscriptionNode[] = res?.data?.customer?.subscriptions?.nodes || [];
+      return nodes.map(mapSubscription);
+    })
+    .catch(() => []);
+}
+
 function SubscriptionsContent() {
   const client = getApolloAuthClient();
-  const { data, loading, refetch } = useQuery(CUSTOMER_SUBSCRIPTIONS_QUERY, {
-    client,
-    fetchPolicy: 'network-only',
-  });
   const [cancelSubscription] = useMutation(CANCEL_SUBSCRIPTION, { client });
   const [pauseSubscription] = useMutation(PAUSE_SUBSCRIPTION, { client });
   const [resumeSubscription] = useMutation(RESUME_SUBSCRIPTION, { client });
+  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<{ id: number; action: Action } | null>(null);
+
+  useEffect(() => {
+    fetchSubscriptions()
+      .then(setSubs)
+      .finally(() => setLoading(false));
+  }, []);
 
   const runAction = useCallback(async (
     sub: Subscription,
@@ -161,13 +179,14 @@ function SubscriptionsContent() {
     setBusy({ id: sub.id, action });
     try {
       await mutate();
-      await refetch();
+      const refreshed = await fetchSubscriptions();
+      setSubs(refreshed);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : fallbackMessage);
     } finally {
       setBusy(null);
     }
-  }, [refetch]);
+  }, []);
 
   const cancel = useCallback((sub: Subscription) => {
     if (!window.confirm('Cancel this subscription? This cannot be undone.')) return;
@@ -183,9 +202,6 @@ function SubscriptionsContent() {
   }, [resumeSubscription, runAction]);
 
   if (loading) return <SubscriptionsSkeleton />;
-
-  const nodes: SubscriptionNode[] = data?.customer?.subscriptions?.nodes || [];
-  const subs = nodes.map(mapSubscription);
 
   return (
     <div className="account">
