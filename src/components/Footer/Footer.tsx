@@ -1,12 +1,16 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { gql, useQuery } from '@apollo/client';
 import {
+  AmexIcon,
+  DiscoverIcon,
   EmailIcon,
   FacebookIcon,
   InstagramIcon,
+  JcbIcon,
+  MastercardIcon,
   TikTokIcon,
   TwitterIcon,
+  VisaIcon,
   YouTubeIcon,
 } from '@/components/icons';
 
@@ -95,12 +99,15 @@ interface FooterMenuItem {
   target?: string | null;
 }
 
-const PAYMENT_MARKS = [
-  { src: '/visa.png', label: 'Visa', width: 1920, height: 622 },
-  { src: '/mastercard.png', label: 'Mastercard', width: 74, height: 52 },
-  { src: '/amex.png', label: 'American Express', width: 123, height: 79 },
-  { src: '/discover.png', label: 'Discover', width: 521, height: 342 },
-  { src: '/jcb.png', label: 'JCB', width: 1447, height: 1142 },
+const PAYMENT_MARKS: Array<{
+  label: string;
+  Icon: () => React.JSX.Element;
+}> = [
+  { label: 'Visa', Icon: VisaIcon },
+  { label: 'Mastercard', Icon: MastercardIcon },
+  { label: 'American Express', Icon: AmexIcon },
+  { label: 'Discover', Icon: DiscoverIcon },
+  { label: 'JCB', Icon: JcbIcon },
 ];
 
 // Resolve a WordPress menu item URL to an app-appropriate href. WP items mix
@@ -248,14 +255,10 @@ export default function Footer() {
             <div className="footer-col">
               <h3 className="footer-col__heading">We accept</h3>
               <ul className="footer-col__accept">
-                {PAYMENT_MARKS.map(({ src, label, width, height }) => (
-                  <li key={src}>
-                    <Image
-                      src={src}
-                      alt={label}
-                      width={width}
-                      height={height}
-                    />
+                {PAYMENT_MARKS.map(({ label, Icon }) => (
+                  <li key={label}>
+                    <Icon />
+                    <span className="is-sr-only">{label}</span>
                   </li>
                 ))}
               </ul>

@@ -188,6 +188,7 @@ $ft-bp-2col: 480px;
   --ft-accept-box-w: 40px;
   --ft-accept-box-h: 26px;
   --ft-accept-cols: 4;
+  --ft-accept-color: #000000;
 
   --ft-copyright-gap: 40px;
   --ft-copyright-size: 13px;
@@ -318,11 +319,12 @@ $ft-bp-2col: 480px;
   gap: var(--ft-accept-gap);
   list-style: none;
   margin: 0;
+  color: var(--ft-accept-color);
 
-  img {
+  svg {
+    display: block;
     width: var(--ft-accept-box-w);
     height: var(--ft-accept-box-h);
-    object-fit: contain;
   }
 }
 
