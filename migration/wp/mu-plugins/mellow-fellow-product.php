@@ -428,12 +428,12 @@ function mf_get_product( WP_REST_Request $request ) {
     // -----------------------------------------------------------------------
     // 10. Bundle slug
     // -----------------------------------------------------------------------
-    $bb_id       = ! empty( $meta['bb_linked_bundle_id'] ) ? (int) $meta['bb_linked_bundle_id'] : null;
+    $bb_id       = ! empty( $meta['_bb_linked_bundle_id'] ) ? (int) $meta['_bb_linked_bundle_id'] : null;
     $bundle_slug = null;
     if ( $bb_id ) {
         $bundle_slug = $wpdb->get_var( $wpdb->prepare(
             "SELECT post_name FROM {$wpdb->posts}
-             WHERE ID = %d AND post_type = 'bundle_builder' AND post_status = 'publish'",
+             WHERE ID = %d AND post_type = 'bb_bundle' AND post_status = 'publish'",
             $bb_id
         ) );
     }
