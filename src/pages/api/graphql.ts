@@ -5,8 +5,11 @@ import {
   makeHttpRequest,
   extractWcSessionToken,
   createWcSessionCookie,
+  extractCartToken,
+  createCartTokenCookie,
   sanitizeCookies,
   WC_SESSION_HEADER,
+  CART_TOKEN_HEADER,
 } from '@/lib/http';
 import { withRateLimitOnly } from '@/lib/middleware';
 
@@ -108,12 +111,14 @@ async function handler(
   try {
     const cookies = req.headers.cookie || '';
     const wcSessionToken = extractWcSessionToken(cookies);
+    const cartToken = extractCartToken(cookies);
 
     let response = await makeHttpRequest({
       url,
       body: JSON.stringify(req.body),
       cookies,
       wcSessionToken: wcSessionToken || undefined,
+      cartToken: cartToken || undefined,
     });
 
     const cookiesToSet: string[] = [];
@@ -156,6 +161,14 @@ async function handler(
       }
 
       cookiesToSet.push(createWcSessionCookie(sessionToken));
+    }
+
+    // Handle the Store API cart token, when wp-graphql-woocommerce issues one
+    // (set_session_token_type: 'both') — keeps this session addressable by
+    // the Store API proxy too, e.g. right after an addBundleToCart mutation.
+    const cartTokenHeader = response.headers[CART_TOKEN_HEADER.toLowerCase()] as string | undefined;
+    if (cartTokenHeader) {
+      cookiesToSet.push(createCartTokenCookie(cartTokenHeader));
     }
 
     // Forward any cookies from WordPress
