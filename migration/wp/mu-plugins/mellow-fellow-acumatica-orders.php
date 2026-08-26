@@ -458,6 +458,8 @@ add_action( 'woocommerce_order_actions', function( $actions ) {
 add_action( 'woocommerce_order_action_mf_acu_push_order', function( $order ) {
     $order->delete_meta_data( '_acumatica_order_pushed' );
     $order->delete_meta_data( '_acumatica_push_status' );
+    $order->delete_meta_data( '_acumatica_push_error' );
+    $order->delete_meta_data( '_acumatica_customer_id' );
     $order->update_meta_data( '_acumatica_push_attempts', 0 );
     $order->save();
 
@@ -478,6 +480,7 @@ add_action( 'admin_post_mf_acu_retry_push', function() {
     $order->delete_meta_data( '_acumatica_order_pushed' );
     $order->delete_meta_data( '_acumatica_push_status' );
     $order->delete_meta_data( '_acumatica_push_error' );
+    $order->delete_meta_data( '_acumatica_customer_id' );
     $order->update_meta_data( '_acumatica_push_attempts', 0 );
     $order->save();
 
