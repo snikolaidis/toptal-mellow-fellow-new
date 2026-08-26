@@ -1,17 +1,17 @@
 .what-sets-us-apart {
-  padding: 28px 18px 32px;
+  padding: 18px 18px 22px;
 
   @media screen and (min-width: 768px) {
     padding: 48px 40px 40px;
   }
 
   @media screen and (min-width: 1024px) {
-    padding-top: 20px;
+    padding-top: 68px;
     padding-bottom: 72px;
   }
 
   &__heading {
-    margin: 0 0 36px;
+    margin: 0 0 22px;
     font-family: var(--font-family-display-wide);
     font-weight: 700;
     font-size: 36px;
@@ -67,8 +67,8 @@
     margin: 13px 0 0;
     font-family: var(--font-family-display-wide);
     font-weight: 700;
-    font-size: 16px;
-    line-height: 1.1;
+    font-size: 18px;
+    line-height: 1.15;
     text-transform: uppercase;
     color: var(--label-color, var(--color-deep-teal));
 

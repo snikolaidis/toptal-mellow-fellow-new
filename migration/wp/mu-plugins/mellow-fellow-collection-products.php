@@ -212,6 +212,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     // -----------------------------------------------------------------------
     $meta_keys = [
         '_price', '_regular_price', '_sale_price', '_stock_status',
+        '_stock', '_manage_stock',
         '_thumbnail_id', 'bb_linked_bundle_id', 'bb_from_price',
     ];
     $meta_key_placeholders = implode( ',', array_fill( 0, count( $meta_keys ), '%s' ) );
@@ -236,7 +237,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     $tax_list = [
         'product_type',
         'product-type', 'strain-type', 'strain-name', 'blend-types',
-        'product-line', 'size', 'cannabinoid', 'single-cannabinoid', 'mg', 'pieces',
+        'product-lines', 'size', 'cannabinoid', 'single-cannabinoid', 'mg', 'pieces',
     ];
     $tax_placeholders = implode( ',', array_fill( 0, count( $tax_list ), '%s' ) );
 
@@ -311,7 +312,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         'strain-type'        => 'strainTypes',
         'strain-name'        => 'strainNames',
         'blend-types'        => 'blendTypes',
-        'product-line'       => 'productLines',
+        'product-lines'       => 'productLines',
         'size'               => 'size',
         'cannabinoid'        => 'cannabinoids',
         'single-cannabinoid' => 'singleCannabinoid',
@@ -353,6 +354,12 @@ function mf_get_collection_products( WP_REST_Request $request ) {
             'regularPrice'      => $regularPrice,
             'salePrice'         => $salePrice,
             'stockStatus'       => $stock_status_map[ $meta['_stock_status'] ?? 'instock' ] ?? 'IN_STOCK',
+            // Null when the product does not manage stock, matching what
+            // WPGraphQL returns, so the frontend can tell "no data" apart from
+            // a real zero.
+            'stockQuantity'     => ( ( $meta['_manage_stock'] ?? 'no' ) === 'yes' && ( $meta['_stock'] ?? '' ) !== '' )
+                ? (int) $meta['_stock']
+                : null,
             'image'             => $image ? [
                 'id'        => $meta['_thumbnail_id'] ?? '',
                 'sourceUrl' => $image['sourceUrl'],

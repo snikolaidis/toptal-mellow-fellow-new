@@ -1,31 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { makeHttpRequest, makeHttpGetRequest, getWordPressGraphQLUrl } from '@/lib/http';
+import { makeHttpRequest } from '@/lib/http';
 import { withRateLimitOnly } from '@/lib/middleware';
+import { verifyJwt, extractJwt } from '@/lib/jwt-auth';
+import { validateSession } from '@/lib/session-manager';
 
 function extractCartToken(cookies: string): string | null {
   const match = cookies.match(/wc_cart_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
-}
-
-async function getAuthTokenFromRequest(req: NextApiRequest): Promise<string | undefined> {
-  const cookies = req.headers.cookie || '';
-  const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
-
-  const wpHost = new URL(wordpressUrl).host.replace(/[^a-zA-Z0-9.-]/g, '');
-  const rtCookiePattern = new RegExp(`https?${wpHost}-rt=([^;]+)`);
-  const rtMatch = cookies.match(rtCookiePattern);
-
-  if (!rtMatch) return undefined;
-
-  try {
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers.host || 'localhost:3001';
-    const tokenUrl = `${protocol}://${host}/api/faust/auth/token`;
-    const tokenResponse = await makeHttpGetRequest(tokenUrl, cookies);
-    return tokenResponse.data?.accessToken || undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -41,19 +22,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ success: true, saved: false });
     }
 
-    const authToken = await getAuthTokenFromRequest(req);
-    if (!authToken) {
-      return res.status(200).json({ success: true, saved: false });
-    }
-
-    const graphqlUrl = getWordPressGraphQLUrl();
-    const viewerRes = await makeHttpRequest({
-      url: graphqlUrl,
-      body: JSON.stringify({ query: '{ viewer { databaseId } }' }),
-      authToken,
-    });
-    const userId = viewerRes.data?.data?.viewer?.databaseId;
-    if (!userId) {
+    const jwt = extractJwt(cookies);
+    const auth = jwt ? verifyJwt(jwt) : null;
+    if (!auth || !(await validateSession(auth.sessionId))) {
       return res.status(200).json({ success: true, saved: false });
     }
 
@@ -62,7 +33,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     await makeHttpRequest({
       url: `${wordpressUrl}/wp-json/mf/v1/cart-token`,
-      body: JSON.stringify({ userId, cartToken }),
+      body: JSON.stringify({ userId: auth.userId, cartToken }),
       faustSecretKey: faustSecret,
     });
 

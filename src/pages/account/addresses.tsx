@@ -5,7 +5,7 @@ import { useMutation } from '@apollo/client';
 import type { GetServerSideProps } from 'next';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
-import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
+import { getServerSideAuthWithToken, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 import { UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { COUNTRIES, getStatesForCountry } from '@/constants/geography';
 
@@ -215,7 +215,7 @@ interface AddressesPageProps {
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
 
-  const auth = await getServerSideAuth(ctx);
+  const auth = await getServerSideAuthWithToken(ctx);
   if (!auth) return redirectToLogin(ctx);
 
   try {

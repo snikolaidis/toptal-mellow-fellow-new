@@ -3,7 +3,7 @@ import Image from 'next/image';
 import type { GetServerSideProps } from 'next';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Layout from '@/components/Layout';
-import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
+import { getServerSideAuthWithToken, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 
 interface LineItem {
   quantity: number;
@@ -151,7 +151,7 @@ interface OrderPageProps {
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
 
-  const auth = await getServerSideAuth(ctx);
+  const auth = await getServerSideAuthWithToken(ctx);
   if (!auth) return redirectToLogin(ctx);
 
   const databaseId = ctx.params?.databaseId;

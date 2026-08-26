@@ -14,6 +14,7 @@ import type {
   IdempotencyEntry,
   CsrfTokenEntry,
   ReconciliationEntry,
+  AuthSession,
 } from './types';
 
 export class RedisStorage implements IStorage {
@@ -322,6 +323,173 @@ export class RedisStorage implements IStorage {
   }
 
   // ============================================================================
+  // Auth Sessions
+  // ============================================================================
+
+  async createAuthSession(session: AuthSession): Promise<AuthSession> {
+    const client = this.getClient();
+    const ttlMs = session.expiresAt - Date.now();
+    const pipeline = client.pipeline();
+    pipeline.set(
+      this.key('session', session.sessionId),
+      JSON.stringify(session),
+      'PX',
+      Math.max(ttlMs, 1),
+    );
+    pipeline.set(
+      this.key('session:refresh', session.refreshTokenHash),
+      session.sessionId,
+      'PX',
+      Math.max(ttlMs, 1),
+    );
+    pipeline.sadd(
+      this.key('session:user', String(session.userId)),
+      session.sessionId,
+    );
+    await pipeline.exec();
+    return session;
+  }
+
+  async getAuthSessionById(sessionId: string): Promise<AuthSession | null> {
+    const client = this.getClient();
+    const data = await client.get(this.key('session', sessionId));
+    if (!data) return null;
+    const session = JSON.parse(data) as AuthSession;
+    if (session.expiresAt <= Date.now()) return null;
+    return session;
+  }
+
+  async getAuthSessionByRefreshTokenHash(
+    hash: string,
+  ): Promise<AuthSession | null> {
+    const client = this.getClient();
+    const sessionId = await client.get(this.key('session:refresh', hash));
+    if (!sessionId) return null;
+    return this.getAuthSessionById(sessionId);
+  }
+
+  async getAuthSessionsByUserId(userId: number): Promise<AuthSession[]> {
+    const client = this.getClient();
+    const ids = await client.smembers(
+      this.key('session:user', String(userId)),
+    );
+    if (ids.length === 0) return [];
+
+    const pipeline = client.pipeline();
+    for (const id of ids) {
+      pipeline.get(this.key('session', id));
+    }
+    const results = await pipeline.exec();
+    if (!results) return [];
+
+    const now = Date.now();
+    const sessions: AuthSession[] = [];
+    const expiredIds: string[] = [];
+    for (const [err, data] of results) {
+      if (!err && data && typeof data === 'string') {
+        const s = JSON.parse(data) as AuthSession;
+        if (s.expiresAt > now && !s.revoked) {
+          sessions.push(s);
+        } else {
+          expiredIds.push(s.sessionId);
+        }
+      }
+    }
+    if (expiredIds.length > 0) {
+      await client.srem(
+        this.key('session:user', String(userId)),
+        ...expiredIds,
+      );
+    }
+    return sessions.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+  }
+
+  async updateAuthSessionRefreshToken(
+    sessionId: string,
+    newHash: string,
+  ): Promise<void> {
+    const client = this.getClient();
+    const data = await client.get(this.key('session', sessionId));
+    if (!data) return;
+
+    const session = JSON.parse(data) as AuthSession;
+    const oldHash = session.refreshTokenHash;
+    session.refreshTokenHash = newHash;
+    session.lastUsedAt = Date.now();
+    const ttlMs = session.expiresAt - Date.now();
+
+    const pipeline = client.pipeline();
+    pipeline.set(
+      this.key('session', sessionId),
+      JSON.stringify(session),
+      'PX',
+      Math.max(ttlMs, 1),
+    );
+    pipeline.del(this.key('session:refresh', oldHash));
+    pipeline.set(
+      this.key('session:refresh', newHash),
+      sessionId,
+      'PX',
+      Math.max(ttlMs, 1),
+    );
+    await pipeline.exec();
+  }
+
+  async revokeAuthSession(sessionId: string): Promise<void> {
+    const client = this.getClient();
+    const data = await client.get(this.key('session', sessionId));
+    if (!data) return;
+
+    const session = JSON.parse(data) as AuthSession;
+    session.revoked = true;
+    const ttlMs = Math.max(session.expiresAt - Date.now(), 1);
+
+    const pipeline = client.pipeline();
+    pipeline.set(
+      this.key('session', sessionId),
+      JSON.stringify(session),
+      'PX',
+      ttlMs,
+    );
+    pipeline.del(this.key('session:refresh', session.refreshTokenHash));
+    await pipeline.exec();
+  }
+
+  async revokeAllUserAuthSessions(userId: number): Promise<void> {
+    const client = this.getClient();
+    const ids = await client.smembers(
+      this.key('session:user', String(userId)),
+    );
+    if (ids.length === 0) return;
+
+    const pipeline = client.pipeline();
+    for (const id of ids) {
+      pipeline.get(this.key('session', id));
+    }
+    const results = await pipeline.exec();
+    if (!results) return;
+
+    const revokePipeline = client.pipeline();
+    for (const [err, data] of results) {
+      if (!err && data && typeof data === 'string') {
+        const s = JSON.parse(data) as AuthSession;
+        s.revoked = true;
+        const ttlMs = Math.max(s.expiresAt - Date.now(), 1);
+        revokePipeline.set(
+          this.key('session', s.sessionId),
+          JSON.stringify(s),
+          'PX',
+          ttlMs,
+        );
+        revokePipeline.del(
+          this.key('session:refresh', s.refreshTokenHash),
+        );
+      }
+    }
+    await revokePipeline.exec();
+  }
+
+  // ============================================================================
   // Cleanup
   // ============================================================================
 
@@ -329,9 +497,9 @@ export class RedisStorage implements IStorage {
     rateLimits: number;
     idempotency: number;
     csrf: number;
+    sessions: number;
   }> {
     // Redis handles expiration automatically via TTL (PX/EX).
-    // No manual cleanup needed for rate_limits, idempotency, or csrf entries.
-    return { rateLimits: 0, idempotency: 0, csrf: 0 };
+    return { rateLimits: 0, idempotency: 0, csrf: 0, sessions: 0 };
   }
 }

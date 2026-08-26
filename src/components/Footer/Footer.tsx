@@ -53,6 +53,9 @@ export const GET_FOOTER_MENU_2 = gql`
 export const GET_SOCIAL_LINKS = gql`
   query GetSocialLinks {
     siteSettings {
+      # See GET_MEGA_MENU_FEATURED: both write RootQuery.siteSettings, and
+      # without an id the later write replaces this one instead of merging.
+      id
       socialLinks {
         instagramUrl
         twitterUrl
@@ -121,6 +124,37 @@ function footerHref(uri: string): { href: string; external: boolean } {
   }
 }
 
+function MenuColumn({ heading, items }: { heading: string; items: FooterMenuItem[] }) {
+  return (
+    <div className="footer-col">
+      <h3 className="footer-col__heading">{heading}</h3>
+      <ul className="footer-col__list">
+        {items.map((item) => {
+          const { href, external } = footerHref(item.uri);
+          return (
+            <li key={item.id}>
+              {external ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="footer-col__link"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link href={href} className="footer-col__link">
+                  {item.label}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default function Footer() {
   const { data } = useQuery(GET_FOOTER_MENU);
   const footerMenu = data?.menus?.nodes?.[0];
@@ -138,88 +172,62 @@ export default function Footer() {
 
   return (
     <>
-      {/* Newsletter */}
-      <section className="footer-newsletter section">
-        <div className="container">
-          <p><span>Get 15% off your first purchase </span>when you join the Mellow Fam!</p>
-          <form className="newsletter-form">
+      {/* Signup band */}
+      <section className="footer-signup">
+        <p className="footer-signup__heading">
+          Get <span className="footer-signup__accent">15% off</span> your first
+          purchase when you sign up!!
+        </p>
+        <form className="footer-signup__form">
+          <div className="footer-signup__controls">
             <input
               type="email"
-              placeholder="your@email.com"
-              className="newsletter-input"
+              placeholder="Enter your email"
+              aria-label="Email address"
+              className="footer-signup__input"
             />
-            <button type="submit" className="newsletter-btn">
-              Subscribe
+            <button type="submit" className="footer-signup__button">
+              Join now
             </button>
-          </form>
-        </div>
+          </div>
+          <p className="footer-signup__consent">
+            By joining you agree to receive marketing emails. Unsubscribe
+            anytime.
+          </p>
+        </form>
       </section>
 
       <footer className="footer">
-        <div className="container">
+        <div className="footer__inner">
           <div className="footer-content">
-            {/* Backend-managed menu (WP "Footer 1" location) */}
-            <div className="link-section">
-              <h3 className="section-title">{footerMenu?.name ?? 'Shop'}</h3>
-              <ul className="link-list">
-                {footerItems.map((item) => {
-                  const { href, external } = footerHref(item.uri);
-                  return (
-                    <li key={item.id}>
-                      {external ? (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link"
-                        >
-                          {item.label}
-                        </a>
-                      ) : (
-                        <Link href={href} className="link">
-                          {item.label}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+            {/* Stay Mellow (WP "Footer 1" location) */}
+            <MenuColumn heading={footerMenu?.name ?? 'Stay Mellow'} items={footerItems} />
 
-            {/* Brand */}
-            <div className="brand-section">
-              <div className="email-link">
-                <h4 className="section-title">Get in touch</h4>
-                <a href="/pages/contact-us">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <EmailIcon />
-                    </span>
-                    <span>Email us</span>
-                  </span>
-                </a>
+            <div className="footer-col footer-col--contact">
+              <div>
+                <h3 className="footer-col__heading">Get in touch</h3>
+                <Link href="/pages/contact-us" className="footer-col__email">
+                  <EmailIcon />
+                  <span>Email us</span>
+                </Link>
               </div>
-              
-              <div className="social-links">
-                <h6>
-                  Follow us
-                </h6>
-                <ul>
+
+              <div>
+                <h4 className="footer-social__label">Follow us</h4>
+                <ul className="footer-social__list">
                   {SOCIAL_NETWORKS.map(({ key, label, Icon }) => {
                     const url = socialLinks?.[key];
                     if (!url) return null;
                     return (
-                      <li className="social-link" key={key}>
+                      <li key={key}>
                         <a
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="social-link"
+                          className="footer-social__link"
                           aria-label={label}
                         >
-                          <span className="icon">
-                            <Icon />
-                          </span>
+                          <Icon />
                         </a>
                       </li>
                     );
@@ -228,39 +236,20 @@ export default function Footer() {
               </div>
             </div>
 
-            {/* Backend-managed menu (WP "Footer 2" location) */}
-            <div className="link-section">
-              <h4 className="section-title">{footerMenu2?.name ?? 'Information'}</h4>
-              <ul className="link-list">
-                {footerItems2.map((item) => {
-                  const { href, external } = footerHref(item.uri);
-                  return (
-                    <li key={item.id}>
-                      {external ? (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link"
-                        >
-                          {item.label}
-                        </a>
-                      ) : (
-                        <Link href={href} className="link">
-                          {item.label}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+            <div className="footer-col">
+              <h3 className="footer-col__heading">We accept</h3>
+              {/* The five card logos (Amex, Discover, JCB, Mastercard, Visa)
+                  go here, as a <ul className="footer-col__accept"> of images.
+                  None of them exist in the repo or the media library yet, so
+                  the column renders its heading alone until they are sourced. */}
             </div>
+
+            {/* Legal (WP "Footer 2" location) */}
+            <MenuColumn heading={footerMenu2?.name ?? 'Legal'} items={footerItems2} />
           </div>
 
-          <div className="copyright-section section">
-            <p>
-              &copy; {new Date().getFullYear()} Mellow Fellow
-            </p>
+          <div className="footer-copyright">
+            <p>&copy; {new Date().getFullYear()} Mellow Fellow</p>
           </div>
         </div>
       </footer>
@@ -268,7 +257,24 @@ export default function Footer() {
       {/* Footer Bottom */}
       <div className="footer-bottom section">
         <p>
-          THCA Disclaimer - This product is not available for shipment to the following states: Arkansas, Hawaii, Idaho, Kansas, Louisiana, Oklahoma, Oregon, Rhode Island, Utah
+          <svg
+            className="footer-bottom__icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <span>
+            THCA Disclaimer - This product is not available for shipment to the following states: Arkansas, Hawaii, Idaho, Kansas, Louisiana, Oklahoma, Oregon, Rhode Island, Utah
+          </span>
         </p>
       </div>
     </>

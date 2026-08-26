@@ -1,10 +1,19 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useCart, groupCartItems } from '@/context/CartContext';
 import { MellowFellowLogo, CloseIcon } from '@/components/icons';
 import type { Product } from '@/types/woocommerce';
+import {
+  buildRecsCacheKey,
+  getCachedRecs,
+  isRecsFresh,
+  setRecsCache,
+  abortInflightRecs,
+  getRecsAbortSignal,
+  fetchRecommendations,
+} from '@/lib/recsCache';
 import TieredProgressBar from './TieredProgressBar';
 import FreeGiftWidget from './FreeGiftWidget';
 import styles from './CartDrawer.module.css';
@@ -88,48 +97,47 @@ export default function CartDrawer() {
     return () => router.events.off('routeChangeStart', closeDrawer);
   }, [router, closeDrawer]);
 
-  // Fetch recommendations when cart items change
+  // Fetch recommendations with caching, debounce, and AbortController
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!cart || cart.items.length === 0) {
       setRecommendations([]);
       return;
     }
-
-    const allTypeSlugs = cart.items.flatMap(
-      (item) => item.product.productTypes?.map((t) => t.slug) || []
-    );
-    const productTypeSlugs = allTypeSlugs.filter(
-      (slug, index) => allTypeSlugs.indexOf(slug) === index
-    );
-    const excludeIds = cart.items.map((item) => item.product.databaseId);
-    const productSlugs = cart.items.map((item) => item.product.slug);
-    const subtotal = parsePrice(cart.subtotal);
-
-    const params = new URLSearchParams({
-      context: 'cart',
-      cartTotal: String(subtotal),
-      excludeProductIds: excludeIds.join(','),
-      cartProductSlugs: productSlugs.join(','),
-      limit: '4',
-    });
-
-    if (productTypeSlugs.length > 0) {
-      params.set('productTypes', productTypeSlugs.join(','));
-    } else {
-      params.set('cartProductIds', excludeIds.join(','));
-    }
-
-    // Only fetch if drawer is open — avoid unnecessary API calls
     if (!isDrawerOpen) return;
 
-    setRecsLoading(true);
-    fetch(`/api/shop/recommendations?${params}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success) setRecommendations(data.products);
-      })
-      .catch(() => setRecommendations([]))
-      .finally(() => setRecsLoading(false));
+    const productIds = cart.items.map((i) => i.product.databaseId);
+    const productSlugs = cart.items.map((i) => i.product.slug);
+    const subtotal = parsePrice(cart.subtotal);
+    const cacheKey = buildRecsCacheKey(productIds, subtotal);
+
+    // Show cached results immediately (stale-while-revalidate)
+    const cached = getCachedRecs(cacheKey);
+    if (cached) {
+      setRecommendations(cached);
+      if (isRecsFresh(cacheKey)) return; // Fresh cache — no fetch needed
+    }
+
+    // Debounce rapid cart changes (quantity adjustments)
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const signal = getRecsAbortSignal();
+      setRecsLoading(true);
+      fetchRecommendations(productIds, productSlugs, subtotal, signal)
+        .then((products) => {
+          setRecommendations(products);
+          setRecsCache(cacheKey, products);
+        })
+        .catch((err) => {
+          if (err?.name !== 'AbortError') setRecommendations(cached || []);
+        })
+        .finally(() => setRecsLoading(false));
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortInflightRecs();
+    };
   }, [cart?.items.map((i) => i.product.databaseId).join(','), cart?.subtotal, isDrawerOpen]);
 
   const handleAddRecommendation = useCallback(

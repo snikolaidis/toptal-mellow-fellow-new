@@ -1,155 +1,358 @@
 @use '../mixins' as *;
 
-/* Newsletter Section */
-.section.footer-newsletter {
+/* Signup Band */
+.footer-signup {
   display: flex;
   flex-direction: column;
-  background-color: #000000;
+  align-items: center;
+  align-self: stretch;
+  justify-content: center;
+  gap: 27px;
+  padding: 20px;
+  background: linear-gradient(0deg, #f0e6d0 0%, #c59f46 100%);
 
-  p {
-    color: #ffffff;
-    text-align: center;
-    margin-bottom: 20px;
-    line-height: 20.8px;
-
-    span {
-      font-weight: 700;
-      display: block;
-    }
+  // The row needs more than 1024 to fit the frame's widths, so it stacks below
+  // 1201 rather than shrinking them.
+  @include xlarge-up {
+    flex-direction: row;
+    gap: 96px;
+    padding: 64px 40px;
   }
 }
 
+.footer-signup__heading {
+  // Not a flex column, despite the frame: that would make the inline accent
+  // its own flex item and stack the three fragments.
+  align-self: stretch;
+  align-content: center;
+  min-height: 90px;
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 30px;
+  color: #1e1e1e;
+  text-align: center;
+
+  @include xlarge-up {
+    align-self: auto;
+    min-height: 0;
+    width: 400px;
+    font-size: 32px;
+    line-height: 38px;
+    text-align: start;
+  }
+}
+
+.footer-signup__accent {
+  color: #a92331;
+}
+
+.footer-signup__form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  max-width: 334px;
+
+  @include xlarge-up {
+    width: auto;
+    max-width: none;
+    gap: 8px;
+  }
+}
+
+.footer-signup__controls {
+  display: flex;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: 8px;
+
+  @include xlarge-up {
+    gap: 12px;
+  }
+}
+
+.footer-signup__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 46px;
+  padding: 12px 16px;
+  border: 1px solid rgba(26, 46, 26, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+  color: #1e1e1e;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+
+  @include xlarge-up {
+    flex: 0 0 auto;
+    width: 372px;
+    padding: 0 16px;
+  }
+}
+
+.footer-signup__input::placeholder {
+  color: #5a493a;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.footer-signup__input:focus {
+  outline: none;
+  border-color: #3e484f;
+}
+
+.footer-signup__button {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 13.5px 20.023px 12.5px 21px;
+  border: none;
+  border-radius: 24px;
+  background-color: #3e484f;
+  color: #ffffff;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 21px;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  @include xlarge-up {
+    height: 46px;
+    padding: 0 28px;
+    border-radius: 999px;
+  }
+}
+
+.footer-signup__button:hover {
+  background-color: #4a565e;
+}
+
+.footer-signup__consent {
+  align-self: stretch;
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16.5px;
+  color: #5a493a;
+}
+
+// A media query cannot read a custom property, so this sits beside the token
+// block rather than in it. 480 not the project's 576, to keep #103's breakpoint.
+$ft-bp-2col: 480px;
+
+/* Footer columns.
+   Every value in this block is approximate, read off the frame image rather
+   than Dev Mode. Correct them here, not in the rules below. */
 .footer {
-  background-color: #f0e6d0;
+  --ft-bg: #f0e6d0;
+  --ft-max-width: 1280px;
+  --ft-pad-block: 56px;
+  --ft-pad-inline: 20px;
+  --ft-pad-inline-wide: 40px;
+
+  --ft-grid-1: 1fr;
+  --ft-grid-2: repeat(2, 1fr);
+  --ft-grid-4: repeat(4, 1fr);
+  --ft-col-gap: 40px;
+  --ft-row-gap: 40px;
+
+  --ft-heading-font: 'MrEavesSanOT';
+  --ft-heading-size: 20px;
+  --ft-heading-color: var(--color-text-primary);
+  --ft-heading-gap: 16px;
+
+  --ft-link-size: 0.875rem;
+  --ft-link-gap: 8px;
+  --ft-link-color: var(--color-text-primary);
+  --ft-link-hover-color: var(--color-brand-primary);
+
+  --ft-contact-gap: 24px;
+  --ft-email-gap: 8px;
+  --ft-email-icon: 20px;
+
+  --ft-social-label-size: 0.875rem;
+  --ft-social-label-gap: 12px;
+  --ft-social-gap: 12px;
+  --ft-social-icon: 22px;
+  --ft-social-color: var(--color-text-primary);
+
+  // Reserved for the card logos, which do not exist yet. See the slot comment
+  // in Footer.tsx.
+  --ft-accept-gap: 10px;
+  --ft-accept-icon-h: 24px;
+
+  --ft-copyright-gap: 40px;
+  --ft-copyright-size: 13px;
+  --ft-copyright-color: var(--color-text-primary);
+
+  background-color: var(--ft-bg);
   padding-bottom: 0;
+}
 
-  .link-section {
-    display: flex;
-    flex-direction: column;
-  }
+.footer__inner {
+  max-width: var(--ft-max-width);
+  margin: 0 auto;
+  padding: var(--ft-pad-block) var(--ft-pad-inline);
 
-  .section-title {
-    font-family: MrEavesSanOT;
-    margin-bottom: 15px;
-  }
-
-  .link-list {
-    display: flex;
-    flex-direction: column;
-    gap: .25rem;
-  }
-
-  .link {
-    font-size: 0.875rem;
-    transition: color 0.2s;
+  @include medium-up {
+    padding-inline: var(--ft-pad-inline-wide);
   }
 }
 
 .footer-content {
-  max-width: 1920px;
-  margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 3rem;
-}
+  grid-template-columns: var(--ft-grid-1);
+  gap: var(--ft-row-gap) var(--ft-col-gap);
 
-@media (min-width: 768px) {
-  .footer-content {
-    grid-template-columns: repeat(3, 1fr);
+  // Four children, so two columns divide evenly and nothing is left stranded
+  // on a row of its own.
+  @media screen and (min-width: $ft-bp-2col) {
+    grid-template-columns: var(--ft-grid-2);
+  }
+
+  @include large-up {
+    grid-template-columns: var(--ft-grid-4);
   }
 }
 
-.brand-section {
-  display: flex;
-  justify-content: space-between;
-
-  @include medium-up {
-    flex-direction: column;
-    justify-content: start;
-    gap: 20px;
-  }
-}
-
-.social-links {
+.footer-col {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+}
 
-  ul {
-    display: flex;
-    gap: 10px;
+.footer-col__heading {
+  margin: 0 0 var(--ft-heading-gap);
+  font-family: var(--ft-heading-font);
+  font-size: var(--ft-heading-size);
+  color: var(--ft-heading-color);
+}
+
+.footer-col__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ft-link-gap);
+  list-style: none;
+  margin: 0;
+}
+
+.footer-col__link {
+  font-size: var(--ft-link-size);
+  color: var(--ft-link-color);
+  transition: color 0.2s;
+
+  &:hover {
+    color: var(--ft-link-hover-color);
+  }
+}
+
+// Socials sit beside Get in touch only in the single-column stack: once the
+// grid splits, the half-width column cannot hold both, as #103 also found.
+.footer-col--contact {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: var(--ft-contact-gap);
+
+  @media screen and (min-width: $ft-bp-2col) {
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+}
+
+.footer-col__email {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ft-email-gap);
+  font-size: var(--ft-link-size);
+  color: var(--ft-link-color);
+  transition: color 0.2s;
+
+  &:hover {
+    color: var(--ft-link-hover-color);
   }
 
   svg {
+    width: var(--ft-email-icon);
+    height: var(--ft-email-icon);
+  }
+}
+
+.footer-social__label {
+  margin: 0 0 var(--ft-social-label-gap);
+  font-size: var(--ft-social-label-size);
+  color: var(--ft-heading-color);
+}
+
+.footer-social__list {
+  display: flex;
+  gap: var(--ft-social-gap);
+  list-style: none;
+  margin: 0;
+}
+
+.footer-social__link {
+  display: inline-flex;
+  color: var(--ft-social-color);
+
+  svg {
+    width: var(--ft-social-icon);
+    height: var(--ft-social-icon);
+
     path {
-      fill: var(--color-text-primary);
+      fill: currentColor;
     }
   }
 }
 
-.social-link {
-  color: rgba(255, 255, 255, 0.6);
-  transition: color 0.2s;
-}
-
-.social-link:hover {
-  color: white;
-}
-
-.newsletter-form {
+// The card logos slot in here as a row of images. Nothing renders under the
+// heading until they exist.
+.footer-col__accept {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ft-accept-gap);
+
+  img {
+    height: var(--ft-accept-icon-h);
+    width: auto;
+  }
 }
 
-.newsletter-input {
-  width: 100%;
-  height: 3rem;
-  padding: 0 1rem;
-  background-color: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  font-size: 0.875rem;
-}
+.footer-copyright {
+  margin-top: var(--ft-copyright-gap);
+  text-align: center;
+  font-size: var(--ft-copyright-size);
+  color: var(--ft-copyright-color);
 
-.newsletter-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.newsletter-input:focus {
-  outline: none;
-  border-color: white;
-}
-
-.newsletter-btn {
-  width: 100%;
-  height: 3rem;
-  background-color: white;
-  color: #000000;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  transition: background-color 0.2s;
-}
-
-.newsletter-btn:hover {
-  background-color: #f5f5f0;
-}
-
-.copyright-section {
   p {
-    text-align: center;
-    font-size: 13px;
+    margin: 0;
   }
 }
 
 .footer-bottom {
-  background-color: var(--color-text-primary);
-  
+  background-color: var(--color-alert-red);
+  padding-top: 1rem;
+
   p {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     color: #ffffff;
     font-weight: 600;
     text-align: center;
+  }
+
+  &__icon {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
   }
 }

@@ -50,14 +50,20 @@
       }
     }
 
+    // Same dot and active-pill treatment as the hero slider and the PDP gallery.
+    // Swiper sizes bullets from the width/height vars, so the pill width has to be
+    // set on the element itself.
     .swiper-pagination-bullet {
-      --swiper-pagination-bullet-height: 12px;
-      --swiper-pagination-bullet-width: 12px;
-      --swiper-pagination-bullet-inactive-opacity: .1;
+      --swiper-pagination-bullet-horizontal-gap: 6px;
+      --swiper-pagination-bullet-size: 7px;
+      --swiper-pagination-bullet-inactive-color: var(--color-brown-40);
+      --swiper-pagination-bullet-inactive-opacity: 1;
+      --swiper-pagination-color: var(--color-teal-85);
     }
 
     .swiper-pagination-bullet-active {
-      --swiper-pagination-color: #d9caab;
+      width: 33px;
+      border-radius: 10px;
     }
 
     .swiper-button-next,

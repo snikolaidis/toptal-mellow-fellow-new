@@ -777,14 +777,6 @@ export default function CheckoutPage() {
         return;
       }
 
-      if (response.status === 403 && result.code === 'CSRF_INVALID') {
-        setError('Your security token refreshed. Please press Pay again to complete your order.');
-        fetchCsrfToken();
-        submittingRef.current = false;
-        setIsProcessing(false);
-        return;
-      }
-
       if (!response.ok || !result.success) {
         if (result.paymentVoided) {
           throw new Error(

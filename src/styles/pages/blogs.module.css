@@ -550,23 +550,38 @@
 }
 
 .relatedPagination :global(.swiper-pagination-bullet) {
-  background: #000;
-  opacity: 0.25;
+  width: 7px;
+  height: 7px;
+  margin: 0 6px;
+  background: var(--color-brown-40);
+  opacity: 1;
 }
 
 .relatedPagination :global(.swiper-pagination-bullet-active) {
+  width: 33px;
+  border-radius: 10px;
+  background: var(--color-teal-85);
   opacity: 1;
 }
 
 .relatedSlide {
   height: auto;
+  display: flex;
 }
 
+/* min-height, not height: the card is a flex column that has to be able to grow
+   past 435px, otherwise a taller card gets its price and Add to cart clipped by
+   the overflow. Slides still come out uniform because the wrapper stretches
+   them to the tallest one. */
 .relatedSlide :global(.product-card) {
-  height: 435px;
+  min-height: 435px;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+}
+
+.relatedSwiper :global(.swiper-wrapper) {
+  align-items: stretch;
 }
 
 .relatedSlide :global(.product-card > a) {
@@ -582,7 +597,6 @@
 
 .relatedSlide :global(.product__info) {
   min-height: 0;
-  overflow: hidden;
 }
 
 /* Blog-posts carousel card — fixed height so cards stay uniform even when a
