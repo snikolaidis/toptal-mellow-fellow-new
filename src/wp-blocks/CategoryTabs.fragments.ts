@@ -26,6 +26,16 @@ export const fragments = {
               }
             }
           }
+          productCategory {
+            nodes {
+              __typename
+              ... on ProductCategory {
+                databaseId
+                name
+                slug
+              }
+            }
+          }
           link {
             url
             title
