@@ -1,11 +1,16 @@
 import Link from 'next/link';
 import { gql, useQuery } from '@apollo/client';
 import {
+  AmexIcon,
+  DiscoverIcon,
   EmailIcon,
   FacebookIcon,
   InstagramIcon,
+  JcbIcon,
+  MastercardIcon,
   TikTokIcon,
   TwitterIcon,
+  VisaIcon,
   YouTubeIcon,
 } from '@/components/icons';
 
@@ -93,6 +98,17 @@ interface FooterMenuItem {
   uri: string;
   target?: string | null;
 }
+
+const PAYMENT_MARKS: Array<{
+  label: string;
+  Icon: () => React.JSX.Element;
+}> = [
+  { label: 'Visa', Icon: VisaIcon },
+  { label: 'Mastercard', Icon: MastercardIcon },
+  { label: 'American Express', Icon: AmexIcon },
+  { label: 'Discover', Icon: DiscoverIcon },
+  { label: 'JCB', Icon: JcbIcon },
+];
 
 // Resolve a WordPress menu item URL to an app-appropriate href. WP items mix
 // relative paths (/contact-us/), full frontend-domain URLs (the headless app)
@@ -238,10 +254,14 @@ export default function Footer() {
 
             <div className="footer-col">
               <h3 className="footer-col__heading">We accept</h3>
-              {/* The five card logos (Amex, Discover, JCB, Mastercard, Visa)
-                  go here, as a <ul className="footer-col__accept"> of images.
-                  None of them exist in the repo or the media library yet, so
-                  the column renders its heading alone until they are sourced. */}
+              <ul className="footer-col__accept">
+                {PAYMENT_MARKS.map(({ label, Icon }) => (
+                  <li key={label}>
+                    <Icon />
+                    <span className="is-sr-only">{label}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
 
             {/* Legal (WP "Footer 2" location) */}

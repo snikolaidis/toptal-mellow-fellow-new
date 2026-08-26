@@ -184,10 +184,11 @@ $ft-bp-2col: 480px;
   --ft-social-icon: 22px;
   --ft-social-color: var(--color-text-primary);
 
-  // Reserved for the card logos, which do not exist yet. See the slot comment
-  // in Footer.tsx.
   --ft-accept-gap: 10px;
-  --ft-accept-icon-h: 24px;
+  --ft-accept-box-w: 40px;
+  --ft-accept-box-h: 26px;
+  --ft-accept-cols: 4;
+  --ft-accept-color: #000000;
 
   --ft-copyright-gap: 40px;
   --ft-copyright-size: 13px;
@@ -311,17 +312,19 @@ $ft-bp-2col: 480px;
   }
 }
 
-// The card logos slot in here as a row of images. Nothing renders under the
-// heading until they exist.
 .footer-col__accept {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(var(--ft-accept-cols), var(--ft-accept-box-w));
   align-items: center;
   gap: var(--ft-accept-gap);
+  list-style: none;
+  margin: 0;
+  color: var(--ft-accept-color);
 
-  img {
-    height: var(--ft-accept-icon-h);
-    width: auto;
+  svg {
+    display: block;
+    width: var(--ft-accept-box-w);
+    height: var(--ft-accept-box-h);
   }
 }
 
