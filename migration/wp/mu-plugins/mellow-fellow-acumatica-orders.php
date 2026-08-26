@@ -37,6 +37,8 @@ function mf_acu_schedule_order_push( $order_id ) {
 add_action( MF_ACU_ORDER_HOOK, 'mf_acu_push_order', 10, 1 );
 
 function mf_acu_push_order( $order_id ) {
+    mf_acu_log( "Push started for order $order_id", 'orders' );
+
     if ( ! function_exists( 'mf_acu_login' ) ) {
         mf_acu_order_fail( $order_id, 'Acumatica core plugin not loaded' );
         return;
@@ -53,7 +55,10 @@ function mf_acu_push_order( $order_id ) {
         return;
     }
 
-    if ( 'yes' === $order->get_meta( '_acumatica_order_pushed' ) ) return;
+    if ( 'yes' === $order->get_meta( '_acumatica_order_pushed' ) ) {
+        mf_acu_log( "Order $order_id already pushed, skipping", 'orders' );
+        return;
+    }
 
     if ( mf_acu_circuit_is_open() ) {
         mf_acu_order_fail( $order_id, 'Circuit breaker is open' );
