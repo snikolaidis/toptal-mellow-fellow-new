@@ -12,6 +12,8 @@ export const PRODUCT_DETAILS_FIELDS = gql`
     servingSize
     disclaimers
     coaLink
+    meterType
+    meterValue
     timelineImage {
       node {
         sourceUrl
