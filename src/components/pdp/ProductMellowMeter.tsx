@@ -137,7 +137,7 @@ export default function ProductMellowMeter({ product }: Props) {
   const rawValue = product.productDetails?.meterValue;
 
   const hasType = typeof rawType === 'string' && rawType.trim() !== '';
-  const hasValue = typeof rawValue === 'number' && Number.isFinite(rawValue);
+  const hasValue = typeof rawValue === 'number' && Number.isFinite(rawValue) && rawValue !== 0;
 
   // Sweep the needle in from the far left once the gauge actually scrolls
   // into view — the meter usually sits below the fold, so animating on

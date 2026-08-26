@@ -744,19 +744,21 @@ const SingleProduct: React.FC<SingleProductProps> & {
           </div>
         )}
 
-        <YouMayAlsoLike
-          source={{
-            kind: 'recommendations',
-            productId: product.databaseId,
-            productSlug: product.slug,
-            productPrice: product.price || '',
-            typeSlugs: (product.mfproductTypes?.nodes || [])
-              .map((t) => (t as { slug?: string }).slug || '')
-              .filter(Boolean),
-          }}
-        />
+        <div className="pdp-recommendations">
+          <YouMayAlsoLike
+            source={{
+              kind: 'recommendations',
+              productId: product.databaseId,
+              productSlug: product.slug,
+              productPrice: product.price || '',
+              typeSlugs: (product.mfproductTypes?.nodes || [])
+                .map((t) => (t as { slug?: string }).slug || '')
+                .filter(Boolean),
+            }}
+          />
 
-        <RecentlyViewed currentSlug={product.slug} />
+          <RecentlyViewed currentSlug={product.slug} />
+        </div>
       </div>
     </Layout>
   );
