@@ -246,7 +246,7 @@ add_action('woocommerce_coupon_options_usage_restriction', function ($coupon_id)
         $all_collections = [];
     }
     ?>
-    <div class="options_group">
+    <div class="options_group" id="mf-collection-restrictions">
         <p class="form-field"><label><strong>Collection restrictions</strong></label></p>
         <p class="form-field">
             <label for="mf_coupon_collections">Qualifying collections</label>
@@ -277,6 +277,19 @@ add_action('woocommerce_coupon_options_usage_restriction', function ($coupon_id)
             <?php echo wc_help_tip('Products in these collections will not receive this coupon\'s discount, even if they match other restrictions.'); ?>
         </p>
     </div>
+    <script>
+    jQuery(function($) {
+        var $section = $('#mf-collection-restrictions');
+        if (!$section.length) return;
+        var $target = $('#product_categories').closest('.options_group');
+        if (!$target.length) {
+            $target = $('#product_ids').closest('.options_group');
+        }
+        if ($target.length) {
+            $target.after($section);
+        }
+    });
+    </script>
     <?php
 }, 10, 1);
 
@@ -327,6 +340,64 @@ add_filter('woocommerce_coupon_is_valid_for_product', function ($valid, $product
     return $valid;
 }, 10, 4);
 
+// ─── Runtime: enforce collection restrictions for fixed_cart coupons ───────
+//
+// woocommerce_coupon_is_valid_for_product only fires for per-product discount
+// types (fixed_product, percent). fixed_cart coupons bypass it entirely because
+// WooCommerce applies them at the cart level. This filter enforces collection
+// restrictions at the cart level so fixed_cart coupons respect them too.
+
+add_filter('woocommerce_coupon_is_valid', function ($valid, $coupon, $discounts) {
+    if (!$valid) {
+        return false;
+    }
+
+    if ('fixed_cart' !== $coupon->get_discount_type()) {
+        return $valid;
+    }
+
+    $coupon_id   = $coupon->get_id();
+    $include_raw = get_post_meta($coupon_id, '_mf_coupon_collections', true);
+    $exclude_raw = get_post_meta($coupon_id, '_mf_coupon_exclude_collections', true);
+
+    $include_slugs = !empty($include_raw) ? array_filter(array_map('trim', explode(',', $include_raw))) : [];
+    $exclude_slugs = !empty($exclude_raw) ? array_filter(array_map('trim', explode(',', $exclude_raw))) : [];
+
+    if (empty($include_slugs) && empty($exclude_slugs)) {
+        return $valid;
+    }
+
+    $cart = WC()->cart;
+    if (!$cart) {
+        return $valid;
+    }
+
+    $exclude_ids = !empty($exclude_slugs) ? mf_get_products_in_collections($exclude_slugs) : [];
+    $include_ids = !empty($include_slugs) ? mf_get_products_in_collections($include_slugs) : [];
+
+    foreach ($cart->get_cart() as $cart_item) {
+        $product_id = $cart_item['product_id'];
+        if (!empty($exclude_ids) && in_array($product_id, $exclude_ids)) {
+            throw new Exception(__('This coupon is not valid for items in your cart.', 'mellow-fellow'));
+        }
+    }
+
+    if (!empty($include_ids)) {
+        $has_qualifying = false;
+        foreach ($cart->get_cart() as $cart_item) {
+            if (in_array($cart_item['product_id'], $include_ids)) {
+                $has_qualifying = true;
+                break;
+            }
+        }
+        if (!$has_qualifying) {
+            throw new Exception(__('This coupon requires qualifying products in your cart.', 'mellow-fellow'));
+        }
+    }
+
+    return $valid;
+}, 10, 3);
+
 // ─── Runtime fix: force BOGO recalculation on cart changes ──────────────────
 //
 // WT Smart Coupon Pro caches BOGO discount calculations in static properties
@@ -343,18 +414,6 @@ add_action('woocommerce_before_calculate_totals', 'mf_clear_bogo_static_cache', 
 
 function mf_clear_bogo_static_cache($cart) {
     if (!class_exists('Wbte_Smart_Coupon_Bogo_Public')) {
-        return;
-    }
-
-    $has_bogo = false;
-    foreach ($cart->get_applied_coupons() as $code) {
-        $coupon = new WC_Coupon($code);
-        if ('wbte_sc_bogo' === $coupon->get_discount_type()) {
-            $has_bogo = true;
-            break;
-        }
-    }
-    if (!$has_bogo) {
         return;
     }
 

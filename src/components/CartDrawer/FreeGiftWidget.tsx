@@ -49,7 +49,7 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   // Uses both the coupon code AND the tracked gift ID so orphaned gifts
   // (coupon auto-removed by WooCommerce) are still cleaned up.
   useEffect(() => {
-    if (unlocked || removing || isMutating || !freeGift.enabled || !cart) return;
+    if (unlocked || removing || isMutating || addingId !== null || !freeGift.enabled || !cart) return;
     const giftCoupon = cart.appliedCoupons?.find((c) => c.code.startsWith('mf-free-gift-'));
     const couponProductId = giftCoupon ? parseInt(giftCoupon.code.replace('mf-free-gift-', ''), 10) : null;
     const trackedId = giftIdRef.current;
@@ -70,27 +70,45 @@ export default function FreeGiftWidget({ subtotal }: Props) {
         setRemoving(false);
       }
     })();
-  }, [unlocked, removing, isMutating, freeGift.enabled, cart, removeFromCart, removeCoupon]);
+  }, [unlocked, removing, isMutating, addingId, freeGift.enabled, cart, removeFromCart, removeCoupon]);
 
   useEffect(() => {
     if (!unlocked || gifts.length > 0) return;
     let cancelled = false;
-    getBrowserClient()
-      .query({
+
+    const fetchGifts = async () => {
+      const variables: Record<string, unknown> = { maxPrice: freeGift.maxGiftPrice, first: 8 };
+
+      if (freeGift.collections && freeGift.collections.length > 0) {
+        try {
+          const res = await fetch(`/api/shop/gift-product-ids?collections=${freeGift.collections.join(',')}`);
+          const data = await res.json();
+          if (cancelled) return;
+          if (Array.isArray(data?.ids) && data.ids.length > 0) {
+            variables.include = data.ids;
+          } else {
+            return;
+          }
+        } catch {
+          return;
+        }
+      }
+
+      const { data } = await getBrowserClient().query({
         query: GET_GIFT_PRODUCTS,
-        variables: { maxPrice: freeGift.maxGiftPrice, first: 8 },
+        variables,
         fetchPolicy: 'cache-first',
-      })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const nodes = (data?.products?.nodes || []).filter((n: GiftProduct) => n?.databaseId);
-        setGifts(nodes);
-      })
-      .catch(() => {});
+      });
+      if (cancelled) return;
+      const nodes = (data?.products?.nodes || []).filter((n: GiftProduct) => n?.databaseId);
+      setGifts(nodes);
+    };
+
+    fetchGifts().catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [unlocked, gifts.length, freeGift.maxGiftPrice]);
+  }, [unlocked, gifts.length, freeGift.maxGiftPrice, freeGift.collections]);
 
   const pickGift = useCallback(
     async (gift: GiftProduct) => {

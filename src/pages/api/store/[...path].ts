@@ -100,10 +100,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       cookiesToSet.push(createCartTokenCookie(newCartToken));
     }
 
+    const responseCode = typeof response.data?.code === 'string' ? response.data.code : '';
     const isSessionDead =
-      response.status === 403 ||
-      (response.status >= 400 && typeof response.data?.code === 'string' &&
-        /nonce|woocommerce_rest_cart_invalid_key/i.test(response.data.code));
+      responseCode === 'woocommerce_rest_cart_invalid_key' ||
+      (response.status === 403 && /cart_invalid_key|rest_forbidden/i.test(responseCode)) ||
+      (response.status >= 400 && /woocommerce_rest_nonce_invalid/i.test(responseCode));
 
     if (isSessionDead && cartToken) {
       const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';

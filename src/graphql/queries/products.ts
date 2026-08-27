@@ -1041,10 +1041,10 @@ export const GET_COLLECTION_FACETS = gql`
 `;
 
 export const GET_GIFT_PRODUCTS = gql`
-  query GetGiftProducts($maxPrice: Float!, $minPrice: Float = 0.5, $first: Int = 12) {
+  query GetGiftProducts($maxPrice: Float!, $minPrice: Float = 0.5, $first: Int = 12, $include: [Int]) {
     products(
       first: $first
-      where: { status: "publish", minPrice: $minPrice, maxPrice: $maxPrice, orderby: { field: PRICE, order: DESC } }
+      where: { status: "publish", minPrice: $minPrice, maxPrice: $maxPrice, include: $include, orderby: { field: PRICE, order: DESC } }
     ) {
       nodes {
         __typename
