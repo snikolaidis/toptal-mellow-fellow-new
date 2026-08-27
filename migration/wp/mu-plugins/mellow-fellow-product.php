@@ -479,7 +479,7 @@ function mf_get_product( WP_REST_Request $request ) {
     // price" checkbox (_bb_show_from_price) is on. Mirror that gate here (see
     // BB_Graphql::maybe_register_product_bundle_link's bbFromPrice resolver)
     // instead of reading a bb_from_price meta key that doesn't exist.
-    $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && class_exists( 'BB_Helpers' ) )
+    $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && method_exists( 'BB_Helpers', 'get_bundle_min_price' ) )
         ? BB_Helpers::get_bundle_min_price( $bb_id )
         : 0.0;
 

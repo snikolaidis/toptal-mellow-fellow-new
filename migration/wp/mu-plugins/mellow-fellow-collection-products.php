@@ -339,7 +339,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         // resolver) instead of reading a bb_from_price meta key that
         // doesn't exist.
         $bb_id = ! empty( $meta['_bb_linked_bundle_id'] ) ? (int) $meta['_bb_linked_bundle_id'] : 0;
-        $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && class_exists( 'BB_Helpers' ) )
+        $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && method_exists( 'BB_Helpers', 'get_bundle_min_price' ) )
             ? BB_Helpers::get_bundle_min_price( $bb_id )
             : 0.0;
 
