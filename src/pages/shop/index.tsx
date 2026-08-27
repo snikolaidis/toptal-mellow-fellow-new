@@ -1,4 +1,5 @@
 import { GetStaticProps } from 'next';
+import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
@@ -16,6 +17,8 @@ import {
   FilterGroup,
   ActiveFilters,
   isHiddenTerm,
+  parseFilterParams,
+  filtersToQueryParams,
 } from '@/lib/shopFilters';
 import { getAllProducts as getAllProductsFromDb } from '@/lib/product-queries';
 import styles from '@/styles/pages/shop.module.css';
@@ -137,9 +140,46 @@ interface ShopPageProps {
 }
 
 export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPageProps) {
+  const router = useRouter();
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
+
+  // Applied here, not seeded into useState like search does. This is
+  // getStaticProps, so the prerendered HTML cannot know the query string and
+  // seeding from window.location would be a hydration mismatch. router.query is
+  // empty until isReady on a static page, hence the guard.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const urlFilters = parseFilterParams(router.query as Record<string, string | string[] | undefined>);
+    const urlSort = typeof router.query.sort === 'string' ? router.query.sort : 'default';
+    if (Object.keys(urlFilters).length > 0) setActiveFilters(urlFilters);
+    if (urlSort !== 'default') setSelectedSort(urlSort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
+  const syncUrl = useCallback(
+    (filters: ActiveFilters, sort: string) => {
+      router.push(
+        { pathname: '/shop', query: filtersToQueryParams(filters, sort) },
+        undefined,
+        { shallow: true }
+      );
+    },
+    [router]
+  );
+
+  // popstate fires on back and forward only, never on our own router.push.
+  useEffect(() => {
+    const onPopState = () => {
+      const params = Object.fromEntries(new URLSearchParams(window.location.search));
+      setActiveFilters(parseFilterParams(params));
+      setSelectedSort(typeof params.sort === 'string' && params.sort ? params.sort : 'default');
+      setPage(1);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   const bestSellerSet = useMemo(() => new Set(bestSellerIds), [bestSellerIds]);
 
   // Enrich products with taxonomy names from the map (for ProductCard display)
@@ -238,23 +278,31 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleFilterChange = useCallback((key: string, slugs: string[]) => {
-    setActiveFilters((prev) => {
-      const next = { ...prev, [key]: slugs };
-      for (const k of Object.keys(next)) {
-        if (next[k].length === 0) delete next[k];
-      }
-      return next;
-    });
-    setPage(1);
-  }, []);
-
-  const handleSortChange = useCallback((option: SelectOption | null) => {
-    if (option) {
-      setSelectedSort(option.value);
+  const handleFilterChange = useCallback(
+    (key: string, slugs: string[]) => {
+      setActiveFilters((prev) => {
+        const next = { ...prev, [key]: slugs };
+        for (const k of Object.keys(next)) {
+          if (next[k].length === 0) delete next[k];
+        }
+        syncUrl(next, selectedSort);
+        return next;
+      });
       setPage(1);
-    }
-  }, []);
+    },
+    [syncUrl, selectedSort]
+  );
+
+  const handleSortChange = useCallback(
+    (option: SelectOption | null) => {
+      if (option) {
+        setSelectedSort(option.value);
+        setPage(1);
+        syncUrl(activeFilters, option.value);
+      }
+    },
+    [syncUrl, activeFilters]
+  );
 
   const goToPage = (p: number) => {
     setPage(p);
