@@ -165,6 +165,8 @@ async function handler(
         url,
         body: JSON.stringify(req.body),
         cookies: strippedCookies,
+        wcSessionToken: hasSessionTokenError ? undefined : wcSessionToken || undefined,
+        cartToken: hasCartTokenError ? undefined : cartToken || undefined,
       });
 
       if (hasSessionTokenError) {
