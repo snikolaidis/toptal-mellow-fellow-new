@@ -191,6 +191,21 @@
   }
 }
 
+/* Its own class, not folded into .sidebarWrapper, which the mood page shares.
+   Must stay after that rule to win the width at equal specificity. */
+@media (min-width: 1024px) {
+  .filterCard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 272px;
+    padding: 16px 0 0;
+    border: 1px solid #eeecf2;
+    border-radius: 16px;
+    background: var(--color-surface-primary);
+  }
+}
+
 .main {
   flex: 1;
   min-width: 0;
@@ -322,6 +337,20 @@
 @media only screen and (min-width: 1400px) {
   .productsGrid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Do not merge with .productsGrid above or the global .products-grid. Both
+   keep a fourth column, and .products-grid renders in eight places. */
+.collectionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 16px;
+}
+
+@media only screen and (min-width: 992px) {
+  .collectionGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
