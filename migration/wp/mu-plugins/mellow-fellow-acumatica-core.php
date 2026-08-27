@@ -93,7 +93,10 @@ function mf_acu_circuit_state() {
 }
 
 function mf_acu_circuit_is_open() {
-    return ! empty( mf_acu_circuit_state()['open'] );
+    $state = mf_acu_circuit_state();
+    if ( empty( $state['open'] ) ) return false;
+    if ( time() - (int) $state['opened_at'] > 900 ) return false;
+    return true;
 }
 
 function mf_acu_circuit_record_success() {
@@ -118,16 +121,73 @@ function mf_acu_circuit_reset() {
     mf_acu_log( 'Circuit breaker manually reset', 'circuit' );
 }
 
-/* ── authentication ──────────────────────────────────────────────── */
+/* ── authentication (pooled — one seat shared across all requests) ── */
+
+define( 'MF_ACU_LOGIN_LOCK_KEY', 'mf_acu_login_lock' );
+define( 'MF_ACU_SESSION_TTL',    20 * MINUTE_IN_SECONDS );
+define( 'MF_ACU_SESSION_REFRESH_AT', 15 * MINUTE_IN_SECONDS );
 
 function mf_acu_login( $force = false ) {
     if ( ! $force ) {
         $cached = get_transient( MF_ACU_SESSION_KEY );
         if ( $cached && is_array( $cached ) && ! empty( $cached['cookies'] ) ) {
+            mf_acu_maybe_extend_session( $cached );
             return $cached;
         }
     }
 
+    $lock_acquired = mf_acu_acquire_login_lock();
+    if ( ! $lock_acquired ) {
+        for ( $i = 0; $i < 10; $i++ ) {
+            usleep( 500000 );
+            $cached = get_transient( MF_ACU_SESSION_KEY );
+            if ( $cached && is_array( $cached ) && ! empty( $cached['cookies'] ) ) {
+                return $cached;
+            }
+        }
+        return new WP_Error( 'mf_acu_login_timeout', 'Timed out waiting for Acumatica session.' );
+    }
+
+    $cached = get_transient( MF_ACU_SESSION_KEY );
+    if ( ! $force && $cached && is_array( $cached ) && ! empty( $cached['cookies'] ) ) {
+        mf_acu_release_login_lock();
+        return $cached;
+    }
+
+    $result = mf_acu_do_login();
+    mf_acu_release_login_lock();
+    return $result;
+}
+
+function mf_acu_acquire_login_lock() {
+    global $wp_object_cache;
+    if ( function_exists( 'wp_cache_add' ) ) {
+        $got = wp_cache_add( MF_ACU_LOGIN_LOCK_KEY, getmypid(), 'transient', 10 );
+        if ( $got ) return true;
+        return false;
+    }
+    if ( false === get_transient( MF_ACU_LOGIN_LOCK_KEY ) ) {
+        set_transient( MF_ACU_LOGIN_LOCK_KEY, getmypid(), 10 );
+        return true;
+    }
+    return false;
+}
+
+function mf_acu_release_login_lock() {
+    if ( function_exists( 'wp_cache_delete' ) ) {
+        wp_cache_delete( MF_ACU_LOGIN_LOCK_KEY, 'transient' );
+    }
+    delete_transient( MF_ACU_LOGIN_LOCK_KEY );
+}
+
+function mf_acu_maybe_extend_session( $session ) {
+    $age = time() - (int) $session['logged_in'];
+    if ( $age < MF_ACU_SESSION_REFRESH_AT ) return;
+
+    set_transient( MF_ACU_SESSION_KEY, $session, MF_ACU_SESSION_TTL );
+}
+
+function mf_acu_do_login() {
     $base = mf_acu_base_url();
     if ( ! $base ) return new WP_Error( 'mf_acu_no_url', 'ACUMATICA_BASE_URL is not configured.' );
 
@@ -175,7 +235,8 @@ function mf_acu_login( $force = false ) {
         'logged_in'  => time(),
     );
 
-    set_transient( MF_ACU_SESSION_KEY, $session, 20 * MINUTE_IN_SECONDS );
+    set_transient( MF_ACU_SESSION_KEY, $session, MF_ACU_SESSION_TTL );
+    mf_acu_log( 'Session created (pooled, single seat)', 'auth' );
     return $session;
 }
 
@@ -320,7 +381,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $order_type = mf_acu_order_type();
     $ot_check = mf_acu_rest_get(
-        "/entity/Default/24.200.001/SalesOrder?\$filter=OrderType eq '$order_type'&\$top=1&\$select=OrderType,OrderNbr",
+        '/entity/Default/24.200.001/SalesOrder?' . http_build_query( array( '$filter' => "OrderType eq '$order_type'", '$top' => 1, '$select' => 'OrderType,OrderNbr' ) ),
         $session
     );
     if ( is_wp_error( $ot_check ) ) {
@@ -331,7 +392,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $branch = mf_acu_branch();
     $br_check = mf_acu_rest_get(
-        "/entity/Default/24.200.001/SalesOrder?\$filter=Branch eq '$branch'&\$top=1&\$select=Branch",
+        '/entity/Default/24.200.001/SalesOrder?' . http_build_query( array( '$filter' => "Branch eq '$branch'", '$top' => 1, '$select' => 'Branch' ) ),
         $session
     );
     if ( is_wp_error( $br_check ) ) {
@@ -344,7 +405,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $cc = mf_acu_config( 'CUSTOMER_CLASS', 'MFF' );
     $cc_check = mf_acu_rest_get(
-        "/entity/Default/24.200.001/Customer?\$filter=CustomerClass eq '$cc'&\$top=1&\$select=CustomerClass",
+        '/entity/Default/24.200.001/Customer?' . http_build_query( array( '$filter' => "CustomerClass eq '$cc'", '$top' => 1, '$select' => 'CustomerClass' ) ),
         $session
     );
     if ( is_wp_error( $cc_check ) ) {
@@ -372,7 +433,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
             foreach ( $skus as $sku ) {
                 $escaped = str_replace( "'", "''", $sku );
                 $inv = mf_acu_rest_get(
-                    "/entity/Default/24.200.001/StockItem?\$filter=InventoryID eq '$escaped'&\$top=1&\$select=InventoryID",
+                    '/entity/Default/24.200.001/StockItem?' . http_build_query( array( '$filter' => "InventoryID eq '$escaped'", '$top' => 1, '$select' => 'InventoryID' ) ),
                     $session
                 );
                 if ( is_wp_error( $inv ) || ( is_array( $inv ) && empty( $inv ) ) ) {
@@ -388,6 +449,33 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
     }
 
     $results[] = array( 'test' => 'Hold Mode', 'ok' => true, 'detail' => 'Orders sent with Hold=false (auto-release). If orders fail on creation, try setting Hold=true first.' );
+
+    $ext_cache = wp_using_ext_object_cache();
+    $lock_ok   = false;
+    if ( $ext_cache ) {
+        $first  = wp_cache_add( 'mf_acu_diag_lock_test', 1, 'transient', 5 );
+        $second = wp_cache_add( 'mf_acu_diag_lock_test', 2, 'transient', 5 );
+        $lock_ok = $first && ! $second;
+        wp_cache_delete( 'mf_acu_diag_lock_test', 'transient' );
+    }
+    $cache_detail = $ext_cache
+        ? 'External object cache active' . ( $lock_ok ? ' — atomic lock confirmed (session pooling safe)' : ' — lock NOT atomic, pooling may allow duplicate sessions' )
+        : 'No external cache — transients stored in DB, login lock is non-atomic (works but small race window under heavy traffic)';
+    $results[] = array( 'test' => 'Object Cache (Redis)', 'ok' => $ext_cache, 'detail' => $cache_detail );
+
+    $transient_in_db = false;
+    set_transient( 'mf_acu_diag_redis_test', 'check', 30 );
+    global $wpdb;
+    $db_hit = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = '_transient_mf_acu_diag_redis_test'" );
+    $transient_in_db = ! empty( $db_hit );
+    delete_transient( 'mf_acu_diag_redis_test' );
+    $results[] = array(
+        'test'   => 'Transient Storage',
+        'ok'     => ! $transient_in_db,
+        'detail' => $transient_in_db
+            ? 'Transients are stored in wp_options (DB) — Redis is not intercepting them. Check your object-cache.php drop-in.'
+            : 'Transients are handled by external cache (Redis) — not hitting the database',
+    );
 
     mf_acu_logout( $session );
     update_option( 'mf_acu_diagnostics', $results, false );
@@ -423,7 +511,7 @@ add_action( 'admin_post_mf_acu_save_settings', function() {
 
     $password = isset( $_POST['mf_acu_PASSWORD'] ) ? wp_unslash( $_POST['mf_acu_PASSWORD'] ) : '';
     if ( '' !== $password ) {
-        $updated['PASSWORD'] = sanitize_text_field( $password );
+        $updated['PASSWORD'] = $password;
     }
 
     update_option( MF_ACU_SETTINGS_OPTION, $updated, false );
@@ -478,6 +566,9 @@ function mf_acu_render_admin_page() {
 
         <h2>Credentials &amp; Settings</h2>
         <p>Values set via PHP constants or server environment variables take priority. Fields locked by a constant/env var are shown as read-only.</p>
+        <?php if ( ! $has_const_or_env( 'PASSWORD' ) && ! empty( $saved['PASSWORD'] ) ) : ?>
+            <div class="notice notice-warning inline"><p><strong>Security notice:</strong> The Acumatica password is stored in the database. For production, set the <code>ACUMATICA_PASSWORD</code> environment variable or PHP constant instead.</p></div>
+        <?php endif; ?>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="max-width:900px">
             <input type="hidden" name="action" value="mf_acu_save_settings" />
             <?php wp_nonce_field( 'mf_acu_save_settings' ); ?>

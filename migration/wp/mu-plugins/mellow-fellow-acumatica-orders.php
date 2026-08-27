@@ -13,6 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 define( 'MF_ACU_ORDER_HOOK', 'mf_acu_push_order_async' );
 define( 'MF_ACU_ORDER_MAX_ATTEMPTS', 3 );
 
+function mf_acu_mask_email( $email ) {
+    $parts = explode( '@', $email, 2 );
+    if ( count( $parts ) !== 2 ) return '***';
+    return substr( $parts[0], 0, 2 ) . '***@' . $parts[1];
+}
+
 /* ── hook: schedule push when order hits processing ──────────────── */
 
 add_action( 'woocommerce_order_status_processing', 'mf_acu_schedule_order_push', 30, 1 );
@@ -175,7 +181,7 @@ function mf_acu_resolve_customer( $order, $session ) {
 
     $escaped = str_replace( "'", "''", $email );
     $search  = mf_acu_rest_get(
-        "/entity/Default/24.200.001/Customer?\$filter=Email eq '$escaped'&\$top=1&\$select=CustomerID",
+        '/entity/Default/24.200.001/Customer?' . http_build_query( array( '$filter' => "Email eq '$escaped'", '$top' => 1, '$select' => 'CustomerID' ) ),
         $session
     );
 
@@ -183,7 +189,7 @@ function mf_acu_resolve_customer( $order, $session ) {
         $found_id = $search[0]['CustomerID']['value'];
         $order->update_meta_data( '_acumatica_customer_id', $found_id );
         $order->save();
-        mf_acu_log( "Customer found for $email: $found_id", 'orders' );
+        mf_acu_log( 'Customer found for ' . mf_acu_mask_email( $email ) . ": $found_id", 'orders' );
         return $found_id;
     }
 
@@ -209,7 +215,7 @@ function mf_acu_resolve_customer( $order, $session ) {
     $result = mf_acu_rest_put( '/entity/Default/24.200.001/Customer', $payload, $session );
 
     if ( is_wp_error( $result ) ) {
-        mf_acu_log( "Customer create failed for $email: " . $result->get_error_message(), 'orders' );
+        mf_acu_log( 'Customer create failed for ' . mf_acu_mask_email( $email ) . ': ' . $result->get_error_message(), 'orders' );
         return $result;
     }
 
@@ -221,7 +227,7 @@ function mf_acu_resolve_customer( $order, $session ) {
     $order->update_meta_data( '_acumatica_customer_id', $new_id );
     $order->save();
 
-    mf_acu_log( "Customer created for $email: $new_id", 'orders' );
+    mf_acu_log( 'Customer created for ' . mf_acu_mask_email( $email ) . ": $new_id", 'orders' );
     return $new_id;
 }
 
@@ -420,7 +426,7 @@ function mf_acu_render_order_metabox( $post_or_order ) {
                 btn.disabled = true;
                 btn.textContent = 'Pushing...';
                 msg.style.display = 'none';
-                fetch('/wp-json/mf-acu/v1/push/<?php echo (int) $oid; ?>', {
+                fetch('<?php echo esc_url( rest_url( 'mf-acu/v1/push/' . (int) $oid ) ); ?>', {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: {'X-WP-Nonce': '<?php echo wp_create_nonce( 'wp_rest' ); ?>'}
@@ -510,31 +516,3 @@ add_action( 'woocommerce_order_action_mf_acu_push_order', function( $order ) {
     mf_acu_push_order( $order->get_id() );
 } );
 
-add_action( 'admin_post_mf_acu_retry_push', function() {
-    error_log( '[MF Acumatica] Retry button handler fired' );
-
-    if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Forbidden' );
-
-    $order_id = absint( $_POST['order_id'] ?? 0 );
-    if ( ! $order_id ) wp_die( 'Missing order ID' );
-
-    check_admin_referer( 'mf_acu_retry_push_' . $order_id );
-
-    mf_acu_log( "Retry button handler for order $order_id", 'retry' );
-
-    $order = wc_get_order( $order_id );
-    if ( ! $order ) wp_die( 'Order not found' );
-
-    $order->delete_meta_data( '_acumatica_order_pushed' );
-    $order->delete_meta_data( '_acumatica_push_status' );
-    $order->delete_meta_data( '_acumatica_push_error' );
-    $order->delete_meta_data( '_acumatica_customer_id' );
-    $order->update_meta_data( '_acumatica_push_attempts', 0 );
-    $order->save();
-
-    mf_acu_push_order( $order_id );
-
-    $edit_url = $order->get_edit_order_url();
-    wp_safe_redirect( $edit_url );
-    exit;
-} );
