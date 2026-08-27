@@ -16,6 +16,8 @@ add_action( 'acf/init', 'mf_register_value_props_fields' );
 add_action( 'acf/init', 'mf_register_announcement_bar_fields' );
 add_action( 'acf/init', 'mf_register_mega_menu_featured_fields' );
 add_action( 'acf/init', 'mf_register_promotional_slides_fields' );
+add_action( 'acf/init', 'mf_register_loyalty_tiers_fields' );
+add_action( 'admin_init', 'mf_seed_loyalty_tiers_from_home_page' );
 
 function mf_register_site_settings_options_page() {
     if ( ! function_exists( 'acf_add_options_page' ) ) {
@@ -446,4 +448,230 @@ function mf_register_promotional_slides_fields() {
         'show_in_graphql'    => 1,
         'graphql_field_name' => 'promotionalSlides',
     ] );
+}
+
+
+/**
+ * Fam Club tiers, shared by the home page LoyaltyTiers block and the mood pages.
+ * Field names and nesting mirror the block's own group (acf-json/group_loyalty_tiers.json)
+ * exactly, and it is exposed under the same `loyaltyTiers` name, so a page can hand
+ * siteSettings straight to the LoyaltyTiers component without reshaping anything.
+ * Changing a field name here without changing it there silently drops that field.
+ */
+function mf_register_loyalty_tiers_fields() {
+    if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+        return;
+    }
+
+    acf_add_local_field_group( [
+        'key'    => 'group_mf_loyalty_tiers',
+        'title'  => 'Fam Club Tiers',
+        'fields' => [
+            [
+                'key'           => 'field_mf_lt_badge_icon',
+                'label'         => 'Badge Icon',
+                'name'          => 'badge_icon',
+                'type'          => 'image',
+                'return_format' => 'array',
+                'preview_size'  => 'thumbnail',
+                'required'      => 0,
+                'wrapper'       => [ 'width' => '25' ],
+            ],
+            [
+                'key'      => 'field_mf_lt_badge_text',
+                'label'    => 'Badge Text',
+                'name'     => 'badge_text',
+                'type'     => 'text',
+                'required' => 0,
+                'wrapper'  => [ 'width' => '75' ],
+            ],
+            [
+                'key'      => 'field_mf_lt_heading',
+                'label'    => 'Heading',
+                'name'     => 'heading',
+                'type'     => 'text',
+                'required' => 0,
+            ],
+            [
+                'key'      => 'field_mf_lt_body',
+                'label'    => 'Body',
+                'name'     => 'body',
+                'type'     => 'textarea',
+                'rows'     => 3,
+                'required' => 0,
+            ],
+            [
+                'key'      => 'field_mf_lt_cta',
+                'label'    => 'CTA',
+                'name'     => 'cta',
+                'type'     => 'link',
+                'required' => 0,
+                'wrapper'  => [ 'width' => '50' ],
+            ],
+            [
+                'key'      => 'field_mf_lt_tiers_title',
+                'label'    => 'Tiers Title',
+                'name'     => 'tiers_title',
+                'type'     => 'text',
+                'required' => 0,
+                'wrapper'  => [ 'width' => '50' ],
+            ],
+            [
+                'key'          => 'field_mf_lt_tiers',
+                'label'        => 'Tiers',
+                'name'         => 'tiers',
+                'type'         => 'repeater',
+                'instructions' => 'One row per tier, in the order they should appear.',
+                'layout'       => 'block',
+                'button_label' => 'Add Tier',
+                'min'          => 0,
+                'sub_fields'   => [
+                    [
+                        'key'           => 'field_mf_lt_tier_icon',
+                        'label'         => 'Icon',
+                        'name'          => 'icon',
+                        'type'          => 'image',
+                        'return_format' => 'array',
+                        'preview_size'  => 'thumbnail',
+                        'required'      => 0,
+                        'wrapper'       => [ 'width' => '25' ],
+                    ],
+                    [
+                        'key'           => 'field_mf_lt_tier_icon_bg',
+                        'label'         => 'Icon Background',
+                        'name'          => 'icon_bg',
+                        'type'          => 'color_picker',
+                        'required'      => 0,
+                        'wrapper'       => [ 'width' => '25' ],
+                    ],
+                    [
+                        'key'      => 'field_mf_lt_tier_name',
+                        'label'    => 'Name',
+                        'name'     => 'name',
+                        'type'     => 'text',
+                        'required' => 0,
+                        'wrapper'  => [ 'width' => '25' ],
+                    ],
+                    [
+                        'key'      => 'field_mf_lt_tier_points',
+                        'label'    => 'Points',
+                        'name'     => 'points',
+                        'type'     => 'text',
+                        'required' => 0,
+                        'wrapper'  => [ 'width' => '25' ],
+                    ],
+                    [
+                        'key'          => 'field_mf_lt_tier_benefits',
+                        'label'        => 'Benefits',
+                        'name'         => 'benefits',
+                        'type'         => 'repeater',
+                        'layout'       => 'table',
+                        'button_label' => 'Add Benefit',
+                        'min'          => 0,
+                        'sub_fields'   => [
+                            [
+                                'key'           => 'field_mf_lt_benefit_icon',
+                                'label'         => 'Icon',
+                                'name'          => 'icon',
+                                'type'          => 'image',
+                                'return_format' => 'array',
+                                'preview_size'  => 'thumbnail',
+                                'required'      => 0,
+                                'wrapper'       => [ 'width' => '30' ],
+                            ],
+                            [
+                                'key'      => 'field_mf_lt_benefit_label',
+                                'label'    => 'Label',
+                                'name'     => 'label',
+                                'type'     => 'text',
+                                'required' => 0,
+                                'wrapper'  => [ 'width' => '70' ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+        'location' => [ [ [
+            'param'    => 'options_page',
+            'operator' => '==',
+            'value'    => 'mf-site-settings',
+        ] ] ],
+        'active'             => true,
+        'show_in_graphql'    => 1,
+        'graphql_field_name' => 'loyaltyTiers',
+    ] );
+}
+
+
+/**
+ * One-time copy of the home page LoyaltyTiers block into the shared Site Settings
+ * group, so the mood pages have the tiers without anyone re-picking four tier icons
+ * and eight benefit icons by hand.
+ *
+ * Runs in admin only, writes nothing once the group has tiers, and records a flag so
+ * it never runs twice. Editing the Site Settings values afterwards is safe: this will
+ * not overwrite them, and it does not touch the home page block, which stays the
+ * source for the home page itself.
+ */
+function mf_seed_loyalty_tiers_from_home_page() {
+    if ( get_option( 'mf_loyalty_tiers_seeded' ) ) {
+        return;
+    }
+    if ( ! function_exists( 'get_field' ) || ! function_exists( 'update_field' ) ) {
+        return;
+    }
+    if ( get_field( 'tiers', 'option' ) ) {
+        update_option( 'mf_loyalty_tiers_seeded', 1, false );
+        return;
+    }
+
+    $front_id = (int) get_option( 'page_on_front' );
+    $front    = $front_id ? get_post( $front_id ) : null;
+    if ( ! $front ) {
+        return;
+    }
+
+    $data = null;
+    foreach ( parse_blocks( $front->post_content ) as $block ) {
+        if ( ( $block['blockName'] ?? '' ) === 'acf/loyalty-tiers' && ! empty( $block['attrs']['data'] ) ) {
+            $data = $block['attrs']['data'];
+            break;
+        }
+    }
+    if ( ! $data ) {
+        return;
+    }
+
+    foreach ( [ 'badge_icon', 'badge_text', 'heading', 'body', 'cta', 'tiers_title' ] as $name ) {
+        if ( isset( $data[ $name ] ) && '' !== $data[ $name ] ) {
+            update_field( $name, $data[ $name ], 'option' );
+        }
+    }
+
+    // The block stores repeaters flattened as tiers_0_name, tiers_0_benefits_1_label
+    // and so on. update_field() wants them nested, and rebuilding it here means ACF
+    // writes the field keys itself rather than this code guessing them.
+    $tiers = [];
+    for ( $i = 0, $count = (int) ( $data['tiers'] ?? 0 ); $i < $count; $i++ ) {
+        $benefits = [];
+        for ( $j = 0, $bcount = (int) ( $data[ "tiers_{$i}_benefits" ] ?? 0 ); $j < $bcount; $j++ ) {
+            $benefits[] = [
+                'icon'  => $data[ "tiers_{$i}_benefits_{$j}_icon" ] ?? '',
+                'label' => $data[ "tiers_{$i}_benefits_{$j}_label" ] ?? '',
+            ];
+        }
+        $tiers[] = [
+            'icon'     => $data[ "tiers_{$i}_icon" ] ?? '',
+            'icon_bg'  => $data[ "tiers_{$i}_icon_bg" ] ?? '',
+            'name'     => $data[ "tiers_{$i}_name" ] ?? '',
+            'points'   => $data[ "tiers_{$i}_points" ] ?? '',
+            'benefits' => $benefits,
+        ];
+    }
+    if ( $tiers ) {
+        update_field( 'tiers', $tiers, 'option' );
+    }
+
+    update_option( 'mf_loyalty_tiers_seeded', 1, false );
 }
