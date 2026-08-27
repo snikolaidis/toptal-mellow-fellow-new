@@ -144,21 +144,6 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         }
       }
     }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
     blendTypes {
       nodes {
         name
@@ -370,21 +355,6 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         }
       }
     }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
     blendTypes {
       nodes {
         name
@@ -558,21 +528,6 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         }
       }
     }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
     blendTypes {
       nodes {
         name
@@ -734,21 +689,6 @@ export const GROUP_PRODUCT_FIELDS = gql`
         slug
         extraTaxonomyFields {
           propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
             node {
               sourceUrl
               altText
