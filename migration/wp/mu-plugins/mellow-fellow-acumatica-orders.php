@@ -406,13 +406,50 @@ function mf_acu_render_order_metabox( $post_or_order ) {
     }
 
     if ( 'yes' !== $pushed ) {
+        $oid = $order->get_id();
         ?>
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:12px">
-            <input type="hidden" name="action" value="mf_acu_retry_push" />
-            <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>" />
-            <?php wp_nonce_field( 'mf_acu_retry_push_' . $order->get_id() ); ?>
-            <button type="submit" class="button button-primary" style="width:100%">Push to Acumatica Now</button>
-        </form>
+        <div style="margin-top:12px">
+            <button type="button" id="mf-acu-push-btn" class="button button-primary" style="width:100%">Push to Acumatica Now</button>
+            <p id="mf-acu-push-msg" style="margin-top:8px;display:none"></p>
+        </div>
+        <script>
+        (function(){
+            var btn = document.getElementById('mf-acu-push-btn');
+            var msg = document.getElementById('mf-acu-push-msg');
+            btn.addEventListener('click', function(){
+                btn.disabled = true;
+                btn.textContent = 'Pushing...';
+                msg.style.display = 'none';
+                fetch('/wp-json/mf-acu/v1/push/<?php echo (int) $oid; ?>', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'X-WP-Nonce': '<?php echo wp_create_nonce( 'wp_rest' ); ?>'}
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    if (data.pushed === 'yes' || data.status === 'success') {
+                        msg.style.color = '#00a32a';
+                        msg.textContent = 'Pushed: ' + (data.nbr || 'success');
+                        msg.style.display = 'block';
+                        setTimeout(function(){ location.reload(); }, 1500);
+                    } else {
+                        msg.style.color = '#d63638';
+                        msg.textContent = data.error || data.message || 'Push failed';
+                        msg.style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Push to Acumatica Now';
+                    }
+                })
+                .catch(function(){
+                    msg.style.color = '#d63638';
+                    msg.textContent = 'Request failed';
+                    msg.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Push to Acumatica Now';
+                });
+            });
+        })();
+        </script>
         <?php
     }
 }
