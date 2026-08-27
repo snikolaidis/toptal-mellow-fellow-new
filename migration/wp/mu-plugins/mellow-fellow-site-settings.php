@@ -18,6 +18,8 @@ add_action( 'acf/init', 'mf_register_mega_menu_featured_fields' );
 add_action( 'acf/init', 'mf_register_promotional_slides_fields' );
 add_action( 'acf/init', 'mf_register_loyalty_tiers_fields' );
 add_action( 'admin_init', 'mf_seed_loyalty_tiers_from_home_page' );
+add_action( 'admin_init', 'mf_seed_promotional_slides_from_home_page' );
+add_action( 'graphql_register_types', 'mf_register_hero_slider_shared_slides', 20 );
 
 function mf_register_site_settings_options_page() {
     if ( ! function_exists( 'acf_add_options_page' ) ) {
@@ -674,4 +676,82 @@ function mf_seed_loyalty_tiers_from_home_page() {
     }
 
     update_option( 'mf_loyalty_tiers_seeded', 1, false );
+}
+
+
+/**
+ * Re-exposes the shared Promotional Slides under the Hero Slider block, so the block
+ * and the mega menu Featured carousel render the same slides.
+ *
+ * It reuses the generated `PromotionalSlides` type rather than a hand rolled one, so
+ * the field shape is identical to `siteSettings.promotionalSlides` and the component
+ * needs no mapping. The resolver returns a node carrying the ACF options post id,
+ * which is what wpgraphql-acf reads to know where to load the values from
+ * (Utils::get_node_acf_id, the `is_array && isset($node['post_id'])` case).
+ */
+function mf_register_hero_slider_shared_slides() {
+    if ( ! function_exists( 'register_graphql_field' ) ) {
+        return;
+    }
+
+    register_graphql_field( 'AcfHeroSlider', 'sharedSlides', [
+        'type'        => 'PromotionalSlides',
+        'description' => 'Slides from the shared Promotional Slides group in Site Settings.',
+        'resolve'     => function () {
+            return [ 'node' => [ 'post_id' => 'options' ] ];
+        },
+    ] );
+}
+
+/**
+ * One-time copy of the home page hero slides into the shared group, so switching the
+ * block over does not blank the hero while someone re-uploads five slides.
+ *
+ * Same guards as the tiers seeder: admin only, skips once the shared group has slides,
+ * and flagged so it never runs twice.
+ */
+function mf_seed_promotional_slides_from_home_page() {
+    if ( get_option( 'mf_promotional_slides_seeded' ) ) {
+        return;
+    }
+    if ( ! function_exists( 'get_field' ) || ! function_exists( 'update_field' ) ) {
+        return;
+    }
+    if ( get_field( 'slides', 'option' ) ) {
+        update_option( 'mf_promotional_slides_seeded', 1, false );
+        return;
+    }
+
+    $front_id = (int) get_option( 'page_on_front' );
+    $front    = $front_id ? get_post( $front_id ) : null;
+    if ( ! $front ) {
+        return;
+    }
+
+    $data = null;
+    foreach ( parse_blocks( $front->post_content ) as $block ) {
+        if ( ( $block['blockName'] ?? '' ) === 'acf/hero-slider' && ! empty( $block['attrs']['data'] ) ) {
+            $data = $block['attrs']['data'];
+            break;
+        }
+    }
+    if ( ! $data ) {
+        return;
+    }
+
+    $slides = [];
+    for ( $i = 0, $count = (int) ( $data['slides'] ?? 0 ); $i < $count; $i++ ) {
+        $slides[] = [
+            'caption'       => '',
+            'link'          => $data[ "slides_{$i}_link" ] ?? '',
+            'desktop_image' => $data[ "slides_{$i}_desktop_image" ] ?? '',
+            'tablet_image'  => $data[ "slides_{$i}_tablet_image" ] ?? '',
+            'mobile_image'  => $data[ "slides_{$i}_mobile_image" ] ?? '',
+        ];
+    }
+    if ( $slides ) {
+        update_field( 'slides', $slides, 'option' );
+    }
+
+    update_option( 'mf_promotional_slides_seeded', 1, false );
 }
