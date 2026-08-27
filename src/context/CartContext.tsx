@@ -7,7 +7,6 @@ import {
   useRef,
   ReactNode,
 } from 'react';
-import { getApolloAuthClient } from '@faustwp/core';
 import { useAuth } from '@/context/AuthContext';
 import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
 import {
@@ -230,17 +229,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
 
-  // GraphQL client — only used for bundle operations
-  const getClient = useCallback(() => {
-    if (isAuthenticated) {
-      try {
-        return getApolloAuthClient();
-      } catch {
-        return getBrowserClient();
-      }
-    }
-    return getBrowserClient();
-  }, [isAuthenticated]);
+  // GraphQL client — only used for bundle operations. Always the same-origin
+  // browser client, even when logged in: every other cart operation already
+  // runs through the Store API's anonymous Cart-Token session regardless of
+  // auth state (see fetchCartFromStore/addItemToStore/etc. below), so bundle
+  // add/remove has to land in that same session to be visible afterward.
+  // The authenticated Apollo client hits WordPress directly cross-origin with
+  // a Bearer JWT, bypassing the Store API bridge entirely and resolving to a
+  // *different* WC session (keyed by the logged-in user's ID) — a leftover
+  // from before cart ops moved to the Store API, when the whole cart lived in
+  // GraphQL and needed that per-user session for persistence.
+  const getClient = useCallback(() => getBrowserClient(), []);
 
   function isSessionExpired(err: unknown): boolean {
     return err instanceof StoreApiError && err.code === 'session_expired';
