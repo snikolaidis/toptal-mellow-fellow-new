@@ -720,6 +720,45 @@ function mf_acu_render_admin_page() {
             <?php wp_nonce_field( 'mf_acu_run_diagnostics' ); ?>
             <button type="submit" class="button">Run Full Diagnostics</button>
         </form>
+        <button type="button" id="mf-acu-stress-btn" class="button" style="margin-left:12px">Stress Test Session Pool</button>
+        <div id="mf-acu-stress-result" style="margin-top:12px;max-width:900px;display:none"></div>
+        <script>
+        (function(){
+            var btn = document.getElementById('mf-acu-stress-btn');
+            var box = document.getElementById('mf-acu-stress-result');
+            btn.addEventListener('click', function(){
+                btn.disabled = true;
+                btn.textContent = 'Running (5 concurrent logins)...';
+                box.style.display = 'none';
+                fetch('<?php echo esc_url( rest_url( 'mf-acu/v1/stress-test' ) ); ?>', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'X-WP-Nonce': '<?php echo wp_create_nonce( 'wp_rest' ); ?>'}
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    var pass = data.pass;
+                    var html = '<table class="widefat striped"><thead><tr><th style="width:60px">Status</th><th style="width:260px">Metric</th><th>Result</th></tr></thead><tbody>';
+                    html += '<tr><td>' + (pass ? '<span style="color:#00a32a">&#10003;</span>' : '<span style="color:#d63638">&#10007;</span>') + '</td>';
+                    html += '<td>Session Pooling</td><td>' + (data.detail || '') + '</td></tr>';
+                    html += '<tr><td>&#8212;</td><td>Concurrent Requests</td><td>' + (data.concurrent_requests || 0) + '</td></tr>';
+                    html += '<tr><td>&#8212;</td><td>Sessions Created</td><td>' + (data.sessions_created || 0) + '</td></tr>';
+                    html += '<tr><td>&#8212;</td><td>Workers Got Session</td><td>' + (data.workers_got_session || 0) + '/' + (data.concurrent_requests || 0) + '</td></tr>';
+                    html += '</tbody></table>';
+                    box.innerHTML = '<h2>Stress Test Results</h2>' + html;
+                    box.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Stress Test Session Pool';
+                })
+                .catch(function(e){
+                    box.innerHTML = '<div class="notice notice-error inline"><p>Stress test failed: ' + e.message + '</p></div>';
+                    box.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Stress Test Session Pool';
+                });
+            });
+        })();
+        </script>
 
         <?php
         $diag = get_option( 'mf_acu_diagnostics', array() );
