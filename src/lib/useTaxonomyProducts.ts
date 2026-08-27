@@ -110,8 +110,41 @@ export function useTaxonomyProducts({
       setSelectedSort(urlSort);
       fetchPage(urlFilters, urlSort, 1);
     }
+    // isReady, not just slug: on a cold load this runs once with an empty
+    // router.query, and without it here it never runs again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [slug, router.isReady]);
+
+  // popstate fires on back and forward only, never on our own router.push.
+  useEffect(() => {
+    const onPopState = () => {
+      const params = Object.fromEntries(new URLSearchParams(window.location.search));
+      const urlFilters = parseFilterParams(params);
+      const urlSort = typeof params.sort === 'string' && params.sort ? params.sort : 'default';
+
+      setActiveFilters(urlFilters);
+      setSelectedSort(urlSort);
+      setPage(1);
+
+      if (Object.keys(urlFilters).length > 0 || urlSort !== 'default') {
+        fetchPage(urlFilters, urlSort, 1);
+        return;
+      }
+
+      // Back to unfiltered restores the page's own initial data rather than
+      // refetching it, matching what handleFilterChange does when the last
+      // filter is cleared.
+      setProducts(initialProducts);
+      setFilterGroups(initialFilterGroups);
+      setHasNextPage(initialHasNextPage);
+      setCurrentTotalPages(initialTotalPages);
+      setFilteredTotal(null);
+      usingInitialData.current = true;
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages]);
 
   const handleFilterChange = useCallback(
     (key: string, slugs: string[]) => {
