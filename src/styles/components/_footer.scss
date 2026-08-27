@@ -144,6 +144,35 @@
   color: #5a493a;
 }
 
+.footer-signup__input:disabled,
+.footer-signup__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Do not swap these for the palette's sage and alert red. Both fail contrast
+   against the gold band at this size. */
+.footer-signup__status {
+  align-self: stretch;
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16.5px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.footer-signup__status--success {
+  color: #2e5339;
+}
+
+.footer-signup__status--error {
+  color: #8a1c27;
+}
+
 // A media query cannot read a custom property, so this sits beside the token
 // block rather than in it. 480 not the project's 576, to keep #103's breakpoint.
 $ft-bp-2col: 480px;
