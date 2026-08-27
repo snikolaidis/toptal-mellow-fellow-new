@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import { gql, useQuery } from '@apollo/client';
 import {
@@ -179,6 +180,15 @@ function MenuColumn({
   );
 }
 
+type SignupStatus = 'idle' | 'submitting' | 'success' | 'error';
+
+// Must read correctly for someone already subscribed, who gets the same 202
+// and so the same success state. Do not promise the code is on its way: the
+// welcome flow does not re-trigger for an existing profile.
+const SIGNUP_SUCCESS_MESSAGE =
+  'Thanks for subscribing. Keep an eye on your inbox.';
+const SIGNUP_GENERIC_ERROR = 'Something went wrong. Please try again.';
+
 export default function Footer() {
   const { data } = useQuery(GET_FOOTER_MENU);
   const footerMenu = data?.menus?.nodes?.[0];
@@ -194,6 +204,40 @@ export default function Footer() {
   const socialLinks: SocialLinks | undefined =
     socialData?.siteSettings?.socialLinks ?? undefined;
 
+  const [email, setEmail] = useState('');
+  const [signupStatus, setSignupStatus] = useState<SignupStatus>('idle');
+  const [signupMessage, setSignupMessage] = useState('');
+
+  async function handleSignupSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (signupStatus === 'submitting') return;
+
+    setSignupStatus('submitting');
+    setSignupMessage('');
+
+    try {
+      const response = await fetch('/api/newsletter-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
+        setSignupStatus('success');
+        setSignupMessage(SIGNUP_SUCCESS_MESSAGE);
+        setEmail('');
+        return;
+      }
+
+      setSignupStatus('error');
+      setSignupMessage(data?.error || SIGNUP_GENERIC_ERROR);
+    } catch {
+      setSignupStatus('error');
+      setSignupMessage(SIGNUP_GENERIC_ERROR);
+    }
+  }
+
   return (
     <>
       {/* Signup band */}
@@ -202,21 +246,43 @@ export default function Footer() {
           Get <span className="footer-signup__accent">15% off</span> your first
           purchase when you sign up!!
         </p>
-        <form className="footer-signup__form">
+        <form className="footer-signup__form" onSubmit={handleSignupSubmit}>
           <div className="footer-signup__controls">
             <input
               type="email"
+              name="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={signupStatus === 'submitting'}
               placeholder="Enter your email"
               aria-label="Email address"
               className="footer-signup__input"
             />
-            <button type="submit" className="footer-signup__button">
-              Join now
+            <button
+              type="submit"
+              className="footer-signup__button"
+              disabled={signupStatus === 'submitting'}
+            >
+              {signupStatus === 'submitting' ? 'Joining...' : 'Join now'}
             </button>
           </div>
           <p className="footer-signup__consent">
             By joining you agree to receive marketing emails. Unsubscribe
             anytime.
+          </p>
+          {/* Always rendered, never wrapped in a `&&`: the live region has to
+              exist before the message lands or a screen reader announces
+              nothing. Collapsed by :empty in the stylesheet. */}
+          <p
+            className={
+              signupStatus === 'success' || signupStatus === 'error'
+                ? `footer-signup__status footer-signup__status--${signupStatus}`
+                : 'footer-signup__status'
+            }
+            role="status"
+          >
+            {signupMessage}
           </p>
         </form>
       </section>
