@@ -474,6 +474,15 @@ function mf_get_product( WP_REST_Request $request ) {
         ) );
     }
 
+    // wc-bundle-builder never persists a "from price" meta value — it computes
+    // the minimum bundle total live and only surfaces it when the "Show 'From'
+    // price" checkbox (_bb_show_from_price) is on. Mirror that gate here (see
+    // BB_Graphql::maybe_register_product_bundle_link's bbFromPrice resolver)
+    // instead of reading a bb_from_price meta key that doesn't exist.
+    $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && class_exists( 'BB_Helpers' ) )
+        ? BB_Helpers::get_bundle_min_price( $bb_id )
+        : 0.0;
+
     // -----------------------------------------------------------------------
     // 11. Collection name/slug (first collection for breadcrumb)
     // -----------------------------------------------------------------------
@@ -503,7 +512,7 @@ function mf_get_product( WP_REST_Request $request ) {
         'galleryImages'      => [ 'nodes' => $gallery ],
         'shopifyId'          => $meta['_shopify_id'] ?? null,
         'bbLinkedBundleId'   => $bb_id,
-        'bbFromPrice'        => ! empty( $meta['bb_from_price'] ) ? (float) $meta['bb_from_price'] : null,
+        'bbFromPrice'        => $bb_from_price > 0 ? (float) $bb_from_price : null,
         'productDetails'     => $pd,
         'uniqueSellingProps'  => [ 'nodes' => $usp_nodes ],
         'seo'                => $seo,

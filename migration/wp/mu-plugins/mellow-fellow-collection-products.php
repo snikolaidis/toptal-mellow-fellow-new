@@ -213,7 +213,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     $meta_keys = [
         '_price', '_regular_price', '_sale_price', '_stock_status',
         '_stock', '_manage_stock',
-        '_thumbnail_id', '_bb_linked_bundle_id', 'bb_from_price',
+        '_thumbnail_id', '_bb_linked_bundle_id', '_bb_show_from_price',
     ];
     $meta_key_placeholders = implode( ',', array_fill( 0, count( $meta_keys ), '%s' ) );
 
@@ -331,6 +331,18 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         $wc_type = $taxes['product_type'][0]['slug'] ?? 'simple';
         $type_info = $type_map[ $wc_type ] ?? $type_map['simple'];
 
+        // wc-bundle-builder never persists a "from price" meta value — it
+        // computes the minimum bundle total live and only surfaces it when
+        // the "Show 'From' price" checkbox (_bb_show_from_price) is on.
+        // Mirror that gate here (see
+        // BB_Graphql::maybe_register_product_bundle_link's bbFromPrice
+        // resolver) instead of reading a bb_from_price meta key that
+        // doesn't exist.
+        $bb_id = ! empty( $meta['_bb_linked_bundle_id'] ) ? (int) $meta['_bb_linked_bundle_id'] : 0;
+        $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && class_exists( 'BB_Helpers' ) )
+            ? BB_Helpers::get_bundle_min_price( $bb_id )
+            : 0.0;
+
         // Plain formatted prices (no HTML) — ProductCard renders as text content
         $price        = isset( $meta['_price'] )         ? '$' . number_format( (float) $meta['_price'], 2 )         : null;
         $regularPrice = isset( $meta['_regular_price'] ) ? '$' . number_format( (float) $meta['_regular_price'], 2 ) : null;
@@ -365,8 +377,8 @@ function mf_get_collection_products( WP_REST_Request $request ) {
                 'sourceUrl' => $image['sourceUrl'],
                 'altText'   => $image['altText'],
             ] : null,
-            'bbLinkedBundleId'  => ! empty( $meta['_bb_linked_bundle_id'] ) ? (int) $meta['_bb_linked_bundle_id'] : null,
-            'bbFromPrice'       => ! empty( $meta['bb_from_price'] ) ? (float) $meta['bb_from_price'] : null,
+            'bbLinkedBundleId'  => $bb_id ?: null,
+            'bbFromPrice'       => $bb_from_price > 0 ? (float) $bb_from_price : null,
         ];
 
         $products[] = array_merge( $product, $tax_fields );
