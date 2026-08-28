@@ -11,6 +11,7 @@ import {
   GET_MEGA_MENU_FEATURED,
   MegaMenuFeaturedLink,
   NavMenuItem,
+  PromotionalSlide,
 } from '@/graphql/queries/menus';
 import { GET_ALL_MOODS } from '@/graphql/queries/moods';
 import { MoodPill } from '@/types/mood';
@@ -54,6 +55,8 @@ export default function SiteHeader() {
   const megaMoods: MoodPill[] = moodData?.moods?.nodes ?? [];
   const megaFeatured: MegaMenuFeaturedLink[] =
     featuredData?.siteSettings?.megaMenuFeatured?.links ?? [];
+  const megaSlides: PromotionalSlide[] =
+    featuredData?.siteSettings?.promotionalSlides?.slides ?? [];
 
   const megaMenuModel = useMemo(
     () =>
@@ -62,8 +65,9 @@ export default function SiteHeader() {
         navItems: menuItems,
         moods: megaMoods,
         featuredLinks: megaFeatured,
+        promotionalSlides: megaSlides,
       }),
-    [megaMenuItems, menuItems, megaMoods, megaFeatured]
+    [megaMenuItems, menuItems, megaMoods, megaFeatured, megaSlides]
   );
 
   const {

@@ -12,6 +12,7 @@ import {
   MegaMenuProduct,
   MegaMenuPromoted,
 } from './megaMenuModel';
+import FeaturedCarousel from './FeaturedCarousel';
 
 interface MobileMegaMenuProps {
   id: string;
@@ -42,6 +43,7 @@ export default function MobileMegaMenu({
     moods,
     cannabinoids,
     featured,
+    slides,
     learn,
   } = model;
 
@@ -303,9 +305,11 @@ export default function MobileMegaMenu({
             <section className="site-header__mobile-section">
               <h2 className="site-header__mobile-heading">Featured</h2>
 
-              {/* The carousel image and its overlaid title go here, above the
-                  links. It shares a Site Settings group with the homepage
-                  carousel, which does not exist yet. */}
+              {/* Its own guard, not one shared with the links below: the slides
+                  and the links are separate ACF fields and either can be empty. */}
+              {slides.length > 0 && (
+                <FeaturedCarousel slides={slides} variant="mobile" />
+              )}
 
               {featured.length > 0 && (
                 <ul className="site-header__mobile-list">

@@ -5,6 +5,7 @@ import { NavMenuItem, isRealHref } from '@/graphql/queries/menus';
 import { ProductIcon, isVectorIcon, scaleIcon } from '@/lib/productIcons';
 import { decodeEntities } from '@/lib/decodeEntities';
 import { MegaMenuModel, MegaMenuProduct } from './megaMenuModel';
+import FeaturedCarousel from './FeaturedCarousel';
 
 interface ShopMegaMenuProps {
   id: string;
@@ -51,7 +52,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
 
 const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
   function ShopMegaMenu({ id, labelledBy, shouldFocus, model }, ref) {
-    const { products, categories, tail, moods, cannabinoids, featured } = model;
+    const { products, categories, tail, moods, cannabinoids, featured, slides } =
+      model;
     const navRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
@@ -214,9 +216,11 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
               Featured
             </h2>
 
-            {/* The image carousel goes here, above the links. It shares a Site
-                Settings group with the homepage carousel, which does not exist
-                yet, so there is nothing to render from. */}
+            {/* Its own guard, not one shared with the links below: the slides
+                and the links are separate ACF fields and either can be empty. */}
+            {slides.length > 0 && (
+              <FeaturedCarousel slides={slides} variant="mega" />
+            )}
 
             {featured.length > 0 && (
               <ul className="site-header__mega-list site-header__mega-list--text">
