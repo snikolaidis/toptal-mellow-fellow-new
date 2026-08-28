@@ -17,17 +17,21 @@ import BlogPosts from '@/wp-blocks/BlogPosts';
 import YouMayAlsoLike from '@/components/pdp/YouMayAlsoLike';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
+import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
 import { Mood, MoodPill } from '@/types/mood';
 import {
   FILTER_GROUPS,
   FilterGroup,
+  SORT_OPTIONS,
   isHiddenTerm,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 import moodStyles from '@/styles/pages/mood.module.css';
 
 const MOOD_PAGE_SIZE = 12;
+
+const sortOptions: SelectOption[] = SORT_OPTIONS;
 
 interface CategoryChip {
   slug: string;
@@ -367,6 +371,7 @@ export default function MoodPage({
                 onFilterChange={handleFilterChange}
                 sortValue={currentSort}
                 onSortChange={handleSortChange}
+                showSort={false}
               />
             </div>
 
@@ -375,6 +380,17 @@ export default function MoodPage({
                 <span className={styles.productCount}>
                   {`${displayCount} ${displayCount === 1 ? 'product' : 'products'}`}
                 </span>
+                <div className={styles.sortWrapperDesktop}>
+                  <span className={styles.sortLabel}>Sort by</span>
+                  <div className={styles.sortSelect}>
+                    <Select
+                      options={sortOptions}
+                      value={currentSort}
+                      onChange={handleSortChange}
+                      instanceId="mood-sort-select"
+                    />
+                  </div>
+                </div>
               </div>
 
               <FilterSheet
