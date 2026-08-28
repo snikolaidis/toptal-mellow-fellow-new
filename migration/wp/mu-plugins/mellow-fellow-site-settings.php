@@ -617,14 +617,17 @@ function mf_register_loyalty_tiers_fields() {
  * source for the home page itself.
  */
 function mf_seed_loyalty_tiers_from_home_page() {
-    if ( get_option( 'mf_loyalty_tiers_seeded' ) ) {
+    // v2: the first version flagged itself done even when the repeater failed to
+    // write, leaving installs with the scalars set and no tiers. A new flag gives
+    // those one corrected run.
+    if ( get_option( 'mf_loyalty_tiers_seeded_v2' ) ) {
         return;
     }
     if ( ! function_exists( 'get_field' ) || ! function_exists( 'update_field' ) ) {
         return;
     }
     if ( get_field( 'tiers', 'option' ) ) {
-        update_option( 'mf_loyalty_tiers_seeded', 1, false );
+        update_option( 'mf_loyalty_tiers_seeded_v2', 1, false );
         return;
     }
 
@@ -645,9 +648,21 @@ function mf_seed_loyalty_tiers_from_home_page() {
         return;
     }
 
-    foreach ( [ 'badge_icon', 'badge_text', 'heading', 'body', 'cta', 'tiers_title' ] as $name ) {
+    // Field KEYS, not names. On an options page that has never been saved there is no
+    // `_options_<name>` reference for ACF to look the field up by, and a locally
+    // registered field is not findable by name either, so a name-only update writes a
+    // raw option that ACF cannot read back. Scalars survive that, repeaters do not.
+    $scalars = [
+        'badge_icon'  => 'field_mf_lt_badge_icon',
+        'badge_text'  => 'field_mf_lt_badge_text',
+        'heading'     => 'field_mf_lt_heading',
+        'body'        => 'field_mf_lt_body',
+        'cta'         => 'field_mf_lt_cta',
+        'tiers_title' => 'field_mf_lt_tiers_title',
+    ];
+    foreach ( $scalars as $name => $key ) {
         if ( isset( $data[ $name ] ) && '' !== $data[ $name ] ) {
-            update_field( $name, $data[ $name ], 'option' );
+            update_field( $key, $data[ $name ], 'option' );
         }
     }
 
@@ -671,11 +686,20 @@ function mf_seed_loyalty_tiers_from_home_page() {
             'benefits' => $benefits,
         ];
     }
-    if ( $tiers ) {
-        update_field( 'tiers', $tiers, 'option' );
+    if ( ! $tiers ) {
+        return;
     }
 
-    update_option( 'mf_loyalty_tiers_seeded', 1, false );
+    update_field( 'field_mf_lt_tiers', $tiers, 'option' );
+
+    // Only give up retrying once the repeater actually reads back. Flagging regardless
+    // is how the first run left production with the scalars set and no tiers, and no
+    // way to try again.
+    if ( ! get_field( 'tiers', 'option' ) ) {
+        return;
+    }
+
+    update_option( 'mf_loyalty_tiers_seeded_v2', 1, false );
 }
 
 
@@ -711,14 +735,14 @@ function mf_register_hero_slider_shared_slides() {
  * and flagged so it never runs twice.
  */
 function mf_seed_promotional_slides_from_home_page() {
-    if ( get_option( 'mf_promotional_slides_seeded' ) ) {
+    if ( get_option( 'mf_promotional_slides_seeded_v2' ) ) {
         return;
     }
     if ( ! function_exists( 'get_field' ) || ! function_exists( 'update_field' ) ) {
         return;
     }
     if ( get_field( 'slides', 'option' ) ) {
-        update_option( 'mf_promotional_slides_seeded', 1, false );
+        update_option( 'mf_promotional_slides_seeded_v2', 1, false );
         return;
     }
 
@@ -749,9 +773,15 @@ function mf_seed_promotional_slides_from_home_page() {
             'mobile_image'  => $data[ "slides_{$i}_mobile_image" ] ?? '',
         ];
     }
-    if ( $slides ) {
-        update_field( 'slides', $slides, 'option' );
+    if ( ! $slides ) {
+        return;
     }
 
-    update_option( 'mf_promotional_slides_seeded', 1, false );
+    update_field( 'field_mf_promo_slides', $slides, 'option' );
+
+    if ( ! get_field( 'slides', 'option' ) ) {
+        return;
+    }
+
+    update_option( 'mf_promotional_slides_seeded_v2', 1, false );
 }
