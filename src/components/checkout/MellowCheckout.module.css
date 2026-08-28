@@ -1,714 +1,773 @@
-.checkoutPage {
+/* =========================================================
+   MELLOW FELLOW CHECKOUT
+   ========================================================= */
+
+.wrapper {
   width: 100%;
   min-height: 100vh;
-  background: #f7f3eb;
-  padding: 28px 24px 60px;
+  background: #f5f1e9;
+  padding: 28px 20px 60px;
   box-sizing: border-box;
 }
 
 .checkoutContainer {
   width: 100%;
-  max-width: 1150px;
+  max-width: 1160px;
   margin: 0 auto;
-}
 
-/* =========================================
-   PROGRESS
-========================================= */
-
-.progressBar {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  margin-bottom: 22px;
-  color: #777;
-  font-size: 13px;
-}
-
-.progressItem {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  white-space: nowrap;
-}
-
-.progressNumber {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid #d3d0ca;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: #777;
-}
-
-.progressNumber.active {
-  background: #efc446;
-  border-color: #efc446;
-  color: #111;
-  font-weight: 600;
-}
-
-.progressLine {
-  height: 1px;
-  background: #d5d0c8;
-  flex: 1;
-  margin: 0 12px;
-}
-
-/* =========================================
-   MAIN GRID
-========================================= */
-
-.mainGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 24px;
+
   align-items: start;
 }
 
-.leftColumn {
+/* =========================================================
+   LEFT COLUMN
+   ========================================================= */
+
+.left {
   min-width: 0;
 }
 
-.rightColumn {
-  min-width: 0;
+/* =========================================================
+   PROGRESS
+   ========================================================= */
+
+.progress {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  margin-bottom: 22px;
+
+  font-size: 14px;
+  line-height: 20px;
+  color: #59616b;
 }
 
-/* =========================================
-   CARDS
-========================================= */
-
-.card {
-  background: #fff;
-  border-radius: 10px;
-  margin-bottom: 14px;
-  overflow: hidden;
-  border: 1px solid #eee9e0;
+.progress span {
+  white-space: nowrap;
 }
 
-.cardHeader {
-  padding: 15px 18px;
-  border-bottom: 1px solid #eeeae4;
+.progress span:nth-child(even) {
+  color: #8a8f96;
 }
 
-.cardHeader h2,
-.card > h2 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: #111;
-}
-
-.card > h2 {
-  padding: 15px 18px;
-}
-
-/* =========================================
-   FORM
-========================================= */
-
-.formGrid {
-  padding: 16px 18px 4px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 10px;
-}
-
-.formGroup {
-  min-width: 0;
-}
-
-.fullWidth {
-  grid-column: 1 / -1;
-}
-
-.formGroup label {
-  display: block;
-  margin-bottom: 6px;
-  color: #171717;
-  font-size: 10px;
+.progress .active {
+  color: #25384a;
   font-weight: 600;
 }
 
-.formGroup label span {
-  color: #e24435;
-}
+/* =========================================================
+   CARD
+   ========================================================= */
 
-.formGroup input,
-.formGroup select {
+.card {
   width: 100%;
-  height: 39px;
-  padding: 0 12px;
-  border: 1px solid #e1ddd5;
-  border-radius: 7px;
-  background: #fff;
-  color: #222;
-  font-size: 11px;
-  outline: none;
   box-sizing: border-box;
+
+  background: #ffffff;
+  border-radius: 12px;
+
+  padding: 28px 24px;
+  margin-bottom: 20px;
+
+  border: 1px solid #ebe6dc;
 }
 
-.formGroup input::placeholder {
-  color: #b8b5af;
-}
+/* =========================================================
+   CARD HEADER
+   ========================================================= */
 
-.formGroup input:focus,
-.formGroup select:focus {
-  border-color: #aaa39a;
-}
-
-.formGroup small {
-  display: block;
-  margin-top: 5px;
-  color: #999;
-  font-size: 8px;
-}
-
-.accountCheckbox {
+.cardHeader {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 18px 15px;
-  color: #555;
-  font-size: 9px;
+  justify-content: space-between;
+
+  margin-bottom: 20px;
 }
 
-.accountCheckbox input {
-  width: 13px;
-  height: 13px;
-  accent-color: #8060a4;
+.card h3,
+.cardHeader h3 {
+  margin: 0;
+
+  font-size: 15px;
+  line-height: 20px;
+
+  font-weight: 700;
+  color: #101820;
 }
 
-/* =========================================
-   SHIPPING ADDRESS
-========================================= */
+.editButton {
+  border: 0;
+  background: transparent;
 
-.addressForm {
-  padding: 16px 18px 18px;
-}
+  padding: 4px;
 
-.addressRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
-}
+  font-size: 17px;
+  line-height: 1;
 
-/* =========================================
-   SHIPPING METHOD
-========================================= */
-
-.freeShipping {
-  padding: 12px 18px 0;
-  font-size: 10px;
-  color: #222;
-}
-
-.freeShipping strong {
-  color: #f15b40;
-  font-weight: 500;
-}
-
-.freeShipping span {
-  float: right;
-  font-size: 8px;
-  color: #555;
-}
-
-.freeShipping b {
-  color: #ef6b51;
-}
-
-.shippingProgress {
-  height: 3px;
-  background: #efefef;
-  margin: 8px 18px 14px;
-  position: relative;
-  overflow: hidden;
-}
-
-.shippingProgress div {
-  width: 24%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    #00b6ff,
-    #31cf76,
-    #ff2a8d
-  );
-}
-
-.shippingOptions {
-  padding: 0 18px 10px;
-}
-
-.shippingOption {
-  min-height: 54px;
-  border: 1px solid #e4ded5;
-  border-radius: 8px;
-  margin-bottom: 9px;
-  display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  box-sizing: border-box;
   cursor: pointer;
+  color: #111820;
 }
 
-.shippingOption:last-child {
-  margin-bottom: 0;
+/* =========================================================
+   LOGGED-IN INFORMATION
+   ========================================================= */
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.shippingRadio {
-  width: 24px;
-  flex: 0 0 24px;
+.info strong {
+  display: block;
+
+  font-size: 16px;
+  line-height: 24px;
+
+  font-weight: 600;
+  color: #182b3d;
 }
 
-.shippingRadio input {
-  width: 14px;
-  height: 14px;
-  accent-color: #333;
+.info p {
+  margin: 0;
+
+  font-size: 15px;
+  line-height: 22px;
+
+  color: #637181;
 }
 
-.shippingInfo {
-  flex: 1;
+/* =========================================================
+   GUEST FORM
+   ========================================================= */
+
+.guestForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.field label {
+  font-size: 12px;
+  line-height: 16px;
+
+  font-weight: 600;
+  color: #263746;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  height: 44px;
+
+  box-sizing: border-box;
+
+  padding: 0 13px;
+
+  border: 1px solid #d9d5ce;
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  font-size: 14px;
+  color: #1d2a36;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: #9c7b26;
+
+  box-shadow:
+    0 0 0 2px rgba(156, 123, 38, 0.12);
+}
+
+.field input::placeholder {
+  color: #aaa7a0;
+}
+
+/* =========================================================
+   SHIPPING METHODS
+   ========================================================= */
+
+.shippingMethods {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  margin-top: 18px;
+}
+
+.shippingMethod {
+  width: 100%;
+  min-height: 62px;
+
+  box-sizing: border-box;
+
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 12px 14px;
+
+  border: 1px solid #ddd9d1;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.shippingMethod:hover {
+  border-color: #b9b1a2;
+}
+
+.shippingMethodActive {
+  border-color: #d4b449;
+  background: #fffdf7;
+}
+
+.shippingMethod input {
+  width: 17px;
+  height: 17px;
+
+  margin: 0;
+
+  cursor: pointer;
+  accent-color: #1677ff;
+}
+
+.shippingDetails {
+  min-width: 0;
+
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.shippingInfo strong {
-  font-size: 10px;
-  color: #222;
+.shippingDetails strong {
+  font-size: 14px;
+  line-height: 19px;
+
+  color: #182b3d;
 }
 
-.shippingInfo small {
-  font-size: 7px;
-  color: #777;
+.shippingDetails small {
+  font-size: 11px;
+  line-height: 15px;
+
+  color: #737b83;
 }
 
-.shippingPrice {
-  font-size: 10px;
-  color: #222;
+.shippingMethod > strong {
+  font-size: 14px;
+  line-height: 19px;
+
+  color: #182b3d;
+  white-space: nowrap;
 }
 
-/* =========================================
-   ACTION BUTTONS
-========================================= */
+/* =========================================================
+   CONTINUE BUTTON
+   ========================================================= */
 
-.actionButtons {
-  display: grid;
-  grid-template-columns: 110px 1fr;
-  gap: 8px;
-  margin-top: 8px;
-}
+.continueBtn {
+  width: 100%;
+  height: 54px;
 
-.backButton,
-.continueButton {
-  height: 38px;
-  border-radius: 5px;
-  border: none;
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: 600;
-}
+  margin-top: 2px;
 
-.backButton {
-  background: #fff;
-  border: 1px solid #e0dbd3;
-  color: #222;
-}
+  border: 0;
+  border-radius: 8px;
 
-.continueButton {
-  background: #efc446;
-  color: #111;
-}
+  background: #e5bc43;
 
-.continueButton:hover {
-  background: #e7b92f;
-}
+  color: #111820;
 
-/* =========================================
-   ORDER SUMMARY
-========================================= */
-
-.orderSummary {
-  background: #fff;
-  border-radius: 10px;
-  border: 1px solid #eee9e0;
-  padding: 16px;
-}
-
-.orderSummary h2 {
-  margin: 0 0 16px;
-  font-size: 13px;
-  color: #111;
+  font-size: 15px;
   font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.1s ease;
 }
 
-/* =========================================
+.continueBtn:hover {
+  background: #d9ae35;
+}
+
+.continueBtn:active {
+  transform: translateY(1px);
+}
+
+/* =========================================================
+   RIGHT COLUMN
+   ========================================================= */
+
+.right {
+  width: 100%;
+  min-width: 0;
+
+  position: sticky;
+  top: 24px;
+}
+
+/* =========================================================
+   ORDER SUMMARY
+   ========================================================= */
+
+.summary {
+  width: 100%;
+  box-sizing: border-box;
+
+  background: #ffffff;
+
+  border-radius: 12px;
+
+  padding: 28px 24px;
+
+  border: 1px solid #ebe6dc;
+}
+
+.summary h3 {
+  margin: 0 0 22px;
+
+  font-size: 15px;
+  line-height: 20px;
+
+  font-weight: 700;
+  color: #101820;
+}
+
+/* =========================================================
    PRODUCT
-========================================= */
+   ========================================================= */
 
 .product {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 14px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+
+  align-items: center;
+
+  gap: 13px;
+
+  margin-bottom: 22px;
 }
 
 .productImage {
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
-  position: relative;
+  width: 64px;
+  height: 64px;
+
+  overflow: hidden;
+
+  border-radius: 5px;
+
+  background: #ddd;
 }
 
 .productImage img {
-  width: 48px;
-  height: 48px;
   display: block;
+
+  width: 100%;
+  height: 100%;
+
   object-fit: cover;
-  border-radius: 5px;
-  background: #aeb4bd;
 }
 
-.quantityBadge {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  border-radius: 50%;
-  background: #4c7380;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  font-weight: 700;
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+
+  background: #d8d8d8;
 }
 
 .productInfo {
-  flex: 1;
   min-width: 0;
 }
 
 .productInfo strong {
   display: block;
-  font-size: 9px;
-  line-height: 1.3;
-  color: #222;
+
+  font-size: 14px;
+  line-height: 19px;
+
+  font-weight: 600;
+
+  color: #172b3d;
 }
 
-.productInfo small {
-  display: block;
-  font-size: 8px;
-  color: #777;
-  margin-top: 2px;
+.productInfo p {
+  margin: 4px 0 0;
+
+  font-size: 13px;
+  line-height: 18px;
+
+  color: #566575;
 }
 
-.productInfo b {
-  display: block;
-  font-size: 9px;
-  color: #222;
-  margin-top: 2px;
+.product > strong {
+  font-size: 14px;
+  line-height: 19px;
+
+  color: #172b3d;
+
+  white-space: nowrap;
 }
 
-/* =========================================
+/* =========================================================
    SUMMARY ROWS
-========================================= */
+   ========================================================= */
 
-.summaryDivider {
-  height: 1px;
-  background: #e6e1d9;
-  margin: 10px 0;
-}
-
-.summaryRow {
+.row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin: 10px 0;
-  font-size: 10px;
-  color: #555;
+  justify-content: space-between;
+
+  padding: 13px 0;
+
+  border-top: 1px solid #ece9e3;
+
+  font-size: 14px;
+  line-height: 20px;
+
+  color: #25384a;
 }
 
-.summaryRow strong {
-  color: #222;
+.row span:last-child {
   font-weight: 500;
 }
 
-.summaryRow .free {
-  color: #55a05d;
-}
+/* =========================================================
+   TOTAL
+   ========================================================= */
 
-.totalRow {
-  border-top: 1px solid #e6e1d9;
-  margin-top: 12px;
-  padding-top: 13px;
+.total {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 11px;
-  color: #111;
+  justify-content: space-between;
+
+  margin-top: 4px;
+  padding-top: 18px;
+
+  border-top: 1px solid #ddd9d1;
+
+  font-size: 16px;
+  line-height: 22px;
+
+  color: #172b3d;
 }
 
-.totalRow strong {
-  font-size: 13px;
+.total strong {
+  font-size: 18px;
+  line-height: 24px;
+
+  font-weight: 700;
 }
 
-/* =========================================
-   MOBILE SUMMARY
-========================================= */
-
-.mobileOrderSummary {
-  display: none;
-}
-
-/* =========================================
+/* =========================================================
    TABLET
-========================================= */
+   ========================================================= */
 
-@media (max-width: 900px) {
-  .checkoutPage {
-    padding: 20px 16px 40px;
-  }
-
-  .mainGrid {
-    grid-template-columns: minmax(0, 1fr) 280px;
-    gap: 16px;
-  }
-
-  .progressLine {
-    margin: 0 7px;
-  }
-}
-
-/* =========================================
-   MOBILE
-========================================= */
-
-@media (max-width: 700px) {
-  .checkoutPage {
-    padding: 12px 10px 90px;
+@media (max-width: 1000px) {
+  .wrapper {
+    padding: 24px 16px 50px;
   }
 
   .checkoutContainer {
-    max-width: 100%;
-  }
-
-  .progressBar {
-    margin-bottom: 12px;
-    font-size: 9px;
-    overflow-x: auto;
-    padding-bottom: 3px;
-  }
-
-  .progressItem {
-    gap: 4px;
-  }
-
-  .progressNumber {
-    width: 18px;
-    height: 18px;
-    min-width: 18px;
-    font-size: 9px;
-  }
-
-  .progressLine {
-    min-width: 15px;
-    margin: 0 5px;
-  }
-
-  .mainGrid {
-    display: block;
-  }
-
-  .rightColumn {
-    display: none;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 18px;
   }
 
   .card {
-    border-radius: 8px;
-    margin-bottom: 10px;
+    padding: 24px 20px;
   }
 
-  .cardHeader {
-    padding: 12px 13px;
-  }
-
-  .cardHeader h2,
-  .card > h2 {
-    font-size: 11px;
-  }
-
-  .card > h2 {
-    padding: 12px 13px;
-  }
-
-  .formGrid {
-    padding: 12px 13px 3px;
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .fullWidth {
-    grid-column: auto;
-  }
-
-  .formGroup label {
-    font-size: 9px;
-  }
-
-  .formGroup input,
-  .formGroup select {
-    height: 38px;
-    font-size: 10px;
-  }
-
-  .accountCheckbox {
-    padding: 0 13px 12px;
-    font-size: 8px;
-  }
-
-  .addressForm {
-    padding: 12px 13px;
-  }
-
-  .addressRow {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .freeShipping {
-    padding: 10px 13px 0;
-    font-size: 9px;
-  }
-
-  .shippingProgress {
-    margin: 7px 13px 10px;
-  }
-
-  .shippingOptions {
-    padding: 0 13px 8px;
-  }
-
-  .shippingOption {
-    min-height: 50px;
-    padding: 7px 10px;
-  }
-
-  .shippingInfo strong {
-    font-size: 9px;
-  }
-
-  .shippingInfo small {
-    font-size: 7px;
-  }
-
-  .shippingPrice {
-    font-size: 9px;
-  }
-
-  .actionButtons {
-    grid-template-columns: 1fr;
-    gap: 7px;
-    margin-top: 7px;
-  }
-
-  .backButton,
-  .continueButton {
-    height: 40px;
-  }
-
-  /*
-    Mobile order summary fixed at bottom,
-    matching the Figma/mobile screenshot.
-  */
-  .mobileOrderSummary {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 52px;
-    background: #fff;
-    border-top: 1px solid #ddd6cc;
-    box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.08);
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
-    box-sizing: border-box;
-    z-index: 100;
-    font-size: 10px;
-  }
-
-  .mobileOrderSummary span:first-child {
-    flex: 1;
-    color: #222;
-  }
-
-  .mobileOrderSummary strong {
-    margin-right: 12px;
-    color: #4d8a59;
-    font-size: 10px;
-  }
-
-  .mobileArrow {
-    color: #777;
-    font-size: 14px;
+  .summary {
+    padding: 24px 20px;
   }
 }
 
-/* =========================================
-   SMALL MOBILE
-========================================= */
+/* =========================================================
+   MOBILE
+   ========================================================= */
 
-@media (max-width: 400px) {
-  .checkoutPage {
+@media (max-width: 768px) {
+  .wrapper {
+    padding: 16px 12px 40px;
+  }
+
+  .checkoutContainer {
+    display: flex;
+    flex-direction: column;
+
+    width: 100%;
+    gap: 0;
+  }
+
+  .left {
+    width: 100%;
+  }
+
+  /* Progress becomes horizontally scrollable */
+  .progress {
+    width: 100%;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+
+    gap: 7px;
+
+    font-size: 11px;
+
+    scrollbar-width: none;
+  }
+
+  .progress::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Cards */
+  .card {
+    padding: 18px 14px;
+
+    margin-bottom: 12px;
+
+    border-radius: 9px;
+  }
+
+  .cardHeader {
+    margin-bottom: 15px;
+  }
+
+  .card h3,
+  .cardHeader h3 {
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  /* Logged-in data */
+  .info strong {
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .info p {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  /* Guest fields */
+  .guestForm {
+    gap: 12px;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .field {
+    gap: 5px;
+  }
+
+  .field label {
+    font-size: 10px;
+    line-height: 14px;
+  }
+
+  .field input,
+  .field select {
+    height: 40px;
+
+    padding: 0 10px;
+
+    border-radius: 6px;
+
+    font-size: 12px;
+  }
+
+  /* Shipping */
+  .shippingMethods {
+    margin-top: 13px;
+    gap: 8px;
+  }
+
+  .shippingMethod {
+    min-height: 52px;
+
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+
+    gap: 8px;
+
+    padding: 9px 10px;
+
+    border-radius: 7px;
+  }
+
+  .shippingMethod input {
+    width: 15px;
+    height: 15px;
+  }
+
+  .shippingDetails {
+    gap: 1px;
+  }
+
+  .shippingDetails strong {
+    font-size: 11px;
+    line-height: 15px;
+  }
+
+  .shippingDetails small {
+    font-size: 9px;
+    line-height: 12px;
+  }
+
+  .shippingMethod > strong {
+    font-size: 11px;
+    line-height: 15px;
+  }
+
+  /* Continue button */
+  .continueBtn {
+    height: 48px;
+
+    margin-top: 4px;
+
+    border-radius: 7px;
+
+    font-size: 13px;
+  }
+
+  /* Order summary moves below checkout */
+  .right {
+    width: 100%;
+
+    position: static;
+
+    margin-top: 14px;
+  }
+
+  .summary {
+    padding: 18px 14px;
+
+    border-radius: 9px;
+  }
+
+  .summary h3 {
+    margin-bottom: 15px;
+
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .product {
+    grid-template-columns: 55px minmax(0, 1fr) auto;
+
+    gap: 10px;
+
+    margin-bottom: 16px;
+  }
+
+  .productImage {
+    width: 55px;
+    height: 55px;
+  }
+
+  .productInfo strong {
+    font-size: 11px;
+    line-height: 15px;
+  }
+
+  .productInfo p {
+    margin-top: 2px;
+
+    font-size: 10px;
+    line-height: 14px;
+  }
+
+  .product > strong {
+    font-size: 11px;
+    line-height: 15px;
+  }
+
+  .row {
+    padding: 10px 0;
+
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  .total {
+    padding-top: 13px;
+
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .total strong {
+    font-size: 15px;
+    line-height: 20px;
+  }
+}
+
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 420px) {
+  .wrapper {
     padding-left: 8px;
     padding-right: 8px;
   }
 
-  .progressBar {
-    font-size: 8px;
+  .card {
+    padding: 16px 12px;
   }
 
-  .progressLine {
-    min-width: 10px;
-    margin: 0 3px;
+  .summary {
+    padding: 16px 12px;
   }
 
-  .cardHeader {
-    padding: 11px;
+  .progress {
+    font-size: 10px;
   }
 
-  .formGrid,
-  .addressForm {
-    padding-left: 11px;
-    padding-right: 11px;
-  }
-
-  .accountCheckbox {
-    padding-left: 11px;
-    padding-right: 11px;
-  }
-
-  .shippingOptions {
-    padding-left: 11px;
-    padding-right: 11px;
-  }
-
-  .freeShipping {
-    padding-left: 11px;
-    padding-right: 11px;
-  }
-
-  .shippingProgress {
-    margin-left: 11px;
-    margin-right: 11px;
+  .shippingMethod {
+    grid-template-columns: 18px minmax(0, 1fr) auto;
   }
 }

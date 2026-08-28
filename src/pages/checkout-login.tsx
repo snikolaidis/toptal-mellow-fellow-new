@@ -1,8 +1,94 @@
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/router';
+import { useAuth } from '@/context/AuthContext';
 import styles from '../styles/CheckoutLogin.module.css';
 
+type CheckoutAuthMethod = 'google' | 'mellow' | 'guest';
+
+const CHECKOUT_AUTH_KEY = 'checkoutAuthMethod';
+
 export default function CheckoutLoginPage() {
+  const router = useRouter();
+  const { isAuthenticated: faustAuthenticated, isReady: faustReady } =
+    useAuth();
+
+  const [googleAuthenticated, setGoogleAuthenticated] =
+    useState<boolean | null>(null);
+  const [googleAuthReady, setGoogleAuthReady] = useState(false);
+
+  /*
+   * If the user is already authenticated, they must NOT see
+   * the Google / Mellow Fellow / Guest selection again.
+   */
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkExistingGoogleSession() {
+      try {
+        const response = await fetch('/api/auth/session', {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        const data = await response.json();
+
+        if (!mounted) {
+          return;
+        }
+
+        setGoogleAuthenticated(
+          response.ok && data?.isAuthenticated === true
+        );
+      } catch (error) {
+        console.error('Checkout login Google session check failed:', error);
+
+        if (mounted) {
+          setGoogleAuthenticated(false);
+        }
+      } finally {
+        if (mounted) {
+          setGoogleAuthReady(true);
+        }
+      }
+    }
+
+    checkExistingGoogleSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  /*
+   * Client requirement:
+   *
+   * Already logged in -> skip login selection -> checkout.
+   */
+  useEffect(() => {
+    if (!faustReady || !googleAuthReady) {
+      return;
+    }
+
+    if (faustAuthenticated === true) {
+      sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'mellow');
+      router.replace('/checkoutnew');
+      return;
+    }
+
+    if (googleAuthenticated === true) {
+      sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'google');
+      router.replace('/checkoutnew');
+    }
+  }, [
+    faustReady,
+    faustAuthenticated,
+    googleAuthReady,
+    googleAuthenticated,
+    router,
+  ]);
+
   const handleGoogleLogin = () => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -11,6 +97,12 @@ export default function CheckoutLoginPage() {
       alert('Google login is not configured.');
       return;
     }
+
+    /*
+     * Remember only the CHECKOUT choice.
+     * This is NOT the Google authentication session.
+     */
+    sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'google');
 
     const redirectUri = `${window.location.origin}/api/auth/google`;
 
@@ -27,10 +119,61 @@ export default function CheckoutLoginPage() {
       `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   };
 
-  const handleMellowFellowLogin = () => {
-    window.location.href =
-      '/login?redirect=/checkout';
+  // const handleMellowFellowLogin = () => {
+  //   /*
+  //    * Remember that checkout was started with Mellow Fellow.
+  //    * The actual authentication is still handled by the existing
+  //    * Mellow Fellow/Faust login flow.
+  //    */
+  //   sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'mellow');
+
+  //   window.location.href = '/login?redirect=/checkoutnew';
+  // };
+
+  const clearGoogleSession = async () => {
+  try {
+    await fetch(
+      '/api/auth/google-session-clear',
+      {
+        method: 'POST',
+        credentials: 'include',
+      }
+    );
+  } catch (error) {
+    console.error(
+      'Unable to clear Google session:',
+      error
+    );
+  }
+};
+
+const handleMellowFellowLogin = async () => {
+  await clearGoogleSession();
+
+  window.location.href =
+    '/login?redirect=/checkoutnew';
+};
+
+  const handleGuestCheckout = () => {
+    /*
+     * Guest checkout must never reuse authenticated customer data.
+     */
+    sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'guest');
+
+    window.location.href = '/checkoutnew';
   };
+
+  /*
+   * While checking existing authentication, don't briefly show
+   * the login choices to an already logged-in user.
+   */
+  if (!faustReady || !googleAuthReady) {
+    return null;
+  }
+
+  if (faustAuthenticated === true || googleAuthenticated === true) {
+    return null;
+  }
 
   return (
     <div className={styles.page}>
@@ -102,12 +245,13 @@ export default function CheckoutLoginPage() {
           </span>
         </label>
 
-        <Link
-          href="/checkout"
+        <button
+          type="button"
           className={styles.continueBtn}
+          onClick={handleGuestCheckout}
         >
           CONTINUE AS GUEST
-        </Link>
+        </button>
       </div>
     </div>
   );

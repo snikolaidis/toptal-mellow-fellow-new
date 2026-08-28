@@ -55,7 +55,7 @@ export default function CartDrawerV2() {
           )}
 
           {/* Cart Items */}
-          {cart && cart.items.length > 0 && (
+          {cart?.items?.length > 0 && (
             <div className={styles.cartItems}>
               {cart.items.map((item) => (
                 <div key={item.key}>

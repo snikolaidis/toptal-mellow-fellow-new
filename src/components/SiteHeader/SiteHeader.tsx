@@ -24,8 +24,11 @@ const useIsomorphicLayoutEffect =
 export default function SiteHeader() {
   const { data } = useQuery(GET_NAV);
   const { cart, cartReady, toggleDrawer } = useCart();
-  const { isAuthenticated, isReady } = useAuth();
-
+const {
+  isAuthenticated,
+  isReady,
+  logout,
+} = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -159,7 +162,7 @@ export default function SiteHeader() {
           </div>
 
           <div className="site-header__actions">
-            <Link
+           {/* <Link
               href={isReady && isAuthenticated ? '/account' : '/login'}
               className="site-header__action site-header__account"
             >
@@ -167,11 +170,40 @@ export default function SiteHeader() {
                 <UserIcon />
               </span>
               <span className="site-header__account-text">
-                <span className="site-header__account-line">
+                <span className="site-header__account-line">Sign In</span>
+                <span className="site-header__account-line">Account</span>
+              </span>
+            </Link>*/}
+
+            {isReady && isAuthenticated ? (
+              <button
+                type="button"
+                className="site-header__action site-header__account"
+                onClick={logout}
+              >
+                <span className="site-header__action-icon">
+                  <UserIcon />
+                </span>
+
+                <span className="site-header__account-text">
+                  <span className="site-header__account-line">Log Out</span>
+                  <span className="site-header__account-line">Account</span>
+                </span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="site-header__action site-header__account"
+              >
+                <span className="site-header__action-icon">
+                  <UserIcon />
+                </span>
+
+                <span className="site-header__account-text">
                   {isReady && isAuthenticated ? 'Account' : 'Sign In'}
                 </span>
-              </span>
-            </Link>
+              </Link>
+            )}
 
             <button
               type="button"

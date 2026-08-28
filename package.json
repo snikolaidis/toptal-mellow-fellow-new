@@ -37,7 +37,6 @@
     "@apollo/client": "^3.13.9",
     "@faustwp/blocks": "^3.0.0",
     "@faustwp/core": "^3.0.0",
-    "@wordpress/style-engine": "^2.51.0",
     "better-sqlite3": "^12.5.0",
     "bulma": "^1.0.4",
     "google-auth-library": "^11.0.2",

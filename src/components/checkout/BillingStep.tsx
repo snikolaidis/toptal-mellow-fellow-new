@@ -55,22 +55,13 @@ export default function BillingStep({
     useState(false);
 
   /*
-   * When the page opens, use shipping address
-   * as billing address.
-   */
-  useEffect(() => {
-    if (sameAsShipping) {
-      onBillingChange({
-        ...shipping,
-        email: billing.email,
-        phone: billing.phone,
-      });
-    }
-  }, []);
-
-  /*
-   * Keep billing synced with shipping while
-   * "Same as shipping" is enabled.
+   * IMPORTANT:
+   *
+   * Do not copy an empty shipping first/last name over the
+   * guest's billing first/last name.
+   *
+   * The Shipping step collects the address separately, while
+   * Contact Information contains the guest's first/last name.
    */
   useEffect(() => {
     if (!sameAsShipping) {
@@ -79,6 +70,10 @@ export default function BillingStep({
 
     onBillingChange({
       ...shipping,
+      firstName:
+        shipping.firstName || billing.firstName,
+      lastName:
+        shipping.lastName || billing.lastName,
       email: billing.email,
       phone: billing.phone,
     });
@@ -157,7 +152,7 @@ export default function BillingStep({
                 Billing Address
               </h2>
 
-              {!editing && (
+            {/*  {!editing && (
                 <button
                   type="button"
                   className={styles.editButton}
@@ -167,7 +162,7 @@ export default function BillingStep({
                 >
                   ✎
                 </button>
-              )}
+              )}*/}
 
             </div>
 
@@ -194,6 +189,12 @@ export default function BillingStep({
                     if (checked) {
                       onBillingChange({
                         ...shipping,
+                        firstName:
+                          shipping.firstName ||
+                          billing.firstName,
+                        lastName:
+                          shipping.lastName ||
+                          billing.lastName,
                         email:
                           billing.email,
                         phone:

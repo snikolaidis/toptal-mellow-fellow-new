@@ -1,5 +1,9 @@
 import styles from './MellowCheckout.module.css';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { getApolloAuthClient,
+  useAuth, } from '@faustwp/core';
+import { useMutation } from '@apollo/client';
+import { UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 
 interface Address {
   firstName: string;
@@ -31,74 +35,97 @@ interface ShippingMethod {
 }
 
 interface MellowCheckoutProps {
-  isAuthenticated?: boolean;
+  isAuthenticated: boolean;
+  checkoutAuthMethod?: 'google' | 'mellow' | 'guest' | null;
 
-  billing?: Address;
-  shipping?: Address;
+  billing: Address;
+  shipping: Address;
 
-  products?: Product[];
+  products: Product[];
 
-  subtotal?: number;
+  subtotal: number;
 
-  shippingMethods?: ShippingMethod[];
+  shippingMethods: ShippingMethod[];
 
-  selectedShipping?: string;
-  selectedShippingMethod?: ShippingMethod;
+  selectedShipping: string;
+  selectedShippingMethod: ShippingMethod;
 
-  onBillingChange?: (value: Address) => void;
-  onShippingChange?: (value: Address) => void;
-  onShippingChangeMethod?: (value: string) => void;
+  onBillingChange: (value: Address) => void;
+  onShippingChange: (value: Address) => void;
+  onShippingChangeMethod: (value: string) => void;
+
+    onContinueToBilling: () => void;
+
 }
 
-const emptyAddress: Address = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  phone: '',
-  address1: '',
-  address2: '',
-  city: '',
-  state: '',
-  postcode: '',
-  country: 'US',
-};
-
-const emptyShippingMethod: ShippingMethod = {
-  id: '',
-  name: '',
-  price: 0,
-};
-
-// This component only has one caller right now - the standalone
-// checkout-design.tsx preview page - which renders it with no props at all.
-// These defaults exist for that preview, not for a real integration; a real
-// caller is expected to pass every field explicitly.
 export default function MellowCheckout({
-  isAuthenticated = false,
+  isAuthenticated,
+  checkoutAuthMethod,
 
-  billing = emptyAddress,
-  shipping = emptyAddress,
+  billing,
+  shipping,
 
-  products = [],
+  products,
 
-  subtotal = 0,
+  subtotal,
 
-  shippingMethods = [],
+  shippingMethods,
 
-  selectedShipping = '',
-  selectedShippingMethod = emptyShippingMethod,
+  selectedShipping,
+  selectedShippingMethod,
 
-  onBillingChange = () => {},
-  onShippingChange = () => {},
-  onShippingChangeMethod = () => {},
+  onBillingChange,
+  onShippingChange,
+  onShippingChangeMethod,
+  onContinueToBilling,
 }: MellowCheckoutProps) {
+  const {
+  isAuthenticated: faustAuthenticated,
+} = useAuth();
+  const client = getApolloAuthClient();
+  // checkoutAuthMethod is intentionally available for the checkout auth flow.
+  void checkoutAuthMethod;
 
-  /**
-   * Load logged-in WooCommerce customer
-   * and autofill checkout.
+  const [updateCustomer, { loading: savingCustomer }] =
+    useMutation(UPDATE_CUSTOMER, {
+      client,
+    });
+
+  /*
+   * Controls whether Contact Information is being edited.
+   *
+   * Logged-in users start in summary mode.
+   * Guest users start in edit mode.
+   */
+  const [editingContact, setEditingContact] =
+    useState(!isAuthenticated);
+
+  /*
+   * Controls whether Shipping Address is being edited.
+   *
+   * Logged-in users start in summary mode.
+   * Guest users start in edit mode.
+   */
+  const [editingShipping, setEditingShipping] =
+    useState(!isAuthenticated);
+
+  /*
+   * Prevent customer API from being loaded repeatedly.
+   */
+  const [customerLoaded, setCustomerLoaded] =
+    useState(false);
+
+  /*
+   * Load logged-in WooCommerce customer.
    */
   useEffect(() => {
     if (!isAuthenticated) {
+      setEditingContact(true);
+      setEditingShipping(true);
+      return;
+    }
+
+    if (customerLoaded) {
       return;
     }
 
@@ -106,17 +133,27 @@ export default function MellowCheckout({
       try {
         console.log('Loading checkout customer...');
 
-        const response = await fetch('/api/checkout/customer');
+        const response = await fetch(
+          '/api/checkout/customer'
+        );
 
         const data = await response.json();
 
-        console.log('Checkout customer response:', data);
+        console.log(
+          'Checkout customer response:',
+          data
+        );
 
-        if (!response.ok || !data.success || !data.customer) {
+        if (
+          !response.ok ||
+          !data.success ||
+          !data.customer
+        ) {
           console.error(
             'Unable to load checkout customer:',
             data
           );
+
           return;
         }
 
@@ -124,7 +161,7 @@ export default function MellowCheckout({
 
         console.log('Customer:', customer);
 
-        /**
+        /*
          * Billing data
          */
         const customerBilling: Address = {
@@ -174,7 +211,7 @@ export default function MellowCheckout({
             'US',
         };
 
-        /**
+        /*
          * Shipping data
          */
         const customerShipping: Address = {
@@ -237,13 +274,20 @@ export default function MellowCheckout({
           customerShipping
         );
 
-        /**
-         * Send customer data to parent.
+        /*
+         * Send customer data to checkout page.
          */
         onBillingChange(customerBilling);
 
         onShippingChange(customerShipping);
 
+        /*
+         * Logged-in user starts in summary mode.
+         */
+        setEditingContact(false);
+        setEditingShipping(false);
+
+        setCustomerLoaded(true);
       } catch (error) {
         console.error(
           'Failed to load checkout customer:',
@@ -253,14 +297,28 @@ export default function MellowCheckout({
     };
 
     loadCustomer();
-
   }, [
     isAuthenticated,
+    customerLoaded,
     onBillingChange,
     onShippingChange,
   ]);
 
-  /**
+  /*
+   * When authentication changes from guest
+   * to logged-in, reset editing states.
+   */
+  useEffect(() => {
+    if (isAuthenticated) {
+      setEditingContact(false);
+      setEditingShipping(false);
+    } else {
+      setEditingContact(true);
+      setEditingShipping(true);
+    }
+  }, [isAuthenticated]);
+
+  /*
    * Update billing field.
    */
   const updateBilling = (
@@ -273,7 +331,7 @@ export default function MellowCheckout({
     });
   };
 
-  /**
+  /*
    * Update shipping field.
    */
   const updateShipping = (
@@ -286,6 +344,407 @@ export default function MellowCheckout({
     });
   };
 
+  /*
+   * Save billing/contact information.
+   *
+   * Guest checkout only updates local checkout state.
+   * Authenticated users also persist the address to the
+   * logged-in WooCommerce customer profile.
+   */
+  // const saveContact = async () => {
+  //   if (isAuthenticated) {
+  //     try {
+  //       await updateCustomer({
+  //         variables: {
+  //           input: {
+  //             billing: {
+  //               firstName: billing.firstName,
+  //               lastName: billing.lastName,
+  //               email: billing.email,
+  //               phone: billing.phone,
+  //               address1: billing.address1,
+  //               address2: billing.address2 || '',
+  //               city: billing.city,
+  //               state: billing.state,
+  //               postcode: billing.postcode,
+  //               country: billing.country,
+  //             },
+  //           },
+  //         },
+  //       });
+  //     } catch (error) {
+  //       console.error(
+  //         'Failed to save customer billing information:',
+  //         error
+  //       );
+  //       return;
+  //     }
+  //   }
+
+  //   setEditingContact(false);
+  // };
+
+
+// const saveContact = async () => {
+//   try {
+//     const sessionResponse = await fetch(
+//       '/api/auth/session',
+//       {
+//         credentials: 'include',
+//       }
+//     );
+
+//     const session =
+//       await sessionResponse.json();
+
+//     /*
+//      * Only Google users use this new save API.
+//      *
+//      * Mellow Fellow and Guest remain unchanged.
+//      */
+//     if (
+//       sessionResponse.ok &&
+//       session?.isAuthenticated === true
+//     ) {
+//       const response = await fetch(
+//         '/api/checkout/google-customer',
+//         {
+//           method: 'POST',
+//           credentials: 'include',
+//           headers: {
+//             'Content-Type': 'application/json',
+//           },
+//           body: JSON.stringify({
+//             billing,
+//           }),
+//         }
+//       );
+
+//       const data =
+//         await response.json();
+
+//       if (!response.ok || !data.success) {
+//         console.error(
+//           'Google billing save failed:',
+//           data
+//         );
+
+//         return;
+//       }
+//     }
+
+//     setEditingContact(false);
+
+//   } catch (error) {
+//     console.error(
+//       'Google billing save error:',
+//       error
+//     );
+//   }
+// };
+
+
+  const saveContact = async () => {
+  /*
+   * MELLOW FELLOW
+   */
+  if (faustAuthenticated) {
+    try {
+      await updateCustomer({
+        variables: {
+          input: {
+            billing: {
+              firstName: billing.firstName,
+              lastName: billing.lastName,
+              email: billing.email,
+              phone: billing.phone,
+              address1: billing.address1,
+              address2: billing.address2,
+              city: billing.city,
+              state: billing.state,
+              postcode: billing.postcode,
+              country: billing.country,
+            },
+
+            shipping: {
+              firstName: shipping.firstName,
+              lastName: shipping.lastName,
+              address1: shipping.address1,
+              address2: shipping.address2,
+              city: shipping.city,
+              state: shipping.state,
+              postcode: shipping.postcode,
+              country: shipping.country,
+            },
+          },
+        },
+      });
+
+      console.log(
+        'Mellow Fellow billing address saved'
+      );
+
+    } catch (error) {
+      console.error(
+        'Mellow Fellow billing update failed:',
+        error
+      );
+
+      return;
+    }
+
+    setEditingContact(false);
+    return;
+  }
+
+  /*
+   * GOOGLE
+   */
+  try {
+    const response = await fetch(
+      '/api/checkout/google-customer',
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          billing: {
+            firstName: billing.firstName,
+            lastName: billing.lastName,
+            email: billing.email,
+            phone: billing.phone,
+            address1: billing.address1,
+            address2: billing.address2,
+            city: billing.city,
+            state: billing.state,
+            postcode: billing.postcode,
+            country: billing.country,
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      console.error(
+        'Google billing address update failed:',
+        data
+      );
+
+      return;
+    }
+
+    console.log(
+      'Google billing address saved'
+    );
+
+    setEditingContact(false);
+
+  } catch (error) {
+    console.error(
+      'Google billing address save failed:',
+      error
+    );
+  }
+};
+  /*
+   * Save shipping information.
+   *
+   * Guest checkout only updates local checkout state.
+   * Authenticated users also persist the address to the
+   * logged-in WooCommerce customer profile.
+   */
+  // const saveShipping = async () => {
+  //   if (isAuthenticated) {
+  //     try {
+  //       await updateCustomer({
+  //         variables: {
+  //           input: {
+  //             shipping: {
+  //               firstName: shipping.firstName,
+  //               lastName: shipping.lastName,
+  //               address1: shipping.address1,
+  //               address2: shipping.address2 || '',
+  //               city: shipping.city,
+  //               state: shipping.state,
+  //               postcode: shipping.postcode,
+  //               country: shipping.country,
+  //             },
+  //           },
+  //         },
+  //       });
+  //     } catch (error) {
+  //       console.error(
+  //         'Failed to save customer shipping information:',
+  //         error
+  //       );
+  //       return;
+  //     }
+  //   }
+
+  //   setEditingShipping(false);
+  // };
+
+// const saveShipping = async () => {
+//   try {
+//     const sessionResponse = await fetch(
+//       '/api/auth/session',
+//       {
+//         credentials: 'include',
+//       }
+//     );
+
+//     const session =
+//       await sessionResponse.json();
+
+//     if (
+//       sessionResponse.ok &&
+//       session?.isAuthenticated === true
+//     ) {
+//       const response = await fetch(
+//         '/api/checkout/google-customer',
+//         {
+//           method: 'POST',
+//           credentials: 'include',
+//           headers: {
+//             'Content-Type': 'application/json',
+//           },
+//           body: JSON.stringify({
+//             shipping,
+//           }),
+//         }
+//       );
+
+//       const data =
+//         await response.json();
+
+//       if (!response.ok || !data.success) {
+//         console.error(
+//           'Google shipping save failed:',
+//           data
+//         );
+
+//         return;
+//       }
+//     }
+
+//     setEditingShipping(false);
+
+//   } catch (error) {
+//     console.error(
+//       'Google shipping save error:',
+//       error
+//     );
+//   }
+// };
+
+const saveShipping = async () => {
+  /*
+   * MELLOW FELLOW
+   */
+  if (faustAuthenticated) {
+    try {
+      await updateCustomer({
+        variables: {
+          input: {
+            billing: {
+              firstName: billing.firstName,
+              lastName: billing.lastName,
+              email: billing.email,
+              phone: billing.phone,
+              address1: billing.address1,
+              address2: billing.address2,
+              city: billing.city,
+              state: billing.state,
+              postcode: billing.postcode,
+              country: billing.country,
+            },
+
+            shipping: {
+              firstName: shipping.firstName,
+              lastName: shipping.lastName,
+              address1: shipping.address1,
+              address2: shipping.address2,
+              city: shipping.city,
+              state: shipping.state,
+              postcode: shipping.postcode,
+              country: shipping.country,
+            },
+          },
+        },
+      });
+
+      console.log(
+        'Mellow Fellow shipping address saved'
+      );
+
+    } catch (error) {
+      console.error(
+        'Mellow Fellow shipping update failed:',
+        error
+      );
+
+      return;
+    }
+
+    setEditingShipping(false);
+    return;
+  }
+
+  /*
+   * GOOGLE
+   */
+  try {
+    const response = await fetch(
+      '/api/checkout/google-customer',
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shipping: {
+            firstName: shipping.firstName,
+            lastName: shipping.lastName,
+            address1: shipping.address1,
+            address2: shipping.address2,
+            city: shipping.city,
+            state: shipping.state,
+            postcode: shipping.postcode,
+            country: shipping.country,
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      console.error(
+        'Google shipping address update failed:',
+        data
+      );
+
+      return;
+    }
+
+    console.log(
+      'Google shipping address saved'
+    );
+
+    setEditingShipping(false);
+
+  } catch (error) {
+    console.error(
+      'Google shipping address save failed:',
+      error
+    );
+  }
+};
   const total =
     subtotal + selectedShippingMethod.price;
 
@@ -293,7 +752,9 @@ export default function MellowCheckout({
     <div className={styles.wrapper}>
       <div className={styles.checkoutContainer}>
 
-        {/* LEFT */}
+        {/* =====================================================
+            LEFT
+        ====================================================== */}
         <main className={styles.left}>
 
           {/* Progress */}
@@ -329,7 +790,9 @@ export default function MellowCheckout({
 
           </div>
 
-          {/* Contact Information */}
+          {/* =================================================
+              CONTACT INFORMATION
+          ================================================== */}
           <section className={styles.card}>
 
             <div className={styles.cardHeader}>
@@ -338,10 +801,14 @@ export default function MellowCheckout({
                 Contact Information
               </h3>
 
-              {isAuthenticated && (
+              {!editingContact && (
                 <button
                   type="button"
                   className={styles.editButton}
+                  onClick={() =>
+                    setEditingContact(true)
+                  }
+                  aria-label="Edit contact information"
                 >
                   ✎
                 </button>
@@ -349,31 +816,11 @@ export default function MellowCheckout({
 
             </div>
 
-            {isAuthenticated ? (
+            {editingContact ? (
 
-              <div className={styles.info}>
-
-                <strong>
-                  {billing.firstName}{' '}
-                  {billing.lastName}
-                </strong>
-
-                {billing.email && (
-                  <p>
-                    {billing.email}
-                  </p>
-                )}
-
-                {billing.phone && (
-                  <p>
-                    {billing.phone}
-                  </p>
-                )}
-
-              </div>
-
-            ) : (
-
+              /*
+               * EDIT CONTACT
+               */
               <div className={styles.guestForm}>
 
                 <div className={styles.formRow}>
@@ -454,13 +901,49 @@ export default function MellowCheckout({
 
                 </div>
 
+                <button
+                  type="button"
+                  className={styles.continueBtn}
+                  onClick={saveContact}
+                >
+                  SAVE
+                </button>
+
+              </div>
+
+            ) : (
+
+              /*
+               * CONTACT SUMMARY
+               */
+              <div className={styles.info}>
+
+                <strong>
+                  {billing.firstName}{' '}
+                  {billing.lastName}
+                </strong>
+
+                {billing.email && (
+                  <p>
+                    {billing.email}
+                  </p>
+                )}
+
+                {billing.phone && (
+                  <p>
+                    {billing.phone}
+                  </p>
+                )}
+
               </div>
 
             )}
 
           </section>
 
-          {/* Shipping Address */}
+          {/* =================================================
+              SHIPPING ADDRESS
+          ================================================== */}
           <section className={styles.card}>
 
             <div className={styles.cardHeader}>
@@ -469,10 +952,14 @@ export default function MellowCheckout({
                 Shipping Address
               </h3>
 
-              {isAuthenticated && (
+              {!editingShipping && (
                 <button
                   type="button"
                   className={styles.editButton}
+                  onClick={() =>
+                    setEditingShipping(true)
+                  }
+                  aria-label="Edit shipping address"
                 >
                   ✎
                 </button>
@@ -480,55 +967,11 @@ export default function MellowCheckout({
 
             </div>
 
-            {isAuthenticated ? (
+            {editingShipping ? (
 
-              <div className={styles.info}>
-
-                <strong>
-                  {shipping.firstName}{' '}
-                  {shipping.lastName}
-                </strong>
-
-                {shipping.address1 && (
-                  <p>
-                    {shipping.address1}
-                  </p>
-                )}
-
-                {shipping.address2 && (
-                  <p>
-                    {shipping.address2}
-                  </p>
-                )}
-
-                {(shipping.city ||
-                  shipping.state ||
-                  shipping.postcode) && (
-
-                  <p>
-                    {shipping.city}
-                    {shipping.city &&
-                      shipping.state
-                      ? ', '
-                      : ''}
-
-                    {shipping.state}{' '}
-
-                    {shipping.postcode}
-                  </p>
-
-                )}
-
-                {shipping.country && (
-                  <p>
-                    {shipping.country}
-                  </p>
-                )}
-
-              </div>
-
-            ) : (
-
+              /*
+               * EDIT SHIPPING
+               */
               <div className={styles.guestForm}>
 
                 <div className={styles.field}>
@@ -642,16 +1085,71 @@ export default function MellowCheckout({
                         )
                       }
                     >
-
                       <option value="US">
                         United States
                       </option>
-
                     </select>
 
                   </div>
 
                 </div>
+
+                <button
+                  type="button"
+                  className={styles.continueBtn}
+                  onClick={saveShipping}
+                >
+                  SAVE
+                </button>
+
+              </div>
+
+            ) : (
+
+              /*
+               * SHIPPING SUMMARY
+               */
+              <div className={styles.info}>
+
+                <strong>
+                  {shipping.firstName}{' '}
+                  {shipping.lastName}
+                </strong>
+
+                {shipping.address1 && (
+                  <p>
+                    {shipping.address1}
+                  </p>
+                )}
+
+                {shipping.address2 && (
+                  <p>
+                    {shipping.address2}
+                  </p>
+                )}
+
+                {(shipping.city ||
+                  shipping.state ||
+                  shipping.postcode) && (
+                  <p>
+                    {shipping.city}
+
+                    {shipping.city &&
+                      shipping.state
+                      ? ', '
+                      : ''}
+
+                    {shipping.state}{' '}
+
+                    {shipping.postcode}
+                  </p>
+                )}
+
+                {shipping.country && (
+                  <p>
+                    {shipping.country}
+                  </p>
+                )}
 
               </div>
 
@@ -659,14 +1157,20 @@ export default function MellowCheckout({
 
           </section>
 
-          {/* Shipping Method */}
+          {/* =================================================
+              SHIPPING METHOD
+          ================================================== */}
           <section className={styles.card}>
 
             <h3>
               Shipping Method
             </h3>
 
-            <div className={styles.shippingMethods}>
+            <div
+              className={
+                styles.shippingMethods
+              }
+            >
 
               {shippingMethods.map(
                 (method) => (
@@ -730,16 +1234,23 @@ export default function MellowCheckout({
 
           </section>
 
+          {/* =================================================
+              CONTINUE
+          ================================================== */}
           <button
             type="button"
             className={styles.continueBtn}
+              onClick={onContinueToBilling}
+
           >
             Continue to Billing
           </button>
 
         </main>
 
-        {/* RIGHT */}
+        {/* =====================================================
+            RIGHT - ORDER SUMMARY
+        ====================================================== */}
         <aside className={styles.right}>
 
           <section className={styles.summary}>
@@ -756,7 +1267,9 @@ export default function MellowCheckout({
               >
 
                 <div
-                  className={styles.productImage}
+                  className={
+                    styles.productImage
+                  }
                 >
 
                   {product.image ? (
@@ -779,7 +1292,9 @@ export default function MellowCheckout({
                 </div>
 
                 <div
-                  className={styles.productInfo}
+                  className={
+                    styles.productInfo
+                  }
                 >
 
                   <strong>
