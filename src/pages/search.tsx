@@ -16,10 +16,9 @@ import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-clie
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
-  FILTER_GROUPS,
   FilterGroup,
   ActiveFilters,
-  deriveFilterGroups,
+  buildFacetGroups,
   parseFilterParams,
   filtersToQueryParams,
 } from '@/lib/shopFilters';
@@ -168,9 +167,35 @@ export default function SearchPage({
     return sortProducts(result, selectedSort);
   }, [allProducts, activeFilters, selectedSort]);
 
-  // Derive filter groups from the FILTERED products so filters narrow each other.
-  // E.g. selecting "Edible" hides sizes like "2ml" that don't apply to edibles.
-  const filterGroups = useMemo(() => deriveFilterGroups(filteredProducts as any[]), [filteredProducts]);
+  // allProducts, never filteredProducts: passing the filtered set here is what
+  // left only the option just ticked in that facet.
+  const filterGroups = useMemo(
+    () =>
+      buildFacetGroups(
+        allProducts,
+        activeFilters,
+        (product, facetKey) => {
+          const connection = FACET_PRODUCT_CONNECTION[facetKey];
+          if (!connection) return [];
+          const nodes: Array<{ slug?: string }> = (product as any)?.[connection]?.nodes || [];
+          return nodes.map((t) => t.slug).filter(Boolean) as string[];
+        },
+        (facetKey) => {
+          const connection = FACET_PRODUCT_CONNECTION[facetKey];
+          if (!connection) return [];
+          const seen = new Map<string, { name: string; slug: string }>();
+          for (const product of allProducts) {
+            const nodes: Array<{ name?: string; slug?: string }> =
+              (product as any)?.[connection]?.nodes || [];
+            for (const t of nodes) {
+              if (t?.slug && !seen.has(t.slug)) seen.set(t.slug, { name: t.name || t.slug, slug: t.slug });
+            }
+          }
+          return Array.from(seen.values());
+        },
+      ),
+    [allProducts, activeFilters],
+  );
 
   const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;

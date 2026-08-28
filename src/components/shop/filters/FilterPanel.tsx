@@ -196,11 +196,14 @@ export default function FilterPanel({
 
       {filterGroups.map((group) => {
         const activeSlugs = activeFilters[group.key] || [];
-        const visibleTerms = group.terms.filter((t) => t.count > 0);
+        // Zero count terms stay, greyed, so the facet keeps its shape. A
+        // checked term is never disabled at zero, or it could not be unticked.
+        const visibleTerms = group.terms;
+        const selectableTerms = visibleTerms.filter((t) => t.count > 0);
 
         // A single term filters nothing, so the group is hidden unless it is
         // already the active one. Behaviour inherited from ShopSidebar.
-        if (visibleTerms.length < 2 && activeSlugs.length === 0) return null;
+        if (selectableTerms.length < 2 && activeSlugs.length === 0) return null;
 
         const expanded = isOpen(group.key, activeSlugs.length > 0);
         const control = getGroupControl(group.key);
@@ -226,12 +229,16 @@ export default function FilterPanel({
               <div className={`${styles.terms} ${styles.pills}`}>
                 {visibleTerms.map((term) => {
                   const active = activeSlugs.includes(term.slug);
+                  const unavailable = term.count === 0 && !active;
                   return (
                     <button
                       key={term.slug}
                       type="button"
-                      className={`${styles.pill} ${active ? styles.pillActive : ''}`}
+                      className={`${styles.pill} ${active ? styles.pillActive : ''} ${
+                        unavailable ? styles.pillDisabled : ''
+                      }`}
                       aria-pressed={active}
+                      disabled={unavailable}
                       onClick={() => toggleTerm(group.key, term.slug)}
                     >
                       {term.name}
@@ -243,19 +250,27 @@ export default function FilterPanel({
 
             {expanded && control === 'checkbox' && (
               <div className={styles.terms}>
-                {visibleTerms.map((term) => (
-                  <label key={term.slug} className={styles.term}>
-                    <input
-                      type="checkbox"
-                      className={styles.termInput}
-                      checked={activeSlugs.includes(term.slug)}
-                      onChange={() => toggleTerm(group.key, term.slug)}
-                    />
-                    <ControlBox />
-                    <span className={styles.termName}>{term.name}</span>
-                    <span className={styles.termCount}>{term.count}</span>
-                  </label>
-                ))}
+                {visibleTerms.map((term) => {
+                  const active = activeSlugs.includes(term.slug);
+                  const unavailable = term.count === 0 && !active;
+                  return (
+                    <label
+                      key={term.slug}
+                      className={`${styles.term} ${unavailable ? styles.termDisabled : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className={styles.termInput}
+                        checked={active}
+                        disabled={unavailable}
+                        onChange={() => toggleTerm(group.key, term.slug)}
+                      />
+                      <ControlBox />
+                      <span className={styles.termName}>{term.name}</span>
+                      <span className={styles.termCount}>{term.count}</span>
+                    </label>
+                  );
+                })}
               </div>
             )}
           </div>
