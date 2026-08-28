@@ -321,6 +321,20 @@
   min-width: 180px;
 }
 
+/* Do not fold this into .sortWrapper. The singular /collection page uses that
+   at every width and has no filter sheet, so it would lose sort below 1024. */
+.sortWrapperDesktop {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .sortWrapperDesktop {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+}
+
 /* Products Grid */
 .productsGrid {
   display: grid;
@@ -337,20 +351,6 @@
 @media only screen and (min-width: 1400px) {
   .productsGrid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-/* Do not merge with .productsGrid above or the global .products-grid. Both
-   keep a fourth column, and .products-grid renders in eight places. */
-.collectionGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 16px;
-}
-
-@media only screen and (min-width: 992px) {
-  .collectionGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

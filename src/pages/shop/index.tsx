@@ -6,8 +6,8 @@ import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { gql } from '@apollo/client';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
-import ShopSidebar from '@/components/shop/ShopSidebar';
-import MobileFilters from '@/components/shop/MobileFilters';
+import FilterPanel from '@/components/shop/filters/FilterPanel';
+import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
 import Link from 'next/link';
 import { Product } from '@/types/woocommerce';
@@ -22,6 +22,7 @@ import {
 } from '@/lib/shopFilters';
 import { getAllProducts as getAllProductsFromDb } from '@/lib/product-queries';
 import styles from '@/styles/pages/shop.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
@@ -338,11 +339,14 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
           </nav>
 
           <div className={styles.shopLayout}>
-            <div className={styles.sidebarWrapper}>
-              <ShopSidebar
+            <div className={`${styles.sidebarWrapper} ${styles.filterCard}`}>
+              <FilterPanel
                 filterGroups={filterGroups}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
+                sortValue={currentSort}
+                onSortChange={handleSortChange}
+                showSort={false}
               />
             </div>
 
@@ -367,14 +371,16 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
                 </div>
               </div>
 
-              <MobileFilters
+              <FilterSheet
                 filterGroups={filterGroups}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 productCount={filteredProducts.length}
+                sortValue={currentSort}
+                onSortChange={handleSortChange}
               />
 
-              <div className='products-grid'>
+              <div className={gridStyles.productGrid}>
                 {pageProducts.length > 0 ? (
                   pageProducts.map((product, index) => (
                     <ProductCard key={product.id} product={product} priority={index < 12} />
