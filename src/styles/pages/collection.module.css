@@ -321,6 +321,20 @@
   min-width: 180px;
 }
 
+/* Do not fold this into .sortWrapper. The singular /collection page uses that
+   at every width and has no filter sheet, so it would lose sort below 1024. */
+.sortWrapperDesktop {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .sortWrapperDesktop {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+}
+
 /* Products Grid */
 .productsGrid {
   display: grid;
