@@ -53,6 +53,20 @@ const PRODUCT_QUERY = `
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
+          uniqueSellingProps {
+            nodes {
+              id
+              name
+              uniqueSellingFields {
+                propIcon {
+                  node {
+                    sourceUrl
+                    altText
+                  }
+                }
+              }
+            }
+          }
         }
         ... on VariableProduct {
           id databaseId name slug type
@@ -74,6 +88,20 @@ const PRODUCT_QUERY = `
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
+          uniqueSellingProps {
+            nodes {
+              id
+              name
+              uniqueSellingFields {
+                propIcon {
+                  node {
+                    sourceUrl
+                    altText
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
