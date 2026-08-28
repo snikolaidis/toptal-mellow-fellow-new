@@ -19,6 +19,9 @@ interface FilterPanelProps {
   sortValue: SortValue;
   onSortChange: (option: SortValue) => void;
   showHeader?: boolean;
+  // Keep the default true: FilterSheet renders this panel, and mobile sort
+  // lives in the sheet. Flipping it would remove sort from mobile entirely.
+  showSort?: boolean;
 }
 
 export function clearAllFilters(
@@ -77,6 +80,7 @@ export default function FilterPanel({
   sortValue,
   onSortChange,
   showHeader = true,
+  showSort = true,
 }: FilterPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // The panel renders in the sidebar and in the sheet, so the sort radios need
@@ -158,35 +162,37 @@ export default function FilterPanel({
         </div>
       )}
 
-      <div className={styles.group}>
-        <button
-          type="button"
-          className={styles.groupHeader}
-          onClick={() => toggleGroup(SORT_KEY, sorted)}
-          aria-expanded={sortExpanded}
-        >
-          <span className={styles.groupLabel}>Sort By</span>
-          <Chevron open={sortExpanded} />
-        </button>
+      {showSort && (
+        <div className={styles.group}>
+          <button
+            type="button"
+            className={styles.groupHeader}
+            onClick={() => toggleGroup(SORT_KEY, sorted)}
+            aria-expanded={sortExpanded}
+          >
+            <span className={styles.groupLabel}>Sort By</span>
+            <Chevron open={sortExpanded} />
+          </button>
 
-        {sortExpanded && (
-          <div className={styles.terms}>
-            {SORT_OPTIONS.map((option) => (
-              <label key={option.value} className={styles.term}>
-                <input
-                  type="radio"
-                  name={sortName}
-                  className={styles.termInput}
-                  checked={sortValue.value === option.value}
-                  onChange={() => onSortChange(option)}
-                />
-                <ControlBox />
-                <span className={styles.termName}>{option.label}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+          {sortExpanded && (
+            <div className={styles.terms}>
+              {SORT_OPTIONS.map((option) => (
+                <label key={option.value} className={styles.term}>
+                  <input
+                    type="radio"
+                    name={sortName}
+                    className={styles.termInput}
+                    checked={sortValue.value === option.value}
+                    onChange={() => onSortChange(option)}
+                  />
+                  <ControlBox />
+                  <span className={styles.termName}>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {filterGroups.map((group) => {
         const activeSlugs = activeFilters[group.key] || [];
