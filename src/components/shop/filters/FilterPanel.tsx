@@ -198,7 +198,8 @@ export default function FilterPanel({
         const activeSlugs = activeFilters[group.key] || [];
         const visibleTerms = group.terms.filter((t) => t.count > 0);
 
-        // Carried from ShopSidebar, which is still live on three other pages.
+        // A single term filters nothing, so the group is hidden unless it is
+        // already the active one. Behaviour inherited from ShopSidebar.
         if (visibleTerms.length < 2 && activeSlugs.length === 0) return null;
 
         const expanded = isOpen(group.key, activeSlugs.length > 0);

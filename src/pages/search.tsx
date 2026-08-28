@@ -8,8 +8,8 @@ import DOMPurify from 'isomorphic-dompurify';
 import { SearchIcon } from '@/components/icons';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
-import ShopSidebar from '@/components/shop/ShopSidebar';
-import MobileFilters from '@/components/shop/MobileFilters';
+import FilterPanel from '@/components/shop/filters/FilterPanel';
+import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
 import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-client';
@@ -24,6 +24,7 @@ import {
   filtersToQueryParams,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/search.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
@@ -268,11 +269,14 @@ export default function SearchPage({
           </p>
         ) : (
         <div className={styles.layout}>
-          <div className={styles.sidebarWrapper}>
-            <ShopSidebar
+          <div className={`${styles.sidebarWrapper} ${styles.filterCard}`}>
+            <FilterPanel
               filterGroups={filterGroups}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
+              sortValue={currentSort}
+              onSortChange={handleSortChange}
+              showSort={false}
             />
           </div>
 
@@ -295,15 +299,17 @@ export default function SearchPage({
               </div>
             </div>
 
-            <MobileFilters
+            <FilterSheet
               filterGroups={filterGroups}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
               productCount={filteredProducts.length}
+              sortValue={currentSort}
+              onSortChange={handleSortChange}
             />
 
             {pageProducts.length > 0 ? (
-              <div className="products-grid">
+              <div className={gridStyles.productGrid}>
                 {pageProducts.map((product, index) => (
                   <ProductCard key={product.id} product={product} priority={index < 12} />
                 ))}
