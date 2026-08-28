@@ -501,7 +501,7 @@ add_action( 'admin_post_mf_acu_save_settings', function() {
     $existing = get_option( MF_ACU_SETTINGS_OPTION, array() );
     if ( ! is_array( $existing ) ) $existing = array();
 
-    $fields = array( 'BASE_URL', 'USERNAME', 'COMPANY', 'BRANCH', 'ORDER_TYPE', 'CUSTOMER_CLASS', 'SYNC_SECRET' );
+    $fields = array( 'BASE_URL', 'USERNAME', 'COMPANY', 'BRANCH', 'ORDER_TYPE', 'CUSTOMER_CLASS', 'PAYMENT_METHOD', 'CASH_ACCOUNT', 'SYNC_SECRET' );
     $updated = $existing;
 
     foreach ( $fields as $field ) {
@@ -581,7 +581,9 @@ function mf_acu_render_admin_page() {
                     'COMPANY'        => array( 'label' => 'Company',        'placeholder' => 'ARVIDA' ),
                     'BRANCH'         => array( 'label' => 'Branch',         'placeholder' => 'MF' ),
                     'ORDER_TYPE'     => array( 'label' => 'Order Type',     'placeholder' => 'MF' ),
-                    'CUSTOMER_CLASS' => array( 'label' => 'Customer Class', 'placeholder' => 'MFF' ),
+                    'CUSTOMER_CLASS' => array( 'label' => 'Customer Class',  'placeholder' => 'MFF' ),
+                    'PAYMENT_METHOD' => array( 'label' => 'Payment Method', 'placeholder' => 'CREDITCARD' ),
+                    'CASH_ACCOUNT'   => array( 'label' => 'Cash Account',   'placeholder' => '1092' ),
                     'SYNC_SECRET'    => array( 'label' => 'Sync Secret',    'placeholder' => 'Random 32+ char string', 'type' => 'password' ),
                 );
 
@@ -649,6 +651,14 @@ function mf_acu_render_admin_page() {
                 <tr>
                     <th>Customer Class</th>
                     <td><?php echo esc_html( mf_acu_config( 'CUSTOMER_CLASS', 'MFF' ) ); ?></td>
+                </tr>
+                <tr>
+                    <th>Payment Method</th>
+                    <td><?php echo esc_html( mf_acu_config( 'PAYMENT_METHOD', 'CREDITCARD' ) ); ?></td>
+                </tr>
+                <tr>
+                    <th>Cash Account</th>
+                    <td><?php echo esc_html( mf_acu_config( 'CASH_ACCOUNT', '1092' ) ); ?></td>
                 </tr>
                 <tr>
                     <th>Sync Secret</th>
@@ -755,6 +765,105 @@ function mf_acu_render_admin_page() {
                     box.style.display = 'block';
                     btn.disabled = false;
                     btn.textContent = 'Stress Test Session Pool';
+                });
+            });
+        })();
+        </script>
+        <script>
+        (function(){
+            var btn = document.getElementById('mf-acu-probe-btn');
+            var box = document.getElementById('mf-acu-probe-result');
+            btn.addEventListener('click', function(){
+                btn.disabled = true;
+                btn.textContent = 'Probing Acumatica...';
+                box.style.display = 'none';
+                fetch('<?php echo esc_url( rest_url( 'mf-acu/v1/probe' ) ); ?>', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'X-WP-Nonce': '<?php echo wp_create_nonce( 'wp_rest' ); ?>'}
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    var html = '';
+
+                    if (data.available_payment_methods && Array.isArray(data.available_payment_methods)) {
+                        html += '<h3>Available Payment Methods</h3>';
+                        html += '<table class="widefat striped"><thead><tr><th>ID</th><th>Description</th><th>Active</th></tr></thead><tbody>';
+                        data.available_payment_methods.forEach(function(m){
+                            html += '<tr><td><strong>' + (m.PaymentMethodID || '') + '</strong></td>';
+                            html += '<td>' + (m.Description || '') + '</td>';
+                            html += '<td>' + (m.IsActive ? '&#10003;' : '&#10007;') + '</td></tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+
+                    if (data.payment_methods_in_use && typeof data.payment_methods_in_use === 'object') {
+                        var keys = Object.keys(data.payment_methods_in_use);
+                        if (keys.length > 0) {
+                            html += '<h3>Payment Methods In Use (from recent payments)</h3><ul>';
+                            keys.forEach(function(k){ html += '<li><strong>' + k + '</strong> — ' + data.payment_methods_in_use[k] + ' payment(s)</li>'; });
+                            html += '</ul>';
+                        }
+                    }
+
+                    if (data.recent_payments && Array.isArray(data.recent_payments)) {
+                        html += '<h3>Recent Payments (' + data.recent_payments.length + ')</h3>';
+                        html += '<table class="widefat striped"><thead><tr><th>Ref#</th><th>Type</th><th>Method</th><th>Amount</th><th>Customer</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+                        data.recent_payments.forEach(function(p){
+                            html += '<tr><td>' + p.ReferenceNbr + '</td><td>' + p.Type + '</td><td><strong>' + p.PaymentMethod + '</strong></td>';
+                            html += '<td>$' + (p.PaymentAmount || 0).toFixed(2) + '</td><td>' + p.CustomerID + '</td>';
+                            html += '<td>' + p.Status + '</td><td>' + (p.ApplicationDate || '').substring(0,10) + '</td></tr>';
+                        });
+                        html += '</tbody></table>';
+                    } else if (typeof data.recent_payments === 'string') {
+                        html += '<h3>Payments</h3><p>' + data.recent_payments + '</p>';
+                    }
+
+                    if (data.recent_sales_orders && Array.isArray(data.recent_sales_orders)) {
+                        html += '<h3>Recent Sales Orders (' + data.recent_sales_orders.length + ')</h3>';
+                        data.recent_sales_orders.forEach(function(o){
+                            html += '<div style="border:1px solid #ccc;padding:12px;margin-bottom:12px;background:#f9f9f9">';
+                            html += '<strong>' + o.OrderType + ' ' + o.OrderNbr + '</strong> — ' + o.Status + ' — $' + (o.OrderTotal || 0).toFixed(2);
+                            if (o.CustomerOrder) html += ' — WC#' + o.CustomerOrder;
+                            if (o.Description) html += '<br><em>' + o.Description + '</em>';
+
+                            if (o.Details && o.Details.length > 0) {
+                                html += '<table class="widefat" style="margin-top:8px"><thead><tr><th>SKU</th><th>Qty</th><th>Unit Price</th><th>Ext. Price</th><th>Discount</th><th>Line Total</th></tr></thead><tbody>';
+                                o.Details.forEach(function(d){
+                                    html += '<tr><td>' + d.InventoryID + '</td><td>' + d.OrderQty + '</td>';
+                                    html += '<td>$' + (d.UnitPrice || 0).toFixed(2) + '</td>';
+                                    html += '<td>$' + (d.ExtendedPrice || 0).toFixed(2) + '</td>';
+                                    html += '<td>$' + (d.DiscountAmount || 0).toFixed(2) + '</td>';
+                                    html += '<td>$' + (d.LineTotal || 0).toFixed(2) + '</td></tr>';
+                                });
+                                html += '</tbody></table>';
+                            }
+
+                            if (o.Payments && o.Payments.length > 0) {
+                                html += '<p style="margin-top:8px"><strong>Payments:</strong> ';
+                                o.Payments.forEach(function(p, i){
+                                    if (i > 0) html += ', ';
+                                    html += p.PaymentRef + ' ($' + (p.AppliedToOrder || 0).toFixed(2) + ' ' + p.Status + ')';
+                                });
+                                html += '</p>';
+                            } else {
+                                html += '<p style="margin-top:8px;color:#d63638"><strong>No payments attached</strong></p>';
+                            }
+
+                            html += '</div>';
+                        });
+                    }
+
+                    box.innerHTML = '<h2>Acumatica Probe Results</h2>' + html;
+                    box.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Probe Orders & Payments';
+                })
+                .catch(function(e){
+                    box.innerHTML = '<div class="notice notice-error inline"><p>Probe failed: ' + e.message + '</p></div>';
+                    box.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Probe Orders & Payments';
                 });
             });
         })();

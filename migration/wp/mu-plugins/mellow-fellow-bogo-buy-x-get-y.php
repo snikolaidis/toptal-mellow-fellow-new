@@ -5,12 +5,17 @@
  *              Admin can set how many qualifying items (X) are needed and how many
  *              free/discounted items (Y) the customer receives.
  * Version: 1.0.0
+ *
+ * DISABLED: WT Smart Coupon Pro already handles Buy X / Get Y quantities natively.
+ *           Uncomment the code below if the specific "Get" products or quantity
+ *           overrides are needed.
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
+/*
 // ─── Admin: inject Buy X / Get Y fields into BOGO Step 2 ────────────────────
 
 add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
@@ -116,11 +121,6 @@ add_action('wt_sc_before_bogo_coupon_save', function ($coupon_id, $data) {
 }, 10, 2);
 
 // ─── Runtime: enforce Buy X quantity threshold ───────────────────────────────
-//
-// Before the BOGO plugin decides which items to discount, check that the cart
-// has at least X qualifying items. If not, remove all items from validation so
-// the BOGO deal doesn't trigger. If specific "Get" products are configured,
-// also filter the items so only those products can receive the discount.
 
 add_filter('wbte_sc_alter_items_to_validate', function ($items, $coupon_id) {
     $buy_qty = (int) get_post_meta($coupon_id, '_mf_bogo_buy_qty', true);
@@ -137,10 +137,6 @@ add_filter('wbte_sc_alter_items_to_validate', function ($items, $coupon_id) {
 }, 20, 2);
 
 // ─── Runtime: limit discounted items to Get Y quantity ───────────────────────
-//
-// The WT Smart Coupon Pro plugin decides how many items to discount based on its
-// own logic. We cap the number of discounted items to our Get Y quantity via the
-// coupon's discount amount filter.
 
 global $mf_bogo_get_discount_counts;
 $mf_bogo_get_discount_counts = [];
@@ -185,3 +181,4 @@ add_filter('woocommerce_coupon_get_discount_amount', function ($discount, $disco
 
     return $discount;
 }, 10, 5);
+*/
