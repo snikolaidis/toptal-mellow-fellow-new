@@ -28,6 +28,7 @@ import {
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 import moodStyles from '@/styles/pages/mood.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
 
 const MOOD_PAGE_SIZE = 12;
 
@@ -402,7 +403,7 @@ export default function MoodPage({
                 onSortChange={handleSortChange}
               />
 
-              <div className={`${moodStyles.productGrid} ${loading ? styles.gridLoading : ''}`}>
+              <div className={`${gridStyles.productGrid} ${loading ? styles.gridLoading : ''}`}>
                 {products.length > 0 ? (
                   products.map((product, index) => (
                     <ProductCard key={product.id} product={product} priority={index < 12} />
