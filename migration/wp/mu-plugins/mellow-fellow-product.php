@@ -20,6 +20,42 @@ add_action( 'rest_api_init', function () {
     ] );
 } );
 
+/**
+ * Bust the 5-minute transient (see mf_get_product()) the moment a product
+ * actually changes, instead of leaving admins to wait it out or manually
+ * `wp transient delete` after every edit. Covers the normal product save
+ * (price, stock, ACF fields, the Bundle Builder "Linked Bundle" dropdown —
+ * all part of the same wp-admin product edit form) plus meta/taxonomy
+ * changes made outside that form (quick edit, programmatic updates).
+ */
+add_action( 'save_post_product', 'mf_clear_product_cache' );
+add_action( 'updated_postmeta', 'mf_clear_product_cache_on_meta_change', 10, 2 );
+add_action( 'added_post_meta', 'mf_clear_product_cache_on_meta_change', 10, 2 );
+add_action( 'deleted_post_meta', 'mf_clear_product_cache_on_meta_change', 10, 2 );
+add_action( 'set_object_terms', 'mf_clear_product_cache_on_terms_change' );
+
+function mf_clear_product_cache( $post_id ) {
+    if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+        return;
+    }
+    $slug = get_post_field( 'post_name', $post_id );
+    if ( $slug ) {
+        delete_transient( 'mf_prod_' . md5( $slug ) );
+    }
+}
+
+function mf_clear_product_cache_on_meta_change( $meta_id, $post_id ) {
+    if ( 'product' === get_post_type( $post_id ) ) {
+        mf_clear_product_cache( $post_id );
+    }
+}
+
+function mf_clear_product_cache_on_terms_change( $post_id ) {
+    if ( 'product' === get_post_type( $post_id ) ) {
+        mf_clear_product_cache( $post_id );
+    }
+}
+
 function mf_resolve_attachment( $attachment_id ) {
     if ( ! $attachment_id ) return null;
     $url = wp_get_attachment_url( (int) $attachment_id );
@@ -428,15 +464,24 @@ function mf_get_product( WP_REST_Request $request ) {
     // -----------------------------------------------------------------------
     // 10. Bundle slug
     // -----------------------------------------------------------------------
-    $bb_id       = ! empty( $meta['bb_linked_bundle_id'] ) ? (int) $meta['bb_linked_bundle_id'] : null;
+    $bb_id       = ! empty( $meta['_bb_linked_bundle_id'] ) ? (int) $meta['_bb_linked_bundle_id'] : null;
     $bundle_slug = null;
     if ( $bb_id ) {
         $bundle_slug = $wpdb->get_var( $wpdb->prepare(
             "SELECT post_name FROM {$wpdb->posts}
-             WHERE ID = %d AND post_type = 'bundle_builder' AND post_status = 'publish'",
+             WHERE ID = %d AND post_type = 'bb_bundle' AND post_status = 'publish'",
             $bb_id
         ) );
     }
+
+    // wc-bundle-builder never persists a "from price" meta value — it computes
+    // the minimum bundle total live and only surfaces it when the "Show 'From'
+    // price" checkbox (_bb_show_from_price) is on. Mirror that gate here (see
+    // BB_Graphql::maybe_register_product_bundle_link's bbFromPrice resolver)
+    // instead of reading a bb_from_price meta key that doesn't exist.
+    $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && class_exists( 'BB_Helpers' ) )
+        ? BB_Helpers::get_bundle_min_price( $bb_id )
+        : 0.0;
 
     // -----------------------------------------------------------------------
     // 11. Collection name/slug (first collection for breadcrumb)
@@ -467,7 +512,7 @@ function mf_get_product( WP_REST_Request $request ) {
         'galleryImages'      => [ 'nodes' => $gallery ],
         'shopifyId'          => $meta['_shopify_id'] ?? null,
         'bbLinkedBundleId'   => $bb_id,
-        'bbFromPrice'        => ! empty( $meta['bb_from_price'] ) ? (float) $meta['bb_from_price'] : null,
+        'bbFromPrice'        => $bb_from_price > 0 ? (float) $bb_from_price : null,
         'productDetails'     => $pd,
         'uniqueSellingProps'  => [ 'nodes' => $usp_nodes ],
         'seo'                => $seo,

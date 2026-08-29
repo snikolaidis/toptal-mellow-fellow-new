@@ -61,6 +61,7 @@ function mellow_fellow_loyalty_ensure_product_coupon($code, $product_id, $email)
     $coupon->set_amount(100);
     $coupon->set_product_ids(array((int) $product_id));
     $coupon->set_usage_limit(1);
+    $coupon->set_individual_use(true);
     if ($email) {
         $coupon->set_email_restrictions(array($email));
     }
@@ -114,9 +115,23 @@ function mellow_fellow_loyalty_ensure_coupon($code, $data, $optionId, $email, $p
     $coupon->set_discount_type($type);
     $coupon->set_amount($amount);
     $coupon->set_usage_limit(1);
+    $coupon->set_individual_use(true);
     $coupon->update_meta_data('_yotpo_loyalty_coupon', 1);
     $coupon->save();
 }
+
+// Allow free gift coupons to coexist with individual_use loyalty coupons.
+// Without this, applying a loyalty coupon would remove any active free gift.
+add_filter('woocommerce_apply_individual_use_coupon', function ($remove_coupons, $coupon, $applied_coupons) {
+    $dominated_by_loyalty = $coupon->get_meta('_yotpo_loyalty_coupon');
+    if (!$dominated_by_loyalty) {
+        return $remove_coupons;
+    }
+    return array_filter($remove_coupons, function ($code) {
+        $c = new WC_Coupon($code);
+        return !$c->get_meta('_mf_free_gift');
+    });
+}, 10, 3);
 
 add_action('graphql_register_types', function () {
     register_graphql_object_type('LoyaltyRedemptionOption', array(

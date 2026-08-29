@@ -123,30 +123,58 @@ async function handler(
 
     const cookiesToSet: string[] = [];
 
-    const hasSignatureError =
+    // wp-graphql-woocommerce reports a bad token as a UserError whose message
+    // is "{error_code}: {message}" — 'invalid_token: Signature verification
+    // failed' for the legacy woocommerce-session JWT, 'invalid_cart_token:
+    // Invalid Cart-Token' for the Store API Cart-Token (see
+    // QL_Session_Handler::validate_legacy_token / validate_cart_token). These
+    // are two independent tokens/cookies, so a bad one doesn't imply the
+    // other is bad too — check and clear each separately rather than wiping
+    // both cookies (and discarding a perfectly good cart) whenever only one
+    // of them is actually stale/corrupted.
+    const responseErrors: Array<{ message?: string }> = Array.isArray(response.data?.errors)
+      ? response.data.errors
+      : [];
+
+    const hasSessionTokenError =
       !!wcSessionToken &&
-      response.data &&
-      Array.isArray(response.data.errors) &&
-      response.data.errors.some(
-        (e: { message?: string }) =>
-          typeof e?.message === 'string' &&
-          e.message.toLowerCase().includes('signature verification failed')
+      responseErrors.some(
+        (e) => typeof e?.message === 'string' && e.message.toLowerCase().includes('signature verification failed')
       );
 
-    if (hasSignatureError) {
+    const hasCartTokenError =
+      !!cartToken &&
+      responseErrors.some(
+        (e) => typeof e?.message === 'string' && e.message.toLowerCase().includes('invalid_cart_token')
+      );
+
+    if (hasSessionTokenError || hasCartTokenError) {
       const strippedCookies = cookies
         .split(';')
         .map((c) => c.trim())
-        .filter((c) => c && !c.toLowerCase().startsWith('wc_session_token='))
+        .filter((c) => {
+          if (!c) return false;
+          const lower = c.toLowerCase();
+          if (hasSessionTokenError && lower.startsWith('wc_session_token=')) return false;
+          if (hasCartTokenError && lower.startsWith('wc_cart_token=')) return false;
+          return true;
+        })
         .join('; ');
 
       response = await makeHttpRequest({
         url,
         body: JSON.stringify(req.body),
         cookies: strippedCookies,
+        wcSessionToken: hasSessionTokenError ? undefined : wcSessionToken || undefined,
+        cartToken: hasCartTokenError ? undefined : cartToken || undefined,
       });
 
-      cookiesToSet.push('wc_session_token=; Path=/; Max-Age=0; SameSite=Lax');
+      if (hasSessionTokenError) {
+        cookiesToSet.push('wc_session_token=; Path=/; Max-Age=0; SameSite=Lax');
+      }
+      if (hasCartTokenError) {
+        cookiesToSet.push('wc_cart_token=; Path=/; Max-Age=0; SameSite=Lax');
+      }
     }
 
     const data = response.data;

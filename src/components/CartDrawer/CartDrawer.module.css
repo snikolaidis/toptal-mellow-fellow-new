@@ -716,6 +716,11 @@
   letter-spacing: 0.04em;
 }
 
+.couponAmount {
+  color: #8A8683;
+  font-weight: 400;
+}
+
 .couponRemoveBtn {
   background: none;
   border: none;

@@ -3,7 +3,7 @@ import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import DOMPurify from 'isomorphic-dompurify';
 import { SearchIcon } from '@/components/icons';
 import Layout from '@/components/Layout';
@@ -20,6 +20,8 @@ import {
   FilterGroup,
   ActiveFilters,
   deriveFilterGroups,
+  parseFilterParams,
+  filtersToQueryParams,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/search.module.css';
 
@@ -102,6 +104,8 @@ interface SearchPageProps {
   blogPosts: BlogPost[];
   productsFailed: boolean;
   blogsFailed: boolean;
+  initialFilters: ActiveFilters;
+  initialSort: string;
 }
 
 export default function SearchPage({
@@ -110,12 +114,37 @@ export default function SearchPage({
   blogPosts,
   productsFailed,
   blogsFailed,
+  initialFilters,
+  initialSort,
 }: SearchPageProps) {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState(query);
-  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
-  const [selectedSort, setSelectedSort] = useState('default');
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(initialFilters);
+  const [selectedSort, setSelectedSort] = useState(initialSort);
   const [page, setPage] = useState(1);
+
+  // `q` must be carried through. Dropping it navigates away from the user's
+  // own search results.
+  const syncUrl = (filters: ActiveFilters, sort: string) => {
+    const queryParams = filtersToQueryParams(filters, sort);
+    router.push(
+      { pathname: '/search', query: { q: query, ...queryParams } },
+      undefined,
+      { shallow: true }
+    );
+  };
+
+  // popstate fires on back and forward only, never on our own router.push.
+  useEffect(() => {
+    const onPopState = () => {
+      const params = Object.fromEntries(new URLSearchParams(window.location.search));
+      setActiveFilters(parseFilterParams(params));
+      setSelectedSort(typeof params.sort === 'string' && params.sort ? params.sort : 'default');
+      setPage(1);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,6 +189,7 @@ export default function SearchPage({
       for (const k of Object.keys(next)) {
         if (next[k].length === 0) delete next[k];
       }
+      syncUrl(next, selectedSort);
       return next;
     });
     setPage(1); // Reset to first page on filter change
@@ -169,6 +199,7 @@ export default function SearchPage({
     if (option) {
       setSelectedSort(option.value);
       setPage(1);
+      syncUrl(activeFilters, option.value);
     }
   };
 
@@ -428,6 +459,9 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
 
   const query = typeof params.q === 'string' ? capQuery(params.q.trim()) : '';
 
+  const initialFilters = parseFilterParams(params);
+  const initialSort = typeof params.sort === 'string' && params.sort ? params.sort : 'default';
+
   if (!query) {
     const menuClient = await prefetchMenus();
     const props: Record<string, any> = {
@@ -436,6 +470,8 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
       blogPosts: [],
       productsFailed: false,
       blogsFailed: false,
+      initialFilters,
+      initialSort,
     };
     mergeMenuState(props, menuClient);
     return { props };
@@ -465,6 +501,8 @@ export const getServerSideProps: GetServerSideProps = async ({ query: params, re
     blogPosts: blogPosts ?? [],
     productsFailed: products === null,
     blogsFailed: blogPosts === null,
+    initialFilters,
+    initialSort,
   };
   mergeMenuState(props, menuClient);
 

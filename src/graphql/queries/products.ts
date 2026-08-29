@@ -12,6 +12,8 @@ export const PRODUCT_DETAILS_FIELDS = gql`
     servingSize
     disclaimers
     coaLink
+    meterType
+    meterValue
     timelineImage {
       node {
         sourceUrl
@@ -134,21 +136,6 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
         extraTaxonomyFields {
           propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
             node {
               sourceUrl
               altText
@@ -368,21 +355,6 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         }
       }
     }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
     blendTypes {
       nodes {
         name
@@ -556,21 +528,6 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         }
       }
     }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
     blendTypes {
       nodes {
         name
@@ -732,21 +689,6 @@ export const GROUP_PRODUCT_FIELDS = gql`
         slug
         extraTaxonomyFields {
           propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
             node {
               sourceUrl
               altText
@@ -1099,10 +1041,10 @@ export const GET_COLLECTION_FACETS = gql`
 `;
 
 export const GET_GIFT_PRODUCTS = gql`
-  query GetGiftProducts($maxPrice: Float!, $minPrice: Float = 0.5, $first: Int = 12) {
+  query GetGiftProducts($maxPrice: Float!, $minPrice: Float = 0.5, $first: Int = 12, $include: [Int]) {
     products(
       first: $first
-      where: { status: "publish", minPrice: $minPrice, maxPrice: $maxPrice, orderby: { field: PRICE, order: DESC } }
+      where: { status: "publish", minPrice: $minPrice, maxPrice: $maxPrice, include: $include, orderby: { field: PRICE, order: DESC } }
     ) {
       nodes {
         __typename

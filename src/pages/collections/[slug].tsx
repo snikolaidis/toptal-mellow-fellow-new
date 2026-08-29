@@ -15,24 +15,25 @@ import ProductCard from '@/components/ProductCard';
 import RichText from '@/components/RichText';
 import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
 import BlogPostsCarousel from '@/components/BlogPostsCarousel';
-import ShopSidebar from '@/components/shop/ShopSidebar';
-import MobileFilters from '@/components/shop/MobileFilters';
+import FilterPanel from '@/components/shop/filters/FilterPanel';
+import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Collection, Product } from '@/types/woocommerce';
 import { BlogPostCard } from '@/types/blog';
 import {
-  PAGE_SIZE,
-  SORT_OPTIONS,
   FILTER_GROUPS,
   FilterGroup,
+  SORT_OPTIONS,
   isHiddenTerm,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
-
 const sortOptions: SelectOption[] = SORT_OPTIONS;
+
+// Deliberately not the shared PAGE_SIZE of 24. Matches the mood pages.
+const COLLECTION_PAGE_SIZE = 12;
 
 interface CollectionsPageProps {
   collection: Collection;
@@ -72,6 +73,7 @@ export default function CollectionsPage({
   } = useTaxonomyProducts({
     slug: collectionSlug,
     taxonomy: 'collection',
+    pageSize: COLLECTION_PAGE_SIZE,
     initialProducts,
     initialFilterGroups,
     initialHasNextPage,
@@ -189,11 +191,17 @@ export default function CollectionsPage({
         </header>
 
         <div className={styles.layout}>
-          <div className={styles.sidebarWrapper}>
-            <ShopSidebar
+          <div className={`${styles.sidebarWrapper} ${styles.filterCard}`}>
+            {/* Without the key, accordions opened on one collection stay open
+                on the next: React reuses the component across navigation. */}
+            <FilterPanel
+              key={collectionSlug}
               filterGroups={filterGroups}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
+              sortValue={currentSort}
+              onSortChange={handleSortChange}
+              showSort={false}
             />
           </div>
 
@@ -204,7 +212,7 @@ export default function CollectionsPage({
                   ? `${displayCount}${hasNextPage ? '+' : ''} ${displayCount === 1 ? 'product' : 'products'}`
                   : `${totalProducts} ${totalProducts === 1 ? 'product' : 'products'}`}
               </span>
-              <div className={styles.sortWrapper}>
+              <div className={styles.sortWrapperDesktop}>
                 <span className={styles.sortLabel}>Sort by</span>
                 <div className={styles.sortSelect}>
                   <Select
@@ -217,14 +225,16 @@ export default function CollectionsPage({
               </div>
             </div>
 
-            <MobileFilters
+            <FilterSheet
               filterGroups={filterGroups}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
               productCount={displayCount}
+              sortValue={currentSort}
+              onSortChange={handleSortChange}
             />
 
-            <div className={`products-grid ${loading ? styles.gridLoading : ''}`}>
+            <div className={`${styles.collectionGrid} ${loading ? styles.gridLoading : ''}`}>
               {products.length > 0 ? (
                 products.map((product, index) => (
                   <ProductCard key={product.id} product={product} priority={index < 12} />
@@ -352,7 +362,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       fetch(`${wpUrl}/wp-json/mf/v1/collection-facets?slug=${encodeURIComponent(slug)}`)
         .then((r) => r.json())
         .catch(() => null),
-      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?slug=${encodeURIComponent(slug)}&per_page=${PAGE_SIZE}`)
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?slug=${encodeURIComponent(slug)}&per_page=${COLLECTION_PAGE_SIZE}`)
         .then((r) => r.json())
         .catch(() => null),
     ]);
@@ -415,7 +425,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
     const initialProducts = productsRes?.products || [];
     const initialHasNextPage = productsRes?.hasNextPage || false;
-    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / PAGE_SIZE) : 0);
+    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / COLLECTION_PAGE_SIZE) : 0);
 
     // Related posts are matched server-side via the mu-plugin (mellow-fellow-related-posts.php)
     // and returned on the endpoint payload, not on the Collection type, so this

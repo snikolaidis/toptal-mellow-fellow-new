@@ -13,6 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 define( 'MF_ACU_ORDER_HOOK', 'mf_acu_push_order_async' );
 define( 'MF_ACU_ORDER_MAX_ATTEMPTS', 3 );
 
+function mf_acu_mask_email( $email ) {
+    $parts = explode( '@', $email, 2 );
+    if ( count( $parts ) !== 2 ) return '***';
+    return substr( $parts[0], 0, 2 ) . '***@' . $parts[1];
+}
+
 /* ── hook: schedule push when order hits processing ──────────────── */
 
 add_action( 'woocommerce_order_status_processing', 'mf_acu_schedule_order_push', 30, 1 );
@@ -108,15 +114,70 @@ function mf_acu_push_order( $order_id ) {
     $order->update_meta_data( '_acumatica_push_error', '' );
     $order->save();
 
-    $order->add_order_note(
-        sprintf( 'Acumatica Sales Order %s created.', $acu_order_nbr ),
-        false,
-        true
-    );
-
     mf_acu_circuit_record_success();
+
+    $payment_ref = mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $session );
+
+    $note_msg = sprintf( 'Acumatica Sales Order %s created.', $acu_order_nbr );
+    if ( $payment_ref ) {
+        $note_msg .= sprintf( ' Payment %s attached.', $payment_ref );
+    }
+    $order->add_order_note( $note_msg, false, true );
+
     mf_acu_record( 'order-push', true, "Order $order_id → $acu_order_nbr" );
     mf_acu_log( "Order $order_id pushed as $acu_order_nbr", 'orders' );
+}
+
+/* ── prepayment creation ────────────────────────────────────────── */
+
+function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $session ) {
+    $order_total = (float) $order->get_total();
+    if ( $order_total <= 0 || ! $acu_order_nbr ) {
+        return '';
+    }
+
+    $payment_method = mf_acu_config( 'PAYMENT_METHOD', 'CREDITCARD' );
+    $cash_account   = mf_acu_config( 'CASH_ACCOUNT', '1092' );
+    $order_id       = $order->get_id();
+
+    $payment_payload = array(
+        'Type'          => array( 'value' => 'Prepayment' ),
+        'CustomerID'    => array( 'value' => $customer_id ),
+        'PaymentMethod' => array( 'value' => $payment_method ),
+        'CashAccount'   => array( 'value' => $cash_account ),
+        'PaymentAmount' => array( 'value' => $order_total ),
+        'Hold'          => array( 'value' => false ),
+        'Description'   => array( 'value' => 'WooCommerce Order #' . $order->get_order_number() ),
+        'OrdersToApply' => array(
+            array(
+                'OrderType'  => array( 'value' => mf_acu_order_type() ),
+                'OrderNbr'   => array( 'value' => $acu_order_nbr ),
+                'AmountPaid' => array( 'value' => $order_total ),
+            ),
+        ),
+    );
+
+    $transaction_id = $order->get_transaction_id();
+    if ( $transaction_id ) {
+        $payment_payload['PaymentRef'] = array( 'value' => (string) $transaction_id );
+    }
+
+    mf_acu_log( "Creating prepayment for order $order_id ($acu_order_nbr): \${$order_total} via $payment_method", 'orders' );
+
+    $result = mf_acu_rest_put( '/entity/Default/24.200.001/Payment', $payment_payload, $session );
+
+    if ( is_wp_error( $result ) ) {
+        mf_acu_log( "Payment creation failed for order $order_id: " . $result->get_error_message(), 'orders' );
+        $order->add_order_note( 'Acumatica payment creation failed: ' . $result->get_error_message(), false, true );
+        return '';
+    }
+
+    $ref_nbr = isset( $result['ReferenceNbr']['value'] ) ? $result['ReferenceNbr']['value'] : '';
+    $order->update_meta_data( '_acumatica_payment_ref', $ref_nbr );
+    $order->save();
+
+    mf_acu_log( "Payment $ref_nbr created for order $order_id ($acu_order_nbr)", 'orders' );
+    return $ref_nbr;
 }
 
 /* ── failure handling with retry ─────────────────────────────────── */
@@ -175,7 +236,7 @@ function mf_acu_resolve_customer( $order, $session ) {
 
     $escaped = str_replace( "'", "''", $email );
     $search  = mf_acu_rest_get(
-        "/entity/Default/24.200.001/Customer?\$filter=Email eq '$escaped'&\$top=1&\$select=CustomerID",
+        '/entity/Default/24.200.001/Customer?' . http_build_query( array( '$filter' => "Email eq '$escaped'", '$top' => 1, '$select' => 'CustomerID' ) ),
         $session
     );
 
@@ -183,7 +244,7 @@ function mf_acu_resolve_customer( $order, $session ) {
         $found_id = $search[0]['CustomerID']['value'];
         $order->update_meta_data( '_acumatica_customer_id', $found_id );
         $order->save();
-        mf_acu_log( "Customer found for $email: $found_id", 'orders' );
+        mf_acu_log( 'Customer found for ' . mf_acu_mask_email( $email ) . ": $found_id", 'orders' );
         return $found_id;
     }
 
@@ -209,7 +270,7 @@ function mf_acu_resolve_customer( $order, $session ) {
     $result = mf_acu_rest_put( '/entity/Default/24.200.001/Customer', $payload, $session );
 
     if ( is_wp_error( $result ) ) {
-        mf_acu_log( "Customer create failed for $email: " . $result->get_error_message(), 'orders' );
+        mf_acu_log( 'Customer create failed for ' . mf_acu_mask_email( $email ) . ': ' . $result->get_error_message(), 'orders' );
         return $result;
     }
 
@@ -221,7 +282,7 @@ function mf_acu_resolve_customer( $order, $session ) {
     $order->update_meta_data( '_acumatica_customer_id', $new_id );
     $order->save();
 
-    mf_acu_log( "Customer created for $email: $new_id", 'orders' );
+    mf_acu_log( 'Customer created for ' . mf_acu_mask_email( $email ) . ": $new_id", 'orders' );
     return $new_id;
 }
 
@@ -237,12 +298,19 @@ function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
         $sku = $product->get_sku();
         if ( ! $sku ) continue;
 
-        $lines[] = array(
+        $line = array(
             'InventoryID'   => array( 'value' => $sku ),
             'OrderQty'      => array( 'value' => (float) $item->get_quantity() ),
             'UnitPrice'     => array( 'value' => (float) ( $item->get_subtotal() / max( 1, $item->get_quantity() ) ) ),
             'ExtendedPrice' => array( 'value' => (float) $item->get_subtotal() ),
         );
+
+        $line_discount = round( (float) $item->get_subtotal() - (float) $item->get_total(), 2 );
+        if ( $line_discount > 0 ) {
+            $line['DiscountAmount'] = array( 'value' => $line_discount );
+        }
+
+        $lines[] = $line;
     }
 
     $billing  = array(
@@ -303,6 +371,31 @@ function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
     if ( $shipping_total > 0 ) {
         $payload['FreightPrice'] = array( 'value' => $shipping_total );
         $payload['OverrideFreightPrice'] = array( 'value' => true );
+    }
+
+    $note_parts = array();
+    $coupons = $order->get_coupon_codes();
+    if ( ! empty( $coupons ) ) {
+        $coupon_details = array();
+        foreach ( $order->get_items( 'coupon' ) as $coupon_item ) {
+            $coupon_details[] = strtoupper( $coupon_item->get_code() ) . ' (-$' . number_format( (float) $coupon_item->get_discount(), 2 ) . ')';
+        }
+        $note_parts[] = 'Coupons: ' . implode( ', ', $coupon_details );
+    }
+    $customer_note = $order->get_customer_note();
+    if ( $customer_note ) {
+        $note_parts[] = 'Customer note: ' . $customer_note;
+    }
+    $payment_title = $order->get_payment_method_title();
+    if ( $payment_title ) {
+        $note_parts[] = 'Payment method: ' . $payment_title;
+    }
+    $transaction_id = $order->get_transaction_id();
+    if ( $transaction_id ) {
+        $note_parts[] = 'Transaction ID: ' . $transaction_id;
+    }
+    if ( ! empty( $note_parts ) ) {
+        $payload['note'] = array( 'value' => implode( "\n", $note_parts ) );
     }
 
     return $payload;
@@ -375,13 +468,14 @@ function mf_acu_render_order_metabox( $post_or_order ) {
         : wc_get_order( $post_or_order->ID );
     if ( ! $order ) return;
 
-    $pushed  = $order->get_meta( '_acumatica_order_pushed' );
-    $nbr     = $order->get_meta( '_acumatica_order_nbr' );
-    $status  = $order->get_meta( '_acumatica_push_status' );
-    $error   = $order->get_meta( '_acumatica_push_error' );
-    $time    = $order->get_meta( '_acumatica_push_time' );
-    $cust_id = $order->get_meta( '_acumatica_customer_id' );
-    $email   = $order->get_billing_email();
+    $pushed      = $order->get_meta( '_acumatica_order_pushed' );
+    $nbr         = $order->get_meta( '_acumatica_order_nbr' );
+    $status      = $order->get_meta( '_acumatica_push_status' );
+    $error       = $order->get_meta( '_acumatica_push_error' );
+    $time        = $order->get_meta( '_acumatica_push_time' );
+    $cust_id     = $order->get_meta( '_acumatica_customer_id' );
+    $payment_ref = $order->get_meta( '_acumatica_payment_ref' );
+    $email       = $order->get_billing_email();
 
     $attempts = (int) $order->get_meta( '_acumatica_push_attempts' );
 
@@ -389,6 +483,7 @@ function mf_acu_render_order_metabox( $post_or_order ) {
         echo '<p style="color:#00a32a;font-weight:600">&#10003; Pushed</p>';
         echo '<p><strong>Order:</strong> ' . esc_html( $nbr ) . '</p>';
         if ( $cust_id ) echo '<p><strong>Customer:</strong> ' . esc_html( $cust_id ) . '</p>';
+        if ( $payment_ref ) echo '<p><strong>Payment:</strong> ' . esc_html( $payment_ref ) . '</p>';
         if ( $time ) echo '<p><strong>Pushed:</strong> ' . esc_html( wp_date( 'Y-m-d H:i', (int) $time ) ) . '</p>';
     } elseif ( 'failed' === $status ) {
         echo '<p style="color:#d63638;font-weight:600">&#10007; Push Failed</p>';
@@ -406,13 +501,50 @@ function mf_acu_render_order_metabox( $post_or_order ) {
     }
 
     if ( 'yes' !== $pushed ) {
+        $oid = $order->get_id();
         ?>
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:12px">
-            <input type="hidden" name="action" value="mf_acu_retry_push" />
-            <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>" />
-            <?php wp_nonce_field( 'mf_acu_retry_push_' . $order->get_id() ); ?>
-            <button type="submit" class="button button-primary" style="width:100%">Push to Acumatica Now</button>
-        </form>
+        <div style="margin-top:12px">
+            <button type="button" id="mf-acu-push-btn" class="button button-primary" style="width:100%">Push to Acumatica Now</button>
+            <p id="mf-acu-push-msg" style="margin-top:8px;display:none"></p>
+        </div>
+        <script>
+        (function(){
+            var btn = document.getElementById('mf-acu-push-btn');
+            var msg = document.getElementById('mf-acu-push-msg');
+            btn.addEventListener('click', function(){
+                btn.disabled = true;
+                btn.textContent = 'Pushing...';
+                msg.style.display = 'none';
+                fetch('<?php echo esc_url( rest_url( 'mf-acu/v1/push/' . (int) $oid ) ); ?>', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'X-WP-Nonce': '<?php echo wp_create_nonce( 'wp_rest' ); ?>'}
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    if (data.pushed === 'yes' || data.status === 'success') {
+                        msg.style.color = '#00a32a';
+                        msg.textContent = 'Pushed: ' + (data.nbr || 'success');
+                        msg.style.display = 'block';
+                        setTimeout(function(){ location.reload(); }, 1500);
+                    } else {
+                        msg.style.color = '#d63638';
+                        msg.textContent = data.error || data.message || 'Push failed';
+                        msg.style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Push to Acumatica Now';
+                    }
+                })
+                .catch(function(){
+                    msg.style.color = '#d63638';
+                    msg.textContent = 'Request failed';
+                    msg.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Push to Acumatica Now';
+                });
+            });
+        })();
+        </script>
         <?php
     }
 }
@@ -473,31 +605,3 @@ add_action( 'woocommerce_order_action_mf_acu_push_order', function( $order ) {
     mf_acu_push_order( $order->get_id() );
 } );
 
-add_action( 'admin_post_mf_acu_retry_push', function() {
-    error_log( '[MF Acumatica] Retry button handler fired' );
-
-    if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Forbidden' );
-
-    $order_id = absint( $_POST['order_id'] ?? 0 );
-    if ( ! $order_id ) wp_die( 'Missing order ID' );
-
-    check_admin_referer( 'mf_acu_retry_push_' . $order_id );
-
-    mf_acu_log( "Retry button handler for order $order_id", 'retry' );
-
-    $order = wc_get_order( $order_id );
-    if ( ! $order ) wp_die( 'Order not found' );
-
-    $order->delete_meta_data( '_acumatica_order_pushed' );
-    $order->delete_meta_data( '_acumatica_push_status' );
-    $order->delete_meta_data( '_acumatica_push_error' );
-    $order->delete_meta_data( '_acumatica_customer_id' );
-    $order->update_meta_data( '_acumatica_push_attempts', 0 );
-    $order->save();
-
-    mf_acu_push_order( $order_id );
-
-    $edit_url = $order->get_edit_order_url();
-    wp_safe_redirect( $edit_url );
-    exit;
-} );

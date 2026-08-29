@@ -541,6 +541,9 @@ export default function CartDrawer() {
                 {cart.appliedCoupons.map((coupon) => (
                   <span key={coupon.code} className={styles.appliedCoupon}>
                     {coupon.code}
+                    {coupon.discountAmount && parsePrice(coupon.discountAmount) > 0 && (
+                      <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeCoupon(coupon.code)}
@@ -574,14 +577,18 @@ export default function CartDrawer() {
                       </span>
                     </div>
                   )}
-                  {couponDiscount > 0 && (
-                    <div className={styles.subtotalRow}>
-                      <span className={styles.discountLabel}>Coupon Discount</span>
-                      <span className={styles.discountValue}>
-                        -${couponDiscount.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
+                  {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
+                    const amt = parsePrice(coupon.discountAmount);
+                    if (amt <= 0) return null;
+                    return (
+                      <div key={coupon.code} className={styles.subtotalRow}>
+                        <span className={styles.discountLabel}>{coupon.code.toUpperCase()}</span>
+                        <span className={styles.discountValue}>
+                          -${amt.toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
                   <div className={styles.subtotalRow}>
                     <span className={styles.subtotalLabel}>SUBTOTAL</span>
                     <span className={styles.subtotalValue}>

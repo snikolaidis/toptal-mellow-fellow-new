@@ -31,6 +31,12 @@ interface HeroSlide {
 }
 
 interface HeroSliderProps {
+  // Slides now live in the shared Promotional Slides group in Site Settings, so this
+  // block and the mega menu Featured carousel cannot drift apart. The block's own
+  // slides stay as the fallback for as long as the shared group is empty.
+  sharedSlides?: {
+    slides?: HeroSlide[] | null;
+  } | null;
   heroSlider?: {
     slides?: HeroSlide[] | null;
   } | null;
@@ -67,7 +73,8 @@ function SlidePicture({ slide }: { slide: HeroSlide }) {
 }
 
 export default function HeroSlider(props: HeroSliderProps) {
-  const slides = props.heroSlider?.slides ?? [];
+  const shared = props.sharedSlides?.slides ?? [];
+  const slides = shared.length > 0 ? shared : props.heroSlider?.slides ?? [];
   if (slides.length === 0) {
     return null;
   }

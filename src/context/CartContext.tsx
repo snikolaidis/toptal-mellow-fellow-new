@@ -7,7 +7,6 @@ import {
   useRef,
   ReactNode,
 } from 'react';
-import { getApolloAuthClient } from '@faustwp/core';
 import { useAuth } from '@/context/AuthContext';
 import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
 import {
@@ -230,17 +229,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
 
-  // GraphQL client — only used for bundle operations
-  const getClient = useCallback(() => {
-    if (isAuthenticated) {
-      try {
-        return getApolloAuthClient();
-      } catch {
-        return getBrowserClient();
-      }
-    }
-    return getBrowserClient();
-  }, [isAuthenticated]);
+  // GraphQL client — only used for bundle operations. Always the same-origin
+  // browser client, even when logged in: every other cart operation already
+  // runs through the Store API's anonymous Cart-Token session regardless of
+  // auth state (see fetchCartFromStore/addItemToStore/etc. below), so bundle
+  // add/remove has to land in that same session to be visible afterward.
+  // The authenticated Apollo client hits WordPress directly cross-origin with
+  // a Bearer JWT, bypassing the Store API bridge entirely and resolving to a
+  // *different* WC session (keyed by the logged-in user's ID) — a leftover
+  // from before cart ops moved to the Store API, when the whole cart lived in
+  // GraphQL and needed that per-user session for persistence.
+  const getClient = useCallback(() => getBrowserClient(), []);
 
   function isSessionExpired(err: unknown): boolean {
     return err instanceof StoreApiError && err.code === 'session_expired';
@@ -690,7 +689,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       return true;
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return false; }
+      if (isSessionExpired(err)) {
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart && freshCart.items.length > 0) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+            setError('Could not apply coupon. Please try again.');
+            return false;
+          }
+        } catch {}
+        resetToEmptyCart();
+        return false;
+      }
       logError('CartContext.applyCoupon', err, { code });
       const message = extractCartErrorMessage(
         err,
@@ -712,7 +722,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (isSessionExpired(err)) {
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart && freshCart.items.length > 0) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+            setError('Could not remove coupon. Please try again.');
+            return;
+          }
+        } catch {}
+        resetToEmptyCart();
+        return;
+      }
       if (err instanceof StoreApiError && (err.status === 409 || err.status === 400)) {
         // Coupon already removed or deleted server-side — sync local state
         try {
