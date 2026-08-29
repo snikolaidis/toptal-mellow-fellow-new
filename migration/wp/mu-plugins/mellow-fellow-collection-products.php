@@ -238,11 +238,12 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         'product_type',
         'product-type', 'strain-type', 'strain-name', 'blend-types',
         'product-lines', 'size', 'cannabinoid', 'single-cannabinoid', 'mg', 'pieces',
+        'unique-selling-props',
     ];
     $tax_placeholders = implode( ',', array_fill( 0, count( $tax_list ), '%s' ) );
 
     $tax_sql = $wpdb->prepare(
-        "SELECT tr.object_id AS product_id, t.name AS term_name, t.slug AS term_slug, tt.taxonomy
+        "SELECT tr.object_id AS product_id, t.term_id AS term_id, t.name AS term_name, t.slug AS term_slug, tt.taxonomy
          FROM {$wpdb->term_relationships} tr
          INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
          INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
@@ -256,9 +257,47 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     foreach ( $tax_rows as $tr ) {
         $pid = (int) $tr->product_id;
         $tax_map[ $pid ][ $tr->taxonomy ][] = [
-            'name' => $tr->term_name,
-            'slug' => $tr->term_slug,
+            'term_id' => (int) $tr->term_id,
+            'name'    => $tr->term_name,
+            'slug'    => $tr->term_slug,
         ];
+    }
+
+    // Unique selling props carry an ACF icon per *term*, not per product, so
+    // resolve it once per distinct term (usually a handful) rather than once
+    // per product — same approach as mf_get_product()'s USP block.
+    $usp_icon_map = [];
+    if ( function_exists( 'get_fields' ) ) {
+        $usp_term_ids = [];
+        foreach ( $tax_map as $pid_taxes ) {
+            foreach ( $pid_taxes['unique-selling-props'] ?? [] as $term ) {
+                $usp_term_ids[ $term['term_id'] ] = true;
+            }
+        }
+        foreach ( array_keys( $usp_term_ids ) as $term_id ) {
+            $usp_acf  = get_fields( 'unique-selling-props_' . $term_id ) ?: [];
+            $icon_val = $usp_acf['prop_icon'] ?? $usp_acf['propIcon'] ?? null;
+            if ( ! $icon_val ) continue;
+            if ( is_array( $icon_val ) && ! empty( $icon_val['url'] ) ) {
+                $usp_icon_map[ $term_id ] = [ 'sourceUrl' => $icon_val['url'], 'altText' => $icon_val['alt'] ?? '' ];
+            } elseif ( is_numeric( $icon_val ) ) {
+                $iu = wp_get_attachment_url( (int) $icon_val );
+                if ( $iu ) {
+                    $usp_icon_map[ $term_id ] = [
+                        'sourceUrl' => $iu,
+                        'altText'   => get_post_meta( (int) $icon_val, '_wp_attachment_image_alt', true ) ?: '',
+                    ];
+                }
+            } elseif ( is_string( $icon_val ) ) {
+                // The "Prop Icon" ACF field's return_format is "url", so get_fields()
+                // hands back a plain URL string rather than an array or attachment ID.
+                $attachment_id = attachment_url_to_postid( $icon_val );
+                $usp_icon_map[ $term_id ] = [
+                    'sourceUrl' => $icon_val,
+                    'altText'   => $attachment_id ? ( get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ?: '' ) : '',
+                ];
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -379,6 +418,16 @@ function mf_get_collection_products( WP_REST_Request $request ) {
             ] : null,
             'bbLinkedBundleId'  => $bb_id ?: null,
             'bbFromPrice'       => $bb_from_price > 0 ? (float) $bb_from_price : null,
+            'uniqueSellingProps' => [
+                'nodes' => array_map( function ( $term ) use ( $usp_icon_map ) {
+                    $icon = $usp_icon_map[ $term['term_id'] ] ?? null;
+                    return [
+                        'id'                  => base64_encode( 'unique-selling-prop:' . $term['term_id'] ),
+                        'name'                => $term['name'],
+                        'uniqueSellingFields' => [ 'propIcon' => $icon ? [ 'node' => $icon ] : null ],
+                    ];
+                }, $taxes['unique-selling-props'] ?? [] ),
+            ],
         ];
 
         $products[] = array_merge( $product, $tax_fields );
