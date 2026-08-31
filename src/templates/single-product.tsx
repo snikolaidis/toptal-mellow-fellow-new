@@ -725,7 +725,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
               {collectionName && collectionSlug && (
                 <div className="meta-item">
                   <span className="meta-label">Collection</span>
-                  <Link href={`/collection/${collectionSlug}`} className="meta-link">
+                  <Link href={`/collections/${collectionSlug}`} className="meta-link">
                     {collectionName}
                   </Link>
                 </div>
