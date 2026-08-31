@@ -1,0 +1,14 @@
+/* The product listing grid for collections, moods, shop and search.
+   Deliberately not the global .products-grid, which keeps a fourth column and
+   is the PDP recommendation rows' own shape. */
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 16px;
+}
+
+@media only screen and (min-width: 992px) {
+  .productGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

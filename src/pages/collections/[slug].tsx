@@ -17,16 +17,21 @@ import ReviewsCarousel from '@/wp-blocks/ReviewsCarousel';
 import BlogPostsCarousel from '@/components/BlogPostsCarousel';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
+import Select, { SelectOption } from '@/components/ui/Select';
 import { Collection, Product } from '@/types/woocommerce';
 import { BlogPostCard } from '@/types/blog';
 import {
   FILTER_GROUPS,
   FilterGroup,
+  SORT_OPTIONS,
   isHiddenTerm,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
 
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
+
+const sortOptions: SelectOption[] = SORT_OPTIONS;
 
 // Deliberately not the shared PAGE_SIZE of 24. Matches the mood pages.
 const COLLECTION_PAGE_SIZE = 12;
@@ -197,6 +202,7 @@ export default function CollectionsPage({
               onFilterChange={handleFilterChange}
               sortValue={currentSort}
               onSortChange={handleSortChange}
+              showSort={false}
             />
           </div>
 
@@ -207,6 +213,17 @@ export default function CollectionsPage({
                   ? `${displayCount}${hasNextPage ? '+' : ''} ${displayCount === 1 ? 'product' : 'products'}`
                   : `${totalProducts} ${totalProducts === 1 ? 'product' : 'products'}`}
               </span>
+              <div className={styles.sortWrapperDesktop}>
+                <span className={styles.sortLabel}>Sort by</span>
+                <div className={styles.sortSelect}>
+                  <Select
+                    options={sortOptions}
+                    value={currentSort}
+                    onChange={handleSortChange}
+                    instanceId="collection-sort-select"
+                  />
+                </div>
+              </div>
             </div>
 
             <FilterSheet
@@ -218,7 +235,7 @@ export default function CollectionsPage({
               onSortChange={handleSortChange}
             />
 
-            <div className={`${styles.collectionGrid} ${loading ? styles.gridLoading : ''}`}>
+            <div className={`${gridStyles.productGrid} ${loading ? styles.gridLoading : ''}`}>
               {products.length > 0 ? (
                 products.map((product, index) => (
                   <ProductCard key={product.id} product={product} priority={index < 12} />

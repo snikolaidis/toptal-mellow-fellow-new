@@ -8,22 +8,22 @@ import DOMPurify from 'isomorphic-dompurify';
 import { SearchIcon } from '@/components/icons';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
-import ShopSidebar from '@/components/shop/ShopSidebar';
-import MobileFilters from '@/components/shop/MobileFilters';
+import FilterPanel from '@/components/shop/filters/FilterPanel';
+import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
 import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-client';
 import {
   SORT_OPTIONS,
   FACET_PRODUCT_CONNECTION,
-  FILTER_GROUPS,
   FilterGroup,
   ActiveFilters,
-  deriveFilterGroups,
+  buildFacetGroups,
   parseFilterParams,
   filtersToQueryParams,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/search.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
@@ -167,9 +167,35 @@ export default function SearchPage({
     return sortProducts(result, selectedSort);
   }, [allProducts, activeFilters, selectedSort]);
 
-  // Derive filter groups from the FILTERED products so filters narrow each other.
-  // E.g. selecting "Edible" hides sizes like "2ml" that don't apply to edibles.
-  const filterGroups = useMemo(() => deriveFilterGroups(filteredProducts as any[]), [filteredProducts]);
+  // allProducts, never filteredProducts: passing the filtered set here is what
+  // left only the option just ticked in that facet.
+  const filterGroups = useMemo(
+    () =>
+      buildFacetGroups(
+        allProducts,
+        activeFilters,
+        (product, facetKey) => {
+          const connection = FACET_PRODUCT_CONNECTION[facetKey];
+          if (!connection) return [];
+          const nodes: Array<{ slug?: string }> = (product as any)?.[connection]?.nodes || [];
+          return nodes.map((t) => t.slug).filter(Boolean) as string[];
+        },
+        (facetKey) => {
+          const connection = FACET_PRODUCT_CONNECTION[facetKey];
+          if (!connection) return [];
+          const seen = new Map<string, { name: string; slug: string }>();
+          for (const product of allProducts) {
+            const nodes: Array<{ name?: string; slug?: string }> =
+              (product as any)?.[connection]?.nodes || [];
+            for (const t of nodes) {
+              if (t?.slug && !seen.has(t.slug)) seen.set(t.slug, { name: t.name || t.slug, slug: t.slug });
+            }
+          }
+          return Array.from(seen.values());
+        },
+      ),
+    [allProducts, activeFilters],
+  );
 
   const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;
@@ -268,11 +294,14 @@ export default function SearchPage({
           </p>
         ) : (
         <div className={styles.layout}>
-          <div className={styles.sidebarWrapper}>
-            <ShopSidebar
+          <div className={`${styles.sidebarWrapper} ${styles.filterCard}`}>
+            <FilterPanel
               filterGroups={filterGroups}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
+              sortValue={currentSort}
+              onSortChange={handleSortChange}
+              showSort={false}
             />
           </div>
 
@@ -295,15 +324,17 @@ export default function SearchPage({
               </div>
             </div>
 
-            <MobileFilters
+            <FilterSheet
               filterGroups={filterGroups}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
               productCount={filteredProducts.length}
+              sortValue={currentSort}
+              onSortChange={handleSortChange}
             />
 
             {pageProducts.length > 0 ? (
-              <div className="products-grid">
+              <div className={gridStyles.productGrid}>
                 {pageProducts.map((product, index) => (
                   <ProductCard key={product.id} product={product} priority={index < 12} />
                 ))}

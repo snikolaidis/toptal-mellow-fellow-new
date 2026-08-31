@@ -33,6 +33,11 @@ export function useTaxonomyProducts({
 }: UseTaxonomyProductsArgs) {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  // Deliberately never recomputed from the fetched page. Every assignment below
+  // resets it to the server list, so the facets keep their full shape while
+  // filtering. Recomputing from the filtered results is what made ticking one
+  // option remove the rest of its own facet on shop and search; if counts ever
+  // need to refresh here, narrow per facet with buildFacetGroups instead.
   const [filterGroups, setFilterGroups] = useState<FilterGroup[]>(initialFilterGroups);
   const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
