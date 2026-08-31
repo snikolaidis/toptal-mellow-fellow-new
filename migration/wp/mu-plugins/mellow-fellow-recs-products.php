@@ -34,9 +34,10 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
     $price_max   = floatval( $request->get_param( 'price_max' ) ?: 0 );
     $slug_like   = sanitize_text_field( $request->get_param( 'slug_like' ) ?: '' );
 
-    $type_slugs    = ! empty( $types_raw )   ? array_filter( array_map( 'sanitize_title', explode( ',', $types_raw ) ) )   : [];
-    $product_slugs = ! empty( $slugs_raw )   ? array_filter( array_map( 'sanitize_title', explode( ',', $slugs_raw ) ) )   : [];
-    $exclude_ids   = ! empty( $exclude_raw ) ? array_filter( array_map( 'absint', explode( ',', $exclude_raw ) ) )         : [];
+    // is_string: this route declares no args, so types[]=x would reach explode() and fatal.
+    $type_slugs    = is_string( $types_raw )   && $types_raw !== ''   ? array_filter( array_map( 'sanitize_title', explode( ',', $types_raw ) ) )   : [];
+    $product_slugs = is_string( $slugs_raw )   && $slugs_raw !== ''   ? array_filter( array_map( 'sanitize_title', explode( ',', $slugs_raw ) ) )   : [];
+    $exclude_ids   = is_string( $exclude_raw ) && $exclude_raw !== '' ? array_filter( array_map( 'absint', explode( ',', $exclude_raw ) ) )         : [];
 
     if ( empty( $type_slugs ) && empty( $product_slugs ) ) {
         return new WP_REST_Response( [ 'success' => true, 'products' => [] ], 200 );

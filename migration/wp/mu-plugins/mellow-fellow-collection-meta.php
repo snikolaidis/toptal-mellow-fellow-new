@@ -14,12 +14,9 @@ add_action( 'rest_api_init', function () {
         'callback'            => 'mf_get_collection_meta',
         'permission_callback' => '__return_true',
         'args'                => [
-            'slug'     => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_title' ],
-            // Deliberately no sanitize_callback. WP applies it to the raw value during
-            // dispatch, so taxonomy[]=x hands an array to sanitize_title() and fatals
-            // before mf_resolve_taxonomy_param() runs. No 'type' either: it would make
-            // WP reject an array with a 400 rather than falling back, and falling back
-            // is the contract. The allowlist is the control.
+            'slug'     => [ 'required' => true, 'type' => 'string', 'validate_callback' => 'rest_validate_request_arg', 'sanitize_callback' => 'sanitize_title' ],
+            // No sanitize_callback or validate_callback on purpose: an unrecognised
+            // taxonomy must fall back to `collection`, per mf_resolve_taxonomy_param().
             'taxonomy' => [ 'required' => false, 'default' => 'collection' ],
         ],
     ] );
