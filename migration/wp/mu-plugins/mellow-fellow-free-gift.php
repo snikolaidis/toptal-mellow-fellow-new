@@ -17,7 +17,8 @@ add_action('rest_api_init', function () {
         'permission_callback' => '__return_true',
         'callback' => function ($request) {
             $slugs_param = $request->get_param('collections');
-            if (empty($slugs_param)) {
+            // is_string: this route declares no args, so collections[]=x would fatal.
+            if (empty($slugs_param) || !is_string($slugs_param)) {
                 return new WP_REST_Response(array('ids' => array()), 200);
             }
             $slugs = array_filter(array_map('trim', explode(',', $slugs_param)));

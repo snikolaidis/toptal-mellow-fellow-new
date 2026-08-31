@@ -15,7 +15,7 @@ add_action( 'rest_api_init', function () {
         'callback'            => 'mf_get_product',
         'permission_callback' => '__return_true',
         'args'                => [
-            'slug' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_title' ],
+            'slug' => [ 'required' => true, 'type' => 'string', 'validate_callback' => 'rest_validate_request_arg', 'sanitize_callback' => 'sanitize_title' ],
         ],
     ] );
 } );
