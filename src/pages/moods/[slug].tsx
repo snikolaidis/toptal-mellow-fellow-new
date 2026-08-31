@@ -2,7 +2,8 @@ import { GetStaticProps, GetStaticPaths } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
-import { CSSProperties, useEffect, useRef, useState } from 'react';
+import { ComponentProps, CSSProperties, useEffect, useRef, useState } from 'react';
+import { gql } from '@apollo/client';
 import { getClient } from '@/lib/apollo-client';
 import { GET_ALL_MOOD_SLUGS, GET_ALL_MOODS } from '@/graphql/queries/moods';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
@@ -14,6 +15,7 @@ import ProductCard from '@/components/ProductCard';
 import RichText from '@/components/RichText';
 import CollectionSlider from '@/wp-blocks/CollectionSlider';
 import BlogPosts from '@/wp-blocks/BlogPosts';
+import LoyaltyTiers from '@/wp-blocks/LoyaltyTiers';
 import YouMayAlsoLike from '@/components/pdp/YouMayAlsoLike';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
@@ -83,6 +85,60 @@ const BLOG_POSTS = {
   buttonLink: { url: '/blogs' },
 };
 
+// LoyaltyTiers.fragments is `on AcfLoyaltyTiers`, so it cannot be reused against
+// Site Settings, which registers the same field names under its own type
+// (mellow-fellow-site-settings.php:457). Keep the two selections in step: a field
+// added to the block fragment is silently absent here.
+const GET_LOYALTY_TIERS = gql`
+  query GetMoodLoyaltyTiers {
+    siteSettings {
+      id
+      loyaltyTiers {
+        badgeText
+        heading
+        body
+        tiersTitle
+        cta {
+          url
+          title
+          target
+        }
+        badgeIcon {
+          node {
+            id
+            altText
+            sourceUrl
+          }
+        }
+        tiers {
+          name
+          points
+          iconBg
+          icon {
+            node {
+              id
+              altText
+              sourceUrl
+            }
+          }
+          benefits {
+            label
+            icon {
+              node {
+                id
+                altText
+                sourceUrl
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+type LoyaltyTiersData = ComponentProps<typeof LoyaltyTiers>['loyaltyTiers'];
+
 interface MoodPageProps {
   mood: Mood;
   moodPills: MoodPill[];
@@ -92,6 +148,7 @@ interface MoodPageProps {
   initialHasNextPage: boolean;
   initialTotalPages: number;
   moodSlug: string;
+  loyaltyTiers: LoyaltyTiersData;
 }
 
 export default function MoodPage({
@@ -103,6 +160,7 @@ export default function MoodPage({
   initialHasNextPage,
   initialTotalPages,
   moodSlug,
+  loyaltyTiers,
 }: MoodPageProps) {
   const {
     products,
@@ -466,6 +524,8 @@ export default function MoodPage({
         })()}
 
         <BlogPosts blogPosts={BLOG_POSTS} />
+
+        <LoyaltyTiers loyaltyTiers={loyaltyTiers} />
       </div>
     </Layout>
   );
@@ -492,7 +552,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
     const qs = `slug=${encodeURIComponent(slug)}&taxonomy=mood`;
 
-    const [menuClient, metaRes, facetsRes, productsRes, moodsRes] = await Promise.all([
+    const [menuClient, metaRes, facetsRes, productsRes, moodsRes, loyaltyRes] = await Promise.all([
       prefetchMenus(),
       fetch(`${wpUrl}/wp-json/mf/v1/collection-meta?${qs}`)
         .then((r) => r.json())
@@ -505,6 +565,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         .catch(() => null),
       getClient()
         .query({ query: GET_ALL_MOODS })
+        .catch(() => null),
+      getClient()
+        .query({ query: GET_LOYALTY_TIERS })
         .catch(() => null),
     ]);
 
@@ -581,6 +644,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         initialHasNextPage,
         initialTotalPages,
         moodSlug: slug,
+        loyaltyTiers: loyaltyRes?.data?.siteSettings?.loyaltyTiers ?? null,
       } as Record<string, any>,
       revalidate: 60,
     };
