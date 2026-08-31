@@ -162,35 +162,19 @@ const {
           </div>
 
           <div className="site-header__actions">
-           {/* <Link
-              href={isReady && isAuthenticated ? '/account' : '/login'}
-              className="site-header__action site-header__account"
-            >
-              <span className="site-header__action-icon">
-                <UserIcon />
-              </span>
-              <span className="site-header__account-text">
-                <span className="site-header__account-line">
-                  {isReady && isAuthenticated ? 'Account' : 'Sign In'}
-                </span>
-              </span>
-            </Link>*/}
-
             {isReady && isAuthenticated ? (
-              <button
-                type="button"
+              <Link
+                href={'/account'}
                 className="site-header__action site-header__account"
-                onClick={logout}
               >
                 <span className="site-header__action-icon">
                   <UserIcon />
                 </span>
 
                 <span className="site-header__account-text">
-                  <span className="site-header__account-line">Log Out</span>
                   <span className="site-header__account-line">Account</span>
                 </span>
-              </button>
+              </Link>
             ) : (
               <Link
                 href="/login"
@@ -202,7 +186,6 @@ const {
 
                 <span className="site-header__account-text">
                   <span className="site-header__account-line">Sign In</span>
-                  <span className="site-header__account-line">Account</span>
                 </span>
               </Link>
             )}
