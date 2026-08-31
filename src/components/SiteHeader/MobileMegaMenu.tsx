@@ -24,10 +24,6 @@ interface MobileMegaMenuProps {
 
 const ICON_HEIGHT = 28;
 
-// Matched on the label, since the link is an ordinary Featured row and nothing
-// in the payload marks it out.
-const DEAL_LABEL = 'limited time deals';
-
 export default function MobileMegaMenu({
   id,
   isOpen,
@@ -313,16 +309,14 @@ export default function MobileMegaMenu({
 
               {featured.length > 0 && (
                 <ul className="site-header__mobile-list">
-                  {featured.map(({ label, url, target }) => (
+                  {featured.map(({ label, url, target, isDeal }) => (
                     <li key={url}>
                       <Link
                         href={url}
                         target={target}
                         rel={target === '_blank' ? 'noreferrer' : undefined}
                         className={`site-header__mobile-feature${
-                          label.trim().toLowerCase() === DEAL_LABEL
-                            ? ' site-header__mobile-feature--deal'
-                            : ''
+                          isDeal ? ' site-header__mobile-feature--deal' : ''
                         }`}
                       >
                         {label}

@@ -37,6 +37,10 @@ const PROMOTED: Array<{ slug: string; icon?: string }> = [
 
 const LEARN_LABEL = 'learn';
 
+// The deals row is an ordinary Featured entry and nothing in the payload marks
+// it out, so it is keyed on the label.
+const DEAL_LABEL = 'limited time deals';
+
 export interface MegaMenuProduct {
   key: string;
   slug: string;
@@ -57,6 +61,7 @@ export interface MegaMenuFeatured {
   label: string;
   url: string;
   target?: string;
+  isDeal: boolean;
 }
 
 export interface MegaMenuSlideImage {
@@ -148,7 +153,14 @@ export function buildMegaMenuModel({
     const url = entry.link?.url;
     const label = entry.label || entry.link?.title;
     if (!label || !url || url === '#') return [];
-    return [{ label, url, target: entry.link?.target || undefined }];
+    return [
+      {
+        label,
+        url,
+        target: entry.link?.target || undefined,
+        isDeal: label.trim().toLowerCase() === DEAL_LABEL,
+      },
+    ];
   });
 
   // A row with no image at all would still take a dot and leave the frame

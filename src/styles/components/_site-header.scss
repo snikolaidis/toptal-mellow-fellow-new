@@ -150,6 +150,10 @@
   --sh-mega-catch-all-pad: 16px;
   --sh-mega-text-link-size: 0.875rem;
   --sh-mega-text-gap: 0.75rem;
+  --sh-mega-feature-size: 12px;
+  --sh-mega-feature-line: 16px;
+  --sh-mega-feature-tracking: 1.2px;
+  --sh-mega-feature-gap: 8px;
   --sh-mega-type-size: 0.875rem;
   --sh-mega-type-line: 1.25rem;
   --sh-mega-item-gap: 0.125rem;
@@ -191,8 +195,6 @@
   --sh-mobile-row-pad: 0.25rem;
   --sh-mobile-icon-box: 28px;
   --sh-mobile-feature-tracking: 0.04em;
-  // main now carries --color-alert-red at this value; point at it after rebase.
-  --sh-mobile-deal-color: #a92331;
   --sh-mobile-control: 24px;
   // Tap target, not the glyph. The frame's 12.01 by 13.988 is the svg below.
   --sh-mobile-chevron: 24px;
@@ -855,6 +857,29 @@
   gap: var(--sh-mega-text-gap);
 }
 
+.site-header__mega-list--feature {
+  gap: var(--sh-mega-feature-gap);
+}
+
+// These sit after .site-header__mega-text-link so they win on equal
+// specificity. Moving them above it silently reverts the type and the colour.
+.site-header__mega-feature {
+  align-self: stretch;
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-feature-size);
+  font-weight: 700;
+  line-height: var(--sh-mega-feature-line);
+  letter-spacing: var(--sh-mega-feature-tracking);
+  text-transform: uppercase;
+}
+
+// Repeated under :hover because that rule is more specific than a bare class
+// and would otherwise drop the red mid-hover.
+.site-header__mega-feature--deal,
+.site-header__mega-feature--deal:hover {
+  color: var(--color-alert-red);
+}
+
 .site-header__mega-link {
   display: flex;
   align-items: center;
@@ -1199,7 +1224,7 @@
 }
 
 .site-header__mobile-feature--deal {
-  color: var(--sh-mobile-deal-color);
+  color: var(--color-alert-red);
 }
 
 // Its own rule, not the desktop divider: a fixed width in the panel's warm

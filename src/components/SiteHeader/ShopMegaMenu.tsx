@@ -223,12 +223,14 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
             )}
 
             {featured.length > 0 && (
-              <ul className="site-header__mega-list site-header__mega-list--text">
-                {featured.map(({ label, url, target }) => (
+              <ul className="site-header__mega-list site-header__mega-list--feature">
+                {featured.map(({ label, url, target, isDeal }) => (
                   <li key={url}>
                     <Link
                       href={url}
-                      className="site-header__mega-text-link"
+                      className={`site-header__mega-text-link site-header__mega-feature${
+                        isDeal ? ' site-header__mega-feature--deal' : ''
+                      }`}
                       target={target}
                       rel={target === '_blank' ? 'noreferrer' : undefined}
                     >
