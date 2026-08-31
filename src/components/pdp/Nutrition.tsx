@@ -1,10 +1,12 @@
 import { Product, ProductNutrition } from '@/types/woocommerce';
 import NutritionBadge, { NUTRITION_BADGE_PRESETS } from './NutritionBadge';
+import { CaloriesIcon, CansIcon, OnsetIcon, SocialBuzzIcon } from './FeatureIcons';
 
 interface Props {
   nutrition?: ProductNutrition | null;
   mG?: Product['mG'];
   pieces?: Product['pieces'];
+  mfproductTypes?: Product['mfproductTypes'];
 }
 
 // `calories`/`sugar` are ACF text fields, not number fields, so an unset
@@ -29,14 +31,25 @@ function computePerPack(mG?: Props['mG'], pieces?: Props['pieces']): string | nu
   return String(mgValue * pieceCount);
 }
 
-export default function Nutrition({ nutrition, mG, pieces }: Props) {
+// "12oz Cans" isn't backed by any field — no beverage has a volume or
+// container-type taxonomy today — so it's fixed copy, scoped to beverages
+// only. Pack count still comes from the real `pieces` term.
+function cansLabel(pieces?: Props['pieces']): string {
+  const count = parseLeadingNumber(pieces?.nodes?.[0]?.name);
+  if (count == null) return '12oz Cans';
+  return count === 1 ? 'Single 12oz Can' : `${count}-Pack 12oz Cans`;
+}
+
+export default function Nutrition({ nutrition, mG, pieces, mfproductTypes }: Props) {
 
   const { calories, sugar } = nutrition || {};
   const hasSugar = hasValue(sugar);
   const hasCalories = hasValue(calories);
   const perPack = computePerPack(mG, pieces);
+  const isBeverage = mfproductTypes?.nodes?.some((node) => node.name === 'Beverage') ?? false;
+  const hasFeatureTiles = hasCalories || isBeverage;
 
-  if (!hasSugar && !hasCalories && !perPack) {
+  if (!hasSugar && !hasCalories && !perPack && !isBeverage) {
     return null;
   }
 
@@ -59,12 +72,32 @@ export default function Nutrition({ nutrition, mG, pieces }: Props) {
         </ul>
       )}
 
-      {hasCalories && (
+      {hasFeatureTiles && (
         <ul className="product-nutrition__tiles">
-          <li className="product-nutrition__tile product-nutrition__tile--calories">
-            <span className="product-nutrition__tile-value">{calories}</span>
-            <span className="product-nutrition__tile-label">Calories</span>
-          </li>
+          {isBeverage && (
+            <li className="product-nutrition__tile product-nutrition__tile--social">
+              <span className="product-nutrition__tile-icon"><SocialBuzzIcon /></span>
+              <span className="product-nutrition__tile-label">Social Buzz</span>
+            </li>
+          )}
+          {isBeverage && (
+            <li className="product-nutrition__tile product-nutrition__tile--cans">
+              <span className="product-nutrition__tile-icon"><CansIcon /></span>
+              <span className="product-nutrition__tile-label">{cansLabel(pieces)}</span>
+            </li>
+          )}
+          {isBeverage && (
+            <li className="product-nutrition__tile product-nutrition__tile--onset">
+              <span className="product-nutrition__tile-icon"><OnsetIcon /></span>
+              <span className="product-nutrition__tile-label">15-30 min Onset</span>
+            </li>
+          )}
+          {hasCalories && (
+            <li className="product-nutrition__tile product-nutrition__tile--calories">
+              <span className="product-nutrition__tile-icon"><CaloriesIcon /></span>
+              <span className="product-nutrition__tile-label">{calories} Calories</span>
+            </li>
+          )}
         </ul>
       )}
     </div>

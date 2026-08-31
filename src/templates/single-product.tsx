@@ -678,7 +678,12 @@ const SingleProduct: React.FC<SingleProductProps> & {
               );
             })()}
 
-            <Nutrition nutrition={nutrition} mG={product.mG} pieces={product.pieces} />
+            <Nutrition
+              nutrition={nutrition}
+              mG={product.mG}
+              pieces={product.pieces}
+              mfproductTypes={product.mfproductTypes}
+            />
 
             <FrequentlyBoughtTogether
               productId={product.databaseId}
