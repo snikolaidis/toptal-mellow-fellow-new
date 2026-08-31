@@ -14,7 +14,20 @@ export default async function handler(
 
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
 
+  /*
+   * session.destroy() already queued a Set-Cookie header to clear
+   * mf_session. Append to it instead of overwriting, or that cookie
+   * clear gets silently discarded.
+   */
+  const existingSetCookie = res.getHeader('Set-Cookie');
+  const existingCookies = Array.isArray(existingSetCookie)
+    ? existingSetCookie.map(String)
+    : existingSetCookie
+    ? [String(existingSetCookie)]
+    : [];
+
   res.setHeader('Set-Cookie', [
+    ...existingCookies,
     `wc_session_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
     `wp_woocommerce_session=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
   ]);

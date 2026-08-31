@@ -126,6 +126,13 @@ export default function CheckoutNewPage() {
   const [checkoutAuthMethod, setCheckoutAuthMethod] =
     useState<CheckoutAuthMethod>(null);
 
+  /*
+   * Set while we're kicking an unauthenticated shopper to
+   * /checkout-login, so we don't flash checkout content first.
+   */
+  const [redirectingToLogin, setRedirectingToLogin] =
+    useState(false);
+
   useEffect(() => {
     let mounted = true;
 
@@ -228,28 +235,43 @@ export default function CheckoutNewPage() {
      */
     if (faustAuthenticated === true) {
       setCheckoutAuthMethod('mellow');
+      console.log('MELLOW');
       return;
     }
 
     if (googleAuthenticated === true) {
       setCheckoutAuthMethod('google');
+      console.log('GOOGLE');
       return;
     }
 
     /*
-     * If the user is not authenticated, only Guest is valid.
-     * A stale "google" or "mellow" value must never make an
+     * If the user is not authenticated, Guest is only valid when it
+     * was explicitly chosen via /checkout-login's "Continue as Guest"
+     * option. A stale "google" or "mellow" value must never make an
      * unauthenticated user look logged in.
      */
     if (storedMethod === 'guest') {
       setCheckoutAuthMethod('guest');
-    } else {
-      setCheckoutAuthMethod('guest');
+      console.log('GUEST');
+      return;
+    }
+
+    /*
+     * No auth session and no explicit guest choice: send the shopper
+     * to sign in / choose guest checkout. Skip this if the cart is
+     * empty - the empty cart state handles that case instead.
+     */
+    if (cart?.items?.length) {
+      setRedirectingToLogin(true);
+      router.replace('/checkout-login');
     }
   }, [
     checkoutAuthReady,
     faustAuthenticated,
     googleAuthenticated,
+    cart,
+    router,
   ]);
 
   const checkoutAuthenticated =
@@ -921,7 +943,8 @@ const handleShippingMethodChange = async (
   if (
     !checkoutAuthReady ||
     cartLoading ||
-    customerLoading
+    customerLoading ||
+    redirectingToLogin
   ) {
     return (
       <Layout title="Checkout">
