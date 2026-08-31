@@ -170,8 +170,9 @@ const {
                 <UserIcon />
               </span>
               <span className="site-header__account-text">
-                <span className="site-header__account-line">Sign In</span>
-                <span className="site-header__account-line">Account</span>
+                <span className="site-header__account-line">
+                  {isReady && isAuthenticated ? 'Account' : 'Sign In'}
+                </span>
               </span>
             </Link>*/}
 
@@ -200,7 +201,8 @@ const {
                 </span>
 
                 <span className="site-header__account-text">
-                  {isReady && isAuthenticated ? 'Account' : 'Sign In'}
+                  <span className="site-header__account-line">Sign In</span>
+                  <span className="site-header__account-line">Account</span>
                 </span>
               </Link>
             )}

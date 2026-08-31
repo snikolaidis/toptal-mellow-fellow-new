@@ -73,13 +73,13 @@ export default function CheckoutLoginPage() {
 
     if (faustAuthenticated === true) {
       sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'mellow');
-      router.replace('/checkoutnew');
+      router.replace('/checkout');
       return;
     }
 
     if (googleAuthenticated === true) {
       sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'google');
-      router.replace('/checkoutnew');
+      router.replace('/checkout');
     }
   }, [
     faustReady,
@@ -151,7 +151,7 @@ const handleMellowFellowLogin = async () => {
   await clearGoogleSession();
 
   window.location.href =
-    '/login?redirect=/checkoutnew';
+    '/login?redirect=/checkout';
 };
 
   const handleGuestCheckout = () => {
@@ -160,7 +160,7 @@ const handleMellowFellowLogin = async () => {
      */
     sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'guest');
 
-    window.location.href = '/checkoutnew';
+    window.location.href = '/checkout';
   };
 
   /*

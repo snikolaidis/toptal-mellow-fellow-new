@@ -235,7 +235,7 @@ console.log('Google session saved:', {
   userId: session.userId,
 });
 
-return res.redirect('/checkoutnew');
+return res.redirect('/checkout');
   } catch (error) {
     console.error(
       'Google OAuth error:',

@@ -50,7 +50,10 @@ export default function RealIdStep({
 
                 <div className={styles.feature}>
                   <div className={styles.featureIcon}>
-                    🛡️
+                    <img
+      src="/images/protected.png"
+      alt="Your data is protected"
+    />
                   </div>
 
                   <strong>
@@ -65,7 +68,10 @@ export default function RealIdStep({
 
                 <div className={styles.feature}>
                   <div className={styles.featureIcon}>
-                    🪪
+                    <img
+      src="/images/id-card.png"
+      alt="Government ID required"
+    />
                   </div>
 
                   <strong>
@@ -79,7 +85,10 @@ export default function RealIdStep({
 
                 <div className={styles.feature}>
                   <div className={styles.featureIcon}>
-                    🔒
+                   <img
+      src="/images/secure.png"
+      alt="Verified for 90 days"
+    />
                   </div>
 
                   <strong>
