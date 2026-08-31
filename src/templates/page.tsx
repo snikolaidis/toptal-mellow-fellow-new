@@ -27,6 +27,7 @@ Page.query = gql`
   ${blockFragments.AcfPromoSlider.entry}
   ${blockFragments.AcfBlogPosts.entry}
   ${blockFragments.AcfReviewsCarousel.entry}
+  ${blockFragments.AcfQuiz.entry}
   query GenericPage($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       title
@@ -39,6 +40,7 @@ Page.query = gql`
         ...${blockFragments.AcfPromoSlider.key}
         ...${blockFragments.AcfBlogPosts.key}
         ...${blockFragments.AcfReviewsCarousel.key}
+        ...${blockFragments.AcfQuiz.key}
       }
       seo {
         title
