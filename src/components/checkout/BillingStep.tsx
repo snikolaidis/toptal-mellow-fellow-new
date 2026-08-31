@@ -152,7 +152,7 @@ export default function BillingStep({
                 Billing Address
               </h2>
 
-            {/*  {!editing && (
+            {!editing && (
                 <button
                   type="button"
                   className={styles.editButton}
@@ -162,7 +162,7 @@ export default function BillingStep({
                 >
                   ✎
                 </button>
-              )}*/}
+              )}
 
             </div>
 
