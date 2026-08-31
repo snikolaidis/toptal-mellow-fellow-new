@@ -19,7 +19,6 @@ import {
   parseFilterParams,
   filtersToQueryParams,
 } from '@/lib/shopFilters';
-import { getAllProducts as getAllProductsFromDb } from '@/lib/product-queries';
 import styles from '@/styles/pages/shop.module.css';
 import gridStyles from '@/styles/shared/product-grid.module.css';
 
@@ -82,55 +81,6 @@ function sortProducts(products: Product[], sort: string, bestSellerIds?: Set<num
 interface TaxonomyMap {
   terms: Record<string, Array<{ name: string; slug: string; count: number; productIds: number[] }>>;
   productIndex: Record<number, Record<string, string[]>>;
-}
-
-const TAXONOMY_FIELDS: Record<string, string> = {
-  productType: 'mfproductTypes',
-  size: 'size',
-  strainType: 'strainTypes',
-  blendType: 'blendTypes',
-  cannabinoid: 'cannabinoids',
-  singleCannabinoid: 'singleCannabinoid',
-  mg: 'mG',
-  pieces: 'pieces',
-};
-
-/** Build a TaxonomyMap from product raw data (for Postgres path). */
-function buildTaxMapFromProducts(products: Product[]): TaxonomyMap {
-  const terms: TaxonomyMap['terms'] = {};
-  const productIndex: TaxonomyMap['productIndex'] = {};
-
-  for (const product of products) {
-    const p = product as any;
-    const pid = p.databaseId;
-    if (!productIndex[pid]) productIndex[pid] = {};
-
-    for (const [filterKey, fieldName] of Object.entries(TAXONOMY_FIELDS)) {
-      const nodes = p?.[fieldName]?.nodes || [];
-      if (!terms[filterKey]) terms[filterKey] = [];
-
-      for (const term of nodes) {
-        if (!term?.slug) continue;
-
-        // Product index
-        if (!productIndex[pid][filterKey]) productIndex[pid][filterKey] = [];
-        if (!productIndex[pid][filterKey].includes(term.slug)) {
-          productIndex[pid][filterKey].push(term.slug);
-        }
-
-        // Terms list
-        const existing = terms[filterKey].find((t) => t.slug === term.slug);
-        if (existing) {
-          existing.count++;
-          if (!existing.productIds.includes(pid)) existing.productIds.push(pid);
-        } else {
-          terms[filterKey].push({ name: term.name, slug: term.slug, count: 1, productIds: [pid] });
-        }
-      }
-    }
-  }
-
-  return { terms, productIndex };
 }
 
 interface ShopPageProps {
@@ -399,27 +349,9 @@ export const getStaticProps: GetStaticProps = async () => {
       .then((r) => r.json())
       .then((d) => (d.products || []).map((p: any) => p.databaseId as number))
       .catch(() => [] as number[]);
-    // Try Postgres first (fast, <20ms for all products)
-    const pgProducts = await getAllProductsFromDb();
-
-    if (pgProducts && pgProducts.length > 0) {
-      console.log(`[Shop] Loaded ${pgProducts.length} products from Postgres`);
-
-      // Build taxonomy map from the products' raw data
-      const taxMap = buildTaxMapFromProducts(pgProducts);
-      const bestSellerIds = await bestSellerIdsPromise;
-
-      const menuClient = await menuClientPromise;
-      const result = {
-        props: { allProducts: pgProducts, taxMap, bestSellerIds } as Record<string, any>,
-        revalidate: 120,
-      };
-      mergeMenuState(result.props, menuClient);
-      return result;
-    }
-
-    // Fallback: GraphQL batched fetch (slow, may 504)
-    console.log('[Shop] Postgres unavailable, falling back to GraphQL');
+    // Batched GraphQL fetch. A failed batch is caught below and the page is
+    // built from whatever arrived, so a slow backend costs products rather than
+    // the whole page.
     const client = getClient();
     let allProducts: Product[] = [];
     let after: string | null = null;
