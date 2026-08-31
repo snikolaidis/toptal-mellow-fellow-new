@@ -401,3 +401,25 @@
   color: #000000;
   cursor: pointer;
 }
+
+/* Zero count. Greyed rather than hidden: a facet that changes shape as you
+   tick options is the confusion this replaced. */
+.termDisabled {
+  cursor: not-allowed;
+}
+
+.termDisabled .termName,
+.termDisabled .termCount {
+  color: var(--color-text-muted);
+}
+
+.termDisabled .checkbox {
+  border-color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.pillDisabled {
+  color: var(--color-text-muted);
+  border-color: #e3e0ea;
+  cursor: not-allowed;
+}

@@ -27,6 +27,7 @@ import {
   isHiddenTerm,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
 
 const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
@@ -234,7 +235,7 @@ export default function CollectionsPage({
               onSortChange={handleSortChange}
             />
 
-            <div className={`${styles.collectionGrid} ${loading ? styles.gridLoading : ''}`}>
+            <div className={`${gridStyles.productGrid} ${loading ? styles.gridLoading : ''}`}>
               {products.length > 0 ? (
                 products.map((product, index) => (
                   <ProductCard key={product.id} product={product} priority={index < 12} />

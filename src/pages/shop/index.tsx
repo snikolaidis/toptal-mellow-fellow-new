@@ -6,22 +6,22 @@ import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { gql } from '@apollo/client';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
-import ShopSidebar from '@/components/shop/ShopSidebar';
-import MobileFilters from '@/components/shop/MobileFilters';
+import FilterPanel from '@/components/shop/filters/FilterPanel';
+import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
 import Link from 'next/link';
 import { Product } from '@/types/woocommerce';
 import {
   SORT_OPTIONS,
-  FILTER_GROUPS,
   FilterGroup,
   ActiveFilters,
-  isHiddenTerm,
+  buildFacetGroups,
   parseFilterParams,
   filtersToQueryParams,
 } from '@/lib/shopFilters';
 import { getAllProducts as getAllProductsFromDb } from '@/lib/product-queries';
 import styles from '@/styles/pages/shop.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
@@ -233,37 +233,15 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
     return sortProducts(result, selectedSort, bestSellerSet);
   }, [enrichedProducts, activeFilters, selectedSort, taxMap, bestSellerSet]);
 
-  // Derive filter groups — when filters active, narrow to filtered results
   const filterGroups: FilterGroup[] = useMemo(() => {
     if (!taxMap) return [];
-
-    return FILTER_GROUPS.map((fg) => {
-      const termsData = (taxMap.terms[fg.key] || []).filter((t) => !isHiddenTerm(fg.key, t));
-      const hasActiveFilters = Object.keys(activeFilters).length > 0;
-
-      if (!hasActiveFilters) {
-        // No filters: show all terms with global counts
-        return {
-          key: fg.key,
-          label: fg.label,
-          terms: termsData.map((t) => ({ name: t.name, slug: t.slug, count: t.count })),
-        };
-      }
-
-      // Filters active: only show terms that appear in filtered results
-      const filteredIds = new Set(filteredProducts.map((p) => p.databaseId));
-      return {
-        key: fg.key,
-        label: fg.label,
-        terms: termsData
-          .map((t) => {
-            const matchCount = t.productIds.filter((id) => filteredIds.has(id)).length;
-            return { name: t.name, slug: t.slug, count: matchCount };
-          })
-          .filter((t) => t.count > 0),
-      };
-    });
-  }, [taxMap, activeFilters, filteredProducts]);
+    return buildFacetGroups(
+      enrichedProducts,
+      activeFilters,
+      (product, facetKey) => taxMap.productIndex[product.databaseId]?.[facetKey] || [],
+      (facetKey) => taxMap.terms[facetKey] || [],
+    );
+  }, [taxMap, activeFilters, enrichedProducts]);
 
   const startIdx = (page - 1) * PAGE_SIZE;
   const pageProducts = filteredProducts.slice(startIdx, startIdx + PAGE_SIZE);
@@ -338,11 +316,14 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
           </nav>
 
           <div className={styles.shopLayout}>
-            <div className={styles.sidebarWrapper}>
-              <ShopSidebar
+            <div className={`${styles.sidebarWrapper} ${styles.filterCard}`}>
+              <FilterPanel
                 filterGroups={filterGroups}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
+                sortValue={currentSort}
+                onSortChange={handleSortChange}
+                showSort={false}
               />
             </div>
 
@@ -367,14 +348,16 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
                 </div>
               </div>
 
-              <MobileFilters
+              <FilterSheet
                 filterGroups={filterGroups}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 productCount={filteredProducts.length}
+                sortValue={currentSort}
+                onSortChange={handleSortChange}
               />
 
-              <div className='products-grid'>
+              <div className={gridStyles.productGrid}>
                 {pageProducts.length > 0 ? (
                   pageProducts.map((product, index) => (
                     <ProductCard key={product.id} product={product} priority={index < 12} />

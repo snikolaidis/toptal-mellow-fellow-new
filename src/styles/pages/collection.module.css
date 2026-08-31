@@ -354,20 +354,6 @@
   }
 }
 
-/* Do not merge with .productsGrid above or the global .products-grid. Both
-   keep a fourth column, and .products-grid renders in eight places. */
-.collectionGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 16px;
-}
-
-@media only screen and (min-width: 992px) {
-  .collectionGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 /* Empty State */
 .empty {
   text-align: center;
