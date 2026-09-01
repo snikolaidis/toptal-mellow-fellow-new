@@ -228,11 +228,18 @@ export const GET_COLLECTION_FACET_TERMS = gql`
 `;
 
 // Get all collection slugs for static paths
+// `collections`, not `productCategories`: different taxonomies here, 360 terms
+// against 13. `count` is selected because `hideEmpty` silently truncates paging.
 export const GET_ALL_COLLECTION_SLUGS = gql`
-  query GetAllCollectionSlugs {
-    productCategories(first: 100) {
+  query GetAllCollectionSlugs($first: Int!, $after: String) {
+    collections(first: $first, after: $after) {
       nodes {
         slug
+        count
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }
