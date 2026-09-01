@@ -290,7 +290,14 @@ function mf_acu_rest_request( $method, $endpoint, $session, $body = null ) {
 
     if ( $code >= 400 ) {
         $json = json_decode( $raw, true );
-        $msg  = isset( $json['exceptionMessage'] ) ? $json['exceptionMessage'] : substr( $raw, 0, 300 );
+        $msg  = isset( $json['exceptionMessage'] ) ? $json['exceptionMessage'] : '';
+
+        if ( ! $msg && isset( $json['error'] ) ) {
+            $msg = $json['error'];
+        }
+        if ( ! $msg ) {
+            $msg = substr( $raw, 0, 300 );
+        }
 
         $inner = '';
         if ( isset( $json['innerException']['exceptionMessage'] ) ) {
@@ -300,10 +307,20 @@ function mf_acu_rest_request( $method, $endpoint, $session, $body = null ) {
             $inner .= ' → ' . $json['innerException']['innerException']['exceptionMessage'];
         }
 
+        $field_errors = array();
+        if ( is_array( $json ) ) {
+            foreach ( $json as $field => $val ) {
+                if ( is_array( $val ) && isset( $val['error'] ) ) {
+                    $field_errors[] = $field . ': ' . $val['error'];
+                }
+            }
+        }
+
         $full_msg = 'HTTP ' . $code . ': ' . $msg;
         if ( $inner ) $full_msg .= ' [Inner: ' . $inner . ']';
+        if ( $field_errors ) $full_msg .= ' [Fields: ' . implode( '; ', $field_errors ) . ']';
 
-        mf_acu_log( $full_msg . ' | Endpoint: ' . $endpoint . ' | Response: ' . substr( $raw, 0, 1000 ), 'api' );
+        mf_acu_log( $full_msg . ' | Endpoint: ' . $endpoint . ' | Response: ' . substr( $raw, 0, 2000 ), 'api' );
 
         return new WP_Error( 'mf_acu_api_error', $full_msg, array( 'status' => $code, 'body' => $raw ) );
     }
@@ -501,7 +518,7 @@ add_action( 'admin_post_mf_acu_save_settings', function() {
     $existing = get_option( MF_ACU_SETTINGS_OPTION, array() );
     if ( ! is_array( $existing ) ) $existing = array();
 
-    $fields = array( 'BASE_URL', 'USERNAME', 'COMPANY', 'BRANCH', 'ORDER_TYPE', 'CUSTOMER_CLASS', 'PAYMENT_METHOD', 'CASH_ACCOUNT', 'PROCESSING_CENTER', 'SYNC_SECRET' );
+    $fields = array( 'BASE_URL', 'USERNAME', 'COMPANY', 'BRANCH', 'ORDER_TYPE', 'CUSTOMER_CLASS', 'PAYMENT_METHOD', 'CASH_ACCOUNT', 'SYNC_SECRET' );
     $updated = $existing;
 
     foreach ( $fields as $field ) {
@@ -582,9 +599,8 @@ function mf_acu_render_admin_page() {
                     'BRANCH'         => array( 'label' => 'Branch',         'placeholder' => 'MF' ),
                     'ORDER_TYPE'     => array( 'label' => 'Order Type',     'placeholder' => 'MF' ),
                     'CUSTOMER_CLASS' => array( 'label' => 'Customer Class',  'placeholder' => 'MFF' ),
-                    'PAYMENT_METHOD' => array( 'label' => 'Payment Method', 'placeholder' => 'CREDITCARD' ),
-                    'CASH_ACCOUNT'       => array( 'label' => 'Cash Account',       'placeholder' => '1092' ),
-                    'PROCESSING_CENTER' => array( 'label' => 'Processing Center', 'placeholder' => 'AUTHORIZE' ),
+                    'PAYMENT_METHOD' => array( 'label' => 'Payment Method', 'placeholder' => 'CCECOMM' ),
+                    'CASH_ACCOUNT'       => array( 'label' => 'Cash Account',       'placeholder' => '1097' ),
                     'SYNC_SECRET'       => array( 'label' => 'Sync Secret',       'placeholder' => 'Random 32+ char string', 'type' => 'password' ),
                 );
 
@@ -655,15 +671,11 @@ function mf_acu_render_admin_page() {
                 </tr>
                 <tr>
                     <th>Payment Method</th>
-                    <td><?php echo esc_html( mf_acu_config( 'PAYMENT_METHOD', 'CREDITCARD' ) ); ?></td>
+                    <td><?php echo esc_html( mf_acu_config( 'PAYMENT_METHOD', 'CCECOMM' ) ); ?></td>
                 </tr>
                 <tr>
                     <th>Cash Account</th>
-                    <td><?php echo esc_html( mf_acu_config( 'CASH_ACCOUNT', '1092' ) ); ?></td>
-                </tr>
-                <tr>
-                    <th>Processing Center</th>
-                    <td><?php echo esc_html( mf_acu_config( 'PROCESSING_CENTER', 'AUTHORIZE' ) ); ?></td>
+                    <td><?php echo esc_html( mf_acu_config( 'CASH_ACCOUNT', '1097' ) ); ?></td>
                 </tr>
                 <tr>
                     <th>Sync Secret</th>

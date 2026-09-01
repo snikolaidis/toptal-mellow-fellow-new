@@ -136,28 +136,18 @@ function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $sessio
         return '';
     }
 
-    $payment_method = mf_acu_config( 'PAYMENT_METHOD', 'CREDITCARD' );
-    $cash_account   = mf_acu_config( 'CASH_ACCOUNT', '1092' );
+    $payment_method = mf_acu_config( 'PAYMENT_METHOD', 'CCECOMM' );
+    $cash_account   = mf_acu_config( 'CASH_ACCOUNT', '1097' );
     $order_id       = $order->get_id();
-
-    $processing_center = mf_acu_config( 'PROCESSING_CENTER', 'AUTHORIZE' );
 
     $payment_payload = array(
         'Type'             => array( 'value' => 'Prepayment' ),
         'CustomerID'       => array( 'value' => $customer_id ),
         'PaymentMethod'    => array( 'value' => $payment_method ),
         'CashAccount'      => array( 'value' => $cash_account ),
-        'ProcessingCenter' => array( 'value' => $processing_center ),
         'PaymentAmount'    => array( 'value' => $order_total ),
-        'Hold'             => array( 'value' => false ),
+        'Hold'             => array( 'value' => true ),
         'Description'      => array( 'value' => 'WooCommerce Order #' . $order->get_order_number() ),
-        'OrdersToApply'    => array(
-            array(
-                'OrderType'  => array( 'value' => mf_acu_order_type() ),
-                'OrderNbr'   => array( 'value' => $acu_order_nbr ),
-                'AmountPaid' => array( 'value' => $order_total ),
-            ),
-        ),
     );
 
     $transaction_id = $order->get_transaction_id();
@@ -180,6 +170,28 @@ function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $sessio
     $order->save();
 
     mf_acu_log( "Payment $ref_nbr created for order $order_id ($acu_order_nbr)", 'orders' );
+
+    $apply_payload = array(
+        'Type'          => array( 'value' => 'Prepayment' ),
+        'ReferenceNbr'  => array( 'value' => $ref_nbr ),
+        'OrdersToApply' => array(
+            array(
+                'OrderType'  => array( 'value' => mf_acu_order_type() ),
+                'OrderNbr'   => array( 'value' => $acu_order_nbr ),
+                'AmountPaid' => array( 'value' => $order_total ),
+            ),
+        ),
+    );
+
+    $apply_result = mf_acu_rest_put( '/entity/Default/24.200.001/Payment', $apply_payload, $session );
+
+    if ( is_wp_error( $apply_result ) ) {
+        mf_acu_log( "Payment $ref_nbr created but order application failed: " . $apply_result->get_error_message(), 'orders' );
+        $order->add_order_note( "Acumatica prepayment $ref_nbr created but could not attach to $acu_order_nbr: " . $apply_result->get_error_message(), false, true );
+    } else {
+        mf_acu_log( "Payment $ref_nbr applied to order $acu_order_nbr", 'orders' );
+    }
+
     return $ref_nbr;
 }
 
