@@ -501,7 +501,7 @@ add_action( 'admin_post_mf_acu_save_settings', function() {
     $existing = get_option( MF_ACU_SETTINGS_OPTION, array() );
     if ( ! is_array( $existing ) ) $existing = array();
 
-    $fields = array( 'BASE_URL', 'USERNAME', 'COMPANY', 'BRANCH', 'ORDER_TYPE', 'CUSTOMER_CLASS', 'PAYMENT_METHOD', 'CASH_ACCOUNT', 'SYNC_SECRET' );
+    $fields = array( 'BASE_URL', 'USERNAME', 'COMPANY', 'BRANCH', 'ORDER_TYPE', 'CUSTOMER_CLASS', 'PAYMENT_METHOD', 'CASH_ACCOUNT', 'PROCESSING_CENTER', 'SYNC_SECRET' );
     $updated = $existing;
 
     foreach ( $fields as $field ) {
@@ -583,8 +583,9 @@ function mf_acu_render_admin_page() {
                     'ORDER_TYPE'     => array( 'label' => 'Order Type',     'placeholder' => 'MF' ),
                     'CUSTOMER_CLASS' => array( 'label' => 'Customer Class',  'placeholder' => 'MFF' ),
                     'PAYMENT_METHOD' => array( 'label' => 'Payment Method', 'placeholder' => 'CREDITCARD' ),
-                    'CASH_ACCOUNT'   => array( 'label' => 'Cash Account',   'placeholder' => '1092' ),
-                    'SYNC_SECRET'    => array( 'label' => 'Sync Secret',    'placeholder' => 'Random 32+ char string', 'type' => 'password' ),
+                    'CASH_ACCOUNT'       => array( 'label' => 'Cash Account',       'placeholder' => '1092' ),
+                    'PROCESSING_CENTER' => array( 'label' => 'Processing Center', 'placeholder' => 'AUTHORIZE' ),
+                    'SYNC_SECRET'       => array( 'label' => 'Sync Secret',       'placeholder' => 'Random 32+ char string', 'type' => 'password' ),
                 );
 
                 foreach ( $fields as $key => $meta ) :
@@ -659,6 +660,10 @@ function mf_acu_render_admin_page() {
                 <tr>
                     <th>Cash Account</th>
                     <td><?php echo esc_html( mf_acu_config( 'CASH_ACCOUNT', '1092' ) ); ?></td>
+                </tr>
+                <tr>
+                    <th>Processing Center</th>
+                    <td><?php echo esc_html( mf_acu_config( 'PROCESSING_CENTER', 'AUTHORIZE' ) ); ?></td>
                 </tr>
                 <tr>
                     <th>Sync Secret</th>

@@ -140,15 +140,18 @@ function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $sessio
     $cash_account   = mf_acu_config( 'CASH_ACCOUNT', '1092' );
     $order_id       = $order->get_id();
 
+    $processing_center = mf_acu_config( 'PROCESSING_CENTER', 'AUTHORIZE' );
+
     $payment_payload = array(
-        'Type'          => array( 'value' => 'Prepayment' ),
-        'CustomerID'    => array( 'value' => $customer_id ),
-        'PaymentMethod' => array( 'value' => $payment_method ),
-        'CashAccount'   => array( 'value' => $cash_account ),
-        'PaymentAmount' => array( 'value' => $order_total ),
-        'Hold'          => array( 'value' => false ),
-        'Description'   => array( 'value' => 'WooCommerce Order #' . $order->get_order_number() ),
-        'OrdersToApply' => array(
+        'Type'             => array( 'value' => 'Prepayment' ),
+        'CustomerID'       => array( 'value' => $customer_id ),
+        'PaymentMethod'    => array( 'value' => $payment_method ),
+        'CashAccount'      => array( 'value' => $cash_account ),
+        'ProcessingCenter' => array( 'value' => $processing_center ),
+        'PaymentAmount'    => array( 'value' => $order_total ),
+        'Hold'             => array( 'value' => false ),
+        'Description'      => array( 'value' => 'WooCommerce Order #' . $order->get_order_number() ),
+        'OrdersToApply'    => array(
             array(
                 'OrderType'  => array( 'value' => mf_acu_order_type() ),
                 'OrderNbr'   => array( 'value' => $acu_order_nbr ),
