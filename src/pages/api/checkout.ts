@@ -995,6 +995,23 @@ async function checkoutHandler(
       );
       const voided = await voidPayment(transactionId);
 
+      // Cancel the order so it doesn't persist as "processing"
+      try {
+        const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+        const faustSecret = process.env.FAUST_SECRET_KEY;
+        await fetch(`${wpBaseUrl}/wp-json/wc/v3/orders/${order.databaseId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${faustSecret}`,
+          },
+          body: JSON.stringify({ status: 'failed' }),
+        });
+        console.log(`[Checkout] Order ${orderNumber} set to failed after mismatch.`);
+      } catch (cancelErr) {
+        console.error(`[Checkout] Could not cancel order ${orderNumber}:`, cancelErr);
+      }
+
       await storage.createReconciliationEntry({
         orderId,
         orderNumber,

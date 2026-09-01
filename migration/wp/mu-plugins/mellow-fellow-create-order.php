@@ -213,7 +213,47 @@ function mf_create_order( WP_REST_Request $request ) {
             }
         }
 
-        $order->calculate_totals();
+        if ( $has_cart_totals ) {
+            // When we have pre-computed cart totals, skip calculate_totals() because
+            // it runs calculate_coupons() which re-applies coupon logic without cart
+            // session context — BOGO/free-gift discounts get zeroed out and line
+            // totals are overwritten back to pre-discount values.
+            $items_total    = 0;
+            $discount_total = 0;
+            foreach ( $order->get_items() as $item ) {
+                $items_total    += floatval( $item->get_total() );
+                $discount_total += floatval( $item->get_subtotal() ) - floatval( $item->get_total() );
+            }
+
+            // BOGO/smart-coupon discounts may be embedded in line totals but report
+            // 0 on the coupon object. Attribute any gap to zero-discount coupons so
+            // the admin order view shows the correct discount value per coupon.
+            $coupon_discount_sum = 0;
+            foreach ( $order->get_items( 'coupon' ) as $ci ) {
+                $coupon_discount_sum += floatval( $ci->get_discount() );
+            }
+            $unattributed = round( $discount_total - $coupon_discount_sum, 2 );
+            if ( $unattributed > 0.01 ) {
+                foreach ( $order->get_items( 'coupon' ) as $ci ) {
+                    if ( floatval( $ci->get_discount() ) < 0.01 ) {
+                        $ci->set_discount( $unattributed );
+                        $ci->save();
+                        break;
+                    }
+                }
+            }
+
+            $shipping_total = 0;
+            foreach ( $order->get_items( 'shipping' ) as $ship ) {
+                $shipping_total += floatval( $ship->get_total() );
+            }
+            $order->set_discount_total( max( 0, $discount_total ) );
+            $order->set_shipping_total( $shipping_total );
+            $order->set_total( $items_total + $shipping_total );
+        } else {
+            $order->calculate_totals();
+        }
+
         $order->payment_complete( $transaction_id );
         $order->save();
 
