@@ -251,7 +251,18 @@ export async function removeItemFromStore(key: string): Promise<Cart | null> {
 }
 
 export async function clearStoreCart(): Promise<Cart | null> {
-  await storeApiFetch('cart/items', { method: 'DELETE' });
+  try {
+    await storeApiFetch('cart/items', { method: 'DELETE' });
+  } catch {
+    const cart = await fetchCartFromStore();
+    if (cart && cart.items.length > 0) {
+      for (const item of cart.items) {
+        try {
+          await storeApiFetch('cart/remove-item', { method: 'POST', body: { key: item.key } });
+        } catch {}
+      }
+    }
+  }
   return fetchCartFromStore();
 }
 

@@ -922,8 +922,21 @@ async function checkoutHandler(
 
     await applyCouponsToSession(req, body.coupons || [], authToken);
 
-    const serverCart = await getServerCartTotal(req, authToken);
+    let serverCart = await getServerCartTotal(req, authToken);
     const browserAmount = parseMoney(body.amount);
+
+    if (serverCart && body.items) {
+      const serverQty = serverCart.itemTotals.reduce((s, t) => s + t.quantity, 0);
+      const bodyQty = (body.items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+      if (serverQty !== bodyQty) {
+        console.warn(
+          `[Checkout] Cart sync mismatch: server cart has ${serverQty} items, checkout sent ${bodyQty}. ` +
+          `Falling back to browser amount.`
+        );
+        serverCart = null;
+      }
+    }
+
     let chargeAmount = serverCart ? serverCart.total : browserAmount;
 
     if (isNaN(chargeAmount) || chargeAmount <= 0) {
