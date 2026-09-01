@@ -55,13 +55,15 @@ function mf_create_order( WP_REST_Request $request ) {
         ], 400 );
     }
 
-    $transaction_id = sanitize_text_field( $body['transactionId'] ?? '' );
-    $payment_method = sanitize_text_field( $body['paymentMethod'] ?? 'authorize_net' );
-    $coupon_codes   = $body['couponCodes'] ?? [];
-    $shipping_lines = $body['shippingLines'] ?? [];
-    $meta_data      = $body['metaData'] ?? [];
-    $customer_id    = absint( $body['customerId'] ?? 0 );
-    $realid_check_id = sanitize_text_field( $body['realIdCheckId'] ?? '' );
+    $transaction_id   = sanitize_text_field( $body['transactionId'] ?? '' );
+    $payment_method   = sanitize_text_field( $body['paymentMethod'] ?? 'authorize_net' );
+    $coupon_codes     = $body['couponCodes'] ?? [];
+    $shipping_lines   = $body['shippingLines'] ?? [];
+    $meta_data        = $body['metaData'] ?? [];
+    $customer_id      = absint( $body['customerId'] ?? 0 );
+    $realid_check_id  = sanitize_text_field( $body['realIdCheckId'] ?? '' );
+    $cart_item_totals = $body['cartItemTotals'] ?? [];
+    $cart_coupons     = $body['cartCoupons'] ?? [];
 
     /**
      * Real ID (getverdict.com) identity verification is currently enforced only
@@ -94,6 +96,16 @@ function mf_create_order( WP_REST_Request $request ) {
             ], 500 );
         }
 
+        // Build a lookup of cart-computed totals keyed by product ID
+        $cart_totals_map = [];
+        foreach ( $cart_item_totals as $ct ) {
+            $pid = absint( $ct['productId'] ?? 0 );
+            if ( $pid ) {
+                $cart_totals_map[ $pid ] = $ct;
+            }
+        }
+        $has_cart_totals = ! empty( $cart_totals_map );
+
         // Add line items
         foreach ( $items as $item ) {
             $product_id   = absint( $item['productId'] ?? 0 );
@@ -106,13 +118,22 @@ function mf_create_order( WP_REST_Request $request ) {
 
             if ( ! $product ) continue;
 
-            $item_id = $order->add_product( $product, $quantity );
+            $add_args = array();
 
-            // Override price if provided (e.g. bundle discount pricing)
-            if ( isset( $item['unitPrice'] ) && is_numeric( $item['unitPrice'] ) ) {
-                wc_update_order_item_meta( $item_id, '_line_subtotal', floatval( $item['unitPrice'] ) * $quantity );
-                wc_update_order_item_meta( $item_id, '_line_total', floatval( $item['unitPrice'] ) * $quantity );
+            $ct = $cart_totals_map[ $product_id ] ?? null;
+            if ( ! $ct && $variation_id ) {
+                $ct = $cart_totals_map[ $variation_id ] ?? null;
             }
+            if ( $ct && isset( $ct['lineSubtotal'] ) && isset( $ct['lineTotal'] ) ) {
+                $add_args['subtotal'] = floatval( $ct['lineSubtotal'] );
+                $add_args['total']    = floatval( $ct['lineTotal'] );
+            } elseif ( isset( $item['unitPrice'] ) && is_numeric( $item['unitPrice'] ) ) {
+                $unit_total = floatval( $item['unitPrice'] ) * $quantity;
+                $add_args['subtotal'] = $unit_total;
+                $add_args['total']    = $unit_total;
+            }
+
+            $order->add_product( $product, $quantity, $add_args );
         }
 
         // Billing address
@@ -150,10 +171,28 @@ function mf_create_order( WP_REST_Request $request ) {
             $order->add_item( $shipping_item );
         }
 
-        // Coupons
+        // Coupons — when cart-computed totals are available, add coupons manually
+        // with their pre-calculated discount amounts. This avoids re-running coupon
+        // logic that depends on cart-session hooks (BOGO, free gifts, etc.).
+        $cart_coupons_map = [];
+        foreach ( $cart_coupons as $cc ) {
+            $cc_code = sanitize_text_field( $cc['code'] ?? '' );
+            if ( $cc_code ) {
+                $cart_coupons_map[ $cc_code ] = floatval( $cc['discount'] ?? 0 );
+            }
+        }
+
         foreach ( $coupon_codes as $code ) {
             $code = sanitize_text_field( $code );
-            if ( $code ) {
+            if ( ! $code ) continue;
+
+            if ( $has_cart_totals && isset( $cart_coupons_map[ $code ] ) ) {
+                $coupon_item = new WC_Order_Item_Coupon();
+                $coupon_item->set_code( $code );
+                $coupon_item->set_discount( $cart_coupons_map[ $code ] );
+                $coupon_item->set_discount_tax( 0 );
+                $order->add_item( $coupon_item );
+            } else {
                 $order->apply_coupon( $code );
             }
         }
