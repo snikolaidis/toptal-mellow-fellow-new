@@ -1,5 +1,6 @@
 import '../../../faust.config';
 import { WordPressTemplate, getWordPressProps } from '@faustwp/core';
+import { gql } from '@apollo/client';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
@@ -55,25 +56,32 @@ async function fetchProductExtras(wpUrl: string, slug: string): Promise<Omit<Sin
   }
 }
 
-async function fetchProductNutrition(wpUrl: string, slug: string): Promise<ProductNutrition | null> {
-  const query = `
-    query GetProductNutrition($slug: ID!) {
-      product(id: $slug, idType: SLUG) {
-        ... on SimpleProduct { nutrition { calories sugar } }
-        ... on VariableProduct { nutrition { calories sugar } }
-      }
+// Its own document on purpose: `nutrition` exists on SimpleProduct and VariableProduct
+// only, so folding it into the four-type shared fragments 404s every product page.
+const GET_PRODUCT_NUTRITION = gql`
+  query GetProductNutrition($slug: ID!) {
+    product(id: $slug, idType: SLUG) {
+      ... on SimpleProduct { nutrition { calories sugar } }
+      ... on VariableProduct { nutrition { calories sugar } }
     }
-  `;
+  }
+`;
 
+type ProductNutritionResult = {
+  product?: { nutrition?: ProductNutrition | null } | null;
+};
+
+async function fetchProductNutrition(slug: string): Promise<ProductNutrition | null> {
   try {
-    const res = await fetch(`${wpUrl}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables: { slug } }),
+    const { data, errors } = await getClient().query<ProductNutritionResult>({
+      query: GET_PRODUCT_NUTRITION,
+      variables: { slug },
+      // Required, not an optimisation: the cache sets keyFields ['databaseId'] on
+      // these types, this query omits it, and normalising throws into the catch below.
+      fetchPolicy: 'no-cache',
     });
-    const json = await res.json();
-    if (json?.errors) return null;
-    return json?.data?.product?.nutrition ?? null;
+    if (errors?.length) return null;
+    return data?.product?.nutrition ?? null;
   } catch {
     return null;
   }
@@ -93,7 +101,7 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       prefetchMenus(),
       getWordPressProps({ ctx: seedCtx, revalidate: 60 }),
       fetchProductExtras(wpUrl, slug),
-      fetchProductNutrition(wpUrl, slug),
+      fetchProductNutrition(slug),
     ]);
 
     if (!('props' in result) || !result.props) {
