@@ -5,6 +5,20 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Only one free-gift coupon may ever be active. When a gift coupon is applied,
+// remove any other mf-free-gift-* coupons — prevents double gift discounts when
+// a stale session's coupon survives alongside a newly picked gift.
+add_action('woocommerce_applied_coupon', function ($code) {
+    if (strpos($code, 'mf-free-gift-') !== 0 || !function_exists('WC') || !WC()->cart) {
+        return;
+    }
+    foreach (WC()->cart->get_applied_coupons() as $applied) {
+        if ($applied !== $code && strpos($applied, 'mf-free-gift-') === 0) {
+            WC()->cart->remove_coupon($applied);
+        }
+    }
+});
+
 add_action('rest_api_init', function () {
     register_rest_route('mellow-fellow/v1', '/free-gift', array(
         'methods' => 'POST',
