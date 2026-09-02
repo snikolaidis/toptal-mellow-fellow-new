@@ -45,12 +45,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+
+  // Always clear the cart token cookie so the next Store API request starts a
+  // completely fresh WC session — even if the WP meta deletion below fails.
+  const clearCookies = [
+    `wc_cart_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
+  ];
+
   try {
     const cookies = req.headers.cookie || '';
     const jwt = extractJwt(cookies);
     const auth = jwt ? verifyJwt(jwt) : null;
+
     if (!auth || !(await validateSession(auth.sessionId))) {
-      return res.status(200).json({ success: true, cleared: false });
+      res.setHeader('Set-Cookie', clearCookies);
+      return res.status(200).json({ success: true, cleared: true });
     }
 
     const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
@@ -61,9 +71,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       faustSecret,
     );
 
+    res.setHeader('Set-Cookie', clearCookies);
     return res.status(200).json({ success: true, cleared: true });
   } catch (err) {
     console.error('[clear-persistent] Error:', err);
+    res.setHeader('Set-Cookie', clearCookies);
     return res.status(200).json({ success: true, cleared: false });
   }
 }

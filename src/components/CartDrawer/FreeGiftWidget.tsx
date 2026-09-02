@@ -45,6 +45,7 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   const [addingId, setAddingId] = useState<number | null>(null);
   const [removing, setRemoving] = useState(false);
   const reapplyingRef = useRef(false);
+  const reapplyFailsRef = useRef(0);
   const giftIdRef = useRef<number | null>(readStoredGiftId());
 
   // Compute qualifying subtotal excluding the free gift item — the gift's own
@@ -61,6 +62,11 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   }, [cart, subtotal]);
 
   const unlocked = freeGift.enabled && qualifyingSubtotal >= freeGift.threshold;
+
+  // Reset re-apply failure counter when cart composition changes so we retry
+  // after the user adds/removes items instead of staying permanently stuck.
+  const itemCount = cart?.items.length ?? 0;
+  useEffect(() => { reapplyFailsRef.current = 0; }, [itemCount]);
 
   // Remove the gift item and coupon when cart drops below the threshold.
   // Uses both the coupon code AND the tracked gift ID so orphaned gifts
@@ -166,12 +172,13 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   useEffect(() => {
     if (!unlocked || !cart || isMutating || removing || reapplyingRef.current) return;
     if (gifts.length === 0) return;
+    if (reapplyFailsRef.current >= 2) return;
     const giftIds = new Set(gifts.map((g) => g.databaseId));
     const giftInCart = cart.items.find((i) => giftIds.has(i.product.databaseId));
     if (!giftInCart) return;
     const couponCode = `mf-free-gift-${giftInCart.product.databaseId}`;
     const hasCoupon = cart.appliedCoupons?.some((c) => c.code === couponCode);
-    if (hasCoupon) return;
+    if (hasCoupon) { reapplyFailsRef.current = 0; return; }
     reapplyingRef.current = true;
     (async () => {
       try {
@@ -181,10 +188,19 @@ export default function FreeGiftWidget({ subtotal }: Props) {
           body: JSON.stringify({ productId: giftInCart.product.databaseId }),
         });
         const data = await res.json();
-        if (data?.code) await applyCoupon(data.code);
+        if (data?.code) {
+          const ok = await applyCoupon(data.code);
+          if (ok) {
+            reapplyFailsRef.current = 0;
+          } else {
+            reapplyFailsRef.current++;
+          }
+        }
         giftIdRef.current = giftInCart.product.databaseId;
         writeStoredGiftId(giftInCart.product.databaseId);
-      } catch {}
+      } catch {
+        reapplyFailsRef.current++;
+      }
       reapplyingRef.current = false;
     })();
   }, [unlocked, cart, isMutating, removing, gifts, applyCoupon]);

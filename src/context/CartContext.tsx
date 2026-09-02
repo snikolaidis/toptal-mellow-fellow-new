@@ -676,40 +676,46 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // -------------------------------------------------------------------------
   // Clear cart via Store API
   // -------------------------------------------------------------------------
+  const emptyCart: StoreCart = {
+    items: [],
+    subtotal: '$0.00',
+    total: '$0.00',
+    discountTotal: '$0.00',
+    shippingTotal: '$0.00',
+    isEmpty: true,
+    itemsCount: 0,
+    appliedCoupons: [],
+    availableShippingMethods: [],
+    chosenShippingMethods: [],
+  };
+
   const clearCart = useCallback(async () => {
     setError(null);
-    const seq = nextSeq();
+    nextSeq();
     startMutation();
     writeCachedCart(null);
     try {
-      const storeCart = await enqueueMutation(() => clearStoreCart());
-      if (isStaleSeq(seq)) return;
-      if (storeCart) {
-        setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
-      }
+      await enqueueMutation(() => clearStoreCart());
     } catch (err) {
       logError('CartContext.clearCart', err);
-      setCart({
-        items: [],
-        subtotal: '$0.00',
-        total: '$0.00',
-        discountTotal: '$0.00',
-        shippingTotal: '$0.00',
-        isEmpty: true,
-        itemsCount: 0,
-        appliedCoupons: [],
-        availableShippingMethods: [],
-        chosenShippingMethods: [],
-      });
-    } finally {
-      endMutation();
     }
 
-    // Delete the persistent cart token from WP user meta so restore-for-user
-    // doesn't resurrect the old cart session on next page load.
-    fetch('/api/cart/clear-persistent', { method: 'POST', credentials: 'include' }).catch(() => {});
-    // Clear free gift tracking so the gift widget doesn't re-apply stale state.
+    // Force empty regardless of server response — we've already removed
+    // everything server-side; trusting the response led to stale data.
+    setCart(emptyCart);
+
+    // Nuke persistent state: delete WP user meta token AND clear the
+    // wc_cart_token cookie so the next add-to-cart creates a fresh WC session.
+    // MUST await — fire-and-forget races with the next page load's restore.
+    try {
+      await fetch('/api/cart/clear-persistent', { method: 'POST', credentials: 'include' });
+    } catch {}
+
+    // Clear free gift + bundle tracking so widgets don't re-apply stale state.
     try { sessionStorage.removeItem('mf_gift_product_id'); } catch {}
+    try { sessionStorage.removeItem('bundleItemMap'); } catch {}
+
+    endMutation();
   }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
