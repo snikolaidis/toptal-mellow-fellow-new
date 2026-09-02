@@ -47,10 +47,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
 
-  // Always clear the cart token cookie so the next Store API request starts a
-  // completely fresh WC session — even if the WP meta deletion below fails.
+  // Clear EVERY session cookie so nothing can re-address the old WC session.
+  // wc_cart_token drives the Store API; wc_session_token drives GraphQL
+  // (WooGraphQL) — leaving either alive lets the old cart resurrect.
+  const expired = `; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`;
   const clearCookies = [
-    `wc_cart_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
+    `wc_cart_token=${expired}`,
+    `wc_session_token=${expired}`,
+    `wp_woocommerce_session=${expired}`,
   ];
 
   try {

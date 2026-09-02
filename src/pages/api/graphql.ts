@@ -113,11 +113,16 @@ async function handler(
     const wcSessionToken = extractWcSessionToken(cookies);
     const cartToken = extractCartToken(cookies);
 
+    // Single-session addressing: when the browser has a Store API cart token,
+    // send ONLY that. Sending the legacy wc_session_token alongside it lets
+    // WooGraphQL resolve a DIFFERENT (often stale) session and then emit a
+    // Cart-Token for it — which used to flip the cart cookie back to an old
+    // session full of cleared items ("zombie cart").
     let response = await makeHttpRequest({
       url,
       body: JSON.stringify(req.body),
       cookies,
-      wcSessionToken: wcSessionToken || undefined,
+      wcSessionToken: cartToken ? undefined : wcSessionToken || undefined,
       cartToken: cartToken || undefined,
     });
 
@@ -194,8 +199,12 @@ async function handler(
     // Handle the Store API cart token, when wp-graphql-woocommerce issues one
     // (set_session_token_type: 'both') — keeps this session addressable by
     // the Store API proxy too, e.g. right after an addBundleToCart mutation.
+    // NEVER overwrite an existing cart token cookie: the live cart session is
+    // the source of truth, and a GraphQL response must not switch it. Only
+    // adopt the issued token when the browser had none (first session), or
+    // when the incoming token was invalid and already cleared above.
     const cartTokenHeader = response.headers[CART_TOKEN_HEADER.toLowerCase()] as string | undefined;
-    if (cartTokenHeader) {
+    if (cartTokenHeader && (!cartToken || hasCartTokenError)) {
       cookiesToSet.push(createCartTokenCookie(cartTokenHeader));
     }
 
