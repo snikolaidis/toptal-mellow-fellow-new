@@ -171,7 +171,7 @@ export interface Product {
   strainNames?: { nodes: Array<{ name: string }> };
   flavors?: { nodes: ProductTaxonomyTerm[] };
   vibes?: { nodes: ProductTaxonomyTerm[] };
-  feelings?: { nodes: ProductTaxonomyTerm[] };
+  effects?: { nodes: ProductTaxonomyTerm[] };
   settings?: { nodes: ProductTaxonomyTerm[] };
   blendTypes?: { nodes: Array<{ name: string }> };
   productLines?: { nodes: Array<{ name: string }> };

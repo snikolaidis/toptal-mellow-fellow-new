@@ -114,7 +114,7 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         }
       }
     }
-    feelings {
+    effects {
       nodes {
         id
         name
@@ -325,7 +325,7 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         }
       }
     }
-    feelings {
+    effects {
       nodes {
         id
         name
@@ -498,7 +498,7 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         }
       }
     }
-    feelings {
+    effects {
       nodes {
         id
         name
@@ -667,7 +667,7 @@ export const GROUP_PRODUCT_FIELDS = gql`
         }
       }
     }
-    feelings {
+    effects {
       nodes {
         id
         name
