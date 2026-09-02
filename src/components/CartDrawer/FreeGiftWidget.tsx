@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
 import { fetchCartFromStore } from '@/lib/store-api';
@@ -7,6 +7,10 @@ import { getBrowserClient } from '@/lib/apollo-client';
 import { GET_GIFT_PRODUCTS } from '@/graphql/queries/products';
 import { useCartOffers } from '@/config/cartOffers';
 import styles from './FreeGiftWidget.module.css';
+
+function parsePrice(price: string): number {
+  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
+}
 
 interface GiftProduct {
   databaseId: number;
@@ -43,7 +47,20 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   const reapplyingRef = useRef(false);
   const giftIdRef = useRef<number | null>(readStoredGiftId());
 
-  const unlocked = freeGift.enabled && subtotal >= freeGift.threshold;
+  // Compute qualifying subtotal excluding the free gift item — the gift's own
+  // price must not count toward the threshold that keeps the gift active.
+  const qualifyingSubtotal = useMemo(() => {
+    if (!cart) return subtotal;
+    const trackedId = giftIdRef.current;
+    const giftCoupon = cart.appliedCoupons?.find((c) => c.code.startsWith('mf-free-gift-'));
+    const giftProductId = trackedId || (giftCoupon ? parseInt(giftCoupon.code.replace('mf-free-gift-', ''), 10) : null);
+    if (!giftProductId) return subtotal;
+    const giftItem = cart.items.find((i) => i.product.databaseId === giftProductId);
+    if (!giftItem) return subtotal;
+    return subtotal - parsePrice(giftItem.subtotal || giftItem.product.price);
+  }, [cart, subtotal]);
+
+  const unlocked = freeGift.enabled && qualifyingSubtotal >= freeGift.threshold;
 
   // Remove the gift item and coupon when cart drops below the threshold.
   // Uses both the coupon code AND the tracked gift ID so orphaned gifts

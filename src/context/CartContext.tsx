@@ -206,6 +206,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const nextSeq = () => ++requestSeqRef.current;
   const isStaleSeq = (seq: number) => seq !== requestSeqRef.current;
 
+  // Mutation queue — serializes Store API calls so concurrent requests don't
+  // cause lost-update races (request B loading stale state before A saves).
+  const mutationQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const enqueueMutation = useCallback(<T,>(fn: () => Promise<T>): Promise<T> => {
+    const queued = mutationQueueRef.current.then(fn, fn);
+    mutationQueueRef.current = queued.catch(() => {});
+    return queued;
+  }, []);
+
   const [bundleNames, setBundleNames] = useState<Record<number, string>>(() => {
     if (typeof window === 'undefined') return {};
     try { return JSON.parse(localStorage.getItem('bundleNames') || '{}'); } catch { return {}; }
@@ -624,8 +633,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     setIsMutating(true);
     try {
-      const storeCart = await removeItemFromStore(key);
-      if (isStaleSeq(seq)) return;
+      const storeCart = await enqueueMutation(() => removeItemFromStore(key));
+      if (isStaleSeq(seq)) {
+        // Stale but server processed the removal — refetch to reconcile
+        enqueueMutation(() => fetchCartFromStore()).then((fresh) => {
+          if (fresh) setCart(enrichCartItems(fresh, bundleItemMapRef.current));
+        }).catch(() => {});
+        return;
+      }
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
       if (isSessionExpired(err)) { resetToEmptyCart(); return; }
@@ -640,7 +655,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsMutating(false);
     }
-  }, []);
+  }, [enqueueMutation]);
 
   // -------------------------------------------------------------------------
   // Clear cart via Store API
@@ -683,7 +698,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const seq = nextSeq();
     setIsMutating(true);
     try {
-      const storeCart = await applyCouponToStore(code);
+      const storeCart = await enqueueMutation(() => applyCouponToStore(code));
       if (isStaleSeq(seq)) return true;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       return true;
@@ -710,14 +725,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsMutating(false);
     }
-  }, []);
+  }, [enqueueMutation]);
 
   const removeCoupon = useCallback(async (code: string) => {
     setError(null);
     const seq = nextSeq();
     setIsMutating(true);
     try {
-      const storeCart = await removeCouponFromStore(code);
+      const storeCart = await enqueueMutation(() => removeCouponFromStore(code));
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
@@ -750,7 +765,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsMutating(false);
     }
-  }, []);
+  }, [enqueueMutation]);
 
   // -------------------------------------------------------------------------
   // Shipping via Store API
