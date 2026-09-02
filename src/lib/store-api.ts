@@ -188,7 +188,16 @@ export async function storeApiFetch<T = any>(
     credentials: 'include',
   });
 
-  const data = await res.json();
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    throw new StoreApiError(
+      `Store API returned non-JSON response (${res.status})`,
+      res.status,
+      'invalid_response'
+    );
+  }
 
   if (data?._sessionExpired) {
     throw new StoreApiError(
@@ -251,18 +260,27 @@ export async function removeItemFromStore(key: string): Promise<Cart | null> {
 }
 
 export async function clearStoreCart(): Promise<Cart | null> {
-  try {
-    await storeApiFetch('cart/items', { method: 'DELETE' });
-  } catch {
-    const cart = await fetchCartFromStore();
-    if (cart && cart.items.length > 0) {
-      for (const item of cart.items) {
-        try {
-          await storeApiFetch('cart/remove-item', { method: 'POST', body: { key: item.key } });
-        } catch {}
-      }
+  const cart = await fetchCartFromStore();
+  if (!cart) return cart;
+
+  // Remove coupons first — if coupons persist on the session, BOGO/Smart Coupon
+  // plugins re-add free items when qualifying products are added later.
+  if (cart.appliedCoupons && cart.appliedCoupons.length > 0) {
+    for (const coupon of cart.appliedCoupons) {
+      try {
+        await storeApiFetch('cart/remove-coupon', { method: 'POST', body: { code: coupon.code } });
+      } catch {}
     }
   }
+
+  if (cart.items.length > 0) {
+    for (const item of cart.items) {
+      try {
+        await storeApiFetch('cart/remove-item', { method: 'POST', body: { key: item.key } });
+      } catch {}
+    }
+  }
+
   return fetchCartFromStore();
 }
 

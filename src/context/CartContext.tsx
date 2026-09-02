@@ -704,6 +704,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       endMutation();
     }
+
+    // Delete the persistent cart token from WP user meta so restore-for-user
+    // doesn't resurrect the old cart session on next page load.
+    fetch('/api/cart/clear-persistent', { method: 'POST', credentials: 'include' }).catch(() => {});
+    // Clear free gift tracking so the gift widget doesn't re-apply stale state.
+    try { sessionStorage.removeItem('mf_gift_product_id'); } catch {}
   }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------

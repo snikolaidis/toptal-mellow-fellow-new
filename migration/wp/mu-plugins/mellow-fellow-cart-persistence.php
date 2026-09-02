@@ -108,5 +108,9 @@ function mf_cart_token_delete( $request ) {
     delete_user_meta( $user_id, '_mf_cart_token' );
     delete_user_meta( $user_id, '_mf_cart_token_saved_at' );
 
+    // Also clear WooCommerce's own persistent cart so it doesn't restore old
+    // items into a new session when the user adds products after clearing.
+    delete_user_meta( $user_id, '_woocommerce_persistent_cart_1' );
+
     return new WP_REST_Response( [ 'success' => true ], 200 );
 }
