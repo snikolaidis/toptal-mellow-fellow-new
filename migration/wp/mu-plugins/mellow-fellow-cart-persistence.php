@@ -3,10 +3,35 @@
  * Plugin Name: Mellow Fellow - Cart Token Persistence
  * Description: REST endpoints for saving/restoring WooCommerce cart tokens
  *              as WordPress user meta. Enables cart persistence across login/logout.
- * Version: 1.0.0
+ *              Also registers a Store API extension for atomic cart clearing.
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
+
+// Disable WooCommerce's built-in persistent cart — we manage cart persistence
+// ourselves via _mf_cart_token user meta and the restore-for-user flow.
+// Without this, WC saves cart contents to _woocommerce_persistent_cart_1 on
+// every change and restores them into new sessions, causing "zombie carts"
+// that reappear after the user clears them.
+add_filter( 'woocommerce_persistent_cart_enabled', '__return_false' );
+
+// Register a Store API extension that empties the cart in a single server-side
+// call via POST /wc/store/v1/cart/extensions. This replaces the N sequential
+// remove-item / remove-coupon HTTP requests with one atomic operation.
+add_action( 'woocommerce_blocks_loaded', function() {
+    if ( function_exists( 'woocommerce_store_api_register_update_callback' ) ) {
+        woocommerce_store_api_register_update_callback( [
+            'namespace' => 'mellow-fellow/cart-ops',
+            'callback'  => function( $data ) {
+                $action = $data['action'] ?? '';
+                if ( $action === 'empty_cart' && WC()->cart ) {
+                    WC()->cart->empty_cart( true );
+                }
+            },
+        ] );
+    }
+} );
 
 add_action( 'rest_api_init', 'mf_cart_persistence_register_routes' );
 

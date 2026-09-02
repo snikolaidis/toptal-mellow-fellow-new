@@ -172,12 +172,23 @@ export class StoreApiError extends Error {
   }
 }
 
+const GATEWAY_ERRORS = new Set([502, 503, 504]);
+
+function isRetryable(err: unknown): boolean {
+  return err instanceof StoreApiError && (GATEWAY_ERRORS.has(err.status) || err.code === 'invalid_response');
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 export async function storeApiFetch<T = any>(
   path: string,
   options: {
     method?: string;
     body?: Record<string, unknown>;
-  } = {}
+  } = {},
+  retries = 0
 ): Promise<T> {
   const { method = 'GET', body } = options;
 
@@ -192,11 +203,13 @@ export async function storeApiFetch<T = any>(
   try {
     data = await res.json();
   } catch {
-    throw new StoreApiError(
+    const err = new StoreApiError(
       `Store API returned non-JSON response (${res.status})`,
       res.status,
       'invalid_response'
     );
+    if (retries > 0) { await delay(1000); return storeApiFetch(path, options, retries - 1); }
+    throw err;
   }
 
   if (data?._sessionExpired) {
@@ -208,11 +221,13 @@ export async function storeApiFetch<T = any>(
   }
 
   if (!res.ok) {
-    throw new StoreApiError(
+    const err = new StoreApiError(
       data?.message || `Store API error (${res.status})`,
       res.status,
       data?.code || 'store_api_error'
     );
+    if (retries > 0 && isRetryable(err)) { await delay(1000); return storeApiFetch(path, options, retries - 1); }
+    throw err;
   }
 
   return data as T;
@@ -223,7 +238,7 @@ export async function storeApiFetch<T = any>(
 // ---------------------------------------------------------------------------
 
 export async function fetchCartFromStore(): Promise<Cart | null> {
-  const data = await storeApiFetch('cart');
+  const data = await storeApiFetch('cart', {}, 1);
   return transformStoreApiCart(data);
 }
 
@@ -247,7 +262,7 @@ export async function updateItemInStore(
   const data = await storeApiFetch('cart/update-item', {
     method: 'POST',
     body: { key, quantity },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }
 
@@ -255,29 +270,47 @@ export async function removeItemFromStore(key: string): Promise<Cart | null> {
   const data = await storeApiFetch('cart/remove-item', {
     method: 'POST',
     body: { key },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }
 
 export async function clearStoreCart(): Promise<Cart | null> {
+  // Primary: single server-side call via WC Store API extensions.
+  // The mellow-fellow-cart-persistence mu-plugin registers a callback that
+  // calls WC()->cart->empty_cart(true) — clears items, coupons, fees, and
+  // session data in one PHP execution instead of N sequential HTTP requests.
+  try {
+    const data = await storeApiFetch('cart/extensions', {
+      method: 'POST',
+      body: { namespace: 'mellow-fellow/cart-ops', data: { action: 'empty_cart' } },
+    });
+    return transformStoreApiCart(data);
+  } catch {
+    // Extension not registered (mu-plugin not deployed yet) — fall back to
+    // batch removal which still sends one HTTP request for all operations.
+  }
+
+  // Fallback: batch all removals into a single request via POST /batch.
   const cart = await fetchCartFromStore();
   if (!cart) return cart;
 
-  // Remove coupons first — if coupons persist on the session, BOGO/Smart Coupon
-  // plugins re-add free items when qualifying products are added later.
-  if (cart.appliedCoupons && cart.appliedCoupons.length > 0) {
-    for (const coupon of cart.appliedCoupons) {
-      try {
-        await storeApiFetch('cart/remove-coupon', { method: 'POST', body: { code: coupon.code } });
-      } catch {}
-    }
+  const requests: Array<{ path: string; method: string; body: Record<string, unknown> }> = [];
+  for (const coupon of cart.appliedCoupons || []) {
+    requests.push({ path: '/wc/store/v1/cart/remove-coupon', method: 'POST', body: { code: coupon.code } });
+  }
+  for (const item of cart.items) {
+    requests.push({ path: '/wc/store/v1/cart/remove-item', method: 'POST', body: { key: item.key } });
   }
 
-  if (cart.items.length > 0) {
-    for (const item of cart.items) {
-      try {
-        await storeApiFetch('cart/remove-item', { method: 'POST', body: { key: item.key } });
-      } catch {}
+  if (requests.length > 0) {
+    try {
+      await storeApiFetch('batch', { method: 'POST', body: { requests } as unknown as Record<string, unknown> });
+    } catch {
+      // Batch not supported — last resort: sequential removal.
+      for (const r of requests) {
+        const endpoint = r.path.replace('/wc/store/v1/', '');
+        try { await storeApiFetch(endpoint, { method: 'POST', body: r.body }); } catch {}
+      }
     }
   }
 
@@ -288,7 +321,7 @@ export async function applyCouponToStore(code: string): Promise<Cart | null> {
   const data = await storeApiFetch('cart/apply-coupon', {
     method: 'POST',
     body: { code },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }
 
@@ -296,7 +329,7 @@ export async function removeCouponFromStore(code: string): Promise<Cart | null> 
   const data = await storeApiFetch('cart/remove-coupon', {
     method: 'POST',
     body: { code },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }
 
@@ -307,6 +340,6 @@ export async function selectShippingRate(
   const data = await storeApiFetch('cart/select-shipping-rate', {
     method: 'POST',
     body: { package_id: packageId, rate_id: rateId },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }

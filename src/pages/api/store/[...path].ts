@@ -63,6 +63,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         method: req.method || 'GET',
         headers,
         agent: isHttps ? keepAliveAgent : keepAliveAgentHttp,
+        timeout: 15000,
       };
 
       const proxyReq = lib.request(reqOptions, (proxyRes) => {
@@ -85,6 +86,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         });
       });
 
+      proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        reject(new Error('WordPress request timed out'));
+      });
       proxyReq.on('error', reject);
 
       if (bodyStr) {
