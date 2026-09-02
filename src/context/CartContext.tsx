@@ -215,6 +215,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return queued;
   }, []);
 
+  const mutatingCountRef = useRef(0);
+  const startMutation = useCallback(() => {
+    mutatingCountRef.current++;
+    setIsMutating(true);
+  }, []);
+  const endMutation = useCallback(() => {
+    mutatingCountRef.current = Math.max(0, mutatingCountRef.current - 1);
+    if (mutatingCountRef.current === 0) setIsMutating(false);
+  }, []);
+
   const [bundleNames, setBundleNames] = useState<Record<number, string>>(() => {
     if (typeof window === 'undefined') return {};
     try { return JSON.parse(localStorage.getItem('bundleNames') || '{}'); } catch { return {}; }
@@ -429,10 +439,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     hasFetchedRef.current = true;
     setIsDrawerOpen(true);
-    setIsMutating(true);
+    startMutation();
 
     try {
-      const storeCart = await addItemToStore(input.productId, input.quantity, input.variationId);
+      const storeCart = await enqueueMutation(() => addItemToStore(input.productId, input.quantity, input.variationId));
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
@@ -446,9 +456,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       throw new CartError(message, ErrorCode.CART_ADD_FAILED);
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Bundle operations — still use GraphQL (custom mutations), then Store API fetch
@@ -458,7 +468,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(null);
       const seq = nextSeq();
       hasFetchedRef.current = true;
-      setIsMutating(true);
+      startMutation();
       try {
         const client = getClient();
         const { data } = await client.mutate({
@@ -495,7 +505,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
 
         // Fetch updated cart via Store API instead of GraphQL
-        const storeCart = await fetchCartFromStore();
+        const storeCart = await enqueueMutation(() => fetchCartFromStore());
         if (isStaleSeq(seq)) return;
         if (storeCart) {
           setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
@@ -511,17 +521,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setError(pluginMessage || getUserMessage(cartError));
         throw cartError;
       } finally {
-        setIsMutating(false);
+        endMutation();
       }
     },
-    [getClient]
+    [getClient, enqueueMutation, startMutation, endMutation]
   );
 
   const removeBundleGroup = useCallback(
     async (groupKeys: string[]) => {
       setError(null);
       const seq = nextSeq();
-      setIsMutating(true);
+      startMutation();
       try {
         const client = getClient();
         for (const groupKey of groupKeys) {
@@ -531,7 +541,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         }
         // Fetch updated cart via Store API
-        const storeCart = await fetchCartFromStore();
+        const storeCart = await enqueueMutation(() => fetchCartFromStore());
         if (isStaleSeq(seq)) return;
         if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       } catch (err) {
@@ -540,10 +550,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setError(getUserMessage(cartError));
         throw cartError;
       } finally {
-        setIsMutating(false);
+        endMutation();
       }
     },
-    [getClient]
+    [getClient, enqueueMutation, startMutation, endMutation]
   );
 
   // -------------------------------------------------------------------------
@@ -560,36 +570,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!item) return prev;
 
       if (quantity <= 0) {
+        const itemSub = parseMoney(item.subtotal || item.total);
         return enrichCartItems(
           {
             ...prev,
             items: prev.items.filter((i) => i.key !== key),
             itemsCount: prev.itemsCount - item.quantity,
             isEmpty: prev.items.length <= 1,
+            subtotal: formatMoney(Math.max(0, parseMoney(prev.subtotal) - itemSub)),
           },
           bundleItemMapRef.current
         );
       }
 
+      const unitPrice = item.quantity > 0 ? parseMoney(item.subtotal || item.total) / item.quantity : 0;
+      const delta = quantity - item.quantity;
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.map((i) =>
             i.key === key ? { ...i, quantity } : i
           ),
-          itemsCount: prev.itemsCount + (quantity - item.quantity),
+          itemsCount: prev.itemsCount + delta,
+          subtotal: formatMoney(Math.max(0, parseMoney(prev.subtotal) + unitPrice * delta)),
         },
         bundleItemMapRef.current
       );
     });
 
-    setIsMutating(true);
+    startMutation();
     try {
       let storeCart: Cart | null;
       if (quantity <= 0) {
-        storeCart = await removeItemFromStore(key);
+        storeCart = await enqueueMutation(() => removeItemFromStore(key));
       } else {
-        storeCart = await updateItemInStore(key, quantity);
+        storeCart = await enqueueMutation(() => updateItemInStore(key, quantity));
       }
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
@@ -604,9 +619,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       throw new CartError(message, ErrorCode.CART_UPDATE_FAILED);
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Remove item via Store API — optimistic
@@ -620,22 +635,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev;
       const item = prev.items.find((i) => i.key === key);
       const removedQty = item ? item.quantity : 0;
+      const itemSub = item ? parseMoney(item.subtotal || item.total) : 0;
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.filter((i) => i.key !== key),
           itemsCount: prev.itemsCount - removedQty,
           isEmpty: prev.items.length <= 1,
+          subtotal: formatMoney(Math.max(0, parseMoney(prev.subtotal) - itemSub)),
         },
         bundleItemMapRef.current
       );
     });
 
-    setIsMutating(true);
+    startMutation();
     try {
       const storeCart = await enqueueMutation(() => removeItemFromStore(key));
       if (isStaleSeq(seq)) {
-        // Stale but server processed the removal — refetch to reconcile
         enqueueMutation(() => fetchCartFromStore()).then((fresh) => {
           if (fresh) setCart(enrichCartItems(fresh, bundleItemMapRef.current));
         }).catch(() => {});
@@ -653,9 +669,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       throw new CartError(message, ErrorCode.CART_REMOVE_FAILED);
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, [enqueueMutation]);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Clear cart via Store API
@@ -663,10 +679,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(async () => {
     setError(null);
     const seq = nextSeq();
-    setIsMutating(true);
+    startMutation();
     writeCachedCart(null);
     try {
-      const storeCart = await clearStoreCart();
+      const storeCart = await enqueueMutation(() => clearStoreCart());
       if (isStaleSeq(seq)) return;
       if (storeCart) {
         setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
@@ -686,9 +702,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         chosenShippingMethods: [],
       });
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Coupons via Store API
@@ -696,7 +712,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const applyCoupon = useCallback(async (code: string): Promise<boolean> => {
     setError(null);
     const seq = nextSeq();
-    setIsMutating(true);
+    startMutation();
     try {
       const storeCart = await enqueueMutation(() => applyCouponToStore(code));
       if (isStaleSeq(seq)) return true;
@@ -723,14 +739,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       return false;
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, [enqueueMutation]);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   const removeCoupon = useCallback(async (code: string) => {
     setError(null);
     const seq = nextSeq();
-    setIsMutating(true);
+    startMutation();
     try {
       const storeCart = await enqueueMutation(() => removeCouponFromStore(code));
       if (isStaleSeq(seq)) return;
@@ -763,9 +779,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(getUserMessage(cartError));
       throw cartError;
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, [enqueueMutation]);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Shipping via Store API
@@ -773,9 +789,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const updateShippingMethod = useCallback(async (methodId: string) => {
     setError(null);
     const seq = nextSeq();
-    setIsMutating(true);
+    startMutation();
     try {
-      const storeCart = await selectShippingRate(0, methodId);
+      const storeCart = await enqueueMutation(() => selectShippingRate(0, methodId));
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
@@ -784,9 +800,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(getUserMessage(cartError));
       throw cartError;
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
+
+  useEffect(() => { writeCachedCart(cart); }, [cart]);
 
   // Prefetch recommendations in the background whenever cart composition changes.
   // This warms the cache so the CartDrawer shows recs instantly when opened.

@@ -49,15 +49,12 @@ export default function CartDrawer() {
   const [recsLoading, setRecsLoading] = useState(false);
   const [addingProductId, setAddingProductId] = useState<number | null>(null);
   // removingKey  → the cart item key being deleted (triggers fade + spinner)
-  // updatingKey  → the cart item key having its quantity changed (locks buttons only, no fade)
   // removingGroupKey → composite key of the bundle group being deleted (triggers fade + spinner)
   const [removingKey, setRemovingKey] = useState<string | null>(null);
-  const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [removingGroupKey, setRemovingGroupKey] = useState<string | null>(null);
 
-  const handleUpdateQuantity = useCallback(async (key: string, qty: number) => {
-    setUpdatingKey(key);
-    try { await updateQuantity(key, qty); } finally { setUpdatingKey(null); }
+  const handleUpdateQuantity = useCallback((key: string, qty: number) => {
+    updateQuantity(key, qty).catch(() => {});
   }, [updateQuantity]);
 
   const handleRemoveFromCart = useCallback(async (key: string) => {
@@ -365,8 +362,7 @@ export default function CartDrawer() {
                 {/* Standalone items */}
                 {standalone.map((item) => {
                   const isItemRemoving = removingKey === item.key;
-                  const isItemUpdating = updatingKey === item.key;
-                  const isLocked = isItemRemoving || isItemUpdating;
+                  const isLocked = isItemRemoving;
                   return (
                     <li key={item.key} className={`${styles.cartItem} ${isItemRemoving ? styles.cartItemPending : ''}`}>
                       <div className={styles.itemImage}>
@@ -602,11 +598,16 @@ export default function CartDrawer() {
               Shipping calculated at checkout
             </p>
             <Link
-              href="/checkout"
+              href={isMutating ? '#' : '/checkout'}
               className={styles.checkoutBtn}
-              onClick={closeDrawer}
+              onClick={(e) => {
+                if (isMutating) { e.preventDefault(); return; }
+                closeDrawer();
+              }}
+              aria-disabled={isMutating || undefined}
+              style={isMutating ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
             >
-              Checkout Now
+              {isMutating ? 'Updating cart...' : 'Checkout Now'}
             </Link>
             <button
               type="button"

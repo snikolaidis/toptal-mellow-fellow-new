@@ -131,4 +131,4 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-export default withRateLimitOnly(60, 60000)(handler);
+export default withRateLimitOnly(120, 60000)(handler);

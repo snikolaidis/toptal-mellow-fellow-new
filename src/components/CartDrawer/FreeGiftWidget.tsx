@@ -78,11 +78,14 @@ export default function FreeGiftWidget({ subtotal }: Props) {
     setRemoving(true);
     (async () => {
       try {
-        if (giftItem) await removeFromCart(giftItem.key);
-        if (giftCoupon) await removeCoupon(giftCoupon.code);
+        if (giftItem) {
+          try { await removeFromCart(giftItem.key); } catch {}
+        }
+        if (giftCoupon) {
+          try { await removeCoupon(giftCoupon.code); } catch {}
+        }
         giftIdRef.current = null;
         writeStoredGiftId(null);
-      } catch {
       } finally {
         setRemoving(false);
       }
