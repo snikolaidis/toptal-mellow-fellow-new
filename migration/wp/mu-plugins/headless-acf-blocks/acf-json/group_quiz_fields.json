@@ -1,0 +1,496 @@
+{
+    "key": "group_quiz_fields",
+    "title": "Quiz Fields",
+    "fields": [
+        {
+            "key": "field_quiz_tab_intro",
+            "label": "Intro",
+            "name": "",
+            "aria-label": "",
+            "type": "tab",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "placement": "top",
+            "endpoint": 0
+        },
+        {
+            "key": "field_quiz_intro_msg",
+            "label": "",
+            "name": "",
+            "aria-label": "",
+            "type": "message",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "message": "Optional welcome screen. Leave every field on this tab blank and the quiz opens straight into the first question.",
+            "new_lines": "wpautop",
+            "esc_html": 0
+        },
+        {
+            "key": "field_quiz_intro_heading",
+            "label": "Heading",
+            "name": "intro_heading",
+            "aria-label": "",
+            "type": "text",
+            "instructions": "Big title on the intro screen.",
+            "required": 0,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "maxlength": "",
+            "placeholder": "",
+            "prepend": "",
+            "append": ""
+        },
+        {
+            "key": "field_quiz_intro_subcopy",
+            "label": "Subheading",
+            "name": "intro_subcopy",
+            "aria-label": "",
+            "type": "textarea",
+            "instructions": "One short line under the heading.",
+            "required": false,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "rows": 2,
+            "new_lines": "",
+            "default_value": "",
+            "maxlength": "",
+            "placeholder": ""
+        },
+        {
+            "key": "field_quiz_intro_image",
+            "label": "Intro Image",
+            "name": "intro_image",
+            "aria-label": "",
+            "type": "image",
+            "instructions": "Optional. Shown compact next to the intro text.",
+            "required": 0,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": 0,
+            "min_height": 0,
+            "min_size": 0,
+            "max_width": 0,
+            "max_height": 0,
+            "max_size": 0,
+            "mime_types": ""
+        },
+        {
+            "key": "field_quiz_tab_questions",
+            "label": "Questions",
+            "name": "",
+            "aria-label": "",
+            "type": "tab",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "placement": "top",
+            "endpoint": 0
+        },
+        {
+            "key": "field_quiz_questions",
+            "label": "Questions",
+            "name": "questions",
+            "aria-label": "",
+            "type": "repeater",
+            "instructions": "Add each question, then its answers. The order here is the order shoppers see.",
+            "required": false,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "layout": "block",
+            "button_label": "Add Question",
+            "min": 0,
+            "max": 0,
+            "collapsed": "field_quiz_question_text",
+            "rows_per_page": 20,
+            "sub_fields": [
+                {
+                    "key": "field_quiz_question_text",
+                    "label": "Question",
+                    "name": "question_text",
+                    "aria-label": "",
+                    "type": "text",
+                    "instructions": "The question the shopper reads.",
+                    "required": 1,
+                    "conditional_logic": false,
+                    "wrapper": {
+                        "width": "70",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "maxlength": "",
+                    "placeholder": "",
+                    "prepend": "",
+                    "append": "",
+                    "parent_repeater": "field_quiz_questions"
+                },
+                {
+                    "key": "field_quiz_selection_type",
+                    "label": "Selection Type",
+                    "name": "selection_type",
+                    "aria-label": "",
+                    "type": "select",
+                    "instructions": "Single = pick one (auto-advances). Multiple = pick several, then Next.",
+                    "required": false,
+                    "conditional_logic": false,
+                    "wrapper": {
+                        "width": "30",
+                        "class": "",
+                        "id": ""
+                    },
+                    "choices": {
+                        "single": "Single choice",
+                        "multi": "Multiple choice"
+                    },
+                    "default_value": "single",
+                    "return_format": "value",
+                    "ui": 0,
+                    "allow_null": 0,
+                    "multiple": 0,
+                    "ajax": 0,
+                    "placeholder": "",
+                    "create_options": 0,
+                    "save_options": 0,
+                    "parent_repeater": "field_quiz_questions"
+                },
+                {
+                    "key": "field_quiz_answers",
+                    "label": "Answers",
+                    "name": "answers",
+                    "aria-label": "",
+                    "type": "repeater",
+                    "instructions": "Each option the shopper can pick.",
+                    "required": false,
+                    "conditional_logic": false,
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "layout": "block",
+                    "button_label": "Add Answer",
+                    "min": 0,
+                    "max": 0,
+                    "collapsed": "field_quiz_answer_label",
+                    "rows_per_page": 20,
+                    "sub_fields": [
+                        {
+                            "key": "field_quiz_answer_label",
+                            "label": "Label",
+                            "name": "label",
+                            "aria-label": "",
+                            "type": "text",
+                            "instructions": "What the shopper sees.",
+                            "required": 1,
+                            "conditional_logic": false,
+                            "wrapper": {
+                                "width": "60",
+                                "class": "",
+                                "id": ""
+                            },
+                            "default_value": "",
+                            "maxlength": "",
+                            "placeholder": "",
+                            "prepend": "",
+                            "append": "",
+                            "parent_repeater": "field_quiz_answers"
+                        },
+                        {
+                            "key": "field_quiz_answer_weight",
+                            "label": "Weight",
+                            "name": "weight",
+                            "aria-label": "",
+                            "type": "number",
+                            "instructions": "How hard this answer pulls toward its products. Leave at 1.",
+                            "required": false,
+                            "conditional_logic": false,
+                            "wrapper": {
+                                "width": "40",
+                                "class": "",
+                                "id": ""
+                            },
+                            "default_value": 1,
+                            "min": 0,
+                            "max": "",
+                            "step": "",
+                            "placeholder": "",
+                            "prepend": "",
+                            "append": "",
+                            "parent_repeater": "field_quiz_answers"
+                        },
+                        {
+                            "key": "field_quiz_answer_image",
+                            "label": "Image",
+                            "name": "image",
+                            "aria-label": "",
+                            "type": "image",
+                            "instructions": "Optional. With an image the answer shows as a card; without, as a clean list row.",
+                            "required": false,
+                            "conditional_logic": false,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "return_format": "array",
+                            "preview_size": "medium",
+                            "library": "all",
+                            "min_width": 0,
+                            "min_height": 0,
+                            "min_size": 0,
+                            "max_width": 0,
+                            "max_height": 0,
+                            "max_size": 0,
+                            "mime_types": "",
+                            "parent_repeater": "field_quiz_answers"
+                        },
+                        {
+                            "key": "field_quiz_answer_maps_msg",
+                            "label": "Match to products",
+                            "name": "",
+                            "aria-label": "",
+                            "type": "message",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": false,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "message": "Pick the tags a product must carry to be recommended for this answer. Any product with these terms is a match. Leave blank if this answer should not affect recommendations.",
+                            "new_lines": "wpautop",
+                            "esc_html": 0,
+                            "parent_repeater": "field_quiz_answers"
+                        },
+                        {
+                            "key": "field_quiz_map_moods",
+                            "label": "Moods",
+                            "name": "map_moods",
+                            "aria-label": "",
+                            "type": "taxonomy",
+                            "instructions": "",
+                            "required": false,
+                            "conditional_logic": false,
+                            "wrapper": {
+                                "width": "25",
+                                "class": "",
+                                "id": ""
+                            },
+                            "taxonomy": "mood",
+                            "field_type": "multi_select",
+                            "add_term": 0,
+                            "save_terms": 0,
+                            "load_terms": 0,
+                            "return_format": "id",
+                            "multiple": 0,
+                            "allow_null": 1,
+                            "bidirectional_target": [],
+                            "parent_repeater": "field_quiz_answers"
+                        },
+                        {
+                            "key": "field_quiz_map_product_types",
+                            "label": "Product Types",
+                            "name": "map_product_types",
+                            "aria-label": "",
+                            "type": "taxonomy",
+                            "instructions": "",
+                            "required": false,
+                            "conditional_logic": false,
+                            "wrapper": {
+                                "width": "25",
+                                "class": "",
+                                "id": ""
+                            },
+                            "taxonomy": "product-type",
+                            "field_type": "multi_select",
+                            "add_term": 0,
+                            "save_terms": 0,
+                            "load_terms": 0,
+                            "return_format": "id",
+                            "multiple": 0,
+                            "allow_null": 1,
+                            "bidirectional_target": [],
+                            "parent_repeater": "field_quiz_answers"
+                        },
+                        {
+                            "key": "field_quiz_map_cannabinoids",
+                            "label": "Cannabinoids",
+                            "name": "map_cannabinoids",
+                            "aria-label": "",
+                            "type": "taxonomy",
+                            "instructions": "",
+                            "required": false,
+                            "conditional_logic": false,
+                            "wrapper": {
+                                "width": "25",
+                                "class": "",
+                                "id": ""
+                            },
+                            "taxonomy": "cannabinoid",
+                            "field_type": "multi_select",
+                            "add_term": 0,
+                            "save_terms": 0,
+                            "load_terms": 0,
+                            "return_format": "id",
+                            "multiple": 0,
+                            "allow_null": 1,
+                            "bidirectional_target": [],
+                            "parent_repeater": "field_quiz_answers"
+                        },
+                        {
+                            "key": "field_quiz_map_strain_types",
+                            "label": "Strain Types",
+                            "name": "map_strain_types",
+                            "aria-label": "",
+                            "type": "taxonomy",
+                            "instructions": "",
+                            "required": false,
+                            "conditional_logic": false,
+                            "wrapper": {
+                                "width": "25",
+                                "class": "",
+                                "id": ""
+                            },
+                            "taxonomy": "strain-type",
+                            "field_type": "multi_select",
+                            "add_term": 0,
+                            "save_terms": 0,
+                            "load_terms": 0,
+                            "return_format": "id",
+                            "multiple": 0,
+                            "allow_null": 1,
+                            "bidirectional_target": [],
+                            "parent_repeater": "field_quiz_answers"
+                        }
+                    ],
+                    "parent_repeater": "field_quiz_questions"
+                }
+            ]
+        },
+        {
+            "key": "field_quiz_tab_results",
+            "label": "Results",
+            "name": "",
+            "aria-label": "",
+            "type": "tab",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "placement": "top",
+            "endpoint": 0
+        },
+        {
+            "key": "field_quiz_results_heading",
+            "label": "Results Heading",
+            "name": "results_heading",
+            "aria-label": "",
+            "type": "text",
+            "instructions": "Heading over the recommended products. The shopper's name is added automatically when they leave an email.",
+            "required": false,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "60",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "maxlength": "",
+            "placeholder": "",
+            "prepend": "",
+            "append": ""
+        },
+        {
+            "key": "field_quiz_result_count",
+            "label": "Number of Products to Recommend",
+            "name": "result_count",
+            "aria-label": "",
+            "type": "number",
+            "instructions": "How many top matches to show.",
+            "required": false,
+            "conditional_logic": false,
+            "wrapper": {
+                "width": "40",
+                "class": "",
+                "id": ""
+            },
+            "default_value": 8,
+            "min": 1,
+            "max": 24,
+            "step": "",
+            "placeholder": "",
+            "prepend": "",
+            "append": ""
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "post_type",
+                "operator": "==",
+                "value": "quiz"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "Build the product recommendation quiz: an optional intro, the questions and answers, and how the results show.",
+    "show_in_rest": 0,
+    "display_title": "",
+    "allow_ai_access": false,
+    "ai_description": "",
+    "show_in_graphql": 1,
+    "graphql_field_name": "quizFields",
+    "map_graphql_types_from_location_rules": 0,
+    "graphql_types": [
+        "Quiz"
+    ],
+    "modified": 1788200000
+}

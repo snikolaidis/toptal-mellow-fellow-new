@@ -38,6 +38,7 @@ const blocks: Record<string, any> = {
   AcfCategoryTabs: block('AcfCategoryTabs', () => import('./CategoryTabs')),
   AcfWhatSetsUsApart: block('AcfWhatSetsUsApart', () => import('./WhatSetsUsApart')),
   AcfLoyaltyTiers: block('AcfLoyaltyTiers', () => import('./LoyaltyTiers')),
+  AcfQuiz: block('AcfQuiz', () => import('./QuizBlock')),
 };
 
 export default blocks;
