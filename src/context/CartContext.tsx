@@ -264,6 +264,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return err instanceof StoreApiError && err.code === 'session_expired';
   }
 
+  // WC returns 409 with the current server-side cart when the client's state is
+  // stale (item key changed, stock adjusted, coupon expired). Use the server's
+  // cart instead of rolling back to a potentially-stale snapshot.
+  function tryReconcile(err: unknown): boolean {
+    if (err instanceof StoreApiError && err.updatedCart) {
+      setCart(enrichCartItems(err.updatedCart, bundleItemMapRef.current));
+      return true;
+    }
+    return false;
+  }
+
   function resetToEmptyCart() {
     const empty: StoreCart = {
       items: [],
@@ -447,6 +458,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
       if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (tryReconcile(err)) return;
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.addToCart', err, { productId: input.productId });
       const message = extractCartErrorMessage(
@@ -610,6 +622,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
       if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (tryReconcile(err)) return;
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.updateQuantity', err, { key, quantity });
       const message = extractCartErrorMessage(
@@ -660,6 +673,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
       if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (tryReconcile(err)) return;
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.removeFromCart', err, { key });
       const message = extractCartErrorMessage(

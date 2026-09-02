@@ -163,12 +163,15 @@ export function transformStoreApiCart(data: any): Cart | null {
 export class StoreApiError extends Error {
   status: number;
   code: string;
+  updatedCart: Cart | null;
 
-  constructor(message: string, status: number, code = 'store_api_error') {
+  constructor(message: string, status: number, code = 'store_api_error', rawData?: any) {
     super(message);
     this.name = 'StoreApiError';
     this.status = status;
     this.code = code;
+    // 409 responses include the current server-side cart state for reconciliation.
+    this.updatedCart = status === 409 && rawData ? transformStoreApiCart(rawData) : null;
   }
 }
 
@@ -224,7 +227,8 @@ export async function storeApiFetch<T = any>(
     const err = new StoreApiError(
       data?.message || `Store API error (${res.status})`,
       res.status,
-      data?.code || 'store_api_error'
+      data?.code || 'store_api_error',
+      data
     );
     if (retries > 0 && isRetryable(err)) { await delay(1000); return storeApiFetch(path, options, retries - 1); }
     throw err;
@@ -245,11 +249,13 @@ export async function fetchCartFromStore(): Promise<Cart | null> {
 export async function addItemToStore(
   productId: number,
   quantity: number,
-  variationId?: number
+  variationId?: number,
+  variation?: Array<{ attribute: string; value: string }>
 ): Promise<Cart | null> {
   const body: Record<string, unknown> = { id: productId, quantity };
   if (variationId) {
     body.id = variationId;
+    if (variation) body.variation = variation;
   }
   const data = await storeApiFetch('cart/add-item', { method: 'POST', body });
   return transformStoreApiCart(data);
@@ -290,29 +296,10 @@ export async function clearStoreCart(): Promise<Cart | null> {
     // batch removal which still sends one HTTP request for all operations.
   }
 
-  // Fallback: batch all removals into a single request via POST /batch.
-  const cart = await fetchCartFromStore();
-  if (!cart) return cart;
-
-  const requests: Array<{ path: string; method: string; body: Record<string, unknown> }> = [];
-  for (const coupon of cart.appliedCoupons || []) {
-    requests.push({ path: '/wc/store/v1/cart/remove-coupon', method: 'POST', body: { code: coupon.code } });
-  }
-  for (const item of cart.items) {
-    requests.push({ path: '/wc/store/v1/cart/remove-item', method: 'POST', body: { key: item.key } });
-  }
-
-  if (requests.length > 0) {
-    try {
-      await storeApiFetch('batch', { method: 'POST', body: { requests } as unknown as Record<string, unknown> });
-    } catch {
-      // Batch not supported — last resort: sequential removal.
-      for (const r of requests) {
-        const endpoint = r.path.replace('/wc/store/v1/', '');
-        try { await storeApiFetch(endpoint, { method: 'POST', body: r.body }); } catch {}
-      }
-    }
-  }
+  // Fallback: DELETE /cart/coupons (all) + DELETE /cart/items (all).
+  // Two calls total regardless of how many items/coupons exist.
+  try { await storeApiFetch('cart/coupons', { method: 'DELETE' }); } catch {}
+  try { await storeApiFetch('cart/items', { method: 'DELETE' }); } catch {}
 
   return fetchCartFromStore();
 }
