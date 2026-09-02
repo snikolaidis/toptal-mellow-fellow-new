@@ -8,6 +8,7 @@ import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import type { SingleProductExtras } from '@/templates/single-product';
 import type { ProductNutrition } from '@/types/woocommerce';
+import { fetchKlaviyoReviews, type KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 
 /**
  * Route wrapper for single products. The page itself lives in
@@ -31,13 +32,17 @@ export default function ProductRoute(props: Record<string, unknown>) {
  * are fetched here and passed to the template as extra props. A failure is
  * non-fatal: the core product data comes from the template's own GraphQL query.
  */
-async function fetchProductExtras(wpUrl: string, slug: string): Promise<Omit<SingleProductExtras, 'nutrition'>> {
+async function fetchProductExtras(
+  wpUrl: string,
+  slug: string
+): Promise<Omit<SingleProductExtras, 'nutrition' | 'reviewData'> & { databaseId: number | null }> {
   const empty = {
     collectionName: null,
     collectionSlug: null,
     availableOptions: [],
     availableOptionsBase: '',
     bundleSlug: null,
+    databaseId: null,
   };
 
   try {
@@ -50,6 +55,9 @@ async function fetchProductExtras(wpUrl: string, slug: string): Promise<Omit<Sin
       availableOptions: json.availableOptions || [],
       availableOptionsBase: json.availableOptionsBase || '',
       bundleSlug: json.bundleSlug || null,
+      // Carried out of the same response purely to key the Klaviyo lookup —
+      // stripped off before the props are handed to the template.
+      databaseId: json.product?.databaseId ?? null,
     };
   } catch {
     return empty;
@@ -87,6 +95,17 @@ async function fetchProductNutrition(slug: string): Promise<ProductNutrition | n
   }
 }
 
+const EMPTY_REVIEWS: KlaviyoReviewsResult = {
+  summary: { average: 0, total: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
+  reviews: [],
+};
+
+async function fetchExtrasAndReviews(wpUrl: string, slug: string) {
+  const { databaseId, ...extras } = await fetchProductExtras(wpUrl, slug);
+  const reviewData = databaseId ? await fetchKlaviyoReviews(databaseId) : EMPTY_REVIEWS;
+  return { extras, reviewData };
+}
+
 export const getStaticProps: GetStaticProps = async (ctx) => {
   const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
   const slug = typeof ctx.params?.slug === 'string' ? ctx.params.slug : '';
@@ -97,10 +116,10 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   const seedCtx = { ...ctx, params: { wordpressNode: ['products', slug] } };
 
   try {
-    const [menuClient, result, extras, nutrition] = await Promise.all([
+    const [menuClient, result, { extras, reviewData }, nutrition] = await Promise.all([
       prefetchMenus(),
       getWordPressProps({ ctx: seedCtx, revalidate: 60 }),
-      fetchProductExtras(wpUrl, slug),
+      fetchExtrasAndReviews(wpUrl, slug),
       fetchProductNutrition(slug),
     ]);
 
@@ -108,7 +127,7 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       return result;
     }
 
-    Object.assign(result.props, extras, { nutrition });
+    Object.assign(result.props, extras, { nutrition, reviewData });
     mergeMenuState(result.props, menuClient);
     return result;
   } catch (error) {

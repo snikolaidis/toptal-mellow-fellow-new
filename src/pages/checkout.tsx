@@ -832,7 +832,7 @@ export default function CheckoutPage() {
         window.sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
       }
 
-      clearCart().catch(() => { });
+      await clearCart().catch(() => { });
 
       router.push({
         pathname: '/order-confirmation',

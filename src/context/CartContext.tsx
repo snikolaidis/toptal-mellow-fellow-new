@@ -649,16 +649,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setError(null);
     const seq = nextSeq();
     setIsMutating(true);
+    writeCachedCart(null);
     try {
       const storeCart = await clearStoreCart();
       if (isStaleSeq(seq)) return;
       if (storeCart) {
         setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       }
-      writeCachedCart(null);
     } catch (err) {
       logError('CartContext.clearCart', err);
-      writeCachedCart(null);
       setCart({
         items: [],
         subtotal: '$0.00',
