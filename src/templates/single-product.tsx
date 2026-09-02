@@ -9,6 +9,8 @@ import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
 import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
+import ProductReviews from '@/components/pdp/ProductReviews';
+import type { KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
 import Nutrition from '@/components/pdp/Nutrition';
 import FlavorsBox from '@/components/pdp/FlavorsBox';
@@ -51,6 +53,7 @@ export interface SingleProductExtras {
   availableOptionsBase: string;
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
+  reviewData: KlaviyoReviewsResult;
 }
 
 type SingleProductProps = FaustTemplateProps<SingleProductData, SingleProductExtras>;
@@ -70,6 +73,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   availableOptionsBase = '',
   bundleSlug = null,
   nutrition = null,
+  reviewData = null,
 }) => {
   const product = data?.product as Product | undefined;
   const [quantity, setQuantity] = useState(1);
@@ -735,6 +739,8 @@ const SingleProduct: React.FC<SingleProductProps> & {
         </div>
 
         <ProductDescription product={product} />
+
+        <ProductReviews summary={reviewData?.summary} reviews={reviewData?.reviews || []} />
 
         <ProductFaqs details={product.productDetails} noidName={product.blendTypes?.nodes?.[0]?.name} />
 
