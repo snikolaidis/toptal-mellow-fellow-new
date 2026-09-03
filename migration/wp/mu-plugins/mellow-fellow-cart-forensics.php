@@ -47,6 +47,55 @@ function mf_forensics_log( $message ) {
     );
 }
 
+/* ── performance profiling: every Store API request gets a PERF line ──
+ * duration | db query count | peak memory | how many times cart totals
+ * were recalculated (plugins re-triggering calculate_totals is the classic
+ * WooCommerce cart bottleneck — each recalc re-runs every coupon/pricing
+ * plugin). Slow requests (>1s) are logged as PERF-SLOW for easy filtering. */
+
+$GLOBALS['mf_forensics_perf'] = array( 'start' => 0.0, 'calc_totals' => 0, 'route' => '' );
+
+add_filter( 'rest_pre_dispatch', function ( $result, $server, $request ) {
+    $route = $request->get_route();
+    if ( strpos( $route, '/wc/store/' ) === 0 ) {
+        $GLOBALS['mf_forensics_perf']['start']       = microtime( true );
+        $GLOBALS['mf_forensics_perf']['calc_totals'] = 0;
+        $GLOBALS['mf_forensics_perf']['route']       = $request->get_method() . ' ' . $route;
+    }
+    return $result;
+}, 1, 3 );
+
+add_action( 'woocommerce_after_calculate_totals', function () {
+    if ( ! empty( $GLOBALS['mf_forensics_perf']['start'] ) ) {
+        $GLOBALS['mf_forensics_perf']['calc_totals']++;
+    }
+}, 999 );
+
+add_filter( 'rest_post_dispatch', function ( $response, $server, $request ) {
+    $perf = $GLOBALS['mf_forensics_perf'];
+    if ( empty( $perf['start'] ) || strpos( $request->get_route(), '/wc/store/' ) !== 0 ) {
+        return $response;
+    }
+    $GLOBALS['mf_forensics_perf']['start'] = 0.0;
+
+    $duration_ms = (int) round( ( microtime( true ) - $perf['start'] ) * 1000 );
+    $queries     = isset( $GLOBALS['wpdb'] ) ? (int) $GLOBALS['wpdb']->num_queries : 0;
+    $memory_mb   = round( memory_get_peak_usage( true ) / 1048576, 1 );
+    $status      = is_object( $response ) && method_exists( $response, 'get_status' ) ? $response->get_status() : '?';
+
+    if ( function_exists( 'wc_get_logger' ) ) {
+        $tag = $duration_ms > 1000 ? 'PERF-SLOW' : 'PERF';
+        wc_get_logger()->info(
+            sprintf(
+                '%s: %s -> %s | %dms | queries=%d | mem=%sMB | calc_totals=%d',
+                $tag, $perf['route'], $status, $duration_ms, $queries, $memory_mb, $perf['calc_totals']
+            ),
+            array( 'source' => 'mf-cart-forensics' )
+        );
+    }
+    return $response;
+}, 999, 3 );
+
 add_action( 'woocommerce_removed_coupon', function ( $code ) {
     mf_forensics_log( "COUPON REMOVED: $code" );
 }, 1 );
