@@ -207,19 +207,22 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
 
 // ─── Admin: save collection meta from the BOGO form ─────────────────────────
 
+// The BOGO screen does not post its form normally. Smart Coupons serialises the
+// whole form into a single `data` parameter and runs parse_str() on it, then hands
+// the result to this hook. So these fields are in $data and never in $_POST, and
+// reading $_POST here wrote an empty string on every save, which is why a chosen
+// collection never stuck and the "no product restrictions" warning kept showing.
 add_action('wt_sc_before_bogo_coupon_save', function ($coupon_id, $data) {
-    $collections = '';
-    if (!empty($_POST['_mf_bogo_collections_arr']) && is_array($_POST['_mf_bogo_collections_arr'])) {
-        $collections = implode(',', array_map('sanitize_text_field', $_POST['_mf_bogo_collections_arr']));
-    }
+    $read = function ($key) use ($data) {
+        $value = $data[$key] ?? ($_POST[$key] ?? null);
+        if (empty($value) || !is_array($value)) {
+            return '';
+        }
+        return implode(',', array_map('sanitize_text_field', $value));
+    };
 
-    $exclude = '';
-    if (!empty($_POST['_mf_bogo_exclude_collections_arr']) && is_array($_POST['_mf_bogo_exclude_collections_arr'])) {
-        $exclude = implode(',', array_map('sanitize_text_field', $_POST['_mf_bogo_exclude_collections_arr']));
-    }
-
-    update_post_meta($coupon_id, '_mf_bogo_collections', $collections);
-    update_post_meta($coupon_id, '_mf_bogo_exclude_collections', $exclude);
+    update_post_meta($coupon_id, '_mf_bogo_collections', $read('_mf_bogo_collections_arr'));
+    update_post_meta($coupon_id, '_mf_bogo_exclude_collections', $read('_mf_bogo_exclude_collections_arr'));
 }, 10, 2);
 
 // ─── Standard Coupons: collection fields on Usage Restriction tab ──────────
