@@ -1,7 +1,8 @@
 import '../../../faust.config';
 import { WordPressTemplate, getWordPressProps } from '@faustwp/core';
-import { gql } from '@apollo/client';
+import { ApolloError, gql } from '@apollo/client';
 import { GetStaticPaths, GetStaticProps } from 'next';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
@@ -106,6 +107,72 @@ async function fetchExtrasAndReviews(wpUrl: string, slug: string) {
   return { extras, reviewData };
 }
 
+// Not a heuristic: Next assigns this before forking the workers that prerender
+// pages, never assigns it in the server runtime, and branches on it itself.
+const isBuildPhase = () => process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
+
+const BUILD_FALLTHROUGH_REVALIDATE = 10;
+
+// Two attempts rather than collections' three: a PDP render measures 4 to 11s
+// against production, so a third would push a recoverable blip past the 30s
+// Atlas ceiling and turn it into a hard timeout.
+const RENDER_ATTEMPTS = 2;
+const RENDER_DEADLINE_MS = 20_000;
+const RETRY_BASE_MS = 250;
+const RETRY_CAP_MS = 2_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function backoffWithFullJitter(attempt: number): number {
+  return Math.random() * Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** (attempt - 1));
+}
+
+/**
+ * An ApolloError carrying GraphQL errors but no network error is the document
+ * being rejected at validation: a field the schema does not have, usually an ACF
+ * group or taxonomy renamed in wp-admin. A second attempt gets the same
+ * rejection, so it fails immediately rather than spending the deadline.
+ */
+function isDeterministic(error: unknown): boolean {
+  return error instanceof ApolloError && error.graphQLErrors.length > 0 && !error.networkError;
+}
+
+async function withRenderRetry<T>(slug: string, run: () => Promise<T>): Promise<T> {
+  const startedAt = Date.now();
+  let lastError: Error = new Error('render never attempted');
+
+  for (let attempt = 1; attempt <= RENDER_ATTEMPTS; attempt++) {
+    const attemptStartedAt = Date.now();
+
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (isDeterministic(error)) throw lastError;
+    }
+
+    if (attempt === RENDER_ATTEMPTS) break;
+
+    const waitMs = backoffWithFullJitter(attempt);
+    // The next attempt costs roughly what the last one did, which is the only
+    // estimate available, so a render that already ran long does not get one.
+    const projectedMs = Date.now() - startedAt + waitMs + (Date.now() - attemptStartedAt);
+
+    if (projectedMs >= RENDER_DEADLINE_MS) {
+      throw new Error(`${lastError.message} (deadline reached after ${attempt} attempt(s))`);
+    }
+
+    console.warn(
+      `[Product] "${slug}": attempt ${attempt} of ${RENDER_ATTEMPTS} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
+    );
+    await sleep(waitMs);
+  }
+
+  throw lastError;
+}
+
 export const getStaticProps: GetStaticProps = async (ctx) => {
   const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
   const slug = typeof ctx.params?.slug === 'string' ? ctx.params.slug : '';
@@ -118,11 +185,14 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   try {
     const [menuClient, result, { extras, reviewData }, nutrition] = await Promise.all([
       prefetchMenus(),
-      getWordPressProps({ ctx: seedCtx, revalidate: 60 }),
+      withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: 60 })),
       fetchExtrasAndReviews(wpUrl, slug),
       fetchProductNutrition(slug),
     ]);
 
+    // The only evidence this route gets that WordPress genuinely has no such
+    // product: `getWordPressProps` returns its own notFound when the seed query
+    // succeeded and `nodeByUri` came back empty. Anything else throws instead.
     if (!('props' in result) || !result.props) {
       return result;
     }
@@ -131,8 +201,18 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
     mergeMenuState(result.props, menuClient);
     return result;
   } catch (error) {
-    console.error('[Product] getWordPressProps failed:', error);
-    return { notFound: true, revalidate: 30 };
+    console.error(`[Product] failed to build "${slug}":`, error);
+
+    // A throw at build time would fail the whole deploy, which is worse than one
+    // product arriving late, so the build path leaves it to `fallback: 'blocking'`.
+    if (isBuildPhase()) {
+      return { notFound: true, revalidate: BUILD_FALLTHROUGH_REVALIDATE };
+    }
+
+    // Deliberately not `notFound`: ISR then keeps serving the last good copy
+    // rather than pinning "this product does not exist" onto whichever instance
+    // happened to render during the outage.
+    throw error;
   }
 };
 
