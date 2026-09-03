@@ -530,15 +530,18 @@ function mf_acu_render_order_metabox( $post_or_order ) {
                 btn.disabled = true;
                 btn.textContent = 'Pushing...';
                 msg.style.display = 'none';
-                // Fetch a FRESH wp_rest nonce at click time (core rest-nonce
-                // endpoint) — nonces embedded at page render go stale when the
-                // admin session changes and made the button fail unpredictably.
-                fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>?action=rest-nonce', {
+                // Build URLs from the origin the admin is ACTUALLY browsing.
+                // In headless WP, rest_url()/home_url() can resolve to the
+                // frontend domain — sending this request cross-origin where
+                // admin cookies never arrive ("cookie check failed" forever).
+                // Also fetch a FRESH wp_rest nonce at click time; page-render
+                // nonces go stale when the admin session changes.
+                fetch(window.location.origin + '/wp-admin/admin-ajax.php?action=rest-nonce', {
                     credentials: 'same-origin'
                 })
                 .then(function(r){ return r.text(); })
                 .then(function(freshNonce){
-                    return fetch('<?php echo esc_url( rest_url( 'mf-acu/v1/push/' . (int) $oid ) ); ?>', {
+                    return fetch(window.location.origin + '/wp-json/mf-acu/v1/push/<?php echo (int) $oid; ?>', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {'X-WP-Nonce': freshNonce}
