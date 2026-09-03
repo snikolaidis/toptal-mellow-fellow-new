@@ -535,13 +535,20 @@ function mf_acu_render_order_metabox( $post_or_order ) {
                     credentials: 'same-origin',
                     headers: {'X-WP-Nonce': '<?php echo wp_create_nonce( 'wp_rest' ); ?>'}
                 })
-                .then(function(r){ return r.json(); })
-                .then(function(data){
+                .then(function(r){ return r.json().then(function(data){ return { status: r.status, data: data }; }); })
+                .then(function(res){
+                    var data = res.data;
                     if (data.pushed === 'yes' || data.status === 'success') {
                         msg.style.color = '#00a32a';
                         msg.textContent = 'Pushed: ' + (data.nbr || 'success');
                         msg.style.display = 'block';
                         setTimeout(function(){ location.reload(); }, 1500);
+                    } else if (res.status === 401 || res.status === 403 || (data.code && data.code.indexOf('cookie') !== -1)) {
+                        msg.style.color = '#d63638';
+                        msg.textContent = 'Your admin session changed since this page loaded. Refresh the page and try again.';
+                        msg.style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Push to Acumatica Now';
                     } else {
                         msg.style.color = '#d63638';
                         msg.textContent = data.error || data.message || 'Push failed';
