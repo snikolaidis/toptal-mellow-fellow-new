@@ -292,6 +292,9 @@ export default function CartPage() {
                 {cart.appliedCoupons.map((coupon) => (
                   <span key={coupon.code} className={styles.appliedCoupon}>
                     {coupon.code}
+                    {coupon.discountAmount && parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0') > 0 && (
+                      <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeCoupon(coupon.code)}
@@ -309,16 +312,20 @@ export default function CartPage() {
               <span>Subtotal</span>
               <span>{cart.subtotal}</span>
             </div>
-            {cart.discountTotal && parseFloat(cart.discountTotal.replace(/[^0-9.-]/g, '')) > 0 && (
-              <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
-                <span>Discount</span>
-                <span>-{cart.discountTotal}</span>
-              </div>
-            )}
+            {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
+              const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');
+              if (amt <= 0) return null;
+              return (
+                <div key={coupon.code} className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
+                  <span>{coupon.code.toUpperCase()}</span>
+                  <span>-{coupon.discountAmount}</span>
+                </div>
+              );
+            })}
             {cart.shippingTotal && (
               <div className={styles.summaryRow}>
                 <span>Shipping</span>
-                <span>{cart.shippingTotal}</span>
+                <span>{parseFloat(cart.shippingTotal.replace(/[^0-9.]/g, '') || '0') === 0 ? 'Free' : cart.shippingTotal}</span>
               </div>
             )}
             <div className={`${styles.summaryRow} ${styles.summaryRowTotal}`}>

@@ -232,10 +232,31 @@ async function applyCouponsToSession(
   }
 }
 
+interface ServerCartItemTotal {
+  productId: number;
+  variationId: number;
+  quantity: number;
+  lineSubtotal: number;
+  lineTotal: number;
+}
+
+interface ServerCartCoupon {
+  code: string;
+  discount: number;
+}
+
+interface ServerCart {
+  total: number;
+  discountTotal: number;
+  shipping: number;
+  itemTotals: ServerCartItemTotal[];
+  coupons: ServerCartCoupon[];
+}
+
 async function getServerCartTotal(
   req: NextApiRequest,
   _authToken?: string
-): Promise<{ total: number; discountTotal: number; shipping: number } | null> {
+): Promise<ServerCart | null> {
   const cookies = req.headers.cookie || '';
   const cartToken = extractCartToken(cookies);
 
@@ -261,10 +282,25 @@ async function getServerCartTotal(
     const discountTotal = (parseInt(String(cart.totals?.total_discount ?? '0'), 10) || 0) / divisor;
     const shipping = (parseInt(String(cart.totals?.total_shipping ?? '0'), 10) || 0) / divisor;
 
+    const itemTotals: ServerCartItemTotal[] = (cart.items || []).map((item: any) => ({
+      productId: item.id || 0,
+      variationId: item.variation?.[0]?.attribute ? (item.id || 0) : 0,
+      quantity: item.quantity || 1,
+      lineSubtotal: (parseInt(String(item.totals?.line_subtotal ?? '0'), 10) || 0) / divisor,
+      lineTotal: (parseInt(String(item.totals?.line_total ?? '0'), 10) || 0) / divisor,
+    }));
+
+    const coupons: ServerCartCoupon[] = (cart.coupons || []).map((c: any) => ({
+      code: String(c.code || ''),
+      discount: (parseInt(String(c.totals?.total_discount ?? '0'), 10) || 0) / divisor,
+    }));
+
     return {
       total,
       discountTotal: isNaN(discountTotal) ? 0 : discountTotal,
       shipping: isNaN(shipping) ? 0 : shipping,
+      itemTotals,
+      coupons,
     };
   } catch (err) {
     console.error('[Checkout] Failed to read Store API cart total:', err);
@@ -481,7 +517,8 @@ async function createOrderWithPayment(
   body: CheckoutRequest,
   transactionId: string,
   customerId: number,
-  authToken?: string
+  authToken?: string,
+  serverCart?: ServerCart | null
 ): Promise<PendingOrder> {
   const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
   const faustSecret = process.env.FAUST_SECRET_KEY;
@@ -539,6 +576,8 @@ async function createOrderWithPayment(
       { key: '_payment_method_title', value: 'Credit Card (Authorize.net)' },
     ],
     realIdCheckId: body.realIdCheckId,
+    cartItemTotals: serverCart?.itemTotals || [],
+    cartCoupons: serverCart?.coupons || [],
   };
 
   console.log('[Checkout][RealID] orderPayload.realIdCheckId =', JSON.stringify(orderPayload.realIdCheckId));
@@ -883,8 +922,21 @@ async function checkoutHandler(
 
     await applyCouponsToSession(req, body.coupons || [], authToken);
 
-    const serverCart = await getServerCartTotal(req, authToken);
+    let serverCart = await getServerCartTotal(req, authToken);
     const browserAmount = parseMoney(body.amount);
+
+    if (serverCart && body.items) {
+      const serverQty = serverCart.itemTotals.reduce((s, t) => s + t.quantity, 0);
+      const bodyQty = (body.items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+      if (serverQty !== bodyQty) {
+        console.warn(
+          `[Checkout] Cart sync mismatch: server cart has ${serverQty} items, checkout sent ${bodyQty}. ` +
+          `Falling back to browser amount.`
+        );
+        serverCart = null;
+      }
+    }
+
     let chargeAmount = serverCart ? serverCart.total : browserAmount;
 
     if (isNaN(chargeAmount) || chargeAmount <= 0) {
@@ -930,7 +982,7 @@ async function checkoutHandler(
     if (subscriptionScheme) {
       order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, subscriptionLines, subscriptionShipping, authToken);
     } else {
-      order = await createOrderWithPayment(req, body, transactionId, authCtx?.userId || 0, authToken);
+      order = await createOrderWithPayment(req, body, transactionId, authCtx?.userId || 0, authToken, serverCart);
     }
     orderId = order.databaseId.toString();
     orderNumber = order.orderNumber;
@@ -942,6 +994,23 @@ async function checkoutHandler(
           `${orderNumber} total is ${orderTotal.toFixed(2)}. Voiding transaction ${transactionId}.`
       );
       const voided = await voidPayment(transactionId);
+
+      // Cancel the order so it doesn't persist as "processing"
+      try {
+        const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+        const faustSecret = process.env.FAUST_SECRET_KEY;
+        await fetch(`${wpBaseUrl}/wp-json/wc/v3/orders/${order.databaseId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${faustSecret}`,
+          },
+          body: JSON.stringify({ status: 'failed' }),
+        });
+        console.log(`[Checkout] Order ${orderNumber} set to failed after mismatch.`);
+      } catch (cancelErr) {
+        console.error(`[Checkout] Could not cancel order ${orderNumber}:`, cancelErr);
+      }
 
       await storage.createReconciliationEntry({
         orderId,

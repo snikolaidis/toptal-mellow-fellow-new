@@ -1,4 +1,10 @@
-import { MegaMenuFeaturedLink, NavMenuItem, isRealHref } from '@/graphql/queries/menus';
+import {
+  MegaMenuFeaturedLink,
+  NavMenuItem,
+  PromotionalSlide,
+  SlideImageEdge,
+  isRealHref,
+} from '@/graphql/queries/menus';
 import { ProductIcon, getProductIcon } from '@/lib/productIcons';
 import { MoodPill } from '@/types/mood';
 
@@ -31,6 +37,10 @@ const PROMOTED: Array<{ slug: string; icon?: string }> = [
 
 const LEARN_LABEL = 'learn';
 
+// The deals row is an ordinary Featured entry and nothing in the payload marks
+// it out, so it is keyed on the label.
+const DEAL_LABEL = 'limited time deals';
+
 export interface MegaMenuProduct {
   key: string;
   slug: string;
@@ -51,6 +61,30 @@ export interface MegaMenuFeatured {
   label: string;
   url: string;
   target?: string;
+  isDeal: boolean;
+}
+
+export interface MegaMenuSlideImage {
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
+}
+
+export interface MegaMenuSlide {
+  key: string;
+  caption?: string;
+  url?: string;
+  target?: string;
+  desktop?: MegaMenuSlideImage;
+  tablet?: MegaMenuSlideImage;
+  mobile?: MegaMenuSlideImage;
+  /**
+   * What <img> shows when no <source> matches. Mobile first, matching the hero
+   * block: reversing it makes a phone with no mobile asset download the 2560px
+   * desktop file.
+   */
+  fallback: MegaMenuSlideImage;
 }
 
 export interface MegaMenuModel {
@@ -63,6 +97,7 @@ export interface MegaMenuModel {
   moods: MoodPill[];
   cannabinoids: typeof CANNABINOID_LINKS;
   featured: MegaMenuFeatured[];
+  slides: MegaMenuSlide[];
   /** Mobile only: Primary's Learn children, which have no mega menu entry. */
   learn: NavMenuItem[];
 }
@@ -72,13 +107,31 @@ interface BuildArgs {
   navItems: NavMenuItem[];
   moods: MoodPill[];
   featuredLinks: MegaMenuFeaturedLink[];
+  promotionalSlides: PromotionalSlide[];
 }
+
+const slideImage = (
+  edge: SlideImageEdge | null | undefined,
+  caption?: string
+): MegaMenuSlideImage | undefined => {
+  const node = edge?.node;
+  if (!node?.sourceUrl) return undefined;
+  return {
+    src: node.sourceUrl,
+    // altText is empty on every slide today, so the caption is the only text
+    // the image can offer a screen reader.
+    alt: node.altText || caption || '',
+    width: node.mediaDetails?.width ?? undefined,
+    height: node.mediaDetails?.height ?? undefined,
+  };
+};
 
 export function buildMegaMenuModel({
   productItems,
   navItems,
   moods,
   featuredLinks,
+  promotionalSlides,
 }: BuildArgs): MegaMenuModel {
   const products: MegaMenuProduct[] = [];
   for (const item of productItems) {
@@ -100,7 +153,41 @@ export function buildMegaMenuModel({
     const url = entry.link?.url;
     const label = entry.label || entry.link?.title;
     if (!label || !url || url === '#') return [];
-    return [{ label, url, target: entry.link?.target || undefined }];
+    return [
+      {
+        label,
+        url,
+        target: entry.link?.target || undefined,
+        isDeal: label.trim().toLowerCase() === DEAL_LABEL,
+      },
+    ];
+  });
+
+  // A row with no image at all would still take a dot and leave the frame
+  // blank, so it is dropped rather than rendered empty.
+  const slides: MegaMenuSlide[] = promotionalSlides.flatMap((slide, i) => {
+    const caption = slide.caption?.trim() || undefined;
+    const desktop = slideImage(slide.desktopImage, caption);
+    const tablet = slideImage(slide.tabletImage, caption);
+    const mobile = slideImage(slide.mobileImage, caption);
+    const fallback = mobile ?? tablet ?? desktop;
+    if (!fallback) return [];
+
+    const url = slide.link?.url;
+    return [
+      {
+        // Index included: the same collection can legitimately be promoted
+        // twice, and nothing else on the row is guaranteed unique.
+        key: `${i}-${fallback.src}`,
+        caption,
+        url: url && url !== '#' ? url : undefined,
+        target: slide.link?.target || undefined,
+        desktop,
+        tablet,
+        mobile,
+        fallback,
+      },
+    ];
   });
 
   const catchAllChildren =
@@ -130,6 +217,7 @@ export function buildMegaMenuModel({
     moods,
     cannabinoids: CANNABINOID_LINKS,
     featured,
+    slides,
     learn,
   };
 }

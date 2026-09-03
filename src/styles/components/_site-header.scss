@@ -1,4 +1,5 @@
 @use "bulma/sass/utilities/mixins";
+@use '../mixins' as *;
 
 // The mobile panel portals to <body>, so it is not a descendant of .site-header
 // and cannot inherit these.
@@ -109,23 +110,50 @@
   --sh-mega-pad-top: 25px;
   --sh-mega-pad-bottom: 28px;
   --sh-mega-pad-start: 43px;
-  --sh-mega-gutter: 306px;
+  // Derived, so the columns and the sub panel stay in step as it flexes. A
+  // fixed gutter is what made the columns absorb every pixel the window lost.
+  --sh-mega-gutter: calc(var(--sh-mega-sub-w) + var(--sh-mega-sub-clear));
   --sh-mega-col-gap: 74px;
   --sh-mega-heading-size: 1.5rem;
   --sh-mega-heading-line: 1.75rem;
   --sh-mega-heading-gap: 1rem;
   --sh-mega-duration: 0.16s;
 
-  --sh-mega-sub-w: 278.6px;
+  // Measured, not chosen. At 198.6 the longest heading (Shop All Products,
+  // 142.4 of 144.6) and the longest link (Mellow Fellow Wellness, 152.5 of
+  // 166.6) each fit on one line, so the panel has no content width to give.
+  --sh-mega-sub-content: 198.6px;
+  --sh-mega-sub-pad-min: 20px;
+  --sh-mega-sub-pad-max: 32px;
+  --sh-mega-sub-w: clamp(
+    calc(var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-min) * 2),
+    calc(
+      var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-min) * 2 +
+        (100vw - 1024px) * 0.0577
+    ),
+    calc(var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-max) * 2)
+  );
+  // Clear space between the last column's edge and the divider.
+  --sh-mega-sub-clear: 43.4px;
   --sh-mega-sub-pad-top: 25px;
   --sh-mega-sub-pad-bottom: 28px;
-  --sh-mega-sub-pad-inline: 40px;
+  // Absorbs the flex, which is what keeps the content box at 198.6.
+  --sh-mega-sub-pad-inline: calc(
+    (var(--sh-mega-sub-w) - var(--sh-mega-sub-content)) / 2
+  );
   --sh-mega-sub-gap: 24px;
-  --sh-mega-sub-bg: rgba(243, 244, 240, 0.5);
+  // Was rgba(243, 244, 240, 0.5), opaque now because the carousel bleeds under
+  // this panel and read straight through it. Sampled from a screenshot, not
+  // calculated: the arithmetic gives 249 249.5 247.5, the browser 249 249 247.
+  --sh-mega-sub-bg: #f9f9f7;
   --sh-mega-sub-link-hover-bg: #eceee9;
   --sh-mega-catch-all-pad: 16px;
   --sh-mega-text-link-size: 0.875rem;
   --sh-mega-text-gap: 0.75rem;
+  --sh-mega-feature-size: 12px;
+  --sh-mega-feature-line: 16px;
+  --sh-mega-feature-tracking: 1.2px;
+  --sh-mega-feature-gap: 8px;
   --sh-mega-type-size: 0.875rem;
   --sh-mega-type-line: 1.25rem;
   --sh-mega-item-gap: 0.125rem;
@@ -137,6 +165,23 @@
   --sh-mega-link-hover-bg: var(--sh-nav-cream);
   --sh-mega-divider-gap: 0.75rem;
   --sh-mega-plain-size: 0.875rem;
+
+  --sh-promo-gap: 0.625rem;
+  --sh-promo-gap-after: 1rem;
+  --sh-promo-radius: 8px;
+  --sh-promo-w: 204.6px;
+  --sh-promo-h: 192px;
+  --sh-promo-ratio: 1 / 1;
+  --sh-promo-bg: var(--sh-nav-cream);
+  --sh-promo-caption-size: 0.75rem;
+  --sh-promo-caption-line: 1rem;
+  --sh-promo-caption-pad-block: 0.375rem;
+  --sh-promo-caption-pad-inline: 0.5rem;
+  --sh-promo-scrim: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.65),
+    rgba(0, 0, 0, 0)
+  );
 
   --sh-mobile-w: 293px;
   --sh-mobile-radius: 20px;
@@ -150,8 +195,6 @@
   --sh-mobile-row-pad: 0.25rem;
   --sh-mobile-icon-box: 28px;
   --sh-mobile-feature-tracking: 0.04em;
-  // main now carries --color-alert-red at this value; point at it after rebase.
-  --sh-mobile-deal-color: #a92331;
   --sh-mobile-control: 24px;
   // Tap target, not the glyph. The frame's 12.01 by 13.988 is the svg below.
   --sh-mobile-chevron: 24px;
@@ -814,6 +857,29 @@
   gap: var(--sh-mega-text-gap);
 }
 
+.site-header__mega-list--feature {
+  gap: var(--sh-mega-feature-gap);
+}
+
+// These sit after .site-header__mega-text-link so they win on equal
+// specificity. Moving them above it silently reverts the type and the colour.
+.site-header__mega-feature {
+  align-self: stretch;
+  font-family: var(--font-family-body);
+  font-size: var(--sh-mega-feature-size);
+  font-weight: 700;
+  line-height: var(--sh-mega-feature-line);
+  letter-spacing: var(--sh-mega-feature-tracking);
+  text-transform: uppercase;
+}
+
+// Repeated under :hover because that rule is more specific than a bare class
+// and would otherwise drop the red mid-hover.
+.site-header__mega-feature--deal,
+.site-header__mega-feature--deal:hover {
+  color: var(--color-alert-red);
+}
+
 .site-header__mega-link {
   display: flex;
   align-items: center;
@@ -856,6 +922,90 @@
   display: block;
   margin-block: var(--sh-mega-divider-gap);
   border-top: 1px solid var(--sh-mega-rule);
+}
+
+.site-header__promo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sh-promo-gap);
+  margin-bottom: var(--sh-promo-gap-after);
+}
+
+.site-header__promo:last-child {
+  margin-bottom: 0;
+}
+
+.site-header__promo-link {
+  display: block;
+  border-radius: var(--sh-promo-radius);
+}
+
+.site-header__promo-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  border-radius: var(--sh-promo-radius);
+  background-color: var(--sh-promo-bg);
+  aspect-ratio: var(--sh-promo-ratio);
+}
+
+// A class rather than a descendant `img`, so it beats the `img { height: auto }`
+// in globals.scss. Without the win the box collapses to the file's own height.
+.site-header__promo-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.site-header__promo-caption {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding: var(--sh-promo-caption-pad-block) var(--sh-promo-caption-pad-inline);
+  background-image: var(--sh-promo-scrim);
+  color: #fff;
+  font-family: var(--font-family-body);
+  font-size: var(--sh-promo-caption-size);
+  font-weight: 600;
+  line-height: var(--sh-promo-caption-line);
+  text-align: center;
+}
+
+.site-header__promo-dots {
+  @include slider-dots;
+}
+
+.site-header__promo-dot {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+
+  @include slider-dot;
+
+  &.is-active {
+    @include slider-dot-active;
+  }
+}
+
+// Wider than its column on purpose, so it bleeds equally either side. Past the
+// clear space the sub panel covers the bleed, which is why that panel's fill
+// has to be opaque.
+.site-header__promo--mega .site-header__promo-frame {
+  width: var(--sh-promo-w);
+  height: var(--sh-promo-h);
+  aspect-ratio: auto;
+}
+
+.site-header__promo--mobile {
+  --sh-promo-radius: 12px;
+  --sh-promo-caption-size: 0.875rem;
+  --sh-promo-caption-line: 1.25rem;
+  --sh-promo-caption-pad-block: 0.5rem;
+  --sh-promo-caption-pad-inline: 0.75rem;
+  --sh-promo-gap-after: var(--sh-mobile-heading-gap);
 }
 
 .site-header__mobile-modal {
@@ -1074,7 +1224,7 @@
 }
 
 .site-header__mobile-feature--deal {
-  color: var(--sh-mobile-deal-color);
+  color: var(--color-alert-red);
 }
 
 // Its own rule, not the desktop divider: a fixed width in the panel's warm

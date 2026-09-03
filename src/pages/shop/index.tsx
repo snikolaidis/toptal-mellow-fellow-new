@@ -1,24 +1,26 @@
 import { GetStaticProps } from 'next';
+import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { gql } from '@apollo/client';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
-import ShopSidebar from '@/components/shop/ShopSidebar';
-import MobileFilters from '@/components/shop/MobileFilters';
+import FilterPanel from '@/components/shop/filters/FilterPanel';
+import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
 import Link from 'next/link';
 import { Product } from '@/types/woocommerce';
 import {
   SORT_OPTIONS,
-  FILTER_GROUPS,
   FilterGroup,
   ActiveFilters,
-  isHiddenTerm,
+  buildFacetGroups,
+  parseFilterParams,
+  filtersToQueryParams,
 } from '@/lib/shopFilters';
-import { getAllProducts as getAllProductsFromDb } from '@/lib/product-queries';
 import styles from '@/styles/pages/shop.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
 
 const sortOptions: SelectOption[] = SORT_OPTIONS;
 const PAGE_SIZE = 24;
@@ -81,55 +83,6 @@ interface TaxonomyMap {
   productIndex: Record<number, Record<string, string[]>>;
 }
 
-const TAXONOMY_FIELDS: Record<string, string> = {
-  productType: 'mfproductTypes',
-  size: 'size',
-  strainType: 'strainTypes',
-  blendType: 'blendTypes',
-  cannabinoid: 'cannabinoids',
-  singleCannabinoid: 'singleCannabinoid',
-  mg: 'mG',
-  pieces: 'pieces',
-};
-
-/** Build a TaxonomyMap from product raw data (for Postgres path). */
-function buildTaxMapFromProducts(products: Product[]): TaxonomyMap {
-  const terms: TaxonomyMap['terms'] = {};
-  const productIndex: TaxonomyMap['productIndex'] = {};
-
-  for (const product of products) {
-    const p = product as any;
-    const pid = p.databaseId;
-    if (!productIndex[pid]) productIndex[pid] = {};
-
-    for (const [filterKey, fieldName] of Object.entries(TAXONOMY_FIELDS)) {
-      const nodes = p?.[fieldName]?.nodes || [];
-      if (!terms[filterKey]) terms[filterKey] = [];
-
-      for (const term of nodes) {
-        if (!term?.slug) continue;
-
-        // Product index
-        if (!productIndex[pid][filterKey]) productIndex[pid][filterKey] = [];
-        if (!productIndex[pid][filterKey].includes(term.slug)) {
-          productIndex[pid][filterKey].push(term.slug);
-        }
-
-        // Terms list
-        const existing = terms[filterKey].find((t) => t.slug === term.slug);
-        if (existing) {
-          existing.count++;
-          if (!existing.productIds.includes(pid)) existing.productIds.push(pid);
-        } else {
-          terms[filterKey].push({ name: term.name, slug: term.slug, count: 1, productIds: [pid] });
-        }
-      }
-    }
-  }
-
-  return { terms, productIndex };
-}
-
 interface ShopPageProps {
   allProducts: Product[];
   taxMap: TaxonomyMap | null;
@@ -137,9 +90,46 @@ interface ShopPageProps {
 }
 
 export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPageProps) {
+  const router = useRouter();
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
+
+  // Applied here, not seeded into useState like search does. This is
+  // getStaticProps, so the prerendered HTML cannot know the query string and
+  // seeding from window.location would be a hydration mismatch. router.query is
+  // empty until isReady on a static page, hence the guard.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const urlFilters = parseFilterParams(router.query as Record<string, string | string[] | undefined>);
+    const urlSort = typeof router.query.sort === 'string' ? router.query.sort : 'default';
+    if (Object.keys(urlFilters).length > 0) setActiveFilters(urlFilters);
+    if (urlSort !== 'default') setSelectedSort(urlSort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
+  const syncUrl = useCallback(
+    (filters: ActiveFilters, sort: string) => {
+      router.push(
+        { pathname: '/shop', query: filtersToQueryParams(filters, sort) },
+        undefined,
+        { shallow: true }
+      );
+    },
+    [router]
+  );
+
+  // popstate fires on back and forward only, never on our own router.push.
+  useEffect(() => {
+    const onPopState = () => {
+      const params = Object.fromEntries(new URLSearchParams(window.location.search));
+      setActiveFilters(parseFilterParams(params));
+      setSelectedSort(typeof params.sort === 'string' && params.sort ? params.sort : 'default');
+      setPage(1);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   const bestSellerSet = useMemo(() => new Set(bestSellerIds), [bestSellerIds]);
 
   // Enrich products with taxonomy names from the map (for ProductCard display)
@@ -193,37 +183,15 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
     return sortProducts(result, selectedSort, bestSellerSet);
   }, [enrichedProducts, activeFilters, selectedSort, taxMap, bestSellerSet]);
 
-  // Derive filter groups — when filters active, narrow to filtered results
   const filterGroups: FilterGroup[] = useMemo(() => {
     if (!taxMap) return [];
-
-    return FILTER_GROUPS.map((fg) => {
-      const termsData = (taxMap.terms[fg.key] || []).filter((t) => !isHiddenTerm(fg.key, t));
-      const hasActiveFilters = Object.keys(activeFilters).length > 0;
-
-      if (!hasActiveFilters) {
-        // No filters: show all terms with global counts
-        return {
-          key: fg.key,
-          label: fg.label,
-          terms: termsData.map((t) => ({ name: t.name, slug: t.slug, count: t.count })),
-        };
-      }
-
-      // Filters active: only show terms that appear in filtered results
-      const filteredIds = new Set(filteredProducts.map((p) => p.databaseId));
-      return {
-        key: fg.key,
-        label: fg.label,
-        terms: termsData
-          .map((t) => {
-            const matchCount = t.productIds.filter((id) => filteredIds.has(id)).length;
-            return { name: t.name, slug: t.slug, count: matchCount };
-          })
-          .filter((t) => t.count > 0),
-      };
-    });
-  }, [taxMap, activeFilters, filteredProducts]);
+    return buildFacetGroups(
+      enrichedProducts,
+      activeFilters,
+      (product, facetKey) => taxMap.productIndex[product.databaseId]?.[facetKey] || [],
+      (facetKey) => taxMap.terms[facetKey] || [],
+    );
+  }, [taxMap, activeFilters, enrichedProducts]);
 
   const startIdx = (page - 1) * PAGE_SIZE;
   const pageProducts = filteredProducts.slice(startIdx, startIdx + PAGE_SIZE);
@@ -238,23 +206,31 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleFilterChange = useCallback((key: string, slugs: string[]) => {
-    setActiveFilters((prev) => {
-      const next = { ...prev, [key]: slugs };
-      for (const k of Object.keys(next)) {
-        if (next[k].length === 0) delete next[k];
-      }
-      return next;
-    });
-    setPage(1);
-  }, []);
-
-  const handleSortChange = useCallback((option: SelectOption | null) => {
-    if (option) {
-      setSelectedSort(option.value);
+  const handleFilterChange = useCallback(
+    (key: string, slugs: string[]) => {
+      setActiveFilters((prev) => {
+        const next = { ...prev, [key]: slugs };
+        for (const k of Object.keys(next)) {
+          if (next[k].length === 0) delete next[k];
+        }
+        syncUrl(next, selectedSort);
+        return next;
+      });
       setPage(1);
-    }
-  }, []);
+    },
+    [syncUrl, selectedSort]
+  );
+
+  const handleSortChange = useCallback(
+    (option: SelectOption | null) => {
+      if (option) {
+        setSelectedSort(option.value);
+        setPage(1);
+        syncUrl(activeFilters, option.value);
+      }
+    },
+    [syncUrl, activeFilters]
+  );
 
   const goToPage = (p: number) => {
     setPage(p);
@@ -290,11 +266,14 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
           </nav>
 
           <div className={styles.shopLayout}>
-            <div className={styles.sidebarWrapper}>
-              <ShopSidebar
+            <div className={`${styles.sidebarWrapper} ${styles.filterCard}`}>
+              <FilterPanel
                 filterGroups={filterGroups}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
+                sortValue={currentSort}
+                onSortChange={handleSortChange}
+                showSort={false}
               />
             </div>
 
@@ -319,14 +298,16 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
                 </div>
               </div>
 
-              <MobileFilters
+              <FilterSheet
                 filterGroups={filterGroups}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 productCount={filteredProducts.length}
+                sortValue={currentSort}
+                onSortChange={handleSortChange}
               />
 
-              <div className='products-grid'>
+              <div className={gridStyles.productGrid}>
                 {pageProducts.length > 0 ? (
                   pageProducts.map((product, index) => (
                     <ProductCard key={product.id} product={product} priority={index < 12} />
@@ -368,27 +349,9 @@ export const getStaticProps: GetStaticProps = async () => {
       .then((r) => r.json())
       .then((d) => (d.products || []).map((p: any) => p.databaseId as number))
       .catch(() => [] as number[]);
-    // Try Postgres first (fast, <20ms for all products)
-    const pgProducts = await getAllProductsFromDb();
-
-    if (pgProducts && pgProducts.length > 0) {
-      console.log(`[Shop] Loaded ${pgProducts.length} products from Postgres`);
-
-      // Build taxonomy map from the products' raw data
-      const taxMap = buildTaxMapFromProducts(pgProducts);
-      const bestSellerIds = await bestSellerIdsPromise;
-
-      const menuClient = await menuClientPromise;
-      const result = {
-        props: { allProducts: pgProducts, taxMap, bestSellerIds } as Record<string, any>,
-        revalidate: 120,
-      };
-      mergeMenuState(result.props, menuClient);
-      return result;
-    }
-
-    // Fallback: GraphQL batched fetch (slow, may 504)
-    console.log('[Shop] Postgres unavailable, falling back to GraphQL');
+    // Batched GraphQL fetch. A failed batch is caught below and the page is
+    // built from whatever arrived, so a slow backend costs products rather than
+    // the whole page.
     const client = getClient();
     let allProducts: Product[] = [];
     let after: string | null = null;

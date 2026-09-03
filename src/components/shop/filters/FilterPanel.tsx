@@ -19,6 +19,9 @@ interface FilterPanelProps {
   sortValue: SortValue;
   onSortChange: (option: SortValue) => void;
   showHeader?: boolean;
+  // Keep the default true: FilterSheet renders this panel, and mobile sort
+  // lives in the sheet. Flipping it would remove sort from mobile entirely.
+  showSort?: boolean;
 }
 
 export function clearAllFilters(
@@ -77,6 +80,7 @@ export default function FilterPanel({
   sortValue,
   onSortChange,
   showHeader = true,
+  showSort = true,
 }: FilterPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // The panel renders in the sidebar and in the sheet, so the sort radios need
@@ -158,42 +162,48 @@ export default function FilterPanel({
         </div>
       )}
 
-      <div className={styles.group}>
-        <button
-          type="button"
-          className={styles.groupHeader}
-          onClick={() => toggleGroup(SORT_KEY, sorted)}
-          aria-expanded={sortExpanded}
-        >
-          <span className={styles.groupLabel}>Sort By</span>
-          <Chevron open={sortExpanded} />
-        </button>
+      {showSort && (
+        <div className={styles.group}>
+          <button
+            type="button"
+            className={styles.groupHeader}
+            onClick={() => toggleGroup(SORT_KEY, sorted)}
+            aria-expanded={sortExpanded}
+          >
+            <span className={styles.groupLabel}>Sort By</span>
+            <Chevron open={sortExpanded} />
+          </button>
 
-        {sortExpanded && (
-          <div className={styles.terms}>
-            {SORT_OPTIONS.map((option) => (
-              <label key={option.value} className={styles.term}>
-                <input
-                  type="radio"
-                  name={sortName}
-                  className={styles.termInput}
-                  checked={sortValue.value === option.value}
-                  onChange={() => onSortChange(option)}
-                />
-                <ControlBox />
-                <span className={styles.termName}>{option.label}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+          {sortExpanded && (
+            <div className={styles.terms}>
+              {SORT_OPTIONS.map((option) => (
+                <label key={option.value} className={styles.term}>
+                  <input
+                    type="radio"
+                    name={sortName}
+                    className={styles.termInput}
+                    checked={sortValue.value === option.value}
+                    onChange={() => onSortChange(option)}
+                  />
+                  <ControlBox />
+                  <span className={styles.termName}>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {filterGroups.map((group) => {
         const activeSlugs = activeFilters[group.key] || [];
-        const visibleTerms = group.terms.filter((t) => t.count > 0);
+        // Zero count terms stay, greyed, so the facet keeps its shape. A
+        // checked term is never disabled at zero, or it could not be unticked.
+        const visibleTerms = group.terms;
+        const selectableTerms = visibleTerms.filter((t) => t.count > 0);
 
-        // Carried from ShopSidebar, which is still live on three other pages.
-        if (visibleTerms.length < 2 && activeSlugs.length === 0) return null;
+        // A single term filters nothing, so the group is hidden unless it is
+        // already the active one. Behaviour inherited from ShopSidebar.
+        if (selectableTerms.length < 2 && activeSlugs.length === 0) return null;
 
         const expanded = isOpen(group.key, activeSlugs.length > 0);
         const control = getGroupControl(group.key);
@@ -219,12 +229,16 @@ export default function FilterPanel({
               <div className={`${styles.terms} ${styles.pills}`}>
                 {visibleTerms.map((term) => {
                   const active = activeSlugs.includes(term.slug);
+                  const unavailable = term.count === 0 && !active;
                   return (
                     <button
                       key={term.slug}
                       type="button"
-                      className={`${styles.pill} ${active ? styles.pillActive : ''}`}
+                      className={`${styles.pill} ${active ? styles.pillActive : ''} ${
+                        unavailable ? styles.pillDisabled : ''
+                      }`}
                       aria-pressed={active}
+                      disabled={unavailable}
                       onClick={() => toggleTerm(group.key, term.slug)}
                     >
                       {term.name}
@@ -236,19 +250,27 @@ export default function FilterPanel({
 
             {expanded && control === 'checkbox' && (
               <div className={styles.terms}>
-                {visibleTerms.map((term) => (
-                  <label key={term.slug} className={styles.term}>
-                    <input
-                      type="checkbox"
-                      className={styles.termInput}
-                      checked={activeSlugs.includes(term.slug)}
-                      onChange={() => toggleTerm(group.key, term.slug)}
-                    />
-                    <ControlBox />
-                    <span className={styles.termName}>{term.name}</span>
-                    <span className={styles.termCount}>{term.count}</span>
-                  </label>
-                ))}
+                {visibleTerms.map((term) => {
+                  const active = activeSlugs.includes(term.slug);
+                  const unavailable = term.count === 0 && !active;
+                  return (
+                    <label
+                      key={term.slug}
+                      className={`${styles.term} ${unavailable ? styles.termDisabled : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className={styles.termInput}
+                        checked={active}
+                        disabled={unavailable}
+                        onChange={() => toggleTerm(group.key, term.slug)}
+                      />
+                      <ControlBox />
+                      <span className={styles.termName}>{term.name}</span>
+                      <span className={styles.termCount}>{term.count}</span>
+                    </label>
+                  );
+                })}
               </div>
             )}
           </div>

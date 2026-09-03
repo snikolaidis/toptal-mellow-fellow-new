@@ -4,11 +4,122 @@ export const PRODUCTS_INDEX = 'products';
 export const COLLECTIONS_INDEX = 'collections';
 export const POSTS_INDEX = 'posts';
 
-// Each fetch builds its own signal, never a shared one hoisted out of the loop:
-// the clock starts when the signal is constructed, so a single signal would give
-// every page of a paginated fetch one shared budget. Products pages four times
-// and takes 22 to 29 seconds in total, so that would abort it partway through.
+// Per request, not per page fetch. Each attempt builds its own signal, never a
+// shared one hoisted out of the loop: the clock starts when the signal is
+// constructed, so a single signal would give every page one shared budget.
+// Products pages five times at 456 products and runs 25 to 48 seconds in total,
+// so a shared signal would abort it partway through.
 const REQUEST_TIMEOUT_MS = 30_000;
+
+// A healthy page returns in about 5 seconds, so 30s is already a 6x margin and
+// the failures are transient spikes rather than a budget that is too tight.
+// Three attempts, because the one observed failure recovered within seconds.
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_MS = 1_000;
+const RETRY_CAP_MS = 8_000;
+
+// Ceiling across every attempt of every page in one index, so a backend that is
+// slow rather than down cannot sit in backoff indefinitely. Sized well clear of
+// a healthy run and well inside the workflow's timeout-minutes: 10.
+const FETCH_DEADLINE_MS = 5 * 60_000;
+
+/** A failure no later attempt can resolve. Thrown to skip the retry loop. */
+class NonRetryableError extends Error {}
+
+// 5xx, 408 and 429 can plausibly differ next time. Every other 4xx is
+// deterministic: retrying a malformed query or a rejected key three times only
+// burns the deadline and buries the message that says what is actually wrong.
+function isRetryableStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
+
+// Retry-After is either delta-seconds or an HTTP date.
+function parseRetryAfter(header: string | null): number | null {
+  if (!header) return null;
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1_000);
+  }
+
+  const at = Date.parse(header);
+  return Number.isNaN(at) ? null : Math.max(0, at - Date.now());
+}
+
+// Full jitter: uniform across the whole window rather than clustered near the
+// ceiling, so retries from concurrent callers do not line up.
+function backoffWithFullJitter(attempt: number): number {
+  const ceiling = Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** (attempt - 1));
+  return Math.random() * ceiling;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * POST a GraphQL document, retrying only failures a later attempt could
+ * resolve. Shared by all three indexes.
+ *
+ * A 200 carrying a GraphQL `errors` array is not retried here: the caller
+ * inspects it, because a rejected field is deterministic.
+ */
+async function postGraphQL<T>(
+  wpUrl: string,
+  query: string,
+  variables: Record<string, unknown>,
+  deadlineAt: number,
+  label: string
+): Promise<T> {
+  let lastError: Error = new Error('request never attempted');
+
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    let retryAfterMs: number | null = null;
+
+    try {
+      const res = await fetch(`${wpUrl}/graphql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+
+      if (res.ok) {
+        return (await res.json()) as T;
+      }
+
+      if (!isRetryableStatus(res.status)) {
+        throw new NonRetryableError(`WordPress responded ${res.status}`);
+      }
+
+      retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
+      lastError = new Error(`WordPress responded ${res.status}`);
+    } catch (error) {
+      if (error instanceof NonRetryableError) throw error;
+      // Timeout, transport failure, or an unparseable body. All worth retrying.
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+
+    if (attempt === RETRY_ATTEMPTS) break;
+
+    const waitMs = retryAfterMs ?? backoffWithFullJitter(attempt);
+
+    if (Date.now() + waitMs >= deadlineAt) {
+      throw new Error(
+        `${lastError.message} (deadline reached after ${attempt} attempt(s))`
+      );
+    }
+
+    // Logged, never swallowed: a backend degrading toward failure has to stay
+    // visible in the run output even on nights the retry succeeds.
+    console.warn(
+      `  ${label}: attempt ${attempt} of ${RETRY_ATTEMPTS} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
+    );
+    await sleep(waitMs);
+  }
+
+  throw new Error(`${lastError.message} (after ${RETRY_ATTEMPTS} attempts)`);
+}
 
 const PRODUCT_FIELDS = `
   id databaseId name slug type date
@@ -294,21 +405,19 @@ interface ProductsResponse {
 
 async function fetchAllProducts(wpUrl: string): Promise<ProductDocument[]> {
   const documents: ProductDocument[] = [];
+  const deadlineAt = Date.now() + FETCH_DEADLINE_MS;
   let after: string | null = null;
 
   for (;;) {
-    const res: Response = await fetch(`${wpUrl}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: PRODUCT_QUERY, variables: { first: 100, after } }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-
-    if (!res.ok) {
-      throw new Error(`WordPress responded ${res.status}`);
-    }
-
-    const json = (await res.json()) as ProductsResponse;
+    // Annotated, not inferred: `after` is reassigned from this value further
+    // down, which is enough for the checker to call the inference circular.
+    const json: ProductsResponse = await postGraphQL<ProductsResponse>(
+      wpUrl,
+      PRODUCT_QUERY,
+      { first: 100, after },
+      deadlineAt,
+      'products'
+    );
 
     if (json.errors && json.errors.length > 0) {
       throw new Error(`GraphQL error: ${json.errors.map((e) => e.message).join('; ')}`);
@@ -363,21 +472,17 @@ function isSlugLikeName(name: string, slug: string): boolean {
 
 async function fetchAllCollections(wpUrl: string): Promise<CollectionDocument[]> {
   const documents: CollectionDocument[] = [];
+  const deadlineAt = Date.now() + FETCH_DEADLINE_MS;
   let after: string | null = null;
 
   for (;;) {
-    const res: Response = await fetch(`${wpUrl}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: COLLECTION_QUERY, variables: { first: 100, after } }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-
-    if (!res.ok) {
-      throw new Error(`WordPress responded ${res.status}`);
-    }
-
-    const json = (await res.json()) as CollectionsResponse;
+    const json: CollectionsResponse = await postGraphQL<CollectionsResponse>(
+      wpUrl,
+      COLLECTION_QUERY,
+      { first: 100, after },
+      deadlineAt,
+      'collections'
+    );
 
     if (json.errors && json.errors.length > 0) {
       throw new Error(`GraphQL error: ${json.errors.map((e) => e.message).join('; ')}`);
@@ -469,21 +574,17 @@ function stripPostHtml(html: string): string {
 
 async function fetchAllPosts(wpUrl: string): Promise<PostDocument[]> {
   const documents: PostDocument[] = [];
+  const deadlineAt = Date.now() + FETCH_DEADLINE_MS;
   let after: string | null = null;
 
   for (;;) {
-    const res: Response = await fetch(`${wpUrl}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: POST_QUERY, variables: { first: 100, after } }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-
-    if (!res.ok) {
-      throw new Error(`WordPress responded ${res.status}`);
-    }
-
-    const json = (await res.json()) as PostsResponse;
+    const json: PostsResponse = await postGraphQL<PostsResponse>(
+      wpUrl,
+      POST_QUERY,
+      { first: 100, after },
+      deadlineAt,
+      'posts'
+    );
 
     if (json.errors && json.errors.length > 0) {
       throw new Error(`GraphQL error: ${json.errors.map((e) => e.message).join('; ')}`);

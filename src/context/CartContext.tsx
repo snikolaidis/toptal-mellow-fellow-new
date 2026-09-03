@@ -649,16 +649,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setError(null);
     const seq = nextSeq();
     setIsMutating(true);
+    writeCachedCart(null);
     try {
       const storeCart = await clearStoreCart();
       if (isStaleSeq(seq)) return;
       if (storeCart) {
         setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       }
-      writeCachedCart(null);
     } catch (err) {
       logError('CartContext.clearCart', err);
-      writeCachedCart(null);
       setCart({
         items: [],
         subtotal: '$0.00',
@@ -689,7 +688,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       return true;
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return false; }
+      if (isSessionExpired(err)) {
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart && freshCart.items.length > 0) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+            setError('Could not apply coupon. Please try again.');
+            return false;
+          }
+        } catch {}
+        resetToEmptyCart();
+        return false;
+      }
       logError('CartContext.applyCoupon', err, { code });
       const message = extractCartErrorMessage(
         err,
@@ -711,7 +721,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (isSessionExpired(err)) {
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart && freshCart.items.length > 0) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+            setError('Could not remove coupon. Please try again.');
+            return;
+          }
+        } catch {}
+        resetToEmptyCart();
+        return;
+      }
       if (err instanceof StoreApiError && (err.status === 409 || err.status === 400)) {
         // Coupon already removed or deleted server-side — sync local state
         try {

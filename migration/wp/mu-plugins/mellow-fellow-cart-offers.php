@@ -12,6 +12,7 @@ function mf_cart_offers_defaults() {
         'free_gift_threshold' => 100,
         'free_gift_max_price' => 10,
         'free_gift_mode' => 'select',
+        'free_gift_collections' => '',
     );
 }
 
@@ -44,6 +45,7 @@ function mf_cart_offers_sanitize($input) {
         'free_gift_max_price' => max(0, (float) ($input['free_gift_max_price'] ?? 10)),
         'free_gift_mode' => in_array(($input['free_gift_mode'] ?? 'select'), array('select', 'automatic'), true)
             ? $input['free_gift_mode'] : 'select',
+        'free_gift_collections' => sanitize_text_field($input['free_gift_collections'] ?? ''),
     );
 }
 
@@ -81,6 +83,13 @@ function mf_cart_offers_render_page() {
                         <option value="automatic" <?php selected($o['free_gift_mode'], 'automatic'); ?>>Automatic</option>
                     </select></td>
                 </tr>
+                <tr>
+                    <th scope="row"><label for="mf_fgcoll">Free gift collections</label></th>
+                    <td>
+                        <input name="mf_cart_offers[free_gift_collections]" id="mf_fgcoll" type="text" class="regular-text" value="<?php echo esc_attr($o['free_gift_collections']); ?>" />
+                        <p class="description">Comma-separated collection slugs. Only products from these collections will be offered as free gifts. Leave empty for all eligible products.</p>
+                    </td>
+                </tr>
             </table>
             <?php submit_button(); ?>
         </form>
@@ -108,6 +117,7 @@ add_action('rest_api_init', function () {
                     'threshold' => (float) $o['free_gift_threshold'],
                     'maxGiftPrice' => (float) $o['free_gift_max_price'],
                     'mode' => $o['free_gift_mode'],
+                    'collections' => array_filter(array_map('trim', explode(',', $o['free_gift_collections'] ?? ''))),
                 ),
                 'tiers' => $tiers,
             ), 200);

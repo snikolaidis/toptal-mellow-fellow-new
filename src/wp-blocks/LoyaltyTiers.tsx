@@ -49,13 +49,16 @@ function BadgeIcon({ node }: { node?: MediaItem | null }) {
 
 export default function LoyaltyTiers(props: LoyaltyTiersProps) {
   const data = props.loyaltyTiers;
+  const tiers = data?.tiers ?? [];
 
-  if (!data) {
+  // The tiers grid is the section. With the group present but the repeater empty this
+  // used to render the heading and CTA over a blank grid, which reads as broken; the
+  // section is better off not showing at all.
+  if (!data || tiers.length === 0) {
     return null;
   }
 
   const { badgeIcon, badgeText, heading, body, cta, tiersTitle } = data;
-  const tiers = data.tiers ?? [];
   const badgeNode = badgeIcon?.node;
 
   return (

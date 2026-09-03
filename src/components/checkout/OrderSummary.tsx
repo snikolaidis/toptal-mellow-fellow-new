@@ -309,6 +309,9 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             {cart.appliedCoupons.map((coupon) => (
               <div key={coupon.code} className={styles.appliedCoupon}>
                 <span className={styles.couponCode}>{coupon.code}</span>
+                {coupon.discountAmount && parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0') > 0 && (
+                  <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
+                )}
                 <button
                   type="button"
                   onClick={() => handleRemoveCoupon(coupon.code)}
@@ -348,8 +351,10 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             <div className={styles.row}>
               <dt>Shipping</dt>
               <dd>
-                {cart.shippingTotal && parseFloat(cart.shippingTotal.replace(/[^0-9.-]/g, '')) > 0
-                  ? cart.shippingTotal
+                {cart.shippingTotal
+                  ? parseFloat(cart.shippingTotal.replace(/[^0-9.-]/g, '')) > 0
+                    ? cart.shippingTotal
+                    : cart.chosenShippingMethods?.length ? 'Free' : 'Calculated at checkout'
                   : 'Calculated at checkout'}
               </dd>
             </div>
@@ -361,12 +366,16 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
               </div>
             )}
 
-            {hasDiscount && (
-              <div className={`${styles.row} ${styles.rowDiscount}`}>
-                <dt>Coupon Discount</dt>
-                <dd>-{cart.discountTotal}</dd>
-              </div>
-            )}
+            {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
+              const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');
+              if (amt <= 0) return null;
+              return (
+                <div key={coupon.code} className={`${styles.row} ${styles.rowDiscount}`}>
+                  <dt>{coupon.code.toUpperCase()}</dt>
+                  <dd>-{coupon.discountAmount}</dd>
+                </div>
+              );
+            })}
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>

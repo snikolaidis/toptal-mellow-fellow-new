@@ -28,6 +28,37 @@
   }
 }
 
+// The hero slider's pagination treatment: a 7px dot that grows into a 33px
+// pill. Declarations rather than a shared class, because the hero slider is
+// Swiper and the mega menu carousel is hand rolled, so there is no selector
+// both can use.
+@mixin slider-dot {
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  opacity: 1;
+  border-radius: 999px;
+  background-color: var(--color-brown-40);
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+@mixin slider-dot-active {
+  width: 33px;
+  background-color: var(--color-teal-85);
+  transform: none;
+}
+
+@mixin slider-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+
+  @include medium-up {
+    gap: 12px;
+  }
+}
+
 @mixin swiper-product-carousel {
   .swiper {
     .swiper-wrapper {

@@ -15,7 +15,7 @@ add_action( 'rest_api_init', function () {
         'callback'            => 'mf_get_product',
         'permission_callback' => '__return_true',
         'args'                => [
-            'slug' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_title' ],
+            'slug' => [ 'required' => true, 'type' => 'string', 'validate_callback' => 'rest_validate_request_arg', 'sanitize_callback' => 'sanitize_title' ],
         ],
     ] );
 } );
@@ -195,12 +195,12 @@ function mf_get_product( WP_REST_Request $request ) {
     // -----------------------------------------------------------------------
     // 5. Unique selling props (with ACF icon)
     // -----------------------------------------------------------------------
-    $usp_terms = wp_get_post_terms( $pid, 'unique-selling-prop', [ 'fields' => 'all' ] );
+    $usp_terms = wp_get_post_terms( $pid, 'unique-selling-props', [ 'fields' => 'all' ] );
     $usp_nodes = [];
     if ( ! is_wp_error( $usp_terms ) ) {
         foreach ( $usp_terms as $usp ) {
             $usp_acf = function_exists( 'get_fields' )
-                ? ( get_fields( 'unique-selling-prop_' . $usp->term_id ) ?: [] )
+                ? ( get_fields( 'unique-selling-props_' . $usp->term_id ) ?: [] )
                 : [];
             $icon_val = $usp_acf['prop_icon'] ?? $usp_acf['propIcon'] ?? null;
             $icon     = null;
@@ -212,6 +212,14 @@ function mf_get_product( WP_REST_Request $request ) {
                     if ( $iu ) {
                         $icon = [ 'sourceUrl' => $iu, 'altText' => get_post_meta( (int) $icon_val, '_wp_attachment_image_alt', true ) ?: '' ];
                     }
+                } elseif ( is_string( $icon_val ) ) {
+                    // The "Prop Icon" ACF field's return_format is "url", so get_fields()
+                    // hands back a plain URL string rather than an array or attachment ID.
+                    $attachment_id = attachment_url_to_postid( $icon_val );
+                    $icon = [
+                        'sourceUrl' => $icon_val,
+                        'altText'   => $attachment_id ? ( get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ?: '' ) : '',
+                    ];
                 }
             }
             $usp_nodes[] = [

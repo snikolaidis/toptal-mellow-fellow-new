@@ -120,6 +120,10 @@ export interface ProductACF {
   newNoidBlendDescriptionsReference?: { node?: { id?: string; title?: string } | null } | null;
   // Relationship (multi-select posts)
   badges?: { nodes?: Array<{ id?: string; title?: string }> } | null;
+  // Mellow Meter fields — meterType is an ACF checkbox field (GraphQL
+  // returns [String]), meterValue is a plain number field.
+  meterType?: string[] | null;
+  meterValue?: number | null;
 }
 
 export interface Product {
