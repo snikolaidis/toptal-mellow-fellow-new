@@ -91,16 +91,6 @@ export interface ProductTaxonomyTerm {
   extraTaxonomyFields?: { propIcon?: AcfImageField | null } | null;
 }
 
-// MellowMeter terms carry their icon under a dedicated ACF group
-// (`mellowMeterFields`) rather than `extraTaxonomyFields`, so they don't fit
-// ProductTaxonomyTerm.
-export interface MellowMeterTerm {
-  id: string;
-  name: string;
-  slug?: string;
-  mellowMeterFields?: { meterImage?: AcfImageField | null } | null;
-}
-
 // The `Nutrition` ACF group, attached directly to products (not nested under
 // productDetails). Fields are ACF "text" (not "number"), so GraphQL returns
 // them as strings, not floats. `carbs` also exists on the group but is
@@ -177,9 +167,8 @@ export interface Product {
   strainNames?: { nodes: Array<{ name: string }> };
   flavors?: { nodes: ProductTaxonomyTerm[] };
   vibes?: { nodes: ProductTaxonomyTerm[] };
-  feelings?: { nodes: ProductTaxonomyTerm[] };
+  effects?: { nodes: ProductTaxonomyTerm[] };
   settings?: { nodes: ProductTaxonomyTerm[] };
-  mellowMeters?: { nodes: MellowMeterTerm[] };
   blendTypes?: { nodes: Array<{ name: string }> };
   productLines?: { nodes: Array<{ name: string }> };
   size?: { nodes: Array<{ name: string }> };

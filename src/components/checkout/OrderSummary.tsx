@@ -1,7 +1,7 @@
 import { useState, useCallback, ReactNode } from 'react';
 import Image from 'next/image';
 import { useCart, groupCartItems } from '@/context/CartContext';
-import { CloseIcon } from '@/components/icons';
+import { CloseIcon, ChevronDownIcon } from '@/components/icons';
 import LoyaltyCheckoutRewards from '@/components/LoyaltyCheckoutRewards';
 import styles from './OrderSummary.module.css';
 
@@ -52,6 +52,20 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
   const [mutatingKey, setMutatingKey] = useState<string | null>(null);
+  // Bundle groups collapse to a single "name - price" row by default; this
+  // tracks which ones the shopper has expanded to see the bundled products.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroupExpanded = useCallback((mergeKey: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(mergeKey)) {
+        next.delete(mergeKey);
+      } else {
+        next.add(mergeKey);
+      }
+      return next;
+    });
+  }, []);
 
   const handleUpdateQuantity = useCallback(async (key: string, quantity: number) => {
     setMutatingKey(key);
@@ -112,14 +126,39 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             (sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
           );
           const hasDiscount = discountedTotal < originalTotal - 0.005;
+          const isExpanded = expandedGroups.has(group.mergeKey);
+          const panelId = `bundle-panel-${group.mergeKey}`;
 
           return (
-            <li key={group.bundleId} className={styles.bundleGroup}>
+            <li key={group.mergeKey} className={styles.bundleGroup}>
               <div className={styles.bundleGroupHeader}>
-                <span className={styles.bundleGroupName}>
-                  {group.bundleName}{group.quantity > 1 ? ` ×${group.quantity}` : ''}
-                </span>
+                <button
+                  type="button"
+                  className={styles.bundleToggleBtn}
+                  onClick={() => toggleGroupExpanded(group.mergeKey)}
+                  aria-expanded={isExpanded}
+                  aria-controls={panelId}
+                >
+                  <span className={`${styles.bundleChevron} ${isExpanded ? styles.bundleChevronExpanded : ''}`}>
+                    <ChevronDownIcon />
+                  </span>
+                  <span className={styles.bundleGroupName}>
+                    {group.bundleName}{group.quantity > 1 ? ` ×${group.quantity}` : ''}
+                  </span>
+                </button>
+                <div className={styles.bundleHeaderPrices}>
+                  {hasDiscount && (
+                    <span className={styles.bundleOriginalTotal}>
+                      ${originalTotal.toFixed(2)}
+                    </span>
+                  )}
+                  <span className={styles.bundleDiscountedTotal}>
+                    ${discountedTotal.toFixed(2)}
+                  </span>
+                </div>
               </div>
+              {isExpanded && (
+              <div id={panelId} className={styles.bundleItemsPanel}>
               {group.representativeItems
                 .reduce<{ item: typeof group.representativeItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
                   (acc, item) => {
@@ -169,16 +208,8 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
                     </div>
                   );
                 })}
-              <div className={styles.bundleGroupFooter}>
-                {hasDiscount && (
-                  <span className={styles.bundleOriginalTotal}>
-                    ${originalTotal.toFixed(2)}
-                  </span>
-                )}
-                <span className={styles.bundleDiscountedTotal}>
-                  ${discountedTotal.toFixed(2)}
-                </span>
               </div>
+              )}
             </li>
           );
         })}

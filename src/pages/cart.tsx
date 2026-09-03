@@ -1,14 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Layout from '@/components/Layout';
 import { useCart, groupCartItems } from '@/context/CartContext';
+import { ChevronDownIcon } from '@/components/icons';
 import styles from '@/styles/pages/cart.module.css';
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, cartReady, bundleNames, bundleDiscounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
+  // Bundle groups collapse to a single "name - price" row by default; this
+  // tracks which ones the shopper has expanded to see the bundled products.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroupExpanded = useCallback((mergeKey: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(mergeKey)) {
+        next.delete(mergeKey);
+      } else {
+        next.add(mergeKey);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!cart && !isLoading) {
@@ -70,10 +85,25 @@ export default function CartPage() {
                     .reduce((sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0);
                   const discountedTotal = discount > 0 ? originalTotal * (1 - discount / 100) : originalTotal;
                   const bundleTotal = discountedTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+                  const isExpanded = expandedGroups.has(group.mergeKey);
+                  const panelId = `bundle-panel-${group.mergeKey}`;
                   return (
-                    <React.Fragment key={group.bundleId}>
+                    <React.Fragment key={group.mergeKey}>
                       <tr className={styles.bundleHeaderRow}>
-                        <td className={styles.bundleHeaderCell}>{group.bundleName}</td>
+                        <td className={styles.bundleHeaderCell}>
+                          <button
+                            type="button"
+                            className={styles.bundleToggleBtn}
+                            onClick={() => toggleGroupExpanded(group.mergeKey)}
+                            aria-expanded={isExpanded}
+                            aria-controls={group.representativeItems.map((item) => `${panelId}-${item.key}`).join(' ')}
+                          >
+                            <span className={`${styles.bundleChevron} ${isExpanded ? styles.bundleChevronExpanded : ''}`}>
+                              <ChevronDownIcon />
+                            </span>
+                            {group.bundleName}
+                          </button>
+                        </td>
                         <td></td>
                         <td>
                           <div className={styles.quantitySelector}>
@@ -122,8 +152,8 @@ export default function CartPage() {
                         </td>
                         <td></td>
                       </tr>
-                      {group.representativeItems.map((item) => (
-                        <tr key={item.key} className={styles.bundleItemRow}>
+                      {isExpanded && group.representativeItems.map((item) => (
+                        <tr key={item.key} id={`${panelId}-${item.key}`} className={styles.bundleItemRow}>
                           <td>
                             <div className={styles.productCell}>
                               {item.product.image && (

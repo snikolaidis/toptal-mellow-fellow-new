@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useCart, groupCartItems } from '@/context/CartContext';
-import { MellowFellowLogo, CloseIcon } from '@/components/icons';
+import { MellowFellowLogo, CloseIcon, ChevronDownIcon } from '@/components/icons';
 import type { Product } from '@/types/woocommerce';
 import {
   buildRecsCacheKey,
@@ -54,6 +54,20 @@ export default function CartDrawer() {
   const [removingKey, setRemovingKey] = useState<string | null>(null);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [removingGroupKey, setRemovingGroupKey] = useState<string | null>(null);
+  // Bundle groups collapse to a single "name - price" row by default; this
+  // tracks which ones the shopper has expanded to see the bundled products.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroupExpanded = useCallback((mergeKey: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(mergeKey)) {
+        next.delete(mergeKey);
+      } else {
+        next.add(mergeKey);
+      }
+      return next;
+    });
+  }, []);
 
   const handleUpdateQuantity = useCallback(async (key: string, qty: number) => {
     setUpdatingKey(key);
@@ -231,10 +245,34 @@ export default function CartDrawer() {
                   const discount = bundleDiscounts[group.bundleId] ?? 0;
 
                   const isRemoving = removingGroupKey === group.mergeKey;
+                  const isExpanded = expandedGroups.has(group.mergeKey);
+                  const panelId = `bundle-panel-${group.mergeKey}`;
                   return (
                     <li key={group.mergeKey} className={`${styles.bundleGroup} ${isRemoving ? styles.bundleGroupPending : ''}`}>
                       <div className={styles.bundleGroupHeader}>
-                        <span className={styles.bundleGroupName}>{group.bundleName}</span>
+                        <button
+                          type="button"
+                          className={styles.bundleToggleBtn}
+                          onClick={() => toggleGroupExpanded(group.mergeKey)}
+                          aria-expanded={isExpanded}
+                          aria-controls={panelId}
+                        >
+                          <span className={`${styles.bundleChevron} ${isExpanded ? styles.bundleChevronExpanded : ''}`}>
+                            <ChevronDownIcon />
+                          </span>
+                          <span className={styles.bundleGroupName}>{group.bundleName}</span>
+                        </button>
+                        <div className={styles.bundleHeaderRight}>
+                        <div className={styles.bundleTotalPrices}>
+                          {hasDiscount && (
+                            <span className={styles.bundleOriginalTotal}>
+                              ${originalTotal.toFixed(2)}
+                            </span>
+                          )}
+                          <span className={styles.bundleDiscountedTotal}>
+                            ${discountedTotal.toFixed(2)}
+                          </span>
+                        </div>
                         <button
                           className={styles.bundleDeleteBtn}
                           disabled={isRemoving}
@@ -254,7 +292,10 @@ export default function CartDrawer() {
                             </svg>
                           )}
                         </button>
+                        </div>
                       </div>
+                      {isExpanded && (
+                      <div id={panelId} className={styles.bundleItemsPanel}>
                       {group.representativeItems
                         .reduce<{ item: typeof group.representativeItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
                           (acc, item) => {
@@ -314,6 +355,8 @@ export default function CartDrawer() {
                             </div>
                           );
                         })}
+                      </div>
+                      )}
                       <div className={styles.bundleFooter}>
                         <div className={styles.quantityControls}>
                           <button
@@ -346,16 +389,6 @@ export default function CartDrawer() {
                           >
                             +
                           </button>
-                        </div>
-                        <div className={styles.bundleTotalPrices}>
-                          {hasDiscount && (
-                            <span className={styles.bundleOriginalTotal}>
-                              ${originalTotal.toFixed(2)}
-                            </span>
-                          )}
-                          <span className={styles.bundleDiscountedTotal}>
-                            ${discountedTotal.toFixed(2)}
-                          </span>
                         </div>
                       </div>
                     </li>

@@ -112,7 +112,7 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         }
       }
     }
-    feelings {
+    effects {
       nodes {
         id
         name
@@ -134,21 +134,6 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
         extraTaxonomyFields {
           propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
             node {
               sourceUrl
               altText
@@ -338,7 +323,7 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         }
       }
     }
-    feelings {
+    effects {
       nodes {
         id
         name
@@ -360,21 +345,6 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         slug
         extraTaxonomyFields {
           propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
             node {
               sourceUrl
               altText
@@ -526,7 +496,7 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         }
       }
     }
-    feelings {
+    effects {
       nodes {
         id
         name
@@ -548,21 +518,6 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         slug
         extraTaxonomyFields {
           propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
             node {
               sourceUrl
               altText
@@ -710,7 +665,7 @@ export const GROUP_PRODUCT_FIELDS = gql`
         }
       }
     }
-    feelings {
+    effects {
       nodes {
         id
         name
@@ -732,21 +687,6 @@ export const GROUP_PRODUCT_FIELDS = gql`
         slug
         extraTaxonomyFields {
           propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    mellowMeters {
-      nodes {
-        id
-        name
-        slug
-        mellowMeterFields {
-          meterImage {
             node {
               sourceUrl
               altText
