@@ -316,6 +316,29 @@ function mf_acu_rest_request( $method, $endpoint, $session, $body = null ) {
             }
         }
 
+        // Line-level errors: Acumatica attaches errors to individual Details
+        // rows (e.g. "UOM: Unit conversion is missing" on one line). Surface
+        // them with the line's InventoryID so failures name the product
+        // instead of only the top-level summary.
+        if ( isset( $json['Details'] ) && is_array( $json['Details'] ) ) {
+            foreach ( $json['Details'] as $idx => $line ) {
+                if ( ! is_array( $line ) ) continue;
+                $line_errs = array();
+                if ( ! empty( $line['error'] ) && is_string( $line['error'] ) ) {
+                    $line_errs[] = $line['error'];
+                }
+                foreach ( $line as $f => $v ) {
+                    if ( is_array( $v ) && isset( $v['error'] ) ) {
+                        $line_errs[] = $f . ': ' . $v['error'];
+                    }
+                }
+                if ( $line_errs ) {
+                    $inv = isset( $line['InventoryID']['value'] ) ? $line['InventoryID']['value'] : 'row ' . ( $idx + 1 );
+                    $field_errors[] = 'Line ' . $inv . ' — ' . implode( '; ', array_unique( $line_errs ) );
+                }
+            }
+        }
+
         $full_msg = 'HTTP ' . $code . ': ' . $msg;
         if ( $inner ) $full_msg .= ' [Inner: ' . $inner . ']';
         if ( $field_errors ) $full_msg .= ' [Fields: ' . implode( '; ', $field_errors ) . ']';
