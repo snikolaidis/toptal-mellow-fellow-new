@@ -530,10 +530,19 @@ function mf_acu_render_order_metabox( $post_or_order ) {
                 btn.disabled = true;
                 btn.textContent = 'Pushing...';
                 msg.style.display = 'none';
-                fetch('<?php echo esc_url( rest_url( 'mf-acu/v1/push/' . (int) $oid ) ); ?>', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {'X-WP-Nonce': '<?php echo wp_create_nonce( 'wp_rest' ); ?>'}
+                // Fetch a FRESH wp_rest nonce at click time (core rest-nonce
+                // endpoint) — nonces embedded at page render go stale when the
+                // admin session changes and made the button fail unpredictably.
+                fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>?action=rest-nonce', {
+                    credentials: 'same-origin'
+                })
+                .then(function(r){ return r.text(); })
+                .then(function(freshNonce){
+                    return fetch('<?php echo esc_url( rest_url( 'mf-acu/v1/push/' . (int) $oid ) ); ?>', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {'X-WP-Nonce': freshNonce}
+                    });
                 })
                 .then(function(r){ return r.json().then(function(data){ return { status: r.status, data: data }; }); })
                 .then(function(res){
