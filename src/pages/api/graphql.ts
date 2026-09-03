@@ -1,16 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { parse } from 'graphql';
 import type { ASTNode, SelectionSetNode } from 'graphql';
-import {
-  makeHttpRequest,
-  extractWcSessionToken,
-  createWcSessionCookie,
-  extractCartToken,
-  createCartTokenCookie,
-  sanitizeCookies,
-  WC_SESSION_HEADER,
-  CART_TOKEN_HEADER,
-} from '@/lib/http';
+import { makeHttpRequest } from '@/lib/http';
 import { withRateLimitOnly } from '@/lib/middleware';
 
 const MAX_DEPTH = 10;
@@ -88,6 +79,13 @@ function isAbusivePayload(body: unknown): boolean {
  *
  * Proxies GraphQL requests to WordPress to avoid CORS issues.
  * Rate limited to 60 requests per minute per IP.
+ *
+ * This proxy is a PURE DATA channel: it carries no WooCommerce session
+ * identity. All cart operations — including bundles — run through the Store
+ * API proxy (/api/store) on the single Cart-Token session. The old dual-token
+ * bridging (wc_session_token + Cart-Token) lived here and was the root cause
+ * of the "zombie cart" bugs: a GraphQL response could silently re-point the
+ * cart cookie at a stale session. Do not reintroduce session handling here.
  */
 
 async function handler(
@@ -109,117 +107,12 @@ async function handler(
   const url = `${wordpressUrl}${graphqlEndpoint}`;
 
   try {
-    const cookies = req.headers.cookie || '';
-    const wcSessionToken = extractWcSessionToken(cookies);
-    const cartToken = extractCartToken(cookies);
-
-    // Single-session addressing: when the browser has a Store API cart token,
-    // send ONLY that. Sending the legacy wc_session_token alongside it lets
-    // WooGraphQL resolve a DIFFERENT (often stale) session and then emit a
-    // Cart-Token for it — which used to flip the cart cookie back to an old
-    // session full of cleared items ("zombie cart").
-    let response = await makeHttpRequest({
+    const response = await makeHttpRequest({
       url,
       body: JSON.stringify(req.body),
-      cookies,
-      wcSessionToken: cartToken ? undefined : wcSessionToken || undefined,
-      cartToken: cartToken || undefined,
     });
 
-    const cookiesToSet: string[] = [];
-
-    // wp-graphql-woocommerce reports a bad token as a UserError whose message
-    // is "{error_code}: {message}" — 'invalid_token: Signature verification
-    // failed' for the legacy woocommerce-session JWT, 'invalid_cart_token:
-    // Invalid Cart-Token' for the Store API Cart-Token (see
-    // QL_Session_Handler::validate_legacy_token / validate_cart_token). These
-    // are two independent tokens/cookies, so a bad one doesn't imply the
-    // other is bad too — check and clear each separately rather than wiping
-    // both cookies (and discarding a perfectly good cart) whenever only one
-    // of them is actually stale/corrupted.
-    const responseErrors: Array<{ message?: string }> = Array.isArray(response.data?.errors)
-      ? response.data.errors
-      : [];
-
-    const hasSessionTokenError =
-      !!wcSessionToken &&
-      responseErrors.some(
-        (e) => typeof e?.message === 'string' && e.message.toLowerCase().includes('signature verification failed')
-      );
-
-    const hasCartTokenError =
-      !!cartToken &&
-      responseErrors.some(
-        (e) => typeof e?.message === 'string' && e.message.toLowerCase().includes('invalid_cart_token')
-      );
-
-    if (hasSessionTokenError || hasCartTokenError) {
-      const strippedCookies = cookies
-        .split(';')
-        .map((c) => c.trim())
-        .filter((c) => {
-          if (!c) return false;
-          const lower = c.toLowerCase();
-          if (hasSessionTokenError && lower.startsWith('wc_session_token=')) return false;
-          if (hasCartTokenError && lower.startsWith('wc_cart_token=')) return false;
-          return true;
-        })
-        .join('; ');
-
-      response = await makeHttpRequest({
-        url,
-        body: JSON.stringify(req.body),
-        cookies: strippedCookies,
-        wcSessionToken: hasSessionTokenError ? undefined : wcSessionToken || undefined,
-        cartToken: hasCartTokenError ? undefined : cartToken || undefined,
-      });
-
-      if (hasSessionTokenError) {
-        cookiesToSet.push('wc_session_token=; Path=/; Max-Age=0; SameSite=Lax');
-      }
-      if (hasCartTokenError) {
-        cookiesToSet.push('wc_cart_token=; Path=/; Max-Age=0; SameSite=Lax');
-      }
-    }
-
-    const data = response.data;
-
-    // Handle WooCommerce session header from WordPress
-    const wcSessionHeader = response.headers[WC_SESSION_HEADER.toLowerCase()] as string | undefined;
-    if (wcSessionHeader) {
-      let sessionToken = wcSessionHeader;
-      const tokenMatch = wcSessionHeader.match(/Session\s+(.+)/i);
-      if (tokenMatch) {
-        sessionToken = tokenMatch[1];
-      }
-
-      cookiesToSet.push(createWcSessionCookie(sessionToken));
-    }
-
-    // Handle the Store API cart token, when wp-graphql-woocommerce issues one
-    // (set_session_token_type: 'both') — keeps this session addressable by
-    // the Store API proxy too, e.g. right after an addBundleToCart mutation.
-    // NEVER overwrite an existing cart token cookie: the live cart session is
-    // the source of truth, and a GraphQL response must not switch it. Only
-    // adopt the issued token when the browser had none (first session), or
-    // when the incoming token was invalid and already cleared above.
-    const cartTokenHeader = response.headers[CART_TOKEN_HEADER.toLowerCase()] as string | undefined;
-    if (cartTokenHeader && (!cartToken || hasCartTokenError)) {
-      cookiesToSet.push(createCartTokenCookie(cartTokenHeader));
-    }
-
-    // Forward any cookies from WordPress
-    const setCookieHeader = response.headers['set-cookie'];
-    if (setCookieHeader && Array.isArray(setCookieHeader)) {
-      const sanitizedCookies = sanitizeCookies(setCookieHeader);
-      cookiesToSet.push(...sanitizedCookies);
-    }
-
-    if (cookiesToSet.length > 0) {
-      res.setHeader('Set-Cookie', cookiesToSet);
-    }
-
-    return res.status(response.status).json(data);
+    return res.status(response.status).json(response.data);
   } catch (error) {
     console.error('GraphQL proxy error');
     return res.status(500).json({

@@ -8,11 +8,7 @@ import {
   ReactNode,
 } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
-import {
-  ADD_BUNDLE_TO_CART,
-  REMOVE_BUNDLE_FROM_CART,
-} from '@/graphql/queries/cart';
+import { resetBrowserClient } from '@/lib/apollo-client';
 import { ShippingPackage, AppliedCoupon } from '@/types/checkout';
 import {
   CartError,
@@ -23,6 +19,8 @@ import {
 import {
   fetchCartFromStore,
   addItemToStore,
+  addBundleToStore,
+  removeBundleGroupsFromStore,
   updateItemInStore,
   removeItemFromStore,
   clearStoreCart,
@@ -248,18 +246,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
 
-  // GraphQL client — only used for bundle operations. Always the same-origin
-  // browser client, even when logged in: every other cart operation already
-  // runs through the Store API's anonymous Cart-Token session regardless of
-  // auth state (see fetchCartFromStore/addItemToStore/etc. below), so bundle
-  // add/remove has to land in that same session to be visible afterward.
-  // The authenticated Apollo client hits WordPress directly cross-origin with
-  // a Bearer JWT, bypassing the Store API bridge entirely and resolving to a
-  // *different* WC session (keyed by the logged-in user's ID) — a leftover
-  // from before cart ops moved to the Store API, when the whole cart lived in
-  // GraphQL and needed that per-user session for persistence.
-  const getClient = useCallback(() => getBrowserClient(), []);
-
   function isSessionExpired(err: unknown): boolean {
     return err instanceof StoreApiError && err.code === 'session_expired';
   }
@@ -459,6 +445,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       if (isSessionExpired(err)) { resetToEmptyCart(); return; }
       if (tryReconcile(err)) return;
+
+      // Timeout/connection errors mean the outcome is UNKNOWN — WordPress may
+      // have completed the add after our proxy gave up. Fetch the truth before
+      // rolling back, or we show a scary error for an add that succeeded.
+      if (err instanceof StoreApiError && (err.code === 'store_api_proxy_error' || err.code === 'invalid_response')) {
+        try {
+          const fresh = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && fresh) {
+            setCart(enrichCartItems(fresh, bundleItemMapRef.current));
+            const landed = fresh.items.some((i) =>
+              input.variationId
+                ? i.variation?.databaseId === input.variationId
+                : i.product.databaseId === input.productId
+            );
+            if (landed) return; // the add actually succeeded
+          }
+        } catch {}
+      }
+
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.addToCart', err, { productId: input.productId });
       const message = extractCartErrorMessage(
@@ -473,7 +478,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
-  // Bundle operations — still use GraphQL (custom mutations), then Store API fetch
+  // Bundle operations — Store API extension (mellow-fellow/cart-ops), which
+  // calls the same BB_Cart core methods the old GraphQL mutations wrapped.
+  // Single request, single session: the response is the full updated cart
+  // with bb_group_key/bb_bundle_id exposed server-side on each item.
   // -------------------------------------------------------------------------
   const addBundleToCart = useCallback(
     async (bundleId: number, productIds: number[], bundleName: string, discountPercent = 0) => {
@@ -482,14 +490,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       hasFetchedRef.current = true;
       startMutation();
       try {
-        const client = getClient();
-        const { data } = await client.mutate({
-          mutation: ADD_BUNDLE_TO_CART,
-          variables: { bundleId, productIds },
-        });
-        if (!data?.addBundleToCart?.success) {
-          throw new Error(data?.addBundleToCart?.message || 'Bundle add failed');
-        }
+        const storeCart = await enqueueMutation(() => addBundleToStore(bundleId, productIds));
 
         setBundleNames((prev) => {
           const next = { ...prev, [bundleId]: bundleName };
@@ -504,39 +505,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        const { groupKey, addedItemKeys } = data.addBundleToCart;
-        if (groupKey && Array.isArray(addedItemKeys) && addedItemKeys.length > 0) {
-          const additions: Record<string, { groupKey: string; bundleId: number }> = {};
-          for (const itemKey of addedItemKeys) {
-            additions[itemKey] = { groupKey, bundleId };
-          }
-          const nextMap = { ...bundleItemMapRef.current, ...additions };
-          bundleItemMapRef.current = nextMap;
-          setBundleItemMap(nextMap);
-          try { sessionStorage.setItem('bundleItemMap', JSON.stringify(nextMap)); } catch {}
-        }
-
-        // Fetch updated cart via Store API instead of GraphQL
-        const storeCart = await enqueueMutation(() => fetchCartFromStore());
         if (isStaleSeq(seq)) return;
         if (storeCart) {
           setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
           setIsDrawerOpen(true);
         }
       } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
         logError('CartContext.addBundleToCart', err, { bundleId });
-        const pluginMessage = err instanceof Error ? err.message : null;
-        const cartError = new CartError(
-          pluginMessage || 'Failed to add bundle to cart',
-          ErrorCode.CART_ADD_FAILED
-        );
-        setError(pluginMessage || getUserMessage(cartError));
-        throw cartError;
+        const message = extractCartErrorMessage(err, 'Failed to add bundle to cart');
+        setError(message);
+        throw new CartError(message, ErrorCode.CART_ADD_FAILED);
       } finally {
         endMutation();
       }
     },
-    [getClient, enqueueMutation, startMutation, endMutation]
+    [enqueueMutation, startMutation, endMutation]
   );
 
   const removeBundleGroup = useCallback(
@@ -545,18 +529,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const seq = nextSeq();
       startMutation();
       try {
-        const client = getClient();
-        for (const groupKey of groupKeys) {
-          await client.mutate({
-            mutation: REMOVE_BUNDLE_FROM_CART,
-            variables: { groupKey },
-          });
-        }
-        // Fetch updated cart via Store API
-        const storeCart = await enqueueMutation(() => fetchCartFromStore());
+        const storeCart = await enqueueMutation(() => removeBundleGroupsFromStore(groupKeys));
         if (isStaleSeq(seq)) return;
         if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
         logError('CartContext.removeBundleGroup', err);
         const cartError = new CartError('Failed to remove bundle', ErrorCode.CART_REMOVE_FAILED);
         setError(getUserMessage(cartError));
@@ -565,7 +542,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         endMutation();
       }
     },
-    [getClient, enqueueMutation, startMutation, endMutation]
+    [enqueueMutation, startMutation, endMutation]
   );
 
   // -------------------------------------------------------------------------
@@ -838,14 +815,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartSubtotalStr = cart?.subtotal || '';
   useEffect(() => {
     if (!cart || cart.items.length === 0) return;
-    const productIds = cart.items.map((i) => i.product.databaseId);
-    const productSlugs = cart.items.map((i) => i.product.slug);
-    const subtotal = parseFloat(cart.subtotal.replace(/[^0-9.]/g, '')) || 0;
-    const key = buildRecsCacheKey(productIds, subtotal);
-    if (isRecsFresh(key)) return;
-    fetchRecommendations(productIds, productSlugs, subtotal)
-      .then((products) => setRecsCache(key, products))
-      .catch(() => {});
+    // Debounce: rapid add/remove bursts change cart composition several times
+    // in a few seconds — only prefetch recs once the cart settles, instead of
+    // stampeding WordPress with a request per change.
+    const timer = setTimeout(() => {
+      const productIds = cart.items.map((i) => i.product.databaseId);
+      const productSlugs = cart.items.map((i) => i.product.slug);
+      const subtotal = parseFloat(cart.subtotal.replace(/[^0-9.]/g, '')) || 0;
+      const key = buildRecsCacheKey(productIds, subtotal);
+      if (isRecsFresh(key)) return;
+      fetchRecommendations(productIds, productSlugs, subtotal)
+        .then((products) => setRecsCache(key, products))
+        .catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [cartItemIds, cartSubtotalStr]);
 
   return (

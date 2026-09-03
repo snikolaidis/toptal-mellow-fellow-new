@@ -91,11 +91,21 @@ export function transformStoreApiCart(data: any): Cart | null {
     const variationAttrs: Array<{ attribute: string; value: string }> = item.variation || [];
     const hasVariation = variationAttrs.length > 0;
 
+    // Bundle-builder identity exposed server-side via Store API extensions —
+    // the session's cart item data is the source of truth for bundle grouping.
+    const bb = item.extensions?.['mellow-fellow'] || {};
+    const bbGroupKey = typeof bb.bb_group_key === 'string' && bb.bb_group_key ? bb.bb_group_key : undefined;
+    const bbBundleId = bb.bb_bundle_id ? Number(bb.bb_bundle_id) : undefined;
+
     return {
       key: item.key,
       quantity: item.quantity,
       total: lineTotal,
       subtotal: lineSubtotal,
+      bbGroupKey,
+      bbBundleId,
+      bbLocked: bb.bb_locked === true || undefined,
+      bbUnitPrice: typeof bb.bb_unit_price === 'number' ? bb.bb_unit_price : undefined,
       product: {
         databaseId: item.id,
         name: decodeHtmlEntities(item.name || ''),
@@ -302,6 +312,31 @@ export async function clearStoreCart(): Promise<Cart | null> {
   try { await storeApiFetch('cart/items', { method: 'DELETE' }); } catch {}
 
   return fetchCartFromStore();
+}
+
+export async function addBundleToStore(
+  bundleId: number,
+  productIds: number[]
+): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'add_bundle', bundle_id: bundleId, product_ids: productIds },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
+export async function removeBundleGroupsFromStore(groupKeys: string[]): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'remove_bundle_group', group_keys: groupKeys },
+    },
+  });
+  return transformStoreApiCart(data);
 }
 
 export async function applyCouponToStore(code: string): Promise<Cart | null> {
