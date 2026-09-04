@@ -188,8 +188,15 @@ export const PRODUCT_FIELDS = gql`
         slug
       }
     }
-    bbLinkedBundleId
     bbFromPrice
+    bbShowPrice
+    bbBundleMode
+    bbMinItems
+    bbMaxItems
+    bbFixedPrice
+    bbFixedOriginalPrice
+    bbFixedQtyMin
+    bbFixedQtyMax
     uniqueSellingProps {
       nodes {
         id
@@ -336,6 +343,10 @@ export const GET_PRODUCT_BY_SLUG = gql`
         }
       }
       ...ProductFields
+      bbFixedItems {
+        productId
+        quantity
+      }
     }
   }
 `;
@@ -364,6 +375,10 @@ export const GET_PRODUCT_BY_DATABASE_ID = gql`
         }
       }
       ...ProductFields
+      bbFixedItems {
+        productId
+        quantity
+      }
     }
   }
 `;
@@ -422,8 +437,15 @@ export const GET_COLLECTION_PRODUCTS = gql`
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
-          bbLinkedBundleId
           bbFromPrice
+          bbShowPrice
+          bbBundleMode
+          bbMinItems
+          bbMaxItems
+          bbFixedPrice
+          bbFixedOriginalPrice
+          bbFixedQtyMin
+          bbFixedQtyMax
         }
         ... on VariableProduct {
           id
@@ -446,8 +468,15 @@ export const GET_COLLECTION_PRODUCTS = gql`
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
-          bbLinkedBundleId
           bbFromPrice
+          bbShowPrice
+          bbBundleMode
+          bbMinItems
+          bbMaxItems
+          bbFixedPrice
+          bbFixedOriginalPrice
+          bbFixedQtyMin
+          bbFixedQtyMax
         }
       }
     }
