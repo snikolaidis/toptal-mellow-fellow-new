@@ -36,10 +36,11 @@ export const PRODUCT_DETAILS_FIELDS = gql`
   }
 `;
 
-// WooGraphQL returns products as a union type, so we need inline fragments for each type
-export const SIMPLE_PRODUCT_FIELDS = gql`
+// Selected once on the `Product` interface rather than repeated per concrete
+// type, so a renamed taxonomy is one edit instead of four.
+export const PRODUCT_FIELDS = gql`
   ${PRODUCT_DETAILS_FIELDS}
-  fragment SimpleProductFields on SimpleProduct {
+  fragment ProductFields on Product {
     id
     databaseId
     name
@@ -48,11 +49,6 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
     description
     shortDescription
     sku
-    price
-    regularPrice
-    salePrice
-    stockStatus
-    stockQuantity
     image {
       id
       sourceUrl
@@ -218,557 +214,46 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         count
       }
     }
-  }
-`;
 
-export const VARIABLE_PRODUCT_FIELDS = gql`
-  ${PRODUCT_DETAILS_FIELDS}
-  fragment VariableProductFields on VariableProduct {
-    id
-    databaseId
-    name
-    slug
-    type
-    description
-    shortDescription
-    sku
-    price
-    regularPrice
-    salePrice
-    stockStatus
-    stockQuantity
-    productDetails {
-      ...ProductDetailsFields
+    # Not narrowing: every product type implements ProductWithPricing. The blocks
+    # below are simply the fields the schema does not put on Product.
+    ... on ProductWithPricing {
+      price
+      regularPrice
+      salePrice
     }
-    collections(first: 50) {
-      nodes {
-        name
-        slug
-        count
-      }
+    ... on InventoriedProduct {
+      stockStatus
+      stockQuantity
     }
-    image {
-      id
-      sourceUrl
-      altText
-    }
-    galleryImages {
-      nodes {
-        id
-        sourceUrl
-        altText
-      }
-    }
-    productCategories {
-      nodes {
-        id
-        name
-        slug
-      }
-    }
-    variations {
-      nodes {
-        id
-        databaseId
-        name
-        price
-        regularPrice
-        salePrice
-        stockStatus
-        attributes {
-          nodes {
-            name
-            value
-          }
-        }
-      }
-    }
-    strainTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    strainNames {
-      nodes {
-        name
-        slug
-      }
-    }
-    flavors {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
+    ... on ProductWithVariations {
+      variations {
+        nodes {
+          id
+          databaseId
+          name
+          price
+          regularPrice
+          salePrice
+          stockStatus
+          attributes {
+            nodes {
+              name
+              value
             }
           }
         }
       }
     }
-    vibes {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    effects {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    settings {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    blendTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    productLines {
-      nodes {
-        name
-        slug
-      }
-    }
-    size {
-      nodes {
-        name
-        slug
-      }
-    }
-    mfproductTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    cannabinoids {
-      nodes {
-        name
-        slug
-      }
-    }
-    singleCannabinoid {
-      nodes {
-        name
-        slug
-      }
-    }
-    mG {
-      nodes {
-        name
-        slug
-      }
-    }
-    pieces {
-      nodes {
-        name
-        slug
-      }
-    }
-    bbLinkedBundleId
-    bbFromPrice
-    uniqueSellingProps {
-      nodes {
-        id
-        name
-        uniqueSellingFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-  }
-`;
-
-export const EXTERNAL_PRODUCT_FIELDS = gql`
-  fragment ExternalProductFields on ExternalProduct {
-    id
-    databaseId
-    name
-    slug
-    type
-    description
-    shortDescription
-    sku
-    price
-    regularPrice
-    salePrice
-    externalUrl
-    buttonText
-    image {
-      id
-      sourceUrl
-      altText
-    }
-    galleryImages {
-      nodes {
-        id
-        sourceUrl
-        altText
-      }
-    }
-    productCategories {
-      nodes {
-        id
-        name
-        slug
-      }
-    }
-    strainTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    strainNames {
-      nodes {
-        name
-        slug
-      }
-    }
-    flavors {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    vibes {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    effects {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    settings {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    blendTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    productLines {
-      nodes {
-        name
-        slug
-      }
-    }
-    size {
-      nodes {
-        name
-        slug
-      }
-    }
-    mfproductTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    cannabinoids {
-      nodes {
-        name
-        slug
-      }
-    }
-    singleCannabinoid {
-      nodes {
-        name
-        slug
-      }
-    }
-    mG {
-      nodes {
-        name
-        slug
-      }
-    }
-    pieces {
-      nodes {
-        name
-        slug
-      }
-    }
-    bbLinkedBundleId
-    bbFromPrice
-    uniqueSellingProps {
-      nodes {
-        id
-        name
-        uniqueSellingFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-  }
-`;
-
-export const GROUP_PRODUCT_FIELDS = gql`
-  fragment GroupProductFields on GroupProduct {
-    id
-    databaseId
-    name
-    slug
-    type
-    description
-    shortDescription
-    sku
-    price
-    image {
-      id
-      sourceUrl
-      altText
-    }
-    galleryImages {
-      nodes {
-        id
-        sourceUrl
-        altText
-      }
-    }
-    productCategories {
-      nodes {
-        id
-        name
-        slug
-      }
-    }
-    strainTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    strainNames {
-      nodes {
-        name
-        slug
-      }
-    }
-    flavors {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    vibes {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    effects {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    settings {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    blendTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    productLines {
-      nodes {
-        name
-        slug
-      }
-    }
-    size {
-      nodes {
-        name
-        slug
-      }
-    }
-    mfproductTypes {
-      nodes {
-        name
-        slug
-      }
-    }
-    cannabinoids {
-      nodes {
-        name
-        slug
-      }
-    }
-    singleCannabinoid {
-      nodes {
-        name
-        slug
-      }
-    }
-    mG {
-      nodes {
-        name
-        slug
-      }
-    }
-    pieces {
-      nodes {
-        name
-        slug
-      }
-    }
-    bbLinkedBundleId
-    bbFromPrice
-    uniqueSellingProps {
-      nodes {
-        id
-        name
-        uniqueSellingFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
+    ... on ExternalProduct {
+      externalUrl
+      buttonText
     }
   }
 `;
 
 export const GET_PRODUCTS = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProducts(
     $first: Int = 12
     $after: String
@@ -826,28 +311,14 @@ export const GET_PRODUCTS = gql`
       }
       nodes {
         __typename
-        ... on SimpleProduct {
-          ...SimpleProductFields
-        }
-        ... on VariableProduct {
-          ...VariableProductFields
-        }
-        ... on ExternalProduct {
-          ...ExternalProductFields
-        }
-        ... on GroupProduct {
-          ...GroupProductFields
-        }
+        ...ProductFields
       }
     }
   }
 `;
 
 export const GET_PRODUCT_BY_SLUG = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProductBySlug($slug: ID!) {
     product(id: $slug, idType: SLUG) {
       __typename
@@ -864,18 +335,7 @@ export const GET_PRODUCT_BY_SLUG = gql`
           sourceUrl
         }
       }
-      ... on SimpleProduct {
-        ...SimpleProductFields
-      }
-      ... on VariableProduct {
-        ...VariableProductFields
-      }
-      ... on ExternalProduct {
-        ...ExternalProductFields
-      }
-      ... on GroupProduct {
-        ...GroupProductFields
-      }
+      ...ProductFields
     }
   }
 `;
@@ -886,10 +346,7 @@ export const GET_PRODUCT_BY_SLUG = gql`
  * URI gives us a `databaseId` rather than a slug.
  */
 export const GET_PRODUCT_BY_DATABASE_ID = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProductByDatabaseId($databaseId: ID!) {
     product(id: $databaseId, idType: DATABASE_ID) {
       __typename
@@ -906,18 +363,7 @@ export const GET_PRODUCT_BY_DATABASE_ID = gql`
           sourceUrl
         }
       }
-      ... on SimpleProduct {
-        ...SimpleProductFields
-      }
-      ... on VariableProduct {
-        ...VariableProductFields
-      }
-      ... on ExternalProduct {
-        ...ExternalProductFields
-      }
-      ... on GroupProduct {
-        ...GroupProductFields
-      }
+      ...ProductFields
     }
   }
 `;
@@ -1186,36 +632,19 @@ export const GET_FACETS = gql`
 `;
 
 export const GET_PRODUCTS_BY_IDS = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProductsByIds($ids: [Int]!) {
     products(first: 100, where: { include: $ids, status: "publish" }) {
       nodes {
         __typename
-        ... on SimpleProduct {
-          ...SimpleProductFields
-        }
-        ... on VariableProduct {
-          ...VariableProductFields
-        }
-        ... on ExternalProduct {
-          ...ExternalProductFields
-        }
-        ... on GroupProduct {
-          ...GroupProductFields
-        }
+        ...ProductFields
       }
     }
   }
 `;
 
 export const GET_PRODUCTS_BY_CATEGORY = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProductsByCategory($categorySlug: String!, $first: Int = 12, $after: String, $orderby: [ProductsOrderbyInput]) {
     products(
       first: $first
@@ -1228,18 +657,7 @@ export const GET_PRODUCTS_BY_CATEGORY = gql`
       }
       nodes {
         __typename
-        ... on SimpleProduct {
-          ...SimpleProductFields
-        }
-        ... on VariableProduct {
-          ...VariableProductFields
-        }
-        ... on ExternalProduct {
-          ...ExternalProductFields
-        }
-        ... on GroupProduct {
-          ...GroupProductFields
-        }
+        ...ProductFields
       }
     }
   }
