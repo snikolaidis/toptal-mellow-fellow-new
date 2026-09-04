@@ -185,8 +185,15 @@ function readCachedCart(): Cart | null {
 
 function writeCachedCart(cart: Cart | null) {
   try {
-    if (cart && cart.items.length > 0) localStorage.setItem(CART_CACHE_KEY, JSON.stringify(cart));
-    else localStorage.removeItem(CART_CACHE_KEY);
+    // Never persist optimistic placeholders — if the request then fails or the
+    // page reloads mid-flight, the cache would resurrect a phantom $0
+    // "Adding..." item that no refresh can clear.
+    const items = cart ? cart.items.filter((i) => !i.key.startsWith('optimistic-')) : [];
+    if (cart && items.length > 0) {
+      localStorage.setItem(CART_CACHE_KEY, JSON.stringify({ ...cart, items }));
+    } else {
+      localStorage.removeItem(CART_CACHE_KEY);
+    }
   } catch {}
 }
 
