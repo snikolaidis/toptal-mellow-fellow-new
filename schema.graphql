@@ -2740,13 +2740,15 @@ type AcfWhatSetsUsApartAttributes implements BlockWithSupportsAnchor {
 
 """Input for the addBundleToCart mutation."""
 input AddBundleToCartInput {
-  """Database ID of the BundleBuilder being added to cart."""
-  bundleId: Int!
-
   """
   This is an ID that can be passed to a mutation by the client to track the progress of mutations and catch possible duplicate mutation submissions.
   """
   clientMutationId: String
+
+  """
+  Database ID of the Build Your Bundle product being added to cart (config lives directly on it — see Product.bbBundleMode/bbMinItems/bbDiscountRules/etc). Never added as its own cart line itself; it's tagged onto each picked-product line as bbParentProductId/bbParentProduct so a "part of bundle" note can show its name/image.
+  """
+  productId: Int!
 
   """Database IDs of the products the shopper selected within the bundle."""
   productIds: [Int!]!
@@ -2841,6 +2843,49 @@ type AddFeePayload {
   If a &#039;clientMutationId&#039; input is provided to the mutation, it will be returned as output on the mutation. This ID can be used by the client to track the progress of mutations and catch possible duplicate mutation submissions.
   """
   clientMutationId: String
+}
+
+"""Input for the addFixedBundleToCart mutation."""
+input AddFixedBundleToCartInput {
+  """
+  This is an ID that can be passed to a mutation by the client to track the progress of mutations and catch possible duplicate mutation submissions.
+  """
+  clientMutationId: String
+
+  """Database ID of the Fixed Bundle product being added to cart."""
+  productId: Int!
+
+  """Number of bundle sets to add (defaults to 1)."""
+  quantity: Int
+}
+
+"""The payload for the addFixedBundleToCart mutation."""
+type AddFixedBundleToCartPayload {
+  """"""
+  addedItemKeys: [String]
+
+  """"""
+  cartItemCount: Int
+
+  """"""
+  cartSubtotal: Float
+
+  """"""
+  cartTotal: Float
+
+  """
+  If a &#039;clientMutationId&#039; input is provided to the mutation, it will be returned as output on the mutation. This ID can be used by the client to track the progress of mutations and catch possible duplicate mutation submissions.
+  """
+  clientMutationId: String
+
+  """"""
+  groupKey: String
+
+  """"""
+  message: String
+
+  """"""
+  success: Boolean
 }
 
 """Input for the addMethodToShippingZone mutation."""
@@ -5023,6 +5068,15 @@ type BbDiscountRule {
 
   """Percentage off applied when this rule is the highest matching tier."""
   percent: Float
+}
+
+"""One product/quantity line in a Fixed Bundle."""
+type BbFixedItem {
+  """"""
+  productId: Int
+
+  """"""
+  quantity: Int
 }
 
 """
@@ -7318,384 +7372,6 @@ interface BlogPosts_Fields implements AcfFieldGroup & AcfFieldGroupFields {
   title: String
 }
 
-"""The BundleBuilder type"""
-type BundleBuilder implements ContentNode & DatabaseIdentifier & Node & NodeWithContentEditor & NodeWithFeaturedImage & NodeWithTemplate & NodeWithTitle & Previewable & UniformResourceIdentifiable {
-  """The ancestors of the content node."""
-  ancestors(
-    """
-    Cursor used along with the "first" argument to reference where in the dataset to get data
-    """
-    after: String
-
-    """
-    Cursor used along with the "last" argument to reference where in the dataset to get data
-    """
-    before: String
-
-    """The number of items to return after the referenced "after" cursor"""
-    first: Int
-
-    """The number of items to return before the referenced "before" cursor"""
-    last: Int
-  ): BundleBuilderToBundleBuilderConnection @deprecated(reason: "This content type is not hierarchical and typically will not have ancestors")
-
-  """Attachment ID of the bundle banner image, if set."""
-  bannerImageId: Int
-
-  """URL of the bundle banner image, if set."""
-  bannerImageUrl: String
-
-  """The id field matches the WP_Post-&gt;ID field."""
-  bundleBuilderId: Int! @deprecated(reason: "Deprecated in favor of the databaseId field")
-
-  """
-  Products resolved from this bundle&#039;s collections/subcollections and manually picked products (purchasable, in-stock, simple products only).
-  """
-  bundleProducts: [Product]
-
-  """
-  Public URL for this bundle&#039;s page (/bundle/{slug}). Uses the frontend URL from Bundle Builder settings when one is configured, otherwise this site&#039;s URL.
-  """
-  bundleUrl: String
-
-  """"""
-  conditionalTags: ConditionalTags @deprecated(reason: "Deprecated in favor of using Next.js pages")
-
-  """The content of the post."""
-  content(
-    """Format of the field output"""
-    format: PostObjectFieldFormatEnum
-  ): String
-
-  """Connection between the ContentNode type and the ContentType type"""
-  contentType: ContentNodeToContentTypeConnectionEdge
-
-  """The name of the Content Type the node belongs to"""
-  contentTypeName: String!
-
-  """The unique identifier stored in the database"""
-  databaseId: Int!
-
-  """Post publishing date."""
-  date: String
-
-  """The publishing date set in GMT."""
-  dateGmt: String
-
-  """The desired slug of the post"""
-  desiredSlug: String
-
-  """Tiered quantity discount rules, ascending by minQty."""
-  discountRules: [BbDiscountRule]
-
-  """
-  If a user has edited the node within the past 15 seconds, this will return the user that last edited. Null if the edit lock doesn&#039;t exist or is greater than 15 seconds
-  """
-  editingLockedBy: ContentNodeToEditLockConnectionEdge
-
-  """The RSS enclosure for the object"""
-  enclosure: String
-
-  """Connection between the ContentNode type and the EnqueuedScript type"""
-  enqueuedScripts(
-    """
-    Cursor used along with the "first" argument to reference where in the dataset to get data
-    """
-    after: String
-
-    """
-    Cursor used along with the "last" argument to reference where in the dataset to get data
-    """
-    before: String
-
-    """The number of items to return after the referenced "after" cursor"""
-    first: Int
-
-    """The number of items to return before the referenced "before" cursor"""
-    last: Int
-
-    """Arguments for filtering the connection"""
-    where: ContentNodeToEnqueuedScriptConnectionWhereArgs
-  ): ContentNodeToEnqueuedScriptConnection
-
-  """
-  Connection between the ContentNode type and the EnqueuedStylesheet type
-  """
-  enqueuedStylesheets(
-    """
-    Cursor used along with the "first" argument to reference where in the dataset to get data
-    """
-    after: String
-
-    """
-    Cursor used along with the "last" argument to reference where in the dataset to get data
-    """
-    before: String
-
-    """The number of items to return after the referenced "after" cursor"""
-    first: Int
-
-    """The number of items to return before the referenced "before" cursor"""
-    last: Int
-
-    """Arguments for filtering the connection"""
-    where: ContentNodeToEnqueuedStylesheetConnectionWhereArgs
-  ): ContentNodeToEnqueuedStylesheetConnection
-
-  """
-  Connection between the NodeWithFeaturedImage type and the MediaItem type
-  """
-  featuredImage: NodeWithFeaturedImageToMediaItemConnectionEdge
-
-  """
-  The database identifier for the featured image node assigned to the content node
-  """
-  featuredImageDatabaseId: Int
-
-  """Globally unique ID of the featured image assigned to the node"""
-  featuredImageId: ID
-
-  """
-  Lowest possible bundle total: minimum items, cheapest products, discount tier applied. For &quot;From $X&quot; displays.
-  """
-  fromPrice: Float
-
-  """
-  The global unique identifier for this post. This currently matches the value stored in WP_Post-&gt;guid and the guid column in the &quot;post_objects&quot; database table.
-  """
-  guid: String
-
-  """Whether the bb_bundle object is password protected."""
-  hasPassword: Boolean
-
-  """The globally unique identifier of the bb_bundle object."""
-  id: ID!
-
-  """Whether the node is a Comment"""
-  isComment: Boolean!
-
-  """Whether the node is a Content Node"""
-  isContentNode: Boolean!
-
-  """Whether the node represents the front page."""
-  isFrontPage: Boolean!
-
-  """Whether  the node represents the blog page."""
-  isPostsPage: Boolean!
-
-  """Whether the object is a node in the preview state"""
-  isPreview: Boolean
-
-  """Whether the object is restricted from the current viewer"""
-  isRestricted: Boolean
-
-  """Whether the node is a Term"""
-  isTermNode: Boolean!
-
-  """The user that most recently edited the node"""
-  lastEditedBy: ContentNodeToEditLastConnectionEdge
-
-  """The permalink of the post"""
-  link: String
-
-  """Maximum number of products allowed in the bundle (0 = unlimited)."""
-  maxItems: Int
-
-  """
-  Minimum number of products a shopper must select before the bundle can be added to cart.
-  """
-  minItems: Int
-
-  """
-  The local modified time for a post. If a post was recently updated the modified field will change to match the corresponding time.
-  """
-  modified: String
-
-  """
-  The GMT modified time for a post. If a post was recently updated the modified field will change to match the corresponding time in GMT.
-  """
-  modifiedGmt: String
-
-  """The parent of the content node."""
-  parent: BundleBuilderToParentConnectionEdge @deprecated(reason: "This content type is not hierarchical and typically will not have a parent")
-
-  """The password for the bb_bundle object."""
-  password: String
-
-  """Connection between the BundleBuilder type and the BundleBuilder type"""
-  preview: BundleBuilderToPreviewConnectionEdge
-
-  """The database id of the preview node"""
-  previewRevisionDatabaseId: Int
-
-  """Whether the object is a node in the preview state"""
-  previewRevisionId: ID
-
-  """The Yoast SEO data of the ContentNode"""
-  seo: PostTypeSEO
-
-  """
-  The [wc_bundle_builder id=&quot;...&quot;] shortcode for this bundle (for reference; headless frontends typically query this type directly instead).
-  """
-  shortcode: String
-
-  """
-  The uri slug for the post. This is equivalent to the WP_Post-&gt;post_name field and the post_name column in the database for the &quot;post_objects&quot; table.
-  """
-  slug: String
-
-  """The current status of the object"""
-  status: String
-
-  """The template assigned to the node"""
-  template: ContentTemplate
-
-  """"""
-  templates: [String]
-
-  """
-  The title of the post. This is currently just the raw title. An amendment to support rendered title needs to be made.
-  """
-  title(
-    """Format of the field output"""
-    format: PostObjectFieldFormatEnum
-  ): String
-
-  """The unique resource identifier path"""
-  uri: String
-}
-
-"""
-A paginated collection of BundleBuilder Nodes, Supports cursor-based pagination and filtering to efficiently retrieve sets of BundleBuilder Nodes
-"""
-interface BundleBuilderConnection implements Connection {
-  """
-  A list of edges (relational context) between RootQuery and connected BundleBuilder Nodes
-  """
-  edges: [BundleBuilderConnectionEdge!]!
-
-  """A list of connected BundleBuilder Nodes"""
-  nodes: [BundleBuilder!]!
-
-  """Information about pagination in a connection."""
-  pageInfo: BundleBuilderConnectionPageInfo!
-}
-
-"""
-Represents a connection to a BundleBuilder. Contains both the BundleBuilder Node and metadata about the relationship.
-"""
-interface BundleBuilderConnectionEdge implements Edge {
-  """
-  Opaque reference to the nodes position in the connection. Value can be used with pagination args.
-  """
-  cursor: String
-
-  """The connected BundleBuilder Node"""
-  node: BundleBuilder!
-}
-
-"""
-Pagination metadata specific to &quot;BundleBuilderConnectionEdge&quot; collections. Provides cursors and flags for navigating through sets of &quot;BundleBuilderConnectionEdge&quot; Nodes.
-"""
-interface BundleBuilderConnectionPageInfo implements PageInfo & WPPageInfo {
-  """When paginating forwards, the cursor to continue."""
-  endCursor: String
-
-  """When paginating forwards, are there more items?"""
-  hasNextPage: Boolean!
-
-  """When paginating backwards, are there more items?"""
-  hasPreviousPage: Boolean!
-
-  """Raw schema for page"""
-  seo: SEOPostTypePageInfo
-
-  """When paginating backwards, the cursor to continue."""
-  startCursor: String
-}
-
-"""
-Identifier types for retrieving a specific BundleBuilder. Specifies which unique attribute is used to find an exact BundleBuilder.
-"""
-enum BundleBuilderIdType {
-  """Identify a resource by the Database ID."""
-  DATABASE_ID
-
-  """Identify a resource by the (hashed) Global ID."""
-  ID
-
-  """
-  Identify a resource by the slug. Available to non-hierarchcial Types where the slug is a unique identifier.
-  """
-  SLUG
-
-  """Identify a resource by the URI."""
-  URI
-}
-
-"""Connection between the BundleBuilder type and the BundleBuilder type"""
-type BundleBuilderToBundleBuilderConnection implements BundleBuilderConnection & Connection {
-  """Edges for the BundleBuilderToBundleBuilderConnection connection"""
-  edges: [BundleBuilderToBundleBuilderConnectionEdge!]!
-
-  """The nodes of the connection, without the edges"""
-  nodes: [BundleBuilder!]!
-
-  """Information about pagination in a connection."""
-  pageInfo: BundleBuilderToBundleBuilderConnectionPageInfo!
-}
-
-"""An edge in a connection"""
-type BundleBuilderToBundleBuilderConnectionEdge implements BundleBuilderConnectionEdge & Edge {
-  """A cursor for use in pagination"""
-  cursor: String
-
-  """The item at the end of the edge"""
-  node: BundleBuilder!
-}
-
-"""
-Pagination metadata specific to &quot;BundleBuilderToBundleBuilderConnection&quot; collections. Provides cursors and flags for navigating through sets of BundleBuilderToBundleBuilderConnection Nodes.
-"""
-type BundleBuilderToBundleBuilderConnectionPageInfo implements BundleBuilderConnectionPageInfo & PageInfo & WPPageInfo {
-  """When paginating forwards, the cursor to continue."""
-  endCursor: String
-
-  """When paginating forwards, are there more items?"""
-  hasNextPage: Boolean!
-
-  """When paginating backwards, are there more items?"""
-  hasPreviousPage: Boolean!
-
-  """Raw schema for page"""
-  seo: SEOPostTypePageInfo
-
-  """When paginating backwards, the cursor to continue."""
-  startCursor: String
-}
-
-"""Connection between the BundleBuilder type and the BundleBuilder type"""
-type BundleBuilderToParentConnectionEdge implements BundleBuilderConnectionEdge & Edge & OneToOneConnection {
-  """
-  Opaque reference to the nodes position in the connection. Value can be used with pagination args.
-  """
-  cursor: String
-
-  """The node of the connection, without the edges"""
-  node: BundleBuilder!
-}
-
-"""Connection between the BundleBuilder type and the BundleBuilder type"""
-type BundleBuilderToPreviewConnectionEdge implements BundleBuilderConnectionEdge & Edge & OneToOneConnection {
-  """
-  Opaque reference to the nodes position in the connection. Value can be used with pagination args.
-  """
-  cursor: String
-
-  """The node of the connection, without the edges"""
-  node: BundleBuilder!
-}
-
 """Input for the cancelSubscription mutation."""
 input CancelSubscriptionInput {
   """
@@ -9208,7 +8884,7 @@ interface CartItem implements Node {
   bbBasePrice: Float
 
   """
-  If this cart item is part of a Bundle Builder selection, the bundle (BundleBuilder) database ID.
+  If this cart item is part of a Bundle Builder selection, the Bundle Builder product&#039;s database ID (same as bbParentProductId — kept for both since bbBundleId is the grouping key).
   """
   bbBundleId: Int
 
@@ -9221,6 +8897,16 @@ interface CartItem implements Node {
   True if this cart item belongs to a bundle and its quantity/removal is locked.
   """
   bbLocked: Boolean
+
+  """
+  The Bundle Builder product itself (for its name/image), resolved as a full Product node. Same ID as bbParentProductId/bbBundleId.
+  """
+  bbParentProduct: Product
+
+  """
+  Database ID of the Bundle Builder product this cart item is part of (its name/image are the ones a &quot;part of bundle&quot; note should show). Same value as bbBundleId — kept as its own field for symmetry with bbParentProduct below.
+  """
+  bbParentProductId: Int
 
   """
   The effective per-unit price for this cart item with the bundle tier discount applied. Use this (not product.price, which is the undiscounted catalog price) when building payment or order payloads.
@@ -14337,9 +14023,6 @@ Available content entity types that can be queried or filtered. Identifies the p
 enum ContentTypeEnum {
   """The Type of Content object"""
   ATTACHMENT
-
-  """The Type of Content object"""
-  BB_BUNDLE
 
   """The Type of Content object"""
   BLEND_GROUP
@@ -29127,50 +28810,6 @@ type CreateBlendTypePayload {
   clientMutationId: String
 }
 
-"""Input for the createBundleBuilder mutation."""
-input CreateBundleBuilderInput {
-  """
-  This is an ID that can be passed to a mutation by the client to track the progress of mutations and catch possible duplicate mutation submissions.
-  """
-  clientMutationId: String
-
-  """The content of the object"""
-  content: String
-
-  """
-  The date of the object. Preferable to enter as year/month/day (e.g. 01/31/2017) as it will rearrange date as fit if it is not specified. Incomplete dates may have unintended results for example, "2017" as the input will use current date with timestamp 20:17 
-  """
-  date: String
-
-  """
-  A field used for ordering posts. This is typically used with nav menu items or for special ordering of hierarchical content types.
-  """
-  menuOrder: Int
-
-  """The password used to protect the content of the object"""
-  password: String
-
-  """The slug of the object"""
-  slug: String
-
-  """The status of the object"""
-  status: PostStatusEnum
-
-  """The title of the object"""
-  title: String
-}
-
-"""The payload for the createBundleBuilder mutation."""
-type CreateBundleBuilderPayload {
-  """The Post object mutation type."""
-  bundleBuilder: BundleBuilder
-
-  """
-  If a &#039;clientMutationId&#039; input is provided to the mutation, it will be returned as output on the mutation. This ID can be used by the client to track the progress of mutations and catch possible duplicate mutation submissions.
-  """
-  clientMutationId: String
-}
-
 """Input for the createCannabinoidInfo mutation."""
 input CreateCannabinoidInfoInput {
   """
@@ -34370,39 +34009,6 @@ type DeleteBlendTypePayload {
   deletedId: ID
 }
 
-"""Input for the deleteBundleBuilder mutation."""
-input DeleteBundleBuilderInput {
-  """
-  This is an ID that can be passed to a mutation by the client to track the progress of mutations and catch possible duplicate mutation submissions.
-  """
-  clientMutationId: String
-
-  """
-  Whether the object should be force deleted instead of being moved to the trash
-  """
-  forceDelete: Boolean
-
-  """The ID of the BundleBuilder to delete"""
-  id: ID!
-
-  """Override the edit lock when another user is editing the post"""
-  ignoreEditLock: Boolean
-}
-
-"""The payload for the deleteBundleBuilder mutation."""
-type DeleteBundleBuilderPayload {
-  """The object before it was deleted"""
-  bundleBuilder: BundleBuilder
-
-  """
-  If a &#039;clientMutationId&#039; input is provided to the mutation, it will be returned as output on the mutation. This ID can be used by the client to track the progress of mutations and catch possible duplicate mutation submissions.
-  """
-  clientMutationId: String
-
-  """The ID of the deleted object"""
-  deletedId: ID
-}
-
 """Input for the deleteCannabinoidInfo mutation."""
 input DeleteCannabinoidInfoInput {
   """
@@ -38786,14 +38392,69 @@ type ExternalProduct implements ContentNode & DatabaseIdentifier & MenuItemLinka
   ): ProductToBadgeConnection
 
   """
-  For Bundle Builder products: the lowest possible bundle total (&quot;From $X&quot;); null for other product types.
+  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  """
+  bbBundleMode: String
+
+  """
+  For Build Your Bundle products: the resolved pool a shopper can pick from (collections/subcollections + manually picked products; purchasable, in-stock, simple products only). Null if not a Build Your Bundle product.
+  """
+  bbBundleProducts: [Product]
+
+  """
+  For Build Your Bundle products: the bundle&#039;s own description (_bb_description — separate from the product&#039;s native description), shown above the product grid; null otherwise.
+  """
+  bbDescription: String
+
+  """
+  For Build Your Bundle products: tiered quantity discount rules, ascending by minQty. Null if not a Build Your Bundle product.
+  """
+  bbDiscountRules: [BbDiscountRule]
+
+  """
+  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  """
+  bbFixedItems: [BbFixedItem]
+
+  """
+  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  """
+  bbFixedOriginalPrice: Float
+
+  """
+  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  """
+  bbFixedPrice: Float
+
+  """
+  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  """
+  bbFixedQtyMax: Int
+
+  """
+  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  """
+  bbFixedQtyMin: Int
+
+  """
+  For Build Your Bundle products: the lowest possible bundle total (minimum items, cheapest products, discount tier applied), for a &quot;From $X&quot; display. Null if not a Build Your Bundle product, if bbShowPrice is false, or if no valid price is computable.
   """
   bbFromPrice: Float
 
   """
-  Database ID of the linked BundleBuilder config if this is a Bundle Builder product; null otherwise.
+  For Build Your Bundle products: maximum number of products allowed (0/null = unlimited); null if not a Build Your Bundle product.
   """
-  bbLinkedBundleId: Int
+  bbMaxItems: Int
+
+  """
+  For Build Your Bundle products: minimum number of products a shopper must select before the bundle can be added to cart; null otherwise.
+  """
+  bbMinItems: Int
+
+  """
+  For Build Your Bundle products: whether the price should be displayed at all (the &quot;Show price&quot; checkbox — opt-in, unchecked/hidden by default). When false, bbFromPrice is always null even though a price may be computable. Null if not a Build Your Bundle product.
+  """
+  bbShowPrice: Boolean
 
   """Connection between the Product type and the blendType type"""
   blendTypes(
@@ -46546,14 +46207,69 @@ type GroupProduct implements ContentNode & DatabaseIdentifier & MenuItemLinkable
   ): ProductToBadgeConnection
 
   """
-  For Bundle Builder products: the lowest possible bundle total (&quot;From $X&quot;); null for other product types.
+  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  """
+  bbBundleMode: String
+
+  """
+  For Build Your Bundle products: the resolved pool a shopper can pick from (collections/subcollections + manually picked products; purchasable, in-stock, simple products only). Null if not a Build Your Bundle product.
+  """
+  bbBundleProducts: [Product]
+
+  """
+  For Build Your Bundle products: the bundle&#039;s own description (_bb_description — separate from the product&#039;s native description), shown above the product grid; null otherwise.
+  """
+  bbDescription: String
+
+  """
+  For Build Your Bundle products: tiered quantity discount rules, ascending by minQty. Null if not a Build Your Bundle product.
+  """
+  bbDiscountRules: [BbDiscountRule]
+
+  """
+  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  """
+  bbFixedItems: [BbFixedItem]
+
+  """
+  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  """
+  bbFixedOriginalPrice: Float
+
+  """
+  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  """
+  bbFixedPrice: Float
+
+  """
+  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  """
+  bbFixedQtyMax: Int
+
+  """
+  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  """
+  bbFixedQtyMin: Int
+
+  """
+  For Build Your Bundle products: the lowest possible bundle total (minimum items, cheapest products, discount tier applied), for a &quot;From $X&quot; display. Null if not a Build Your Bundle product, if bbShowPrice is false, or if no valid price is computable.
   """
   bbFromPrice: Float
 
   """
-  Database ID of the linked BundleBuilder config if this is a Bundle Builder product; null otherwise.
+  For Build Your Bundle products: maximum number of products allowed (0/null = unlimited); null if not a Build Your Bundle product.
   """
-  bbLinkedBundleId: Int
+  bbMaxItems: Int
+
+  """
+  For Build Your Bundle products: minimum number of products a shopper must select before the bundle can be added to cart; null otherwise.
+  """
+  bbMinItems: Int
+
+  """
+  For Build Your Bundle products: whether the price should be displayed at all (the &quot;Show price&quot; checkbox — opt-in, unchecked/hidden by default). When false, bbFromPrice is always null even though a price may be computable. Null if not a Build Your Bundle product.
+  """
+  bbShowPrice: Boolean
 
   """Connection between the Product type and the blendType type"""
   blendTypes(
@@ -69209,14 +68925,69 @@ interface Product implements ContentNode & DatabaseIdentifier & MenuItemLinkable
   ): ProductToBadgeConnection
 
   """
-  For Bundle Builder products: the lowest possible bundle total (&quot;From $X&quot;); null for other product types.
+  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  """
+  bbBundleMode: String
+
+  """
+  For Build Your Bundle products: the resolved pool a shopper can pick from (collections/subcollections + manually picked products; purchasable, in-stock, simple products only). Null if not a Build Your Bundle product.
+  """
+  bbBundleProducts: [Product]
+
+  """
+  For Build Your Bundle products: the bundle&#039;s own description (_bb_description — separate from the product&#039;s native description), shown above the product grid; null otherwise.
+  """
+  bbDescription: String
+
+  """
+  For Build Your Bundle products: tiered quantity discount rules, ascending by minQty. Null if not a Build Your Bundle product.
+  """
+  bbDiscountRules: [BbDiscountRule]
+
+  """
+  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  """
+  bbFixedItems: [BbFixedItem]
+
+  """
+  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  """
+  bbFixedOriginalPrice: Float
+
+  """
+  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  """
+  bbFixedPrice: Float
+
+  """
+  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  """
+  bbFixedQtyMax: Int
+
+  """
+  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  """
+  bbFixedQtyMin: Int
+
+  """
+  For Build Your Bundle products: the lowest possible bundle total (minimum items, cheapest products, discount tier applied), for a &quot;From $X&quot; display. Null if not a Build Your Bundle product, if bbShowPrice is false, or if no valid price is computable.
   """
   bbFromPrice: Float
 
   """
-  Database ID of the linked BundleBuilder config if this is a Bundle Builder product; null otherwise.
+  For Build Your Bundle products: maximum number of products allowed (0/null = unlimited); null if not a Build Your Bundle product.
   """
-  bbLinkedBundleId: Int
+  bbMaxItems: Int
+
+  """
+  For Build Your Bundle products: minimum number of products a shopper must select before the bundle can be added to cart; null otherwise.
+  """
+  bbMinItems: Int
+
+  """
+  For Build Your Bundle products: whether the price should be displayed at all (the &quot;Show price&quot; checkbox — opt-in, unchecked/hidden by default). When false, bbFromPrice is always null even though a price may be computable. Null if not a Build Your Bundle product.
+  """
+  bbShowPrice: Boolean
 
   """Connection between the Product type and the blendType type"""
   blendTypes(
@@ -86130,6 +85901,12 @@ type RootMutation {
     input: AddFeeInput!
   ): AddFeePayload
 
+  """The addFixedBundleToCart mutation"""
+  addFixedBundleToCart(
+    """Input for the addFixedBundleToCart mutation"""
+    input: AddFixedBundleToCartInput!
+  ): AddFixedBundleToCartPayload
+
   """The addMethodToShippingZone mutation"""
   addMethodToShippingZone(
     """Input for the addMethodToShippingZone mutation"""
@@ -86201,12 +85978,6 @@ type RootMutation {
     """Input for the createBlendType mutation"""
     input: CreateBlendTypeInput!
   ): CreateBlendTypePayload
-
-  """The createBundleBuilder mutation"""
-  createBundleBuilder(
-    """Input for the createBundleBuilder mutation"""
-    input: CreateBundleBuilderInput!
-  ): CreateBundleBuilderPayload
 
   """The createCannabinoid mutation"""
   createCannabinoid(
@@ -86621,12 +86392,6 @@ type RootMutation {
     """Input for the deleteBlendType mutation"""
     input: DeleteBlendTypeInput!
   ): DeleteBlendTypePayload
-
-  """The deleteBundleBuilder mutation"""
-  deleteBundleBuilder(
-    """Input for the deleteBundleBuilder mutation"""
-    input: DeleteBundleBuilderInput!
-  ): DeleteBundleBuilderPayload
 
   """The deleteCannabinoid mutation"""
   deleteCannabinoid(
@@ -87203,12 +86968,6 @@ type RootMutation {
     """Input for the updateBlendType mutation"""
     input: UpdateBlendTypeInput!
   ): UpdateBlendTypePayload
-
-  """The updateBundleBuilder mutation"""
-  updateBundleBuilder(
-    """Input for the updateBundleBuilder mutation"""
-    input: UpdateBundleBuilderInput!
-  ): UpdateBundleBuilderPayload
 
   """The updateCannabinoid mutation"""
   updateCannabinoid(
@@ -88014,59 +87773,6 @@ type RootQuery implements WithAcfOptionsPageSiteSettings {
     """Arguments for filtering the connection"""
     where: RootQueryToBlendTypeConnectionWhereArgs
   ): RootQueryToBlendTypeConnection
-
-  """An object of the BundleBuilder Type. """
-  bundleBuilder(
-    """
-    Whether to return the Preview Node instead of the Published Node. When the ID of a Node is provided along with asPreview being set to true, the preview node with un-published changes will be returned instead of the published node. If no preview node exists or the requester doesn't have proper capabilities to preview, no node will be returned. If the ID provided is a URI and has a preview query arg, it will be used as a fallback if the "asPreview" argument is not explicitly provided as an argument.
-    """
-    asPreview: Boolean
-
-    """The globally unique identifier of the object."""
-    id: ID!
-
-    """Type of unique identifier to fetch by. Default is Global ID"""
-    idType: BundleBuilderIdType
-  ): BundleBuilder
-
-  """A BundleBuilder object"""
-  bundleBuilderBy(
-    """Get the BundleBuilder by its database ID"""
-    bundleBuilderId: Int
-
-    """Get the BundleBuilder object by its global ID"""
-    id: ID
-
-    """
-    Get the BundleBuilder by its slug (only available for non-hierarchical types)
-    """
-    slug: String
-
-    """Get the BundleBuilder by its uri"""
-    uri: String
-  ): BundleBuilder @deprecated(reason: "Deprecated in favor of using the single entry point for this type with ID and IDType fields. For example, instead of postBy( id: &quot;&quot; ), use post(id: &quot;&quot; idType: &quot;&quot;)")
-
-  """Connection between the RootQuery type and the BundleBuilder type"""
-  bundleBuilders(
-    """
-    Cursor used along with the "first" argument to reference where in the dataset to get data
-    """
-    after: String
-
-    """
-    Cursor used along with the "last" argument to reference where in the dataset to get data
-    """
-    before: String
-
-    """The number of items to return after the referenced "after" cursor"""
-    first: Int
-
-    """The number of items to return before the referenced "before" cursor"""
-    last: Int
-
-    """Arguments for filtering the connection"""
-    where: RootQueryToBundleBuilderConnectionWhereArgs
-  ): RootQueryToBundleBuilderConnection
 
   """A 0bject"""
   cannabinoid(
@@ -91605,115 +91311,6 @@ input RootQueryToBlendTypeConnectionWhereArgs {
 
   """Whether to prime meta caches for matched terms. Default true."""
   updateTermMetaCache: Boolean
-}
-
-"""Connection between the RootQuery type and the BundleBuilder type"""
-type RootQueryToBundleBuilderConnection implements BundleBuilderConnection & Connection {
-  """Edges for the RootQueryToBundleBuilderConnection connection"""
-  edges: [RootQueryToBundleBuilderConnectionEdge!]!
-
-  """The nodes of the connection, without the edges"""
-  nodes: [BundleBuilder!]!
-
-  """Information about pagination in a connection."""
-  pageInfo: RootQueryToBundleBuilderConnectionPageInfo!
-}
-
-"""An edge in a connection"""
-type RootQueryToBundleBuilderConnectionEdge implements BundleBuilderConnectionEdge & Edge {
-  """A cursor for use in pagination"""
-  cursor: String
-
-  """The item at the end of the edge"""
-  node: BundleBuilder!
-}
-
-"""
-Pagination metadata specific to &quot;RootQueryToBundleBuilderConnection&quot; collections. Provides cursors and flags for navigating through sets of RootQueryToBundleBuilderConnection Nodes.
-"""
-type RootQueryToBundleBuilderConnectionPageInfo implements BundleBuilderConnectionPageInfo & PageInfo & WPPageInfo {
-  """When paginating forwards, the cursor to continue."""
-  endCursor: String
-
-  """When paginating forwards, are there more items?"""
-  hasNextPage: Boolean!
-
-  """When paginating backwards, are there more items?"""
-  hasPreviousPage: Boolean!
-
-  """Raw schema for page"""
-  seo: SEOPostTypePageInfo
-
-  """When paginating backwards, the cursor to continue."""
-  startCursor: String
-}
-
-"""
-Arguments for filtering the RootQueryToBundleBuilderConnection connection
-"""
-input RootQueryToBundleBuilderConnectionWhereArgs {
-  """Filter the connection based on dates"""
-  dateQuery: DateQueryInput
-
-  """
-  True for objects with passwords; False for objects without passwords; null for all objects with or without passwords
-  """
-  hasPassword: Boolean
-
-  """Specific database ID of the object"""
-  id: Int
-
-  """Array of IDs for the objects to retrieve"""
-  in: [ID]
-
-  """
-  True to limit the results to sticky posts; false to exclude sticky posts. Note: this filters the result set, it does not float sticky posts to the top of the results.
-  """
-  isSticky: Boolean
-
-  """Get objects with a specific mimeType property"""
-  mimeType: MimeTypeEnum
-
-  """Slug / post_name of the object"""
-  name: String
-
-  """Specify objects to retrieve. Use slugs"""
-  nameIn: [String]
-
-  """
-  Specify IDs NOT to retrieve. If this is used in the same query as "in", it will be ignored
-  """
-  notIn: [ID]
-
-  """What parameter to use to order the objects by."""
-  orderby: [PostObjectsConnectionOrderbyInput]
-
-  """Use ID to return only children. Use 0 to return only top-level items"""
-  parent: ID
-
-  """Specify objects whose parent is in an array"""
-  parentIn: [ID]
-
-  """Specify posts whose parent is not in an array"""
-  parentNotIn: [ID]
-
-  """Show posts with a specific password."""
-  password: String
-
-  """Show Posts based on a keyword search"""
-  search: String
-
-  """Retrieve posts where post status is in an array."""
-  stati: [PostStatusEnum]
-
-  """Show posts with a specific status."""
-  status: PostStatusEnum
-
-  """Filter the connection to content assigned a specific template."""
-  template: ContentTemplateEnum
-
-  """Title of the object"""
-  title: String
 }
 
 """Connection between the RootQuery type and the cannabinoid type"""
@@ -100286,9 +99883,6 @@ type SEOContentTypes {
   blendNoidFaq: SEOContentType
 
   """"""
-  bundleBuilder: SEOContentType
-
-  """"""
   cannabinoidInfo: SEOContentType
 
   """"""
@@ -103986,7 +103580,7 @@ type SimpleCartItem implements CartItem & Node {
   bbBasePrice: Float
 
   """
-  If this cart item is part of a Bundle Builder selection, the bundle (BundleBuilder) database ID.
+  If this cart item is part of a Bundle Builder selection, the Bundle Builder product&#039;s database ID (same as bbParentProductId — kept for both since bbBundleId is the grouping key).
   """
   bbBundleId: Int
 
@@ -103999,6 +103593,16 @@ type SimpleCartItem implements CartItem & Node {
   True if this cart item belongs to a bundle and its quantity/removal is locked.
   """
   bbLocked: Boolean
+
+  """
+  The Bundle Builder product itself (for its name/image), resolved as a full Product node. Same ID as bbParentProductId/bbBundleId.
+  """
+  bbParentProduct: Product
+
+  """
+  Database ID of the Bundle Builder product this cart item is part of (its name/image are the ones a &quot;part of bundle&quot; note should show). Same value as bbBundleId — kept as its own field for symmetry with bbParentProduct below.
+  """
+  bbParentProductId: Int
 
   """
   The effective per-unit price for this cart item with the bundle tier discount applied. Use this (not product.price, which is the undiscounted catalog price) when building payment or order payloads.
@@ -104115,14 +103719,69 @@ type SimpleProduct implements ContentNode & DatabaseIdentifier & DownloadablePro
   ): ProductToBadgeConnection
 
   """
-  For Bundle Builder products: the lowest possible bundle total (&quot;From $X&quot;); null for other product types.
+  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  """
+  bbBundleMode: String
+
+  """
+  For Build Your Bundle products: the resolved pool a shopper can pick from (collections/subcollections + manually picked products; purchasable, in-stock, simple products only). Null if not a Build Your Bundle product.
+  """
+  bbBundleProducts: [Product]
+
+  """
+  For Build Your Bundle products: the bundle&#039;s own description (_bb_description — separate from the product&#039;s native description), shown above the product grid; null otherwise.
+  """
+  bbDescription: String
+
+  """
+  For Build Your Bundle products: tiered quantity discount rules, ascending by minQty. Null if not a Build Your Bundle product.
+  """
+  bbDiscountRules: [BbDiscountRule]
+
+  """
+  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  """
+  bbFixedItems: [BbFixedItem]
+
+  """
+  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  """
+  bbFixedOriginalPrice: Float
+
+  """
+  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  """
+  bbFixedPrice: Float
+
+  """
+  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  """
+  bbFixedQtyMax: Int
+
+  """
+  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  """
+  bbFixedQtyMin: Int
+
+  """
+  For Build Your Bundle products: the lowest possible bundle total (minimum items, cheapest products, discount tier applied), for a &quot;From $X&quot; display. Null if not a Build Your Bundle product, if bbShowPrice is false, or if no valid price is computable.
   """
   bbFromPrice: Float
 
   """
-  Database ID of the linked BundleBuilder config if this is a Bundle Builder product; null otherwise.
+  For Build Your Bundle products: maximum number of products allowed (0/null = unlimited); null if not a Build Your Bundle product.
   """
-  bbLinkedBundleId: Int
+  bbMaxItems: Int
+
+  """
+  For Build Your Bundle products: minimum number of products a shopper must select before the bundle can be added to cart; null otherwise.
+  """
+  bbMinItems: Int
+
+  """
+  For Build Your Bundle products: whether the price should be displayed at all (the &quot;Show price&quot; checkbox — opt-in, unchecked/hidden by default). When false, bbFromPrice is always null even though a price may be computable. Null if not a Build Your Bundle product.
+  """
+  bbShowPrice: Boolean
 
   """Connection between the Product type and the blendType type"""
   blendTypes(
@@ -109277,14 +108936,69 @@ type SubscriptionProduct implements ContentNode & DatabaseIdentifier & Downloada
   ): ProductToBadgeConnection
 
   """
-  For Bundle Builder products: the lowest possible bundle total (&quot;From $X&quot;); null for other product types.
+  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  """
+  bbBundleMode: String
+
+  """
+  For Build Your Bundle products: the resolved pool a shopper can pick from (collections/subcollections + manually picked products; purchasable, in-stock, simple products only). Null if not a Build Your Bundle product.
+  """
+  bbBundleProducts: [Product]
+
+  """
+  For Build Your Bundle products: the bundle&#039;s own description (_bb_description — separate from the product&#039;s native description), shown above the product grid; null otherwise.
+  """
+  bbDescription: String
+
+  """
+  For Build Your Bundle products: tiered quantity discount rules, ascending by minQty. Null if not a Build Your Bundle product.
+  """
+  bbDiscountRules: [BbDiscountRule]
+
+  """
+  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  """
+  bbFixedItems: [BbFixedItem]
+
+  """
+  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  """
+  bbFixedOriginalPrice: Float
+
+  """
+  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  """
+  bbFixedPrice: Float
+
+  """
+  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  """
+  bbFixedQtyMax: Int
+
+  """
+  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  """
+  bbFixedQtyMin: Int
+
+  """
+  For Build Your Bundle products: the lowest possible bundle total (minimum items, cheapest products, discount tier applied), for a &quot;From $X&quot; display. Null if not a Build Your Bundle product, if bbShowPrice is false, or if no valid price is computable.
   """
   bbFromPrice: Float
 
   """
-  Database ID of the linked BundleBuilder config if this is a Bundle Builder product; null otherwise.
+  For Build Your Bundle products: maximum number of products allowed (0/null = unlimited); null if not a Build Your Bundle product.
   """
-  bbLinkedBundleId: Int
+  bbMaxItems: Int
+
+  """
+  For Build Your Bundle products: minimum number of products a shopper must select before the bundle can be added to cart; null otherwise.
+  """
+  bbMinItems: Int
+
+  """
+  For Build Your Bundle products: whether the price should be displayed at all (the &quot;Show price&quot; checkbox — opt-in, unchecked/hidden by default). When false, bbFromPrice is always null even though a price may be computable. Null if not a Build Your Bundle product.
+  """
+  bbShowPrice: Boolean
 
   """Connection between the Product type and the blendType type"""
   blendTypes(
@@ -111422,14 +111136,69 @@ type SubscriptionVariableProduct implements ContentNode & DatabaseIdentifier & I
   ): ProductToBadgeConnection
 
   """
-  For Bundle Builder products: the lowest possible bundle total (&quot;From $X&quot;); null for other product types.
+  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  """
+  bbBundleMode: String
+
+  """
+  For Build Your Bundle products: the resolved pool a shopper can pick from (collections/subcollections + manually picked products; purchasable, in-stock, simple products only). Null if not a Build Your Bundle product.
+  """
+  bbBundleProducts: [Product]
+
+  """
+  For Build Your Bundle products: the bundle&#039;s own description (_bb_description — separate from the product&#039;s native description), shown above the product grid; null otherwise.
+  """
+  bbDescription: String
+
+  """
+  For Build Your Bundle products: tiered quantity discount rules, ascending by minQty. Null if not a Build Your Bundle product.
+  """
+  bbDiscountRules: [BbDiscountRule]
+
+  """
+  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  """
+  bbFixedItems: [BbFixedItem]
+
+  """
+  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  """
+  bbFixedOriginalPrice: Float
+
+  """
+  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  """
+  bbFixedPrice: Float
+
+  """
+  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  """
+  bbFixedQtyMax: Int
+
+  """
+  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  """
+  bbFixedQtyMin: Int
+
+  """
+  For Build Your Bundle products: the lowest possible bundle total (minimum items, cheapest products, discount tier applied), for a &quot;From $X&quot; display. Null if not a Build Your Bundle product, if bbShowPrice is false, or if no valid price is computable.
   """
   bbFromPrice: Float
 
   """
-  Database ID of the linked BundleBuilder config if this is a Bundle Builder product; null otherwise.
+  For Build Your Bundle products: maximum number of products allowed (0/null = unlimited); null if not a Build Your Bundle product.
   """
-  bbLinkedBundleId: Int
+  bbMaxItems: Int
+
+  """
+  For Build Your Bundle products: minimum number of products a shopper must select before the bundle can be added to cart; null otherwise.
+  """
+  bbMinItems: Int
+
+  """
+  For Build Your Bundle products: whether the price should be displayed at all (the &quot;Show price&quot; checkbox — opt-in, unchecked/hidden by default). When false, bbFromPrice is always null even though a price may be computable. Null if not a Build Your Bundle product.
+  """
+  bbShowPrice: Boolean
 
   """Connection between the Product type and the blendType type"""
   blendTypes(
@@ -116300,56 +116069,6 @@ input UpdateBlendTypeInput {
 type UpdateBlendTypePayload {
   """The created blend-types"""
   blendType: BlendType
-
-  """
-  If a &#039;clientMutationId&#039; input is provided to the mutation, it will be returned as output on the mutation. This ID can be used by the client to track the progress of mutations and catch possible duplicate mutation submissions.
-  """
-  clientMutationId: String
-}
-
-"""Input for the updateBundleBuilder mutation."""
-input UpdateBundleBuilderInput {
-  """
-  This is an ID that can be passed to a mutation by the client to track the progress of mutations and catch possible duplicate mutation submissions.
-  """
-  clientMutationId: String
-
-  """The content of the object"""
-  content: String
-
-  """
-  The date of the object. Preferable to enter as year/month/day (e.g. 01/31/2017) as it will rearrange date as fit if it is not specified. Incomplete dates may have unintended results for example, "2017" as the input will use current date with timestamp 20:17 
-  """
-  date: String
-
-  """The ID of the BundleBuilder object"""
-  id: ID!
-
-  """Override the edit lock when another user is editing the post"""
-  ignoreEditLock: Boolean
-
-  """
-  A field used for ordering posts. This is typically used with nav menu items or for special ordering of hierarchical content types.
-  """
-  menuOrder: Int
-
-  """The password used to protect the content of the object"""
-  password: String
-
-  """The slug of the object"""
-  slug: String
-
-  """The status of the object"""
-  status: PostStatusEnum
-
-  """The title of the object"""
-  title: String
-}
-
-"""The payload for the updateBundleBuilder mutation."""
-type UpdateBundleBuilderPayload {
-  """The Post object mutation type."""
-  bundleBuilder: BundleBuilder
 
   """
   If a &#039;clientMutationId&#039; input is provided to the mutation, it will be returned as output on the mutation. This ID can be used by the client to track the progress of mutations and catch possible duplicate mutation submissions.
@@ -122612,14 +122331,69 @@ type VariableProduct implements ContentNode & DatabaseIdentifier & InventoriedPr
   ): ProductToBadgeConnection
 
   """
-  For Bundle Builder products: the lowest possible bundle total (&quot;From $X&quot;); null for other product types.
+  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  """
+  bbBundleMode: String
+
+  """
+  For Build Your Bundle products: the resolved pool a shopper can pick from (collections/subcollections + manually picked products; purchasable, in-stock, simple products only). Null if not a Build Your Bundle product.
+  """
+  bbBundleProducts: [Product]
+
+  """
+  For Build Your Bundle products: the bundle&#039;s own description (_bb_description — separate from the product&#039;s native description), shown above the product grid; null otherwise.
+  """
+  bbDescription: String
+
+  """
+  For Build Your Bundle products: tiered quantity discount rules, ascending by minQty. Null if not a Build Your Bundle product.
+  """
+  bbDiscountRules: [BbDiscountRule]
+
+  """
+  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  """
+  bbFixedItems: [BbFixedItem]
+
+  """
+  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  """
+  bbFixedOriginalPrice: Float
+
+  """
+  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  """
+  bbFixedPrice: Float
+
+  """
+  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  """
+  bbFixedQtyMax: Int
+
+  """
+  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  """
+  bbFixedQtyMin: Int
+
+  """
+  For Build Your Bundle products: the lowest possible bundle total (minimum items, cheapest products, discount tier applied), for a &quot;From $X&quot; display. Null if not a Build Your Bundle product, if bbShowPrice is false, or if no valid price is computable.
   """
   bbFromPrice: Float
 
   """
-  Database ID of the linked BundleBuilder config if this is a Bundle Builder product; null otherwise.
+  For Build Your Bundle products: maximum number of products allowed (0/null = unlimited); null if not a Build Your Bundle product.
   """
-  bbLinkedBundleId: Int
+  bbMaxItems: Int
+
+  """
+  For Build Your Bundle products: minimum number of products a shopper must select before the bundle can be added to cart; null otherwise.
+  """
+  bbMinItems: Int
+
+  """
+  For Build Your Bundle products: whether the price should be displayed at all (the &quot;Show price&quot; checkbox — opt-in, unchecked/hidden by default). When false, bbFromPrice is always null even though a price may be computable. Null if not a Build Your Bundle product.
+  """
+  bbShowPrice: Boolean
 
   """Connection between the Product type and the blendType type"""
   blendTypes(
