@@ -169,7 +169,14 @@ export default function SiteHeader() {
   // client render matches the server. Without this the mismatch only appears for
   // visitors who already have items, never for a developer with an empty cart.
   const itemsCount = hydrated ? cart?.itemsCount ?? 0 : 0;
-  const cartSubtotal = hydrated && cartReady ? cart?.subtotal ?? '' : '';
+  // Show the net merchandise total (after all discounts) — what the customer
+  // will actually pay for the items — matching the drawer/checkout "Total".
+  const cartSubtotal =
+    hydrated && cartReady && cart?.items?.length
+      ? `$${cart.items
+          .reduce((s, i) => s + (parseFloat((i.total || '').replace(/[^0-9.-]/g, '')) || 0), 0)
+          .toFixed(2)}`
+      : '';
 
   return (
     <>

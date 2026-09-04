@@ -537,9 +537,6 @@ export default function CartDrawer() {
                 {cart.appliedCoupons.map((coupon) => (
                   <span key={coupon.code} className={styles.appliedCoupon}>
                     {coupon.code}
-                    {coupon.discountAmount && parsePrice(coupon.discountAmount) > 0 && (
-                      <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
-                    )}
                     <button
                       type="button"
                       onClick={() => removeCoupon(coupon.code)}
@@ -554,42 +551,32 @@ export default function CartDrawer() {
             )}
 
             {(() => {
-              const totalBundleDiscount = bundles.reduce((sum, group) => {
-                const allItems = group.instances.flatMap((inst) => inst.items);
-                const original = allItems.reduce((s, i) => s + i.quantity * parsePrice(i.product.price), 0);
-                const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
-                return sum + Math.max(0, original - discounted);
-              }, 0);
-              const couponDiscount = parsePrice(cart.discountTotal);
-              const effectiveSubtotal = parsePrice(cart.subtotal) - couponDiscount;
+              // Gross = full price of everything; Net = what each line actually
+              // costs after ALL discounts (coupons, BOGO, free gift, bundles).
+              // One consolidated "You saved" = gross − net, so the numbers
+              // always reconcile and never shift per-coupon.
+              const grossSubtotal = cart.items.reduce(
+                (s, i) => s + i.quantity * parsePrice(i.product.price),
+                0
+              );
+              const netTotal = cart.items.reduce((s, i) => s + parsePrice(i.total), 0);
+              const saved = Math.max(0, grossSubtotal - netTotal);
 
               return (
                 <>
-                  {totalBundleDiscount > 0 && (
+                  <div className={styles.subtotalRow}>
+                    <span className={styles.subtotalLabel}>Subtotal</span>
+                    <span className={styles.subtotalValue}>${grossSubtotal.toFixed(2)}</span>
+                  </div>
+                  {saved > 0 && (
                     <div className={styles.subtotalRow}>
-                      <span className={styles.discountLabel}>Bundle Discount</span>
-                      <span className={styles.discountValue}>
-                        -${totalBundleDiscount.toFixed(2)}
-                      </span>
+                      <span className={styles.discountLabel}>You saved</span>
+                      <span className={styles.discountValue}>-${saved.toFixed(2)}</span>
                     </div>
                   )}
-                  {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
-                    const amt = parsePrice(coupon.discountAmount);
-                    if (amt <= 0) return null;
-                    return (
-                      <div key={coupon.code} className={styles.subtotalRow}>
-                        <span className={styles.discountLabel}>{coupon.code.toUpperCase()}</span>
-                        <span className={styles.discountValue}>
-                          -${amt.toFixed(2)}
-                        </span>
-                      </div>
-                    );
-                  })}
                   <div className={styles.subtotalRow}>
-                    <span className={styles.subtotalLabel}>SUBTOTAL</span>
-                    <span className={styles.subtotalValue}>
-                      ${effectiveSubtotal.toFixed(2)}
-                    </span>
+                    <span className={styles.subtotalLabel}>Total</span>
+                    <span className={styles.subtotalValue}>${netTotal.toFixed(2)}</span>
                   </div>
                 </>
               );
