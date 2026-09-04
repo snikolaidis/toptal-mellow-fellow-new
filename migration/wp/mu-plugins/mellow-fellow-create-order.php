@@ -133,7 +133,27 @@ function mf_create_order( WP_REST_Request $request ) {
                 $add_args['total']    = $unit_total;
             }
 
-            $order->add_product( $product, $quantity, $add_args );
+            $item_id = $order->add_product( $product, $quantity, $add_args );
+
+            // Tag this line item as part of a bundle, when the frontend sent
+            // one — see CartContext's bbGroupKey/bbBundleId and
+            // checkout.tsx's items[].bundleGroupKey/bundleName. Items without
+            // these fields (i.e. every non-bundle product) are left exactly
+            // as before.
+            $bundle_group_key = sanitize_text_field( $item['bundleGroupKey'] ?? '' );
+            $bundle_name       = sanitize_text_field( $item['bundleName'] ?? '' );
+            if ( $item_id && ! is_wp_error( $item_id ) && ( $bundle_group_key || $bundle_name ) ) {
+                $order_item = $order->get_item( $item_id );
+                if ( $order_item ) {
+                    if ( $bundle_name ) {
+                        $order_item->add_meta_data( 'Bundle', $bundle_name );
+                    }
+                    if ( $bundle_group_key ) {
+                        $order_item->add_meta_data( '_bundle_group_key', $bundle_group_key );
+                    }
+                    $order_item->save();
+                }
+            }
         }
 
         // Billing address

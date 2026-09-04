@@ -21,6 +21,11 @@ function toProduct(r: RecentProduct): Product {
     image: r.image ? { sourceUrl: r.image.sourceUrl, altText: r.image.altText || r.name } : undefined,
     __typename: 'SimpleProduct',
     mfproductTypes: r.typeLabel ? { nodes: [{ name: r.typeLabel }] } : undefined,
+    bbBundleMode: r.bbBundleMode,
+    bbFixedPrice: r.bbFixedPrice,
+    bbFixedOriginalPrice: r.bbFixedOriginalPrice,
+    bbFromPrice: r.bbFromPrice,
+    bbShowPrice: r.bbShowPrice,
   } as Product;
 }
 

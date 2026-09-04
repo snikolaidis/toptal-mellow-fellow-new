@@ -6,8 +6,19 @@ import { useCart, groupCartItems } from '@/context/CartContext';
 import { ChevronDownIcon } from '@/components/icons';
 import styles from '@/styles/pages/cart.module.css';
 
+function parsePrice(price: string): number {
+  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
+}
+
+// Bundle/sale discounts apply via the product's own sale price, not a coupon,
+// so `product.price` is already the discounted unit price — `regularPrice`
+// (when present) is the only source for the true original price.
+function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
+  return parsePrice(item.product.regularPrice || item.product.price);
+}
+
 export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, cartReady, bundleNames, bundleDiscounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
+  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, addFixedBundleToCart, isLoading, cartReady, bundleNames, bundleImages, bundleModes, bundleGroupSetCounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
   // Bundle groups collapse to a single "name - price" row by default; this
@@ -30,7 +41,26 @@ export default function CartPage() {
       refreshCart();
     }
   }, []);
-  const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
+  const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames, bundleImages, bundleModes, bundleGroupSetCounts);
+
+  const handleAddAnotherBundle = useCallback(async (group: (typeof bundles)[number]) => {
+    try {
+      if (group.bundleMode === 'fixed') {
+        await addFixedBundleToCart(group.bundleId, 1, group.bundleName, group.image);
+      } else {
+        await addBundleToCart(
+          group.bundleId,
+          group.representativeItems.flatMap((i) => Array(i.quantity).fill(i.product.databaseId)),
+          group.bundleName,
+          undefined,
+          group.image
+        );
+      }
+    } catch {
+      // Failure reason is already surfaced via the shared cartError banner —
+      // this just stops it from becoming an unhandled promise rejection.
+    }
+  }, [addBundleToCart, addFixedBundleToCart]);
 
   if (isLoading || !cartReady) {
     return (
@@ -79,30 +109,62 @@ export default function CartPage() {
               <tbody>
                 {/* Bundle groups */}
                 {bundles.map((group) => {
-                  const discount = bundleDiscounts[group.bundleId] ?? 0;
-                  const originalTotal = group.instances
-                    .flatMap((inst) => inst.items)
-                    .reduce((sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0);
-                  const discountedTotal = discount > 0 ? originalTotal * (1 - discount / 100) : originalTotal;
+                  const allItems = group.instances.flatMap((inst) => inst.items);
+                  const originalTotal = allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
+                  const discountedTotal = allItems.reduce((sum, i) => sum + parsePrice(i.total), 0);
+                  const hasDiscount = discountedTotal < originalTotal - 0.005;
                   const bundleTotal = discountedTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
                   const isExpanded = expandedGroups.has(group.mergeKey);
                   const panelId = `bundle-panel-${group.mergeKey}`;
+                  // Aggregate by product across every instance in the group (not just
+                  // the first instance's representativeItems), so a bundle added more
+                  // than once shows its real combined per-product quantities.
+                  const bundleItemRows = allItems.reduce<{ item: typeof allItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
+                    (acc, item) => {
+                      const existing = acc.find((r) => r.item.product.databaseId === item.product.databaseId);
+                      const lineOriginal = item.quantity * originalUnitPrice(item);
+                      const lineTotal = parsePrice(item.total);
+                      if (existing) {
+                        existing.qty += item.quantity;
+                        existing.originalAmount += lineOriginal;
+                        existing.totalAmount += lineTotal;
+                      } else {
+                        acc.push({ item, qty: item.quantity, originalAmount: lineOriginal, totalAmount: lineTotal });
+                      }
+                      return acc;
+                    },
+                    []
+                  );
                   return (
                     <React.Fragment key={group.mergeKey}>
                       <tr className={styles.bundleHeaderRow}>
                         <td className={styles.bundleHeaderCell}>
-                          <button
-                            type="button"
-                            className={styles.bundleToggleBtn}
-                            onClick={() => toggleGroupExpanded(group.mergeKey)}
-                            aria-expanded={isExpanded}
-                            aria-controls={group.representativeItems.map((item) => `${panelId}-${item.key}`).join(' ')}
-                          >
-                            <span className={`${styles.bundleChevron} ${isExpanded ? styles.bundleChevronExpanded : ''}`}>
-                              <ChevronDownIcon />
-                            </span>
-                            {group.bundleName}
-                          </button>
+                          <div className={styles.productCell}>
+                            {group.image && (
+                              <Image
+                                src={group.image.sourceUrl}
+                                alt={group.image.altText || group.bundleName}
+                                width={60}
+                                height={60}
+                                style={{ objectFit: 'contain' }}
+                              />
+                            )}
+                            <div className={styles.productInfo}>
+                              <span>{group.bundleName}</span>
+                              <button
+                                type="button"
+                                className={styles.bundleToggleBtn}
+                                onClick={() => toggleGroupExpanded(group.mergeKey)}
+                                aria-expanded={isExpanded}
+                                aria-controls={bundleItemRows.map((r) => `${panelId}-${r.item.product.databaseId}`).join(' ')}
+                              >
+                                <span className={`${styles.bundleChevron} ${isExpanded ? styles.bundleChevronExpanded : ''}`}>
+                                  <ChevronDownIcon />
+                                </span>
+                                {isExpanded ? 'Hide items' : 'Show items'}
+                              </button>
+                            </div>
+                          </div>
                         </td>
                         <td></td>
                         <td>
@@ -127,15 +189,7 @@ export default function CartPage() {
                             />
                             <button
                               className={styles.quantityBtn}
-                              onClick={() =>
-                                addBundleToCart(
-                                  group.bundleId,
-                                  group.representativeItems.flatMap((i) =>
-                                    Array(i.quantity).fill(i.product.databaseId)
-                                  ),
-                                  group.bundleName
-                                )
-                              }
+                              onClick={() => handleAddAnotherBundle(group)}
                               aria-label={`Add another ${group.bundleName}`}
                             >
                               +
@@ -143,7 +197,7 @@ export default function CartPage() {
                           </div>
                         </td>
                         <td>
-                          {discount > 0 && (
+                          {hasDiscount && (
                             <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
                               {originalTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                             </span>
@@ -152,8 +206,8 @@ export default function CartPage() {
                         </td>
                         <td></td>
                       </tr>
-                      {isExpanded && group.representativeItems.map((item) => (
-                        <tr key={item.key} id={`${panelId}-${item.key}`} className={styles.bundleItemRow}>
+                      {isExpanded && bundleItemRows.map(({ item, qty, totalAmount }) => (
+                        <tr key={item.product.databaseId} id={`${panelId}-${item.product.databaseId}`} className={styles.bundleItemRow}>
                           <td>
                             <div className={styles.productCell}>
                               {item.product.image && (
@@ -172,9 +226,16 @@ export default function CartPage() {
                               </div>
                             </div>
                           </td>
-                          <td>{item.product.price}</td>
-                          <td style={{ color: '#8A8683', fontSize: '0.875rem' }}>×{item.quantity}</td>
-                          <td>{item.total}</td>
+                          <td>
+                            {originalUnitPrice(item) > parsePrice(item.product.price) + 0.005 && (
+                              <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
+                                ${originalUnitPrice(item).toFixed(2)}
+                              </span>
+                            )}
+                            {item.product.price}
+                          </td>
+                          <td style={{ color: '#8A8683', fontSize: '0.875rem' }}>×{qty}</td>
+                          <td>${totalAmount.toFixed(2)}</td>
                           <td></td>
                         </tr>
                       ))}
@@ -206,7 +267,14 @@ export default function CartPage() {
                         </div>
                       </div>
                     </td>
-                    <td>{item.product.price}</td>
+                    <td>
+                      {originalUnitPrice(item) > parsePrice(item.product.price) + 0.005 && (
+                        <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
+                          ${originalUnitPrice(item).toFixed(2)}
+                        </span>
+                      )}
+                      {item.product.price}
+                    </td>
                     <td>
                       <div className={styles.quantitySelector}>
                         <button
@@ -233,9 +301,9 @@ export default function CartPage() {
                       </div>
                     </td>
                     <td>
-                      {item.subtotal && parseFloat(item.subtotal.replace(/[^0-9.]/g, '')) > parseFloat(item.total.replace(/[^0-9.]/g, '')) + 0.005 && (
+                      {item.quantity * originalUnitPrice(item) > parsePrice(item.total) + 0.005 && (
                         <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
-                          {item.subtotal}
+                          ${(item.quantity * originalUnitPrice(item)).toFixed(2)}
                         </span>
                       )}
                       {item.total}

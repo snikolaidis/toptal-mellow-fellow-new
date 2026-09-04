@@ -434,8 +434,11 @@ function meiliHitToProduct(hit: Record<string, any>): Product {
     regularPrice: hit.regularPrice ?? '',
     salePrice: hit.salePrice ?? '',
     stockStatus: hit.stockStatus ?? 'IN_STOCK',
-    bbLinkedBundleId: hit.bbLinkedBundleId ?? null,
+    bbBundleMode: hit.bbBundleMode ?? null,
     bbFromPrice: hit.bbFromPrice ?? null,
+    bbShowPrice: hit.bbShowPrice ?? null,
+    bbFixedPrice: hit.bbFixedPrice ?? null,
+    bbFixedOriginalPrice: hit.bbFixedOriginalPrice ?? null,
   };
 
   // Left off entirely rather than set to undefined. The index stores null for all

@@ -40,6 +40,12 @@ interface SingleProductData {
   product: Product | null;
 }
 
+export interface FixedBundleItemEntry {
+  productId: number;
+  quantity: number;
+  product?: Product;
+}
+
 /**
  * Derived data that only the `mf/v1/product` REST endpoint produces — sibling
  * option grouping, collection lookup and bundle resolution are all computed in
@@ -54,6 +60,10 @@ export interface SingleProductExtras {
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
   reviewData: KlaviyoReviewsResult;
+  // Fixed bundles' admin-picked items (bbFixedItems), pre-resolved into full
+  // product records server-side so "What's included" renders immediately
+  // instead of waiting on a client-side follow-up fetch.
+  fixedBundleItems: FixedBundleItemEntry[];
 }
 
 type SingleProductProps = FaustTemplateProps<SingleProductData, SingleProductExtras>;
@@ -71,15 +81,16 @@ const SingleProduct: React.FC<SingleProductProps> & {
   collectionSlug = null,
   availableOptions = [],
   availableOptionsBase = '',
-  bundleSlug = null,
   nutrition = null,
   reviewData = null,
+  fixedBundleItems: initialFixedBundleItems = [],
 }) => {
   const product = data?.product as Product | undefined;
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [bundleAddError, setBundleAddError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [subSchemes, setSubSchemes] = useState<
     Array<{ period: string; interval: number; price: string; discount: number }>
@@ -87,7 +98,8 @@ const SingleProduct: React.FC<SingleProductProps> & {
   const [subscribe, setSubscribe] = useState(false);
   const [subChoice, setSubChoice] = useState<{ period: string; interval: number } | null>(null);
   const [showSubInfo, setShowSubInfo] = useState(false);
-  const { addToCart } = useCart();
+  const { addToCart, addFixedBundleToCart } = useCart();
+  const [fixedBundleItems, setFixedBundleItems] = useState<FixedBundleItemEntry[]>(initialFixedBundleItems);
 
    // Store the thumbs swiper instance to connect it to the main slider
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
@@ -105,6 +117,11 @@ const SingleProduct: React.FC<SingleProductProps> & {
         ? { sourceUrl: product.image.sourceUrl, altText: product.image.altText || product.name }
         : undefined,
       typeLabel: product.mfproductTypes?.nodes?.[0]?.name,
+      bbBundleMode: product.bbBundleMode,
+      bbFixedPrice: product.bbFixedPrice,
+      bbFixedOriginalPrice: product.bbFixedOriginalPrice,
+      bbFromPrice: product.bbFromPrice,
+      bbShowPrice: product.bbShowPrice,
     });
   }, [product?.slug]);
 
@@ -148,9 +165,62 @@ const SingleProduct: React.FC<SingleProductProps> & {
     };
   }, [product?.databaseId]);
 
+  // Fixed bundles have no picker — resolve the admin-picked bbFixedItems
+  // (productId + quantity only) into full product records for display.
+  // `initialFixedBundleItems` (server-resolved in getStaticProps) already
+  // covers the common case — skip the client round trip whenever it already
+  // matches this product's items, so "What's included" doesn't pop in late.
+  useEffect(() => {
+    const items = product?.bbFixedItems;
+    if (product?.bbBundleMode !== 'fixed' || !items || items.length === 0) {
+      setFixedBundleItems([]);
+      return;
+    }
+    const hasServerData =
+      initialFixedBundleItems.length === items.length &&
+      initialFixedBundleItems.every((entry) => items.some((i) => i.productId === entry.productId));
+    if (hasServerData) {
+      setFixedBundleItems(initialFixedBundleItems);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const ids = items.map((i) => i.productId);
+        const res = await fetch('/api/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            query: `query GetFixedBundleItems($ids: [Int]!) {
+              products(first: 100, where: { include: $ids }) {
+                nodes {
+                  __typename
+                  ... on SimpleProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
+                  ... on VariableProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
+                }
+              }
+            }`,
+            variables: { ids },
+          }),
+        });
+        const json = await res.json();
+        const nodes: Product[] = json?.data?.products?.nodes || [];
+        if (cancelled) return;
+        const byId = new Map(nodes.map((p) => [p.databaseId, p]));
+        setFixedBundleItems(items.map((item) => ({ ...item, product: byId.get(item.productId) })));
+      } catch {
+        if (!cancelled) setFixedBundleItems(items.map((item) => ({ ...item })));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.databaseId, product?.bbBundleMode, initialFixedBundleItems]);
+
   // Reset state when product changes
   useEffect(() => {
-    setQuantity(1);
+    setQuantity(product?.bbBundleMode === 'fixed' ? product?.bbFixedQtyMin || 1 : 1);
     setSelectedVariation(null);
     setAddedToCart(false);
   }, [product?.id]);
@@ -224,6 +294,28 @@ const SingleProduct: React.FC<SingleProductProps> & {
     }
   };
 
+  const handleFixedBundleAddToCart = async () => {
+    setIsAdding(true);
+    setBundleAddError(null);
+    try {
+      await addFixedBundleToCart(product.databaseId, quantity, product.name, product.image);
+      klaviyoTrack('Added to Cart', {
+        ProductName: product.name,
+        ProductID: product.databaseId,
+        SKU: product.sku,
+        Quantity: quantity,
+        Price: product.bbFixedPrice,
+        Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
+      });
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 2500);
+    } catch (err) {
+      setBundleAddError(err instanceof Error ? err.message : 'Could not add this bundle to your cart.');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const primaryImage = product.image?.sourceUrl || '/placeholder-product.png';
   const galleryImages = product.galleryImages?.nodes || [];
   const allImages = [
@@ -233,10 +325,26 @@ const SingleProduct: React.FC<SingleProductProps> & {
 
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
   const hasVariations = product.variations?.nodes && product.variations.nodes.length > 0;
-  // Bundle Builder entry-point product — no fixed price, can't be added to
-  // cart directly; "Create Bundle" routes into the actual bundle picker.
-  const isBundle = product.bbLinkedBundleId != null;
+  // Bundle Builder entry-point product. "byob" has no fixed price and can't
+  // be added to cart directly — "Create Bundle" routes into the picker page.
+  // "fixed" is a normal add-to-cart with a flat price and a read-only,
+  // admin-picked set of items (fixedBundleItems, resolved above).
+  const isByobBundle = product.bbBundleMode === 'byob';
+  const isFixedBundle = product.bbBundleMode === 'fixed';
+  const isBundle = isByobBundle || isFixedBundle;
   const categories = product.productCategories?.nodes || [];
+
+  // Original (undiscounted) price for one fixed-bundle set — prefer the
+  // server-computed bbFixedOriginalPrice; fall back to summing the resolved
+  // items' own regular prices if that field isn't populated. Shown struck
+  // through next to bbFixedPrice whenever it's actually a discount off that.
+  const fixedItemsOriginalSum = fixedBundleItems.reduce((sum, item) => {
+    const unit = parseFloat(
+      (item.product?.regularPrice || item.product?.price || '0').replace(/[^0-9.]/g, '')
+    ) || 0;
+    return sum + unit * item.quantity;
+  }, 0);
+  const fixedOriginalPricePerSet = product.bbFixedOriginalPrice ?? fixedItemsOriginalSum;
 
   // Get selected variation details
   const selectedVariationData = selectedVariation
@@ -360,10 +468,25 @@ const SingleProduct: React.FC<SingleProductProps> & {
               />
             )}
 
-            {/* Price — bundles have no fixed price, they're priced by selection,
-                so show a "starting from" price instead */}
-            {isBundle ? (
-              product.bbFromPrice != null && (
+            {/* Price — byob bundles have no fixed price (they're priced by
+                selection) so show a "starting from" price; fixed bundles
+                have one flat price for the whole set, scaled by quantity
+                like a normal product. */}
+            {isFixedBundle ? (
+              product.bbFixedPrice != null && (
+                <div className="price">
+                  {fixedOriginalPricePerSet > product.bbFixedPrice + 0.005 ? (
+                    <>
+                      <span className="sale-price">${(product.bbFixedPrice * quantity).toFixed(2)}</span>
+                      <span className="regular-price">${(fixedOriginalPricePerSet * quantity).toFixed(2)}</span>
+                    </>
+                  ) : (
+                    <span>${(product.bbFixedPrice * quantity).toFixed(2)}</span>
+                  )}
+                </div>
+              )
+            ) : isByobBundle ? (
+              product.bbShowPrice && product.bbFromPrice != null && (
                 <div className="price">
                   <span>From ${product.bbFromPrice.toFixed(2)}</span>
                 </div>
@@ -386,6 +509,32 @@ const SingleProduct: React.FC<SingleProductProps> & {
               currentProductId={product.id}
               baseName={availableOptionsBase}
             />
+
+            {/* Fixed bundle contents — read-only, the admin already picked
+                these; there's nothing for the shopper to select. */}
+            {isFixedBundle && fixedBundleItems.length > 0 && (
+              <div className="fixed-bundle-items">
+                <span className="fixed-bundle-items-label">What&apos;s included</span>
+                <ul className="fixed-bundle-items-list">
+                  {fixedBundleItems.map(({ productId, quantity: itemQty, product: itemProduct }) => (
+                    <li key={productId} className="fixed-bundle-item">
+                      <div className="fixed-bundle-item-image">
+                        {itemProduct?.image?.sourceUrl && (
+                          <img
+                            src={itemProduct.image.sourceUrl}
+                            alt={itemProduct.image.altText || itemProduct.name}
+                          />
+                        )}
+                      </div>
+                      <span className="fixed-bundle-item-name">
+                        {itemProduct?.name || `Product #${productId}`}
+                      </span>
+                      <span className="fixed-bundle-item-qty">×{itemQty}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Stock Status */}
             <div className={`stock ${isInStock ? 'in-stock' : 'out-of-stock'}`}>
@@ -431,17 +580,86 @@ const SingleProduct: React.FC<SingleProductProps> & {
 
             {/* Add to Cart Section */}
             {isInStock ? (
-              isBundle ? (
+              isByobBundle ? (
                 <div className="add-to-cart-section">
-                  {/* Bundles are priced/added via the bundle builder, not a
-                      direct add-to-cart — this routes into that flow. */}
+                  {/* byob bundles are priced/added via the bundle builder,
+                      not a direct add-to-cart — this routes into that flow.
+                      Same slug as this product, just under /bundle/. */}
                   <Link
-                    href={bundleSlug ? `/bundle/${bundleSlug}` : '#'}
+                    href={`/bundle/${product.slug}`}
                     className="button is-black is-fullwidth"
                   >
                     Create Bundle
                   </Link>
                 </div>
+              ) : isFixedBundle ? (
+                <>
+                <div className="add-to-cart-section">
+                  {/* Fixed bundle: the item set is already decided, so this
+                      is just a normal add-to-cart with a bounded quantity
+                      (number of bundle sets, not individual items). */}
+                  <div className="quantity-selector">
+                    <label>Quantity</label>
+                    <button
+                      onClick={() => {
+                        setBundleAddError(null);
+                        setQuantity(Math.max(product.bbFixedQtyMin || 1, quantity - 1));
+                      }}
+                      className="quantity-btn decrease"
+                      aria-label="Decrease quantity"
+                      disabled={quantity <= (product.bbFixedQtyMin || 1)}
+                    >
+                      −
+                    </button>
+                    <span className="quantity-value">{quantity}</span>
+                    <button
+                      onClick={() => {
+                        setBundleAddError(null);
+                        setQuantity(
+                          product.bbFixedQtyMax != null
+                            ? Math.min(product.bbFixedQtyMax, quantity + 1)
+                            : quantity + 1
+                        );
+                      }}
+                      className="quantity-btn increase"
+                      aria-label="Increase quantity"
+                      disabled={product.bbFixedQtyMax != null && quantity >= product.bbFixedQtyMax}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <button
+                    className={`add-to-cart button is-fullwidth ${isAdding ? 'loading' : ''}`}
+                    onClick={handleFixedBundleAddToCart}
+                    disabled={isAdding}
+                  >
+                    {isAdding ? (
+                      <span className="btn-content">
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Adding...
+                      </span>
+                    ) : addedToCart ? (
+                      <span className="btn-content">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Added to Cart!
+                      </span>
+                    ) : (
+                      'Add to Cart'
+                    )}
+                  </button>
+                </div>
+                {bundleAddError && (
+                  <div className="bundle-add-error" role="alert">
+                    {bundleAddError}
+                  </div>
+                )}
+                </>
               ) : (
               <div className="add-to-cart-section">
                 {/* Quantity Selector */}
@@ -707,7 +925,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 .filter(Boolean)}
             />
 
-            <FlavorsBox product={product} />
+            {!isBundle && <FlavorsBox product={product} />}
 
             <ProductTimeline product={product} />
 

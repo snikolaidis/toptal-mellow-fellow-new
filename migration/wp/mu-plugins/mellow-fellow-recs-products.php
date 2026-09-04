@@ -187,7 +187,7 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
     // -----------------------------------------------------------------------
     // 4. Batch-fetch taxonomy terms
     // -----------------------------------------------------------------------
-    $tax_list = [ 'product-type', 'product-lines', 'cannabinoid' ];
+    $tax_list = [ 'product_type', 'product-type', 'product-lines', 'cannabinoid' ];
     $tax_placeholders = implode( ',', array_fill( 0, count( $tax_list ), '%s' ) );
 
     $tax_sql = $wpdb->prepare(
@@ -271,6 +271,33 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
                       ? $line_terms[0]['name']
                       : implode( ' + ', array_map( function ( $c ) { return $c['name']; }, $cannab_terms ) );
 
+        // Bundle Builder products keep their whole config on the product
+        // itself (BB_Helpers::get_bundle_mode/is_price_shown/etc.), and the
+        // plugin's own WC product type for a bundle is 'bb_bundle' — same
+        // detection approach as mellow-fellow-collection-products.php.
+        $wc_type_slug = ( $t['product_type'][0]['slug'] ?? '' );
+        $is_bundle    = ( 'bb_bundle' === $wc_type_slug ) && class_exists( 'BB_Helpers' );
+        $bb_bundle_mode = null;
+        $bb_show_price = null;
+        $bb_from_price = null;
+        $bb_fixed_price = null;
+        $bb_fixed_original_price = null;
+
+        if ( $is_bundle ) {
+            $bb_bundle_mode = BB_Helpers::get_bundle_mode( $pid );
+
+            if ( 'fixed' === $bb_bundle_mode ) {
+                $fixed_price   = BB_Helpers::get_fixed_effective_price( $pid );
+                $fixed_regular = BB_Helpers::get_fixed_regular_price( $pid );
+                $bb_fixed_price          = $fixed_price > 0 ? (float) $fixed_price : null;
+                $bb_fixed_original_price = $fixed_regular > 0 ? (float) $fixed_regular : null;
+            } else {
+                $bb_show_price = BB_Helpers::is_price_shown( $pid );
+                $bb_from_price = $bb_show_price ? ( BB_Helpers::get_bundle_min_price( $pid ) ?: null ) : null;
+                $bb_from_price = $bb_from_price > 0 ? (float) $bb_from_price : null;
+            }
+        }
+
         $products[] = [
             'id'            => base64_encode( 'product:' . $pid ),
             'databaseId'    => $pid,
@@ -284,6 +311,11 @@ function mf_recs_products_handler( WP_REST_Request $request ) {
             'typeLabel'     => $type_label,
             'subtitle'      => $subtitle,
             'mfproductTypes' => [ 'nodes' => $type_terms ],
+            'bbBundleMode'          => $bb_bundle_mode,
+            'bbShowPrice'           => $bb_show_price,
+            'bbFromPrice'           => $bb_from_price,
+            'bbFixedPrice'          => $bb_fixed_price,
+            'bbFixedOriginalPrice'  => $bb_fixed_original_price,
         ];
     }
 

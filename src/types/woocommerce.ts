@@ -141,13 +141,31 @@ export interface Product {
   price?: string;
   regularPrice?: string;
   salePrice?: string;
-  // Bundle Builder plugin fields — set only on products that are actually a
-  // "build your own bundle" entry point. bbLinkedBundleId points at the
-  // BundleBuilder post (fetch via bundleBuilder(id, idType: DATABASE_ID));
-  // bbFromPrice is the bundle's starting-from price since a bundle has no
-  // single fixed price.
-  bbLinkedBundleId?: number | null;
+  // Bundle Builder plugin fields — the whole config lives directly on the
+  // product. bbBundleMode distinguishes the two flows:
+  // "byob" — shopper picks their own items from bbBundleProducts, within
+  //   bbMinItems/bbMaxItems, priced by tiered bbDiscountRules. bbFromPrice is
+  //   the cheapest-possible total, for a "From $X" teaser.
+  // "fixed" — admin-picked exact items/quantities, nothing for the shopper
+  //   to select. bbFixedItems is that picked set, bbFixedPrice is the flat
+  //   total, bbFixedQtyMin/Max bound how many sets can be added.
+  bbBundleMode?: 'byob' | 'fixed' | null;
+  bbDescription?: string | null;
+  // Whether the "From $X" teaser (bbFromPrice) should render on the card/PDP
+  // for a byob bundle — an admin-facing toggle.
+  bbShowPrice?: boolean | null;
   bbFromPrice?: number | null;
+  bbMinItems?: number | null;
+  bbMaxItems?: number | null;
+  bbDiscountRules?: Array<{ minQty: number; percent: number }> | null;
+  bbBundleProducts?: Product[] | null;
+  bbFixedItems?: Array<{ productId: number; quantity: number }> | null;
+  bbFixedPrice?: number | null;
+  // Undiscounted total for one set (sum of each item's regular price × qty)
+  // — shown struck through next to bbFixedPrice when it's a real discount.
+  bbFixedOriginalPrice?: number | null;
+  bbFixedQtyMin?: number | null;
+  bbFixedQtyMax?: number | null;
   stockStatus?: 'IN_STOCK' | 'OUT_OF_STOCK' | 'ON_BACKORDER';
   stockQuantity?: number;
   externalUrl?: string;

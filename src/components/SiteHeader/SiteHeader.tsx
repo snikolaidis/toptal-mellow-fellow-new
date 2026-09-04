@@ -42,7 +42,7 @@ export default function SiteHeader() {
   const { data: megaData } = useQuery(GET_SHOP_MEGA_MENU);
   const { data: moodData } = useQuery(GET_ALL_MOODS);
   const { data: featuredData } = useQuery(GET_MEGA_MENU_FEATURED);
-  const { cart, cartReady, toggleDrawer } = useCart();
+  const { cart, cartReady, cartItemCount, toggleDrawer } = useCart();
   const { isAuthenticated, isReady } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -168,7 +168,7 @@ export default function SiteHeader() {
   // the server had none. Both values stay empty until after mount so the first
   // client render matches the server. Without this the mismatch only appears for
   // visitors who already have items, never for a developer with an empty cart.
-  const itemsCount = hydrated ? cart?.itemsCount ?? 0 : 0;
+  const itemsCount = hydrated ? cartItemCount : 0;
   const cartSubtotal = hydrated && cartReady ? cart?.subtotal ?? '' : '';
 
   return (

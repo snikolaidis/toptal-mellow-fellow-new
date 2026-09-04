@@ -289,6 +289,11 @@ function transformProduct(p: any) {
     image: p.image || undefined,
     typeLabel: p.typeLabel || p.mfproductTypes?.nodes?.[0]?.name || '',
     subtitle: p.subtitle || '',
+    bbBundleMode: p.bbBundleMode ?? undefined,
+    bbShowPrice: p.bbShowPrice ?? undefined,
+    bbFromPrice: p.bbFromPrice ?? undefined,
+    bbFixedPrice: p.bbFixedPrice ?? undefined,
+    bbFixedOriginalPrice: p.bbFixedOriginalPrice ?? undefined,
   };
 }
 

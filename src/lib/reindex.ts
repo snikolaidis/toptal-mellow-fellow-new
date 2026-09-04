@@ -138,8 +138,11 @@ const PRODUCT_FIELDS = `
   singleCannabinoid { nodes { name slug } }
   mG { nodes { name slug } }
   pieces { nodes { name slug } }
-  bbLinkedBundleId
+  bbBundleMode
   bbFromPrice
+  bbShowPrice
+  bbFixedPrice
+  bbFixedOriginalPrice
   uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
 `;
 
@@ -200,8 +203,11 @@ const DISPLAYED_ATTRIBUTES = [
   'salePrice',
   'stockStatus',
   'image',
-  'bbLinkedBundleId',
+  'bbBundleMode',
   'bbFromPrice',
+  'bbShowPrice',
+  'bbFixedPrice',
+  'bbFixedOriginalPrice',
   'uniqueSellingProps',
   ...TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
   ...DISPLAY_TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
@@ -378,8 +384,11 @@ function toDocument(product: WooProduct): ProductDocument {
       sourceUrl: product.image?.sourceUrl ?? null,
       altText: product.image?.altText ?? null,
     },
-    bbLinkedBundleId: (product.bbLinkedBundleId as number | null | undefined) ?? null,
+    bbBundleMode: (product.bbBundleMode as string | null | undefined) ?? null,
     bbFromPrice: (product.bbFromPrice as number | null | undefined) ?? null,
+    bbShowPrice: (product.bbShowPrice as boolean | null | undefined) ?? null,
+    bbFixedPrice: (product.bbFixedPrice as number | null | undefined) ?? null,
+    bbFixedOriginalPrice: (product.bbFixedOriginalPrice as number | null | undefined) ?? null,
     uniqueSellingProps: (product.uniqueSellingProps as unknown) ?? null,
   };
 

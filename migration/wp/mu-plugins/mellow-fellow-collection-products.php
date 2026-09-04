@@ -367,17 +367,34 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         $wc_type = $taxes['product_type'][0]['slug'] ?? 'simple';
         $type_info = $type_map[ $wc_type ] ?? $type_map['simple'];
 
-        // wc-bundle-builder never persists a "from price" meta value — it
-        // computes the minimum bundle total live and only surfaces it when
-        // the "Show 'From' price" checkbox (_bb_show_from_price) is on.
-        // Mirror that gate here (see
-        // BB_Graphql::maybe_register_product_bundle_link's bbFromPrice
-        // resolver) instead of reading a bb_from_price meta key that
-        // doesn't exist.
-        $bb_id = ! empty( $meta['_bb_linked_bundle_id'] ) ? (int) $meta['_bb_linked_bundle_id'] : 0;
-        $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && method_exists( 'BB_Helpers', 'get_bundle_min_price' ) )
-            ? BB_Helpers::get_bundle_min_price( $bb_id )
-            : 0.0;
+        // Bundle Builder products keep their whole config on the product
+        // itself (BB_Helpers::get_bundle_mode/is_price_shown/etc.) — there's
+        // no separate "linked bundle" post to look up. $wc_type above is the
+        // product_type taxonomy slug, and the plugin's own product type for
+        // a bundle is literally 'bb_bundle', so that's the reliable signal
+        // for "is this a bundle at all" (BB_GraphQL maps it to SimpleProduct
+        // for GraphQL clients, same as $type_map falls back to here).
+        $is_bundle = ( 'bb_bundle' === $wc_type ) && class_exists( 'BB_Helpers' );
+        $bb_bundle_mode = null;
+        $bb_show_price = null;
+        $bb_from_price = null;
+        $bb_fixed_price = null;
+        $bb_fixed_original_price = null;
+
+        if ( $is_bundle ) {
+            $bb_bundle_mode = BB_Helpers::get_bundle_mode( $pid );
+
+            if ( 'fixed' === $bb_bundle_mode ) {
+                $fixed_price   = BB_Helpers::get_fixed_effective_price( $pid );
+                $fixed_regular = BB_Helpers::get_fixed_regular_price( $pid );
+                $bb_fixed_price          = $fixed_price > 0 ? (float) $fixed_price : null;
+                $bb_fixed_original_price = $fixed_regular > 0 ? (float) $fixed_regular : null;
+            } else {
+                $bb_show_price = BB_Helpers::is_price_shown( $pid );
+                $bb_from_price = $bb_show_price ? ( BB_Helpers::get_bundle_min_price( $pid ) ?: null ) : null;
+                $bb_from_price = $bb_from_price > 0 ? (float) $bb_from_price : null;
+            }
+        }
 
         // Plain formatted prices (no HTML) — ProductCard renders as text content
         $price        = isset( $meta['_price'] )         ? '$' . number_format( (float) $meta['_price'], 2 )         : null;
@@ -413,8 +430,11 @@ function mf_get_collection_products( WP_REST_Request $request ) {
                 'sourceUrl' => $image['sourceUrl'],
                 'altText'   => $image['altText'],
             ] : null,
-            'bbLinkedBundleId'  => $bb_id ?: null,
-            'bbFromPrice'       => $bb_from_price > 0 ? (float) $bb_from_price : null,
+            'bbBundleMode'          => $bb_bundle_mode,
+            'bbShowPrice'           => $bb_show_price,
+            'bbFromPrice'           => $bb_from_price,
+            'bbFixedPrice'          => $bb_fixed_price,
+            'bbFixedOriginalPrice'  => $bb_fixed_original_price,
             'uniqueSellingProps' => [
                 'nodes' => array_map( function ( $term ) use ( $usp_icon_map ) {
                     $icon = $usp_icon_map[ $term['term_id'] ] ?? null;

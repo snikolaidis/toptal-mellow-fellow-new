@@ -86,6 +86,11 @@ interface CheckoutRequest {
     name: string;
     quantity: number;
     price: string;
+    // Present only when this line item was added as part of a bundle group
+    // (see CartContext bbGroupKey/bbBundleId) — forwarded to mf/v1/create-order
+    // so it can be recorded as order item meta.
+    bundleGroupKey?: string;
+    bundleName?: string;
   }>;
   sources?: Record<string, string>;
   // Forwarded to mf/v1/create-order so the WP-side guard can independently
@@ -563,6 +568,8 @@ async function createOrderWithPayment(
       quantity: item.quantity,
       variationId: (item as any).variationId || undefined,
       unitPrice: (item as any).unitPrice || undefined,
+      bundleGroupKey: item.bundleGroupKey || undefined,
+      bundleName: item.bundleName || undefined,
     })),
     transactionId,
     paymentMethod: 'authorize_net',

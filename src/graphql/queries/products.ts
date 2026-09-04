@@ -192,8 +192,15 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
-    bbLinkedBundleId
     bbFromPrice
+    bbShowPrice
+    bbBundleMode
+    bbMinItems
+    bbMaxItems
+    bbFixedPrice
+    bbFixedOriginalPrice
+    bbFixedQtyMin
+    bbFixedQtyMax
     uniqueSellingProps {
       nodes {
         id
@@ -403,8 +410,15 @@ export const VARIABLE_PRODUCT_FIELDS = gql`
         slug
       }
     }
-    bbLinkedBundleId
     bbFromPrice
+    bbShowPrice
+    bbBundleMode
+    bbMinItems
+    bbMaxItems
+    bbFixedPrice
+    bbFixedOriginalPrice
+    bbFixedQtyMin
+    bbFixedQtyMax
     uniqueSellingProps {
       nodes {
         id
@@ -576,8 +590,15 @@ export const EXTERNAL_PRODUCT_FIELDS = gql`
         slug
       }
     }
-    bbLinkedBundleId
     bbFromPrice
+    bbShowPrice
+    bbBundleMode
+    bbMinItems
+    bbMaxItems
+    bbFixedPrice
+    bbFixedOriginalPrice
+    bbFixedQtyMin
+    bbFixedQtyMax
     uniqueSellingProps {
       nodes {
         id
@@ -745,8 +766,15 @@ export const GROUP_PRODUCT_FIELDS = gql`
         slug
       }
     }
-    bbLinkedBundleId
     bbFromPrice
+    bbShowPrice
+    bbBundleMode
+    bbMinItems
+    bbMaxItems
+    bbFixedPrice
+    bbFixedOriginalPrice
+    bbFixedQtyMin
+    bbFixedQtyMax
     uniqueSellingProps {
       nodes {
         id
@@ -866,15 +894,31 @@ export const GET_PRODUCT_BY_SLUG = gql`
       }
       ... on SimpleProduct {
         ...SimpleProductFields
+        bbFixedItems {
+          productId
+          quantity
+        }
       }
       ... on VariableProduct {
         ...VariableProductFields
+        bbFixedItems {
+          productId
+          quantity
+        }
       }
       ... on ExternalProduct {
         ...ExternalProductFields
+        bbFixedItems {
+          productId
+          quantity
+        }
       }
       ... on GroupProduct {
         ...GroupProductFields
+        bbFixedItems {
+          productId
+          quantity
+        }
       }
     }
   }
@@ -908,15 +952,31 @@ export const GET_PRODUCT_BY_DATABASE_ID = gql`
       }
       ... on SimpleProduct {
         ...SimpleProductFields
+        bbFixedItems {
+          productId
+          quantity
+        }
       }
       ... on VariableProduct {
         ...VariableProductFields
+        bbFixedItems {
+          productId
+          quantity
+        }
       }
       ... on ExternalProduct {
         ...ExternalProductFields
+        bbFixedItems {
+          productId
+          quantity
+        }
       }
       ... on GroupProduct {
         ...GroupProductFields
+        bbFixedItems {
+          productId
+          quantity
+        }
       }
     }
   }
@@ -976,8 +1036,15 @@ export const GET_COLLECTION_PRODUCTS = gql`
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
-          bbLinkedBundleId
           bbFromPrice
+          bbShowPrice
+          bbBundleMode
+          bbMinItems
+          bbMaxItems
+          bbFixedPrice
+          bbFixedOriginalPrice
+          bbFixedQtyMin
+          bbFixedQtyMax
         }
         ... on VariableProduct {
           id
@@ -1000,8 +1067,15 @@ export const GET_COLLECTION_PRODUCTS = gql`
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
-          bbLinkedBundleId
           bbFromPrice
+          bbShowPrice
+          bbBundleMode
+          bbMinItems
+          bbMaxItems
+          bbFixedPrice
+          bbFixedOriginalPrice
+          bbFixedQtyMin
+          bbFixedQtyMax
         }
       }
     }

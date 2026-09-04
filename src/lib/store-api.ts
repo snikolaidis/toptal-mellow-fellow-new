@@ -18,6 +18,7 @@ export interface CartItem {
     name: string;
     slug: string;
     price: string;
+    regularPrice?: string;
     image?: { sourceUrl: string; altText: string };
     productTypes?: Array<{ name: string; slug: string }>;
   };
@@ -82,6 +83,13 @@ export function transformStoreApiCart(data: any): Cart | null {
   const items: CartItem[] = (data.items || []).map((item: any) => {
     const decimals = item.prices?.currency_minor_unit ?? 2;
     const price = minorToFormatted(item.prices?.price, decimals);
+    // The Bundle Builder plugin (and any product-level sale price) discounts
+    // via `prices.price`, not a coupon — so `totals.line_subtotal` already
+    // reflects the discounted price too. `prices.regular_price` is the only
+    // field that still carries the true pre-discount unit price.
+    const regularPrice = item.prices?.regular_price
+      ? minorToFormatted(item.prices.regular_price, decimals)
+      : undefined;
     const totalsDecimals = item.totals?.currency_minor_unit ?? decimals;
     const lineTotal = minorToFormatted(item.totals?.line_total, totalsDecimals);
     const lineSubtotal = minorToFormatted(item.totals?.line_subtotal, totalsDecimals);
@@ -101,6 +109,7 @@ export function transformStoreApiCart(data: any): Cart | null {
         name: decodeHtmlEntities(item.name || ''),
         slug: extractSlugFromPermalink(item.permalink || ''),
         price,
+        regularPrice,
         image: image
           ? { sourceUrl: image.src || image.thumbnail, altText: image.alt || '' }
           : undefined,

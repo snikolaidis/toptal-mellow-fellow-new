@@ -56,7 +56,7 @@ type RememberMeState = 'not_exist' | 'do_not_remember' | 'remember_30' | 'rememb
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, clearCart, isLoading: cartLoading } = useCart();
+  const { cart, clearCart, isLoading: cartLoading, bundleNames } = useCart();
   const { isAuthenticated, isReady: authReady } = useAuth();
   const prevAuthRef = useRef<boolean | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -758,6 +758,12 @@ export default function CheckoutPage() {
             price: item.bbLocked && typeof item.bbUnitPrice === 'number'
               ? `$${item.bbUnitPrice.toFixed(2)}`
               : item.product.price,
+            // Lets the backend tag this line item as part of a bundle on the
+            // order (see mellow-fellow-create-order.php) — undefined for any
+            // item that isn't part of a bundle group, so non-bundle orders
+            // are unaffected.
+            bundleGroupKey: item.bbGroupKey || undefined,
+            bundleName: item.bbBundleId != null ? bundleNames[item.bbBundleId] : undefined,
           })),
           sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
           // Lets the server independently re-confirm Real ID verification before
