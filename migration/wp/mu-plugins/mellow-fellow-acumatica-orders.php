@@ -97,7 +97,7 @@ function mf_acu_push_order( $order_id ) {
         implode( ',', array_map( function( $l ) { return $l['InventoryID']['value'] ?? '?'; }, $payload['Details'] ?? [] ) )
     ), 'orders' );
 
-    $result  = mf_acu_rest_put( '/entity/Default/24.200.001/SalesOrder', $payload, $session );
+    $result  = mf_acu_rest_put( mf_acu_endpoint() . '/SalesOrder', $payload, $session );
 
     if ( is_wp_error( $result ) ) {
         mf_acu_order_fail( $order_id, $result->get_error_message() );
@@ -157,7 +157,7 @@ function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $sessio
 
     mf_acu_log( "Creating prepayment for order $order_id ($acu_order_nbr): \${$order_total} via $payment_method", 'orders' );
 
-    $result = mf_acu_rest_put( '/entity/Default/24.200.001/Payment', $payment_payload, $session );
+    $result = mf_acu_rest_put( mf_acu_endpoint() . '/Payment', $payment_payload, $session );
 
     if ( is_wp_error( $result ) ) {
         mf_acu_log( "Payment creation failed for order $order_id: " . $result->get_error_message(), 'orders' );
@@ -183,7 +183,7 @@ function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $sessio
         ),
     );
 
-    $apply_result = mf_acu_rest_put( '/entity/Default/24.200.001/Payment', $apply_payload, $session );
+    $apply_result = mf_acu_rest_put( mf_acu_endpoint() . '/Payment', $apply_payload, $session );
 
     if ( is_wp_error( $apply_result ) ) {
         mf_acu_log( "Payment $ref_nbr created but order application failed: " . $apply_result->get_error_message(), 'orders' );
@@ -251,7 +251,7 @@ function mf_acu_resolve_customer( $order, $session ) {
 
     $escaped = str_replace( "'", "''", $email );
     $search  = mf_acu_rest_get(
-        '/entity/Default/24.200.001/Customer?' . http_build_query( array( '$filter' => "Email eq '$escaped'", '$top' => 1, '$select' => 'CustomerID' ) ),
+        mf_acu_endpoint() . '/Customer?' . http_build_query( array( '$filter' => "Email eq '$escaped'", '$top' => 1, '$select' => 'CustomerID' ) ),
         $session
     );
 
@@ -282,7 +282,7 @@ function mf_acu_resolve_customer( $order, $session ) {
         ),
     );
 
-    $result = mf_acu_rest_put( '/entity/Default/24.200.001/Customer', $payload, $session );
+    $result = mf_acu_rest_put( mf_acu_endpoint() . '/Customer', $payload, $session );
 
     if ( is_wp_error( $result ) ) {
         mf_acu_log( 'Customer create failed for ' . mf_acu_mask_email( $email ) . ': ' . $result->get_error_message(), 'orders' );

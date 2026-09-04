@@ -38,6 +38,10 @@ function mf_acu_password()      { return mf_acu_config( 'PASSWORD' ); }
 function mf_acu_company()       { return mf_acu_config( 'COMPANY' ); }
 function mf_acu_branch()        { return mf_acu_config( 'BRANCH', 'MF' ); }
 function mf_acu_order_type()    { return mf_acu_config( 'ORDER_TYPE', 'MF' ); }
+// Contract-based REST endpoint base. Custom "MellowFellow" endpoint (extended
+// from Default/24.200.001) exposes SalesOrder FreightPrice/OverrideFreightPrice,
+// which Default does not — required for shipping to land on the order total.
+function mf_acu_endpoint()      { return '/entity/' . mf_acu_config( 'ENDPOINT', 'MellowFellow/24.200.001' ); }
 function mf_acu_sync_secret()   { return mf_acu_config( 'SYNC_SECRET' ); }
 
 /* ── environment guard ───────────────────────────────────────────── */
@@ -421,7 +425,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $order_type = mf_acu_order_type();
     $ot_check = mf_acu_rest_get(
-        '/entity/Default/24.200.001/SalesOrder?' . http_build_query( array( '$filter' => "OrderType eq '$order_type'", '$top' => 1, '$select' => 'OrderType,OrderNbr' ) ),
+        mf_acu_endpoint() . '/SalesOrder?' . http_build_query( array( '$filter' => "OrderType eq '$order_type'", '$top' => 1, '$select' => 'OrderType,OrderNbr' ) ),
         $session
     );
     if ( is_wp_error( $ot_check ) ) {
@@ -432,7 +436,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $branch = mf_acu_branch();
     $br_check = mf_acu_rest_get(
-        '/entity/Default/24.200.001/SalesOrder?' . http_build_query( array( '$filter' => "Branch eq '$branch'", '$top' => 1, '$select' => 'Branch' ) ),
+        mf_acu_endpoint() . '/SalesOrder?' . http_build_query( array( '$filter' => "Branch eq '$branch'", '$top' => 1, '$select' => 'Branch' ) ),
         $session
     );
     if ( is_wp_error( $br_check ) ) {
@@ -445,7 +449,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $cc = mf_acu_config( 'CUSTOMER_CLASS', 'MFF' );
     $cc_check = mf_acu_rest_get(
-        '/entity/Default/24.200.001/Customer?' . http_build_query( array( '$filter' => "CustomerClass eq '$cc'", '$top' => 1, '$select' => 'CustomerClass' ) ),
+        mf_acu_endpoint() . '/Customer?' . http_build_query( array( '$filter' => "CustomerClass eq '$cc'", '$top' => 1, '$select' => 'CustomerClass' ) ),
         $session
     );
     if ( is_wp_error( $cc_check ) ) {
@@ -473,7 +477,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
             foreach ( $skus as $sku ) {
                 $escaped = str_replace( "'", "''", $sku );
                 $inv = mf_acu_rest_get(
-                    '/entity/Default/24.200.001/StockItem?' . http_build_query( array( '$filter' => "InventoryID eq '$escaped'", '$top' => 1, '$select' => 'InventoryID' ) ),
+                    mf_acu_endpoint() . '/StockItem?' . http_build_query( array( '$filter' => "InventoryID eq '$escaped'", '$top' => 1, '$select' => 'InventoryID' ) ),
                     $session
                 );
                 if ( is_wp_error( $inv ) || ( is_array( $inv ) && empty( $inv ) ) ) {
