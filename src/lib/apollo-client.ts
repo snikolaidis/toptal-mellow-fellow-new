@@ -2,6 +2,9 @@ import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/clien
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { createRegisterFirstPersistedQueryLink } from './persistedQueryLink';
+// The same map faust.config.js hands Faust's client. Without it InMemoryCache
+// cannot tell SimpleProduct implements Product, so a fragment on Product is dropped.
+import possibleTypes from '../../possibleTypes.json';
 
 // WP Engine sits behind Cloudflare/nginx, which return 429 (rate limit) and
 // 504 (gateway timeout) when the static build hammers GraphQL with many
@@ -72,6 +75,7 @@ export function getClient() {
     client = new ApolloClient({
       link: from([errorLink, persistedQueryLink, retryLink, httpLink]),
       cache: new InMemoryCache({
+        possibleTypes,
         typePolicies: {
           Product: {
             keyFields: ['databaseId'],
@@ -137,7 +141,8 @@ export function getBrowserClient() {
 
     browserClient = new ApolloClient({
       link: from([errorLink, browserRetryLink, browserHttpLink]),
-      cache: new InMemoryCache(),
+      // LandingCollectionGroup runs GET_COLLECTION_SLIDER_PRODUCTS through this one.
+      cache: new InMemoryCache({ possibleTypes }),
       defaultOptions: {
         watchQuery: {
           fetchPolicy: 'cache-and-network',
