@@ -16,6 +16,7 @@ import {
 } from '@/lib/recsCache';
 import TieredProgressBar from './TieredProgressBar';
 import FreeGiftWidget from './FreeGiftWidget';
+import { useCartSubscriptions, everyLabel } from '@/lib/useCartSubscriptions';
 import styles from './CartDrawer.module.css';
 
 function parsePrice(price: string): number {
@@ -42,6 +43,7 @@ export default function CartDrawer() {
   } = useCart();
 
   const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
+  const subChoices = useCartSubscriptions(isDrawerOpen ? standalone.map((i) => i.product.databaseId) : []);
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
   const [couponCode, setCouponCode] = useState('');
@@ -363,6 +365,7 @@ export default function CartDrawer() {
                 {standalone.map((item) => {
                   const isItemRemoving = removingKey === item.key;
                   const isLocked = isItemRemoving;
+                  const sub = subChoices[item.product.databaseId];
                   return (
                     <li key={item.key} className={`${styles.cartItem} ${isItemRemoving ? styles.cartItemPending : ''}`}>
                       <div className={styles.itemImage}>
@@ -429,12 +432,27 @@ export default function CartDrawer() {
                             </button>
                           </div>
                           <div className={styles.itemPrices}>
-                            {item.subtotal && parsePrice(item.subtotal) > parsePrice(item.total) + 0.005 && (
-                              <span className={styles.itemOriginalPrice}>{item.subtotal}</span>
+                            {sub ? (
+                              <>
+                                <span className={styles.itemOriginalPrice}>{item.total}</span>
+                                <span className={styles.itemPrice}>${(sub.unitPrice * item.quantity).toFixed(2)}</span>
+                              </>
+                            ) : (
+                              <>
+                                {item.subtotal && parsePrice(item.subtotal) > parsePrice(item.total) + 0.005 && (
+                                  <span className={styles.itemOriginalPrice}>{item.subtotal}</span>
+                                )}
+                                <span className={styles.itemPrice}>{item.total}</span>
+                              </>
                             )}
-                            <span className={styles.itemPrice}>{item.total}</span>
                           </div>
                         </div>
+                        {sub && (
+                          <p className={styles.itemSubscription}>
+                            Subscribe &amp; save, every {everyLabel(sub.period, sub.interval)}
+                            {sub.discount > 0 ? ` (save ${sub.discount}%)` : ''}
+                          </p>
+                        )}
                       </div>
                     </li>
                   );
@@ -561,10 +579,23 @@ export default function CartDrawer() {
                 return sum + Math.max(0, original - discounted);
               }, 0);
               const couponDiscount = parsePrice(cart.discountTotal);
-              const effectiveSubtotal = parsePrice(cart.subtotal) - couponDiscount;
+              const subSavings = standalone.reduce((s, it) => {
+                const c = subChoices[it.product.databaseId];
+                if (!c) return s;
+                return s + Math.max(0, parsePrice(it.total) - c.unitPrice * it.quantity);
+              }, 0);
+              const effectiveSubtotal = parsePrice(cart.subtotal) - couponDiscount - subSavings;
 
               return (
                 <>
+                  {subSavings > 0 && (
+                    <div className={styles.subtotalRow}>
+                      <span className={styles.discountLabel}>Subscribe &amp; save</span>
+                      <span className={styles.discountValue}>
+                        -${subSavings.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                   {totalBundleDiscount > 0 && (
                     <div className={styles.subtotalRow}>
                       <span className={styles.discountLabel}>Bundle Discount</span>

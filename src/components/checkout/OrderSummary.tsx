@@ -354,7 +354,7 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             {subscription && (
               <div className={styles.row}>
                 <dt>Recurring subtotal</dt>
-                <dd>${subscription.recurring.toFixed(2)} every {subscription.label}</dd>
+                <dd>${subscription.recurring.toFixed(2)} {subscription.label}</dd>
               </div>
             )}
           </dl>
