@@ -523,9 +523,9 @@ export default function MoodPage({
           );
         })()}
 
-        <BlogPosts blogPosts={BLOG_POSTS} />
-
         <LoyaltyTiers loyaltyTiers={loyaltyTiers} />
+
+        <BlogPosts blogPosts={BLOG_POSTS} />
       </div>
     </Layout>
   );

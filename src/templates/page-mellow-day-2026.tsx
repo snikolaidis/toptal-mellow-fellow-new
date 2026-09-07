@@ -7,12 +7,7 @@ import * as blockFragments from '@/wp-blocks/fragments';
 import DoublePointsDaily from '@/wp-blocks/DoublePointsDaily';
 import CollectionGroup, { CollectionGroupItem } from '@/wp-blocks/CollectionGroup';
 import { Product } from '@/types/woocommerce';
-import {
-  SIMPLE_PRODUCT_FIELDS,
-  VARIABLE_PRODUCT_FIELDS,
-  EXTERNAL_PRODUCT_FIELDS,
-  GROUP_PRODUCT_FIELDS,
-} from '@/graphql/queries/products';
+import { PRODUCT_FIELDS } from '@/graphql/queries/products';
 
 interface MellowDay2026Data {
   page?: {
@@ -61,10 +56,7 @@ MellowDay2026.query = gql`
   ${blockFragments.AcfHeroSection.entry}
   ${blockFragments.AcfSaleCountdownHero.entry}
   ${blockFragments.CoreParagraph.entry}
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetMellowDay2026($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       title
@@ -87,10 +79,7 @@ MellowDay2026.query = gql`
     }) {
       nodes {
         __typename
-        ... on SimpleProduct { ...SimpleProductFields }
-        ... on VariableProduct { ...VariableProductFields }
-        ... on ExternalProduct { ...ExternalProductFields }
-        ... on GroupProduct { ...GroupProductFields }
+        ...ProductFields
       }
     }
     edibles: products(first: 16, where: {
@@ -98,10 +87,7 @@ MellowDay2026.query = gql`
     }) {
       nodes {
         __typename
-        ... on SimpleProduct { ...SimpleProductFields }
-        ... on VariableProduct { ...VariableProductFields }
-        ... on ExternalProduct { ...ExternalProductFields }
-        ... on GroupProduct { ...GroupProductFields }
+        ...ProductFields
       }
     }
     awardWinning: products(first: 16, where: {
@@ -109,10 +95,7 @@ MellowDay2026.query = gql`
     }) {
       nodes {
         __typename
-        ... on SimpleProduct { ...SimpleProductFields }
-        ... on VariableProduct { ...VariableProductFields }
-        ... on ExternalProduct { ...ExternalProductFields }
-        ... on GroupProduct { ...GroupProductFields }
+        ...ProductFields
       }
     }
   }

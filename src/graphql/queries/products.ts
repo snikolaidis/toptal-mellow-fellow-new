@@ -36,10 +36,11 @@ export const PRODUCT_DETAILS_FIELDS = gql`
   }
 `;
 
-// WooGraphQL returns products as a union type, so we need inline fragments for each type
-export const SIMPLE_PRODUCT_FIELDS = gql`
+// Selected once on the `Product` interface rather than repeated per concrete
+// type, so a renamed taxonomy is one edit instead of four.
+export const PRODUCT_FIELDS = gql`
   ${PRODUCT_DETAILS_FIELDS}
-  fragment SimpleProductFields on SimpleProduct {
+  fragment ProductFields on Product {
     id
     databaseId
     name
@@ -48,11 +49,6 @@ export const SIMPLE_PRODUCT_FIELDS = gql`
     description
     shortDescription
     sku
-    price
-    regularPrice
-    salePrice
-    stockStatus
-    stockQuantity
     image {
       id
       sourceUrl
@@ -788,15 +784,46 @@ export const GROUP_PRODUCT_FIELDS = gql`
           }
         }
       }
+
+    # Not narrowing: every product type implements ProductWithPricing. The blocks
+    # below are simply the fields the schema does not put on Product.
+    ... on ProductWithPricing {
+      price
+      regularPrice
+      salePrice
+    }
+    ... on InventoriedProduct {
+      stockStatus
+      stockQuantity
+    }
+    ... on ProductWithVariations {
+      variations {
+        nodes {
+          id
+          databaseId
+          name
+          price
+          regularPrice
+          salePrice
+          stockStatus
+          attributes {
+            nodes {
+              name
+              value
+            }
+          }
+        }
+      }
+    }
+    ... on ExternalProduct {
+      externalUrl
+      buttonText
     }
   }
 `;
 
 export const GET_PRODUCTS = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProducts(
     $first: Int = 12
     $after: String
@@ -854,28 +881,14 @@ export const GET_PRODUCTS = gql`
       }
       nodes {
         __typename
-        ... on SimpleProduct {
-          ...SimpleProductFields
-        }
-        ... on VariableProduct {
-          ...VariableProductFields
-        }
-        ... on ExternalProduct {
-          ...ExternalProductFields
-        }
-        ... on GroupProduct {
-          ...GroupProductFields
-        }
+        ...ProductFields
       }
     }
   }
 `;
 
 export const GET_PRODUCT_BY_SLUG = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProductBySlug($slug: ID!) {
     product(id: $slug, idType: SLUG) {
       __typename
@@ -892,34 +905,7 @@ export const GET_PRODUCT_BY_SLUG = gql`
           sourceUrl
         }
       }
-      ... on SimpleProduct {
-        ...SimpleProductFields
-        bbFixedItems {
-          productId
-          quantity
-        }
-      }
-      ... on VariableProduct {
-        ...VariableProductFields
-        bbFixedItems {
-          productId
-          quantity
-        }
-      }
-      ... on ExternalProduct {
-        ...ExternalProductFields
-        bbFixedItems {
-          productId
-          quantity
-        }
-      }
-      ... on GroupProduct {
-        ...GroupProductFields
-        bbFixedItems {
-          productId
-          quantity
-        }
-      }
+      ...ProductFields
     }
   }
 `;
@@ -930,10 +916,7 @@ export const GET_PRODUCT_BY_SLUG = gql`
  * URI gives us a `databaseId` rather than a slug.
  */
 export const GET_PRODUCT_BY_DATABASE_ID = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProductByDatabaseId($databaseId: ID!) {
     product(id: $databaseId, idType: DATABASE_ID) {
       __typename
@@ -950,34 +933,7 @@ export const GET_PRODUCT_BY_DATABASE_ID = gql`
           sourceUrl
         }
       }
-      ... on SimpleProduct {
-        ...SimpleProductFields
-        bbFixedItems {
-          productId
-          quantity
-        }
-      }
-      ... on VariableProduct {
-        ...VariableProductFields
-        bbFixedItems {
-          productId
-          quantity
-        }
-      }
-      ... on ExternalProduct {
-        ...ExternalProductFields
-        bbFixedItems {
-          productId
-          quantity
-        }
-      }
-      ... on GroupProduct {
-        ...GroupProductFields
-        bbFixedItems {
-          productId
-          quantity
-        }
-      }
+      ...ProductFields
     }
   }
 `;
@@ -1260,36 +1216,19 @@ export const GET_FACETS = gql`
 `;
 
 export const GET_PRODUCTS_BY_IDS = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProductsByIds($ids: [Int]!) {
     products(first: 100, where: { include: $ids, status: "publish" }) {
       nodes {
         __typename
-        ... on SimpleProduct {
-          ...SimpleProductFields
-        }
-        ... on VariableProduct {
-          ...VariableProductFields
-        }
-        ... on ExternalProduct {
-          ...ExternalProductFields
-        }
-        ... on GroupProduct {
-          ...GroupProductFields
-        }
+        ...ProductFields
       }
     }
   }
 `;
 
 export const GET_PRODUCTS_BY_CATEGORY = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetProductsByCategory($categorySlug: String!, $first: Int = 12, $after: String, $orderby: [ProductsOrderbyInput]) {
     products(
       first: $first
@@ -1302,18 +1241,7 @@ export const GET_PRODUCTS_BY_CATEGORY = gql`
       }
       nodes {
         __typename
-        ... on SimpleProduct {
-          ...SimpleProductFields
-        }
-        ... on VariableProduct {
-          ...VariableProductFields
-        }
-        ... on ExternalProduct {
-          ...ExternalProductFields
-        }
-        ... on GroupProduct {
-          ...GroupProductFields
-        }
+        ...ProductFields
       }
     }
   }

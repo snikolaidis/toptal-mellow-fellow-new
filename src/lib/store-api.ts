@@ -99,11 +99,21 @@ export function transformStoreApiCart(data: any): Cart | null {
     const variationAttrs: Array<{ attribute: string; value: string }> = item.variation || [];
     const hasVariation = variationAttrs.length > 0;
 
+    // Bundle-builder identity exposed server-side via Store API extensions —
+    // the session's cart item data is the source of truth for bundle grouping.
+    const bb = item.extensions?.['mellow-fellow'] || {};
+    const bbGroupKey = typeof bb.bb_group_key === 'string' && bb.bb_group_key ? bb.bb_group_key : undefined;
+    const bbBundleId = bb.bb_bundle_id ? Number(bb.bb_bundle_id) : undefined;
+
     return {
       key: item.key,
       quantity: item.quantity,
       total: lineTotal,
       subtotal: lineSubtotal,
+      bbGroupKey,
+      bbBundleId,
+      bbLocked: bb.bb_locked === true || undefined,
+      bbUnitPrice: typeof bb.bb_unit_price === 'number' ? bb.bb_unit_price : undefined,
       product: {
         databaseId: item.id,
         name: decodeHtmlEntities(item.name || ''),
@@ -172,13 +182,26 @@ export function transformStoreApiCart(data: any): Cart | null {
 export class StoreApiError extends Error {
   status: number;
   code: string;
+  updatedCart: Cart | null;
 
-  constructor(message: string, status: number, code = 'store_api_error') {
+  constructor(message: string, status: number, code = 'store_api_error', rawData?: any) {
     super(message);
     this.name = 'StoreApiError';
     this.status = status;
     this.code = code;
+    // 409 responses include the current server-side cart state for reconciliation.
+    this.updatedCart = status === 409 && rawData ? transformStoreApiCart(rawData) : null;
   }
+}
+
+const GATEWAY_ERRORS = new Set([502, 503, 504]);
+
+function isRetryable(err: unknown): boolean {
+  return err instanceof StoreApiError && (GATEWAY_ERRORS.has(err.status) || err.code === 'invalid_response');
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function storeApiFetch<T = any>(
@@ -186,7 +209,8 @@ export async function storeApiFetch<T = any>(
   options: {
     method?: string;
     body?: Record<string, unknown>;
-  } = {}
+  } = {},
+  retries = 0
 ): Promise<T> {
   const { method = 'GET', body } = options;
 
@@ -197,7 +221,18 @@ export async function storeApiFetch<T = any>(
     credentials: 'include',
   });
 
-  const data = await res.json();
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    const err = new StoreApiError(
+      `Store API returned non-JSON response (${res.status})`,
+      res.status,
+      'invalid_response'
+    );
+    if (retries > 0) { await delay(1000); return storeApiFetch(path, options, retries - 1); }
+    throw err;
+  }
 
   if (data?._sessionExpired) {
     throw new StoreApiError(
@@ -208,11 +243,14 @@ export async function storeApiFetch<T = any>(
   }
 
   if (!res.ok) {
-    throw new StoreApiError(
+    const err = new StoreApiError(
       data?.message || `Store API error (${res.status})`,
       res.status,
-      data?.code || 'store_api_error'
+      data?.code || 'store_api_error',
+      data
     );
+    if (retries > 0 && isRetryable(err)) { await delay(1000); return storeApiFetch(path, options, retries - 1); }
+    throw err;
   }
 
   return data as T;
@@ -223,18 +261,20 @@ export async function storeApiFetch<T = any>(
 // ---------------------------------------------------------------------------
 
 export async function fetchCartFromStore(): Promise<Cart | null> {
-  const data = await storeApiFetch('cart');
+  const data = await storeApiFetch('cart', {}, 1);
   return transformStoreApiCart(data);
 }
 
 export async function addItemToStore(
   productId: number,
   quantity: number,
-  variationId?: number
+  variationId?: number,
+  variation?: Array<{ attribute: string; value: string }>
 ): Promise<Cart | null> {
   const body: Record<string, unknown> = { id: productId, quantity };
   if (variationId) {
     body.id = variationId;
+    if (variation) body.variation = variation;
   }
   const data = await storeApiFetch('cart/add-item', { method: 'POST', body });
   return transformStoreApiCart(data);
@@ -247,7 +287,7 @@ export async function updateItemInStore(
   const data = await storeApiFetch('cart/update-item', {
     method: 'POST',
     body: { key, quantity },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }
 
@@ -255,31 +295,64 @@ export async function removeItemFromStore(key: string): Promise<Cart | null> {
   const data = await storeApiFetch('cart/remove-item', {
     method: 'POST',
     body: { key },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }
 
 export async function clearStoreCart(): Promise<Cart | null> {
+  // Primary: single server-side call via WC Store API extensions.
+  // The mellow-fellow-cart-persistence mu-plugin registers a callback that
+  // calls WC()->cart->empty_cart(true) — clears items, coupons, fees, and
+  // session data in one PHP execution instead of N sequential HTTP requests.
   try {
-    await storeApiFetch('cart/items', { method: 'DELETE' });
+    const data = await storeApiFetch('cart/extensions', {
+      method: 'POST',
+      body: { namespace: 'mellow-fellow/cart-ops', data: { action: 'empty_cart' } },
+    });
+    return transformStoreApiCart(data);
   } catch {
-    const cart = await fetchCartFromStore();
-    if (cart && cart.items.length > 0) {
-      for (const item of cart.items) {
-        try {
-          await storeApiFetch('cart/remove-item', { method: 'POST', body: { key: item.key } });
-        } catch {}
-      }
-    }
+    // Extension not registered (mu-plugin not deployed yet) — fall back to
+    // batch removal which still sends one HTTP request for all operations.
   }
+
+  // Fallback: DELETE /cart/coupons (all) + DELETE /cart/items (all).
+  // Two calls total regardless of how many items/coupons exist.
+  try { await storeApiFetch('cart/coupons', { method: 'DELETE' }); } catch {}
+  try { await storeApiFetch('cart/items', { method: 'DELETE' }); } catch {}
+
   return fetchCartFromStore();
+}
+
+export async function addBundleToStore(
+  bundleId: number,
+  productIds: number[]
+): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'add_bundle', bundle_id: bundleId, product_ids: productIds },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
+export async function removeBundleGroupsFromStore(groupKeys: string[]): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'remove_bundle_group', group_keys: groupKeys },
+    },
+  });
+  return transformStoreApiCart(data);
 }
 
 export async function applyCouponToStore(code: string): Promise<Cart | null> {
   const data = await storeApiFetch('cart/apply-coupon', {
     method: 'POST',
     body: { code },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }
 
@@ -287,7 +360,7 @@ export async function removeCouponFromStore(code: string): Promise<Cart | null> 
   const data = await storeApiFetch('cart/remove-coupon', {
     method: 'POST',
     body: { code },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }
 
@@ -298,6 +371,6 @@ export async function selectShippingRate(
   const data = await storeApiFetch('cart/select-shipping-rate', {
     method: 'POST',
     body: { package_id: packageId, rate_id: rateId },
-  });
+  }, 1);
   return transformStoreApiCart(data);
 }

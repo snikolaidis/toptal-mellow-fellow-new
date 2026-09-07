@@ -63,14 +63,65 @@ const EMPTY_RESULT: KlaviyoReviewsResult = {
 // The cap is a safety valve against an unbounded walk if that ever changes.
 const MAX_PAGES = 5;
 
+// Built inside the loop, never hoisted: the clock starts when the signal is
+// constructed, so one shared signal would give all five pages one budget.
+const REQUEST_TIMEOUT_MS = 5_000;
+
+// MAX_PAGES bounds the request count, not the time: five pages each timing out
+// would spend 25s inside a render that already costs 4 to 10s.
+const FETCH_DEADLINE_MS = 10_000;
+
+// Derived from the rows in hand rather than a count from Klaviyo, so a short
+// walk still yields a total, average and histogram that agree with each other.
+function summarise(rows: KlaviyoApiReview[]): KlaviyoReviewsResult {
+  if (rows.length === 0) return EMPTY_RESULT;
+
+  const distribution: KlaviyoReviewSummary['distribution'] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let sum = 0;
+
+  for (const row of rows) {
+    const rating = row.attributes.rating;
+    sum += rating;
+    if (rating >= 1 && rating <= 5) {
+      distribution[Math.round(rating) as 1 | 2 | 3 | 4 | 5] += 1;
+    }
+  }
+
+  // Omit `attributes.email` — Klaviyo returns the reviewer's email address on every review and we must hide it
+  const reviews: KlaviyoReview[] = rows.map((r) => ({
+    id: r.id,
+    rating: r.attributes.rating,
+    author: r.attributes.author,
+    content: (r.attributes.content || '').trim(),
+    verified: Boolean(r.attributes.verified),
+    created: r.attributes.created,
+    images: r.attributes.images || [],
+    reply: r.attributes.public_reply?.content
+      ? {
+          content: r.attributes.public_reply.content,
+          author: r.attributes.public_reply.author || null,
+          updated: r.attributes.public_reply.updated || null,
+        }
+      : null,
+  }));
+
+  return {
+    summary: { average: sum / rows.length, total: rows.length, distribution },
+    reviews,
+  };
+}
+
 /**
  * Fetches every published rating for a product in one pass, then derives two
  * different things from it:
  *
- *  - `summary` — average, total and star distribution across ALL published
- *    ratings, including the star-only ones with no written text.
+ *  - `summary` — average, total and star distribution across the ratings that
+ *    were fetched, including the star-only ones with no written text.
  *  - `reviews` — every rating, newest first, so the card list matches the total
  *    in the summary above it.
+ *
+ * Never throws. The caller awaits this inside the PDP's `getStaticProps`, so a
+ * throw would take the page down over an enrichment.
  */
 export async function fetchKlaviyoReviews(
   productId: string | number
@@ -92,23 +143,34 @@ export async function fetchKlaviyoReviews(
   first.searchParams.set('sort', '-created');
   first.searchParams.set('page[size]', '100');
 
+  const deadlineAt = Date.now() + FETCH_DEADLINE_MS;
+
+  // Outside the try so a mid-walk failure can still be summarised.
+  const rows: KlaviyoApiReview[] = [];
+
   try {
-    const rows: KlaviyoApiReview[] = [];
     let next: string | null = first.toString();
 
     for (let page = 0; next && page < MAX_PAGES; page += 1) {
+      const remainingMs = deadlineAt - Date.now();
+      if (remainingMs <= 0) {
+        console.error('[reviews] deadline reached after %d page(s), keeping %d', page, rows.length);
+        break;
+      }
+
       const res: Response = await fetch(next, {
         headers: {
           Authorization: `Klaviyo-API-Key ${apiKey}`,
           revision: KLAVIYO_REVISION,
           accept: 'application/vnd.api+json',
         },
+        signal: AbortSignal.timeout(Math.min(REQUEST_TIMEOUT_MS, remainingMs)),
       });
 
       if (!res.ok) {
         const detail = await res.text();
         console.error('[reviews] Klaviyo responded %s: %s', res.status, detail.slice(0, 300));
-        return EMPTY_RESULT;
+        break;
       }
 
       const json = (await res.json()) as {
@@ -119,47 +181,9 @@ export async function fetchKlaviyoReviews(
       rows.push(...(json.data || []));
       next = json.links?.next || null;
     }
-
-    if (rows.length === 0) {
-      return EMPTY_RESULT;
-    }
-
-    const distribution: KlaviyoReviewSummary['distribution'] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    let sum = 0;
-
-    for (const row of rows) {
-      const rating = row.attributes.rating;
-      sum += rating;
-      if (rating >= 1 && rating <= 5) {
-        distribution[Math.round(rating) as 1 | 2 | 3 | 4 | 5] += 1;
-      }
-    }
-
-    // Omit `attributes.email` — Klaviyo returns the reviewer's email address on every review and we must hide it
-    const reviews: KlaviyoReview[] = rows
-      .map((r) => ({
-        id: r.id,
-        rating: r.attributes.rating,
-        author: r.attributes.author,
-        content: (r.attributes.content || '').trim(),
-        verified: Boolean(r.attributes.verified),
-        created: r.attributes.created,
-        images: r.attributes.images || [],
-        reply: r.attributes.public_reply?.content
-          ? {
-              content: r.attributes.public_reply.content,
-              author: r.attributes.public_reply.author || null,
-              updated: r.attributes.public_reply.updated || null,
-            }
-          : null,
-      }));
-
-    return {
-      summary: { average: sum / rows.length, total: rows.length, distribution },
-      reviews,
-    };
   } catch (error) {
-    console.error('[reviews] fetch failed:', error);
-    return EMPTY_RESULT;
+    console.error('[reviews] fetch failed after %d rating(s):', rows.length, error);
   }
+
+  return summarise(rows);
 }

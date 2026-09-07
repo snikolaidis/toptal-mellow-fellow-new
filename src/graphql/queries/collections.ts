@@ -1,10 +1,5 @@
 import { gql } from '@apollo/client';
-import {
-  SIMPLE_PRODUCT_FIELDS,
-  VARIABLE_PRODUCT_FIELDS,
-  EXTERNAL_PRODUCT_FIELDS,
-  GROUP_PRODUCT_FIELDS,
-} from './products';
+import { PRODUCT_FIELDS } from './products';
 
 // Get all collections (mapped to WooCommerce product categories)
 export const GET_COLLECTIONS = gql`
@@ -24,10 +19,7 @@ export const GET_COLLECTIONS = gql`
 
 // Get a single collection by slug with its products
 export const GET_COLLECTION_BY_SLUG = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetCollectionBySlug($slug: ID!, $collectionSlug: String!) {
     collection(id: $slug, idType: SLUG) {
       id
@@ -60,18 +52,7 @@ export const GET_COLLECTION_BY_SLUG = gql`
     }) {
       nodes {
         __typename
-        ... on SimpleProduct {
-          ...SimpleProductFields
-        }
-        ... on VariableProduct {
-          ...VariableProductFields
-        }
-        ... on ExternalProduct {
-          ...ExternalProductFields
-        }
-        ... on GroupProduct {
-          ...GroupProductFields
-        }
+        ...ProductFields
       }
     }
   }
@@ -79,10 +60,7 @@ export const GET_COLLECTION_BY_SLUG = gql`
 
 // Get a collection's products by slug for the CollectionSlider block
 export const GET_COLLECTION_SLIDER_PRODUCTS = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetCollectionSliderProducts($collectionSlug: String!, $first: Int = 24, $orderby: [ProductsOrderbyInput]) {
     products(first: $first, where: {
       status: "publish",
@@ -97,18 +75,7 @@ export const GET_COLLECTION_SLIDER_PRODUCTS = gql`
     }) {
       nodes {
         __typename
-        ... on SimpleProduct {
-          ...SimpleProductFields
-        }
-        ... on VariableProduct {
-          ...VariableProductFields
-        }
-        ... on ExternalProduct {
-          ...ExternalProductFields
-        }
-        ... on GroupProduct {
-          ...GroupProductFields
-        }
+        ...ProductFields
       }
     }
   }
@@ -247,10 +214,7 @@ export const GET_ALL_COLLECTION_SLUGS = gql`
 
 // Get products that share a category with a given product (for "More from Collection")
 export const GET_COLLECTION_PRODUCTS_BY_PRODUCT_SLUG = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetCollectionProductsByProductSlug($slug: ID!) {
     product(id: $slug, idType: SLUG) {
       productCategories {
@@ -261,18 +225,7 @@ export const GET_COLLECTION_PRODUCTS_BY_PRODUCT_SLUG = gql`
           products(first: 12, where: { status: "publish" }) {
             nodes {
               __typename
-              ... on SimpleProduct {
-                ...SimpleProductFields
-              }
-              ... on VariableProduct {
-                ...VariableProductFields
-              }
-              ... on ExternalProduct {
-                ...ExternalProductFields
-              }
-              ... on GroupProduct {
-                ...GroupProductFields
-              }
+              ...ProductFields
             }
           }
         }

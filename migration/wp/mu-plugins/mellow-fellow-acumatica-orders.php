@@ -97,7 +97,7 @@ function mf_acu_push_order( $order_id ) {
         implode( ',', array_map( function( $l ) { return $l['InventoryID']['value'] ?? '?'; }, $payload['Details'] ?? [] ) )
     ), 'orders' );
 
-    $result  = mf_acu_rest_put( '/entity/Default/24.200.001/SalesOrder', $payload, $session );
+    $result  = mf_acu_rest_put( mf_acu_endpoint() . '/SalesOrder', $payload, $session );
 
     if ( is_wp_error( $result ) ) {
         mf_acu_order_fail( $order_id, $result->get_error_message() );
@@ -157,7 +157,7 @@ function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $sessio
 
     mf_acu_log( "Creating prepayment for order $order_id ($acu_order_nbr): \${$order_total} via $payment_method", 'orders' );
 
-    $result = mf_acu_rest_put( '/entity/Default/24.200.001/Payment', $payment_payload, $session );
+    $result = mf_acu_rest_put( mf_acu_endpoint() . '/Payment', $payment_payload, $session );
 
     if ( is_wp_error( $result ) ) {
         mf_acu_log( "Payment creation failed for order $order_id: " . $result->get_error_message(), 'orders' );
@@ -183,7 +183,7 @@ function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $sessio
         ),
     );
 
-    $apply_result = mf_acu_rest_put( '/entity/Default/24.200.001/Payment', $apply_payload, $session );
+    $apply_result = mf_acu_rest_put( mf_acu_endpoint() . '/Payment', $apply_payload, $session );
 
     if ( is_wp_error( $apply_result ) ) {
         mf_acu_log( "Payment $ref_nbr created but order application failed: " . $apply_result->get_error_message(), 'orders' );
@@ -251,7 +251,7 @@ function mf_acu_resolve_customer( $order, $session ) {
 
     $escaped = str_replace( "'", "''", $email );
     $search  = mf_acu_rest_get(
-        '/entity/Default/24.200.001/Customer?' . http_build_query( array( '$filter' => "Email eq '$escaped'", '$top' => 1, '$select' => 'CustomerID' ) ),
+        mf_acu_endpoint() . '/Customer?' . http_build_query( array( '$filter' => "Email eq '$escaped'", '$top' => 1, '$select' => 'CustomerID' ) ),
         $session
     );
 
@@ -282,7 +282,7 @@ function mf_acu_resolve_customer( $order, $session ) {
         ),
     );
 
-    $result = mf_acu_rest_put( '/entity/Default/24.200.001/Customer', $payload, $session );
+    $result = mf_acu_rest_put( mf_acu_endpoint() . '/Customer', $payload, $session );
 
     if ( is_wp_error( $result ) ) {
         mf_acu_log( 'Customer create failed for ' . mf_acu_mask_email( $email ) . ': ' . $result->get_error_message(), 'orders' );
@@ -303,28 +303,94 @@ function mf_acu_resolve_customer( $order, $session ) {
 
 /* ── payload builder ─────────────────────────────────────────────── */
 
-function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
-    $lines = array();
+/**
+ * Scheme B discount classification: a coupon is document-level (applies to the
+ * whole order) only when it carries NO product/category restriction. Product %,
+ * BOGO, and free-gift coupons are restricted to specific lines → line-level.
+ */
+function mf_acu_coupon_is_document_level( $code ) {
+    if ( ! function_exists( 'wc_get_coupon_id_by_code' ) || ! class_exists( 'WC_Coupon' ) ) {
+        return false;
+    }
+    $id = wc_get_coupon_id_by_code( $code );
+    if ( ! $id ) return false;
 
+    $coupon = new WC_Coupon( $id );
+    $type   = (string) $coupon->get_discount_type();
+
+    // Inherently line-level types, and our free-gift coupons (one product).
+    if ( 'fixed_product' === $type || strpos( $type, 'bogo' ) !== false ) return false;
+    if ( strpos( (string) $code, 'mf-free-gift-' ) === 0 ) return false;
+
+    // Any product/category restriction makes it line-level.
+    if ( ! empty( $coupon->get_product_ids() ) || ! empty( $coupon->get_product_categories() )
+        || ! empty( $coupon->get_excluded_product_ids() ) || ! empty( $coupon->get_excluded_product_categories() ) ) {
+        return false;
+    }
+
+    // Order-wide percent / fixed_cart with no restriction → document-level.
+    return true;
+}
+
+function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
+    // Scheme B: sum order-wide (document-level) coupon discounts. These become
+    // an Acumatica document discount instead of sitting on the line items.
+    $document_discount = 0.0;
+    foreach ( $order->get_items( 'coupon' ) as $coupon_item ) {
+        if ( mf_acu_coupon_is_document_level( $coupon_item->get_code() ) ) {
+            $document_discount += (float) $coupon_item->get_discount();
+        }
+    }
+    $document_discount = round( $document_discount, 2 );
+
+    // Collect sellable lines first — need the subtotal sum to spread the
+    // document discount proportionally, matching how WooCommerce distributes it.
+    $rows = array();
+    $total_subtotal = 0.0;
     foreach ( $order->get_items() as $item ) {
         $product = $item->get_product();
         if ( ! $product ) continue;
-
         $sku = $product->get_sku();
         if ( ! $sku ) continue;
-
-        $line = array(
-            'InventoryID'   => array( 'value' => $sku ),
-            'OrderQty'      => array( 'value' => (float) $item->get_quantity() ),
-            'UnitPrice'     => array( 'value' => (float) ( $item->get_subtotal() / max( 1, $item->get_quantity() ) ) ),
-            'ExtendedPrice' => array( 'value' => (float) $item->get_subtotal() ),
+        $subtotal = (float) $item->get_subtotal();
+        $rows[] = array(
+            'sku'       => $sku,
+            'qty'       => (float) $item->get_quantity(),
+            'subtotal'  => $subtotal,
+            'line_disc' => round( $subtotal - (float) $item->get_total(), 2 ),
         );
+        $total_subtotal += $subtotal;
+    }
 
-        $line_discount = round( (float) $item->get_subtotal() - (float) $item->get_total(), 2 );
-        if ( $line_discount > 0 ) {
-            $line['DiscountAmount'] = array( 'value' => $line_discount );
+    // Shift each line's proportional share of the document discount OUT of the
+    // line discount so it lands at document level. Push the exact amount
+    // actually shifted (remainder on the last line, clamped per line) so the
+    // Acumatica order total still reconciles to WooCommerce to the penny.
+    $shifted_total = 0.0;
+    if ( $document_discount > 0 && $total_subtotal > 0 ) {
+        $last = count( $rows ) - 1;
+        foreach ( $rows as $i => $row ) {
+            $share = ( $i === $last )
+                ? round( $document_discount - $shifted_total, 2 )
+                : round( $document_discount * ( $row['subtotal'] / $total_subtotal ), 2 );
+            $share = max( 0.0, min( $share, $rows[ $i ]['line_disc'] ) );
+            $rows[ $i ]['line_disc'] = round( $rows[ $i ]['line_disc'] - $share, 2 );
+            $shifted_total += $share;
         }
+        $shifted_total = round( $shifted_total, 2 );
+    }
 
+    $lines = array();
+    foreach ( $rows as $row ) {
+        $line = array(
+            'InventoryID'   => array( 'value' => $row['sku'] ),
+            'OrderQty'      => array( 'value' => $row['qty'] ),
+            'UnitPrice'     => array( 'value' => (float) ( $row['subtotal'] / max( 1, $row['qty'] ) ) ),
+            'ExtendedPrice' => array( 'value' => $row['subtotal'] ),
+        );
+        if ( $row['line_disc'] > 0 ) {
+            $line['DiscountAmount'] = array( 'value' => $row['line_disc'] );
+        }
         $lines[] = $line;
     }
 
@@ -386,6 +452,19 @@ function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
     if ( $shipping_total > 0 ) {
         $payload['FreightPrice'] = array( 'value' => $shipping_total );
         $payload['OverrideFreightPrice'] = array( 'value' => true );
+    }
+
+    // Order-wide (Scheme B) discount, shifted off the lines above, as a manual
+    // Acumatica document discount. Uses the exact shifted total so the order
+    // total reconciles to WooCommerce.
+    if ( $shifted_total > 0 ) {
+        $payload['DiscountDetails'] = array(
+            array(
+                'Type'           => array( 'value' => 'Document' ),
+                'ManualDiscount' => array( 'value' => true ),
+                'DiscountAmount' => array( 'value' => $shifted_total ),
+            ),
+        );
     }
 
     $note_parts = array();
@@ -530,18 +609,37 @@ function mf_acu_render_order_metabox( $post_or_order ) {
                 btn.disabled = true;
                 btn.textContent = 'Pushing...';
                 msg.style.display = 'none';
-                fetch('<?php echo esc_url( rest_url( 'mf-acu/v1/push/' . (int) $oid ) ); ?>', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {'X-WP-Nonce': '<?php echo wp_create_nonce( 'wp_rest' ); ?>'}
+                // Build URLs from the origin the admin is ACTUALLY browsing.
+                // In headless WP, rest_url()/home_url() can resolve to the
+                // frontend domain — sending this request cross-origin where
+                // admin cookies never arrive ("cookie check failed" forever).
+                // Also fetch a FRESH wp_rest nonce at click time; page-render
+                // nonces go stale when the admin session changes.
+                fetch(window.location.origin + '/wp-admin/admin-ajax.php?action=rest-nonce', {
+                    credentials: 'same-origin'
                 })
-                .then(function(r){ return r.json(); })
-                .then(function(data){
+                .then(function(r){ return r.text(); })
+                .then(function(freshNonce){
+                    return fetch(window.location.origin + '/wp-json/mf-acu/v1/push/<?php echo (int) $oid; ?>', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {'X-WP-Nonce': freshNonce}
+                    });
+                })
+                .then(function(r){ return r.json().then(function(data){ return { status: r.status, data: data }; }); })
+                .then(function(res){
+                    var data = res.data;
                     if (data.pushed === 'yes' || data.status === 'success') {
                         msg.style.color = '#00a32a';
                         msg.textContent = 'Pushed: ' + (data.nbr || 'success');
                         msg.style.display = 'block';
                         setTimeout(function(){ location.reload(); }, 1500);
+                    } else if (res.status === 401 || res.status === 403 || (data.code && data.code.indexOf('cookie') !== -1)) {
+                        msg.style.color = '#d63638';
+                        msg.textContent = 'Your admin session changed since this page loaded. Refresh the page and try again.';
+                        msg.style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Push to Acumatica Now';
                     } else {
                         msg.style.color = '#d63638';
                         msg.textContent = data.error || data.message || 'Push failed';

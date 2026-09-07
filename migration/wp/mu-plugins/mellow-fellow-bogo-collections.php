@@ -135,12 +135,14 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
     ?>
     <div class="wbte_sc_bogo_edit_step_content" style="padding:20px;border-top:1px solid #e2e4e7;">
 
-        <?php if (!$has_any_restriction) : ?>
-        <div style="background:#fcf0f0;border:1px solid #d63638;border-radius:4px;padding:12px 16px;margin-bottom:16px;">
+        <div id="mf_bogo_no_restrictions"
+             style="background:#fcf0f0;border:1px solid #d63638;border-radius:4px;padding:12px 16px;margin-bottom:16px;<?php echo $has_any_restriction ? 'display:none;' : ''; ?>">
             <strong style="color:#d63638;">&#9888; No product restrictions set.</strong>
             This BOGO will apply to <em>any</em> products in the cart. Select collections below or set product/category restrictions above.
         </div>
-        <?php endif; ?>
+        <div id="mf_bogo_unsaved" style="background:#fcf9e8;border:1px solid #dba617;border-radius:4px;padding:12px 16px;margin-bottom:16px;display:none;">
+            <strong>Not saved yet.</strong> Save this BOGO to apply the collection restriction.
+        </div>
 
         <h4 style="margin:0 0 12px;font-size:14px;font-weight:600;">Collection Restrictions</h4>
 
@@ -195,11 +197,28 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
 
     <script>
     jQuery(function($) {
-        $('#mf_bogo_collections, #mf_bogo_exclude_collections').select2({
+        var $picker = $('#mf_bogo_collections');
+
+        $picker.add('#mf_bogo_exclude_collections').select2({
             placeholder: 'Search collections...',
             allowClear: true,
             width: '100%'
         });
+
+        // The red warning is rendered from what is stored, so without this it stays up
+        // while a collection is sitting selected but unsaved, which reads as the pick
+        // having failed. Reflect the current selection instead, and say plainly that it
+        // still needs saving.
+        var hadRestrictionOnLoad = <?php echo $has_any_restriction ? 'true' : 'false'; ?>;
+
+        function syncNotices() {
+            var chosen = ($picker.val() || []).length > 0;
+            $('#mf_bogo_no_restrictions').toggle(!chosen && !hadRestrictionOnLoad);
+            $('#mf_bogo_unsaved').toggle(chosen && !hadRestrictionOnLoad);
+        }
+
+        $picker.on('change', syncNotices);
+        syncNotices();
     });
     </script>
     <?php
@@ -207,19 +226,22 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
 
 // ─── Admin: save collection meta from the BOGO form ─────────────────────────
 
+// The BOGO screen does not post its form normally. Smart Coupons serialises the
+// whole form into a single `data` parameter and runs parse_str() on it, then hands
+// the result to this hook. So these fields are in $data and never in $_POST, and
+// reading $_POST here wrote an empty string on every save, which is why a chosen
+// collection never stuck and the "no product restrictions" warning kept showing.
 add_action('wt_sc_before_bogo_coupon_save', function ($coupon_id, $data) {
-    $collections = '';
-    if (!empty($_POST['_mf_bogo_collections_arr']) && is_array($_POST['_mf_bogo_collections_arr'])) {
-        $collections = implode(',', array_map('sanitize_text_field', $_POST['_mf_bogo_collections_arr']));
-    }
+    $read = function ($key) use ($data) {
+        $value = $data[$key] ?? ($_POST[$key] ?? null);
+        if (empty($value) || !is_array($value)) {
+            return '';
+        }
+        return implode(',', array_map('sanitize_text_field', $value));
+    };
 
-    $exclude = '';
-    if (!empty($_POST['_mf_bogo_exclude_collections_arr']) && is_array($_POST['_mf_bogo_exclude_collections_arr'])) {
-        $exclude = implode(',', array_map('sanitize_text_field', $_POST['_mf_bogo_exclude_collections_arr']));
-    }
-
-    update_post_meta($coupon_id, '_mf_bogo_collections', $collections);
-    update_post_meta($coupon_id, '_mf_bogo_exclude_collections', $exclude);
+    update_post_meta($coupon_id, '_mf_bogo_collections', $read('_mf_bogo_collections_arr'));
+    update_post_meta($coupon_id, '_mf_bogo_exclude_collections', $read('_mf_bogo_exclude_collections_arr'));
 }, 10, 2);
 
 // ─── Standard Coupons: collection fields on Usage Restriction tab ──────────

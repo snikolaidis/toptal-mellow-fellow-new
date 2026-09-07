@@ -15,6 +15,7 @@ export { fragments as AcfImageCarousel } from './ImageCarousel.fragments';
 export { fragments as AcfImageSlider } from './ImageSlider.fragments';
 export { fragments as AcfLoyaltyTiers } from './LoyaltyTiers.fragments';
 export { fragments as AcfPromoSlider } from './PromoSlider.fragments';
+export { fragments as AcfQuiz } from './QuizBlock.fragments';
 export { fragments as AcfQuizHero } from './QuizHero.fragments';
 export { fragments as AcfResponsiveImage } from './ResponsiveImage.fragments';
 export { fragments as AcfReviewsCarousel } from './ReviewsCarousel.fragments';

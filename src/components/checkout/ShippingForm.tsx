@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AddressData } from '@/types/checkout';
 import { COUNTRIES, getStatesForCountry, US_STATES } from '@/constants/geography';
 import { ValidationErrors } from '@/lib/validation';
@@ -30,6 +30,9 @@ export default function ShippingForm({
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<string | null>(null);
   const [isUpdatingShipping, setIsUpdatingShipping] = useState(false);
   const [methodError, setMethodError] = useState<string | null>(null);
+  // Caps free-shipping force-select retries so a server that refuses to switch
+  // can't cause an infinite re-select loop.
+  const freeForceAttempts = useRef(0);
 
   // Get available shipping methods from cart
   const allShippingMethods = cart?.availableShippingMethods?.[0]?.rates || [];
@@ -50,10 +53,23 @@ export default function ShippingForm({
     shippingAddress.postcode &&
     shippingAddress.postcode.length >= 5;
 
-  // Auto-select: always pick free shipping when available, otherwise sync with cart
+  // When free shipping is available it always wins — force it onto the SESSION,
+  // not just local state. The old bug: we only checked local selection, so if
+  // the WC session drifted back to flat rate the UI showed "Free" while the
+  // order was still charged $8.99. Now we force free until the session's chosen
+  // method actually is free (capped to avoid loops), and suppress flat rate.
   useEffect(() => {
+    if (isUpdatingShipping) return;
+
     if (freeMethod) {
-      if (selectedShippingMethod !== freeMethod.id) {
+      const sessionIsFree = chosenMethod === freeMethod.id;
+      if (sessionIsFree) {
+        if (selectedShippingMethod !== freeMethod.id) setSelectedShippingMethod(freeMethod.id);
+        freeForceAttempts.current = 0;
+        return;
+      }
+      if (freeForceAttempts.current < 3) {
+        freeForceAttempts.current += 1;
         handleSelectShippingMethod(freeMethod.id);
       }
     } else if (chosenMethod && !selectedShippingMethod) {
@@ -61,7 +77,7 @@ export default function ShippingForm({
     } else if (shippingMethods.length > 0 && !selectedShippingMethod && !chosenMethod) {
       handleSelectShippingMethod(shippingMethods[0].id);
     }
-  }, [freeMethod, shippingMethods, selectedShippingMethod, chosenMethod]);
+  }, [freeMethod, shippingMethods, selectedShippingMethod, chosenMethod, isUpdatingShipping]);
 
   const handleSelectShippingMethod = useCallback(async (methodId: string) => {
     setSelectedShippingMethod(methodId);
