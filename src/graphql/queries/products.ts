@@ -80,66 +80,8 @@ export const PRODUCT_FIELDS = gql`
         slug
       }
     }
-    flavors {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    vibes {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    effects {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    settings {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
+    # flavors, vibes, effects and settings now come from the PDP's own
+    # GET_PRODUCT_TAXONOMIES, so a rename cannot fail all ten documents at once.
     blendTypes {
       nodes {
         name

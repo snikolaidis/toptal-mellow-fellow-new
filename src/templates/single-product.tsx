@@ -19,7 +19,7 @@ import Breadcrumb from '@/components/Breadcrumb';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
-import { Product, ProductNutrition } from '@/types/woocommerce';
+import { Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Thumbs, Pagination, FreeMode, Mousewheel } from 'swiper/modules';
 
@@ -53,6 +53,7 @@ export interface SingleProductExtras {
   availableOptionsBase: string;
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
+  taxonomies: ProductTaxonomies;
   reviewData: KlaviyoReviewsResult;
 }
 
@@ -73,6 +74,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   availableOptionsBase = '',
   bundleSlug = null,
   nutrition = null,
+  taxonomies = {},
   reviewData = null,
 }) => {
   const product = data?.product as Product | undefined;
@@ -707,7 +709,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 .filter(Boolean)}
             />
 
-            <FlavorsBox product={product} />
+            <FlavorsBox product={product} taxonomies={taxonomies} />
 
             <ProductTimeline product={product} />
 
