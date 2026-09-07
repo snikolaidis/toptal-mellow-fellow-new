@@ -16,6 +16,7 @@ import {
 } from '@/lib/recsCache';
 import TieredProgressBar from './TieredProgressBar';
 import FreeGiftWidget from './FreeGiftWidget';
+import { useCartSubscriptions, everyLabel } from '@/lib/useCartSubscriptions';
 import styles from './CartDrawer.module.css';
 
 function parsePrice(price: string): number {
@@ -53,6 +54,7 @@ export default function CartDrawer() {
   } = useCart();
 
   const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames, bundleImages, bundleModes, bundleGroupSetCounts);
+  const subChoices = useCartSubscriptions(isDrawerOpen ? standalone.map((i) => i.product.databaseId) : []);
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
   const [couponCode, setCouponCode] = useState('');
@@ -433,6 +435,7 @@ export default function CartDrawer() {
                 {standalone.map((item) => {
                   const isItemRemoving = removingKey === item.key;
                   const isLocked = isItemRemoving;
+                  const sub = subChoices[item.product.databaseId];
                   return (
                     <li key={item.key} className={`${styles.cartItem} ${isItemRemoving ? styles.cartItemPending : ''}`}>
                       <div className={styles.itemImage}>
@@ -499,15 +502,30 @@ export default function CartDrawer() {
                             </button>
                           </div>
                           <div className={styles.itemPrices}>
-                            {(() => {
-                              const originalLineTotal = item.quantity * originalUnitPrice(item);
-                              return originalLineTotal > parsePrice(item.total) + 0.005 && (
-                                <span className={styles.itemOriginalPrice}>${originalLineTotal.toFixed(2)}</span>
-                              );
-                            })()}
-                            <span className={styles.itemPrice}>{item.total}</span>
+                   {sub ? (
+        <>
+        <span className={styles.itemOriginalPrice}>{item.total}</span>
+        <span className={styles.itemPrice}>${(sub.unitPrice * item.quantity).toFixed(2)}</span>
+      </>
+    ) : (
+      <>
+        {(() => {
+          const originalLineTotal = item.quantity * originalUnitPrice(item);
+          return originalLineTotal > parsePrice(item.total) + 0.005 && (
+            <span className={styles.itemOriginalPrice}>${originalLineTotal.toFixed(2)}</span>
+          );
+        })()}
+        <span className={styles.itemPrice}>{item.total}</span>
+      </>
+    )}
                           </div>
                         </div>
+                        {sub && (
+                          <p className={styles.itemSubscription}>
+                            Subscribe &amp; save, every {everyLabel(sub.period, sub.interval)}
+                            {sub.discount > 0 ? ` (save ${sub.discount}%)` : ''}
+                          </p>
+                        )}
                       </div>
                     </li>
                   );
@@ -641,7 +659,13 @@ export default function CartDrawer() {
                 0
               );
               const netTotal = cart.items.reduce((s, i) => s + parsePrice(i.total), 0);
-              const saved = Math.max(0, grossSubtotal - netTotal);
+              const subSavings = standalone.reduce((s, it) => {
+                const c = subChoices[it.product.databaseId];
+                if (!c) return s;
+                return s + Math.max(0, parsePrice(it.total) - c.unitPrice * it.quantity);
+              }, 0);
+              const payTotal = Math.max(0, netTotal - subSavings);
+              const saved = Math.max(0, grossSubtotal - payTotal);
 
               return (
                 <>
@@ -657,7 +681,7 @@ export default function CartDrawer() {
                   )}
                   <div className={styles.subtotalRow}>
                     <span className={styles.subtotalLabel}>Total</span>
-                    <span className={styles.subtotalValue}>${netTotal.toFixed(2)}</span>
+                    <span className={styles.subtotalValue}>${payTotal.toFixed(2)}</span>
                   </div>
                 </>
               );
