@@ -149,6 +149,8 @@ export interface Product {
   // "fixed" — admin-picked exact items/quantities, nothing for the shopper
   //   to select. bbFixedItems is that picked set, bbFixedPrice is the flat
   //   total, bbFixedQtyMin/Max bound how many sets can be added.
+  // The plugin dropped the bundleBuilder root query when it added these, so
+  // a bundle's own slug now comes from mf/v1/product rather than GraphQL.
   bbBundleMode?: 'byob' | 'fixed' | null;
   bbDescription?: string | null;
   // Whether the "From $X" teaser (bbFromPrice) should render on the card/PDP

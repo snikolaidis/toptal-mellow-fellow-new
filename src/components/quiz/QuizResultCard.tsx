@@ -16,7 +16,7 @@ export default function QuizResultCard({ product }: QuizResultCardProps) {
   const imageUrl = product.image?.sourceUrl || '/placeholder-product.png';
   const productType = product.__typename || product.type;
   const isSimpleProduct = productType === 'SimpleProduct' || product.type === 'SIMPLE';
-  const isBundle = product.bbLinkedBundleId != null;
+  const isBundle = product.bbBundleMode != null;
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
   // Only simple, in-stock, non-bundle products can be added straight to cart.
   // Everything else routes to the PDP where variations / bundle building live.
