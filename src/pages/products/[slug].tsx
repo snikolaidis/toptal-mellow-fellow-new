@@ -248,7 +248,7 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       prefetchMenus(),
       withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: 60 })),
       fetchExtrasAndReviews(wpUrl, slug),
-      fetchProductNutrition(wpUrl, slug),
+      fetchProductNutrition(slug),
       fetchFixedBundleItems(wpUrl, slug),
     ]);
 
