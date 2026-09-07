@@ -37,11 +37,13 @@ const GET_ALL_SHOP_PRODUCTS = gql`
           id databaseId name slug
           price regularPrice salePrice stockStatus
           image { sourceUrl altText }
+          bbBundleMode bbShowPrice bbFromPrice bbFixedPrice bbFixedOriginalPrice
         }
         ... on VariableProduct {
           id databaseId name slug
           price regularPrice salePrice stockStatus
           image { sourceUrl altText }
+          bbBundleMode bbShowPrice bbFromPrice bbFixedPrice bbFixedOriginalPrice
         }
       }
     }

@@ -5,7 +5,7 @@ import { useState, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import { getClient } from '@/lib/apollo-client';
 import { useCart } from '@/context/CartContext';
-import { GET_BUNDLE_BY_SLUG, GET_ALL_BUNDLE_SLUGS } from '@/graphql/queries/bundles';
+import { GET_BYOB_BUNDLE_BY_SLUG } from '@/graphql/queries/bundles';
 import styles from '@/styles/pages/bundle.module.css';
 
 interface BundleProduct {
@@ -28,13 +28,17 @@ interface DiscountRule {
 
 interface BundleData {
   databaseId: number;
-  title: string;
-  content?: string;
-  minItems: number;
-  maxItems: number;
-  bannerImageUrl?: string;
-  discountRules: DiscountRule[];
-  bundleProducts: BundleProduct[];
+  name: string;
+  slug: string;
+  bbDescription?: string | null;
+  image?: {
+    sourceUrl: string;
+    altText: string;
+  } | null;
+  bbMinItems: number;
+  bbMaxItems?: number | null;
+  bbDiscountRules: DiscountRule[];
+  bbBundleProducts: BundleProduct[];
 }
 
 interface BundlePageProps {
@@ -57,14 +61,15 @@ export default function BundlePage({ bundle }: BundlePageProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
-  const products = bundle.bundleProducts;
-  const maxItems = bundle.maxItems || 4;
+  const products = bundle.bbBundleProducts;
+  const maxItems = bundle.bbMaxItems ?? null;
+  const hasMax = maxItems != null;
 
-  const activeDiscount = [...(bundle.discountRules || [])]
+  const activeDiscount = [...(bundle.bbDiscountRules || [])]
     .sort((a, b) => b.minQty - a.minQty)
     .find((rule) => selected.length >= rule.minQty);
 
-  const nextDiscount = [...(bundle.discountRules || [])]
+  const nextDiscount = [...(bundle.bbDiscountRules || [])]
     .sort((a, b) => a.minQty - b.minQty)
     .find((rule) => selected.length < rule.minQty);
 
@@ -73,7 +78,7 @@ export default function BundlePage({ bundle }: BundlePageProps) {
     ? subtotal * (1 - activeDiscount.percent / 100)
     : subtotal;
 
-  const progressPercent = maxItems > 0 ? (selected.length / maxItems) * 100 : 0;
+  const progressPercent = hasMax && maxItems > 0 ? (selected.length / maxItems) * 100 : 0;
 
   const discountLabel = nextDiscount
     ? `Add ${nextDiscount.minQty - selected.length} product(s) to get ${nextDiscount.percent}% discount!`
@@ -84,11 +89,11 @@ export default function BundlePage({ bundle }: BundlePageProps) {
   const addProduct = useCallback(
     (product: BundleProduct) => {
       setSelected((prev) => {
-        if (prev.length >= maxItems) return prev;
+        if (hasMax && prev.length >= maxItems) return prev;
         return [...prev, product];
       });
     },
-    [maxItems]
+    [hasMax, maxItems]
   );
 
   const removeProduct = useCallback((databaseId: number) => {
@@ -102,12 +107,12 @@ export default function BundlePage({ bundle }: BundlePageProps) {
   const clearBundle = useCallback(() => setSelected([]), []);
 
   const handleAddToCart = async () => {
-    if (selected.length < bundle.minItems || isAdding) return;
+    if (selected.length < bundle.bbMinItems || isAdding) return;
     setAddError(null);
     setIsAdding(true);
     try {
       const productIds = selected.map((p) => p.databaseId);
-      await addBundleToCart(bundle.databaseId, productIds, bundle.title, activeDiscount?.percent ?? 0);
+      await addBundleToCart(bundle.databaseId, productIds, bundle.name, activeDiscount?.percent ?? 0, bundle.image);
       setSelected([]);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : 'Failed to add bundle to cart. Please try again.');
@@ -124,22 +129,17 @@ export default function BundlePage({ bundle }: BundlePageProps) {
     return acc;
   }, []);
   // Remaining slots = how many more individual items can still be added.
-  const remainingItems = maxItems - selected.length;
+  // Only meaningful when there's a max — unlimited bundles just show what's picked.
+  const remainingItems = hasMax ? maxItems - selected.length : 0;
 
   return (
-    <Layout title={bundle.title}>
-      {bundle.bannerImageUrl && (
-        <div className={styles.banner}>
-          <img src={bundle.bannerImageUrl} alt={bundle.title} className={styles.bannerImage} />
-        </div>
-      )}
-
+    <Layout title={bundle.name}>
       <div className={styles.page}>
-        <h1 className={styles.pageTitle}>{bundle.title}</h1>
-        {bundle.content && (
+        <h1 className={styles.pageTitle}>{bundle.name}</h1>
+        {bundle.bbDescription && (
           <div
             className={styles.pageDescription}
-            dangerouslySetInnerHTML={{ __html: bundle.content }}
+            dangerouslySetInnerHTML={{ __html: bundle.bbDescription }}
           />
         )}
 
@@ -148,7 +148,11 @@ export default function BundlePage({ bundle }: BundlePageProps) {
           <div className={styles.productGrid}>
             {products.map((product) => {
               const isOutOfStock = product.stockStatus === 'OUT_OF_STOCK';
-              const isAtMax = selected.length >= maxItems;
+              const isAtMax = hasMax && selected.length >= maxItems;
+              const cardPrice = parsePrice(product.price);
+              const cardDiscountedPrice = activeDiscount
+                ? cardPrice * (1 - activeDiscount.percent / 100)
+                : cardPrice;
 
               return (
                 <div key={product.databaseId} className={styles.productCard}>
@@ -172,7 +176,16 @@ export default function BundlePage({ bundle }: BundlePageProps) {
                   <div className={styles.productInfo}>
                     <p className={styles.productName}>{product.name}</p>
                     <div className={styles.productFooter}>
-                      <span className={styles.productPrice}>{product.price}</span>
+                      <span className={styles.productPrice}>
+                        {activeDiscount ? (
+                          <>
+                            <span className={styles.originalPrice}>{formatPrice(cardPrice)}</span>
+                            {formatPrice(cardDiscountedPrice)}
+                          </>
+                        ) : (
+                          formatPrice(cardPrice)
+                        )}
+                      </span>
                       <button
                         onClick={() => addProduct(product)}
                         disabled={isOutOfStock || isAtMax}
@@ -211,12 +224,14 @@ export default function BundlePage({ bundle }: BundlePageProps) {
               <p className={styles.discountBanner}>{discountLabel}</p>
             )}
 
-            <div className={styles.progressBar}>
-              <div
-                className={styles.progressFill}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+            {hasMax && (
+              <div className={styles.progressBar}>
+                <div
+                  className={styles.progressFill}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            )}
 
             <p className={styles.itemCount}>{selected.length} item(s)</p>
 
@@ -245,7 +260,7 @@ export default function BundlePage({ bundle }: BundlePageProps) {
                   </button>
                 </div>
               ))}
-              {Array.from({ length: remainingItems }, (_, i) => (
+              {hasMax && Array.from({ length: remainingItems }, (_, i) => (
                 <div key={`empty-${i}`} className={styles.slot}>
                   <span className={styles.slotNumber}>{selected.length + i + 1}</span>
                 </div>
@@ -275,7 +290,7 @@ export default function BundlePage({ bundle }: BundlePageProps) {
               )}
               <button
                 onClick={handleAddToCart}
-                disabled={selected.length < bundle.minItems || isAdding}
+                disabled={selected.length < bundle.bbMinItems || isAdding}
                 className={styles.addToCartBtn}
               >
                 {isAdding ? (
@@ -299,17 +314,7 @@ export default function BundlePage({ bundle }: BundlePageProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  try {
-    const client = getClient();
-    const { data } = await client.query({ query: GET_ALL_BUNDLE_SLUGS });
-    const paths = (data?.bundleBuilders?.nodes ?? []).map(({ slug }: { slug: string }) => ({
-      params: { slug },
-    }));
-    return { paths, fallback: 'blocking' };
-  } catch (error) {
-    console.error('Error fetching bundle slugs:', error);
-    return { paths: [], fallback: 'blocking' };
-  }
+  return { paths: [], fallback: 'blocking' };
 };
 
 export const getStaticProps: GetStaticProps<BundlePageProps> = async ({ params }) => {
@@ -317,17 +322,17 @@ export const getStaticProps: GetStaticProps<BundlePageProps> = async ({ params }
     const client = getClient();
     const [{ data }, menuClient] = await Promise.all([
       client.query({
-        query: GET_BUNDLE_BY_SLUG,
+        query: GET_BYOB_BUNDLE_BY_SLUG,
         variables: { slug: params?.slug as string },
       }),
       prefetchMenus(),
     ]);
 
-    if (!data?.bundleBuilder) {
+    if (!data?.product || data.product.bbBundleMode !== 'byob') {
       return { notFound: true, revalidate: 60 };
     }
 
-    const props = { bundle: data.bundleBuilder } as any;
+    const props = { bundle: data.product } as any;
     mergeMenuState(props, menuClient);
 
     return { props, revalidate: 60 };

@@ -10,6 +10,11 @@ export interface RecentProduct {
   salePrice?: string;
   image?: { sourceUrl: string; altText: string };
   typeLabel?: string;
+  bbBundleMode?: 'byob' | 'fixed' | null;
+  bbFixedPrice?: number | null;
+  bbFixedOriginalPrice?: number | null;
+  bbFromPrice?: number | null;
+  bbShowPrice?: boolean | null;
 }
 
 export function addRecentlyViewed(item: RecentProduct): void {
