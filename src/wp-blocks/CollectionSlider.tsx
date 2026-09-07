@@ -1,23 +1,37 @@
 import { fragments } from './CollectionSlider.fragments';
 import { useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Pagination, Autoplay } from 'swiper/modules';
+import { Autoplay } from 'swiper/modules';
+import type { Swiper as SwiperInstance } from 'swiper';
 import 'swiper/css';
-import 'swiper/css/pagination';
-import 'swiper/css/navigation';
 import { Product } from '@/types/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import { useCollectionFilter } from '@/context/CollectionFilterContext';
+import { taxonomyForTypename } from '@/lib/taxonomy';
 
 // Swiper only loops when the track holds more slides than it shows at once. With
 // 8 products at 4 per view it silently stops advancing, so the list is repeated
-// until the track clears this count. Do not collapse `track` back to `products`.
-const MIN_TRACK_SLIDES = 16;
+// until the track clears this count. Do not collapse `track` back to `products`,
+// and do not lower this: at 16 the second and third carousels reach the end of
+// the track and freeze there instead of wrapping.
+const MIN_TRACK_SLIDES = 20;
 
 const SWIPER_BREAKPOINTS = {
   769: { slidesPerView: 2 },
   992: { slidesPerView: 4 },
 } as const;
+
+// Swiper's own pagination counts the repeated track, which is 16 to 24 bullets
+// for what the design shows as a handful of page dots. These are page dots over
+// the real products instead, and the repeats stay invisible to the reader.
+function pageOf(swiper: SwiperInstance, total: number, perView: number) {
+  return Math.floor((swiper.realIndex % total) / perView);
+}
+
+function viewOf(swiper: SwiperInstance) {
+  const perView = swiper.params.slidesPerView;
+  return typeof perView === 'number' ? Math.max(1, Math.floor(perView)) : 1;
+}
 
 interface CollectionNode {
   __typename?: string | null;
@@ -45,10 +59,12 @@ export default function CollectionSlider(props: CollectionSliderProps) {
   const count = Math.max(1, Math.floor(data?.productCount || 8));
   const { selected } = useCollectionFilter(data?.filterGroup);
   const slug = selected?.slug || collection?.slug || '';
-  const taxonomy =
-    selected?.taxonomy || (collection?.__typename || 'Collection').toLowerCase();
+  const taxonomy = selected?.taxonomy || taxonomyForTypename(collection?.__typename);
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
+  const [perView, setPerView] = useState(2);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     if (!slug) return;
@@ -75,6 +91,7 @@ export default function CollectionSlider(props: CollectionSliderProps) {
 
   const copies = Math.max(2, Math.ceil(MIN_TRACK_SLIDES / products.length));
   const track = Array.from({ length: copies }, () => products).flat();
+  const pageCount = Math.ceil(products.length / perView);
 
   const title = data?.title || '';
   const rawVariant = data?.backgroundVariant || '';
@@ -95,11 +112,18 @@ export default function CollectionSlider(props: CollectionSliderProps) {
         <div className="collection-swiper__products-slider">
           <Swiper
             spaceBetween={16}
-            slidesPerView={2}
+            slidesPerView={2.2}
             slidesOffsetAfter={8}
             slidesOffsetBefore={8}
-            modules={[Pagination, Autoplay]}
-            pagination={{ clickable: true, dynamicBullets: true }}
+            modules={[Autoplay]}
+            onSwiper={(instance) => {
+              setSwiper(instance);
+              setPerView(viewOf(instance));
+            }}
+            onBreakpoint={(instance) => setPerView(viewOf(instance))}
+            onSlideChange={(instance) =>
+              setPage(pageOf(instance, products.length, viewOf(instance)))
+            }
             autoplay={{
               delay: 4000,
               disableOnInteraction: false,
@@ -114,6 +138,22 @@ export default function CollectionSlider(props: CollectionSliderProps) {
               </SwiperSlide>
             ))}
           </Swiper>
+
+          {pageCount > 1 && (
+            <div className="collection-swiper__dots">
+              {Array.from({ length: pageCount }, (_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`collection-swiper__dot${
+                    i === page % pageCount ? ' collection-swiper__dot--active' : ''
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                  onClick={() => swiper?.slideToLoop(i * perView)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

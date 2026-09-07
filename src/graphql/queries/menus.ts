@@ -3,7 +3,7 @@ import { gql } from '@apollo/client';
 // Warmed server-side by prefetchMenus(). Changing any field here changes the
 // cache key and the nav silently falls back to a client-side fetch on every page.
 export const GET_NAV = gql`
-  query {
+  query GetNav {
     menuItems(where: { location: PRIMARY, parentId: 0 }, first: 100) {
       nodes {
         id
@@ -42,6 +42,19 @@ export const GET_SHOP_MEGA_MENU = gql`
   }
 `;
 
+const MEGA_MENU_SLIDE_IMAGE = gql`
+  fragment MegaMenuSlideImage on AcfMediaItemConnectionEdge {
+    node {
+      altText
+      sourceUrl
+      mediaDetails {
+        width
+        height
+      }
+    }
+  }
+`;
+
 export const GET_MEGA_MENU_FEATURED = gql`
   query GetMegaMenuFeatured {
     siteSettings {
@@ -58,8 +71,31 @@ export const GET_MEGA_MENU_FEATURED = gql`
           }
         }
       }
+      # Selected here rather than in a query of its own: a second query writing
+      # this same root field is what the id above guards against, and this way
+      # the carousel is warm from the one prefetchMenus() request.
+      promotionalSlides {
+        slides {
+          caption
+          link {
+            url
+            title
+            target
+          }
+          desktopImage {
+            ...MegaMenuSlideImage
+          }
+          tabletImage {
+            ...MegaMenuSlideImage
+          }
+          mobileImage {
+            ...MegaMenuSlideImage
+          }
+        }
+      }
     }
   }
+  ${MEGA_MENU_SLIDE_IMAGE}
 `;
 
 export interface MegaMenuFeaturedLink {
@@ -69,6 +105,27 @@ export interface MegaMenuFeaturedLink {
     title?: string | null;
     target?: string | null;
   } | null;
+}
+
+export interface SlideImageEdge {
+  node?: {
+    altText?: string | null;
+    sourceUrl?: string | null;
+    mediaDetails?: { width?: number | null; height?: number | null } | null;
+  } | null;
+}
+
+/** A row of the shared Promotional Slides group. Every field is optional in ACF. */
+export interface PromotionalSlide {
+  caption?: string | null;
+  link?: {
+    url?: string | null;
+    title?: string | null;
+    target?: string | null;
+  } | null;
+  desktopImage?: SlideImageEdge | null;
+  tabletImage?: SlideImageEdge | null;
+  mobileImage?: SlideImageEdge | null;
 }
 
 export interface NavMenuItem {

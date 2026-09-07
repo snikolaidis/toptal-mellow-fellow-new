@@ -1,6 +1,10 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
+import { createRegisterFirstPersistedQueryLink } from './persistedQueryLink';
+// The same map faust.config.js hands Faust's client. Without it InMemoryCache
+// cannot tell SimpleProduct implements Product, so a fragment on Product is dropped.
+import possibleTypes from '../../possibleTypes.json';
 
 // WP Engine sits behind Cloudflare/nginx, which return 429 (rate limit) and
 // 504 (gateway timeout) when the static build hammers GraphQL with many
@@ -40,6 +44,8 @@ const retryLink = new RetryLink({
 const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 const graphqlEndpoint = process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || '/graphql';
 
+// Do not add `useGETForQueries`: it overrides context after merge, so it would
+// rewrite the registration POST to GET and put oversized documents in the URL.
 const httpLink = createHttpLink({
   uri: `${wordpressUrl}${graphqlEndpoint}`,
   credentials: 'include',
@@ -60,11 +66,16 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
 let client: ApolloClient<any> | null = null;
 
+// Keep retryLink below this one: inverted, the registration POST runs inside the
+// persisted-query link's forward and never gets the 429/5xx backoff.
+const persistedQueryLink = createRegisterFirstPersistedQueryLink();
+
 export function getClient() {
   if (!client || typeof window === 'undefined') {
     client = new ApolloClient({
-      link: from([errorLink, retryLink, httpLink]),
+      link: from([errorLink, persistedQueryLink, retryLink, httpLink]),
       cache: new InMemoryCache({
+        possibleTypes,
         typePolicies: {
           Product: {
             keyFields: ['databaseId'],
@@ -130,7 +141,8 @@ export function getBrowserClient() {
 
     browserClient = new ApolloClient({
       link: from([errorLink, browserRetryLink, browserHttpLink]),
-      cache: new InMemoryCache(),
+      // LandingCollectionGroup runs GET_COLLECTION_SLIDER_PRODUCTS through this one.
+      cache: new InMemoryCache({ possibleTypes }),
       defaultOptions: {
         watchQuery: {
           fetchPolicy: 'cache-and-network',

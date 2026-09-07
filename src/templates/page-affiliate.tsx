@@ -6,12 +6,7 @@ import Layout from '@/components/Layout';
 import { Product } from '@/types/woocommerce';
 import styles from '@/styles/pages/affiliate.module.css';
 import UGCGallery, { UGCItem } from '@/components/affiliate/UGCGallery';
-import {
-  SIMPLE_PRODUCT_FIELDS,
-  VARIABLE_PRODUCT_FIELDS,
-  EXTERNAL_PRODUCT_FIELDS,
-  GROUP_PRODUCT_FIELDS,
-} from '@/graphql/queries/products';
+import { PRODUCT_FIELDS } from '@/graphql/queries/products';
 
 const AWIN_SIGNUP_URL = 'https://ui.awin.com/express-signup/en/awin/59403/726a754c-4998-4ec8-a77d-40ccd659d54e?t=CkcZSywINKh2WumvTw9RRzoTi29X6_Tgg1VjVeaDBjY';
 
@@ -347,7 +342,7 @@ const AffiliatePage: FaustTemplate<AffiliateData> = (props) => {
                       __html: product.shortDescription.replace(/<[^>]+>/g, '').slice(0, 100),
                     }} />
                   )}
-                  <Link href={`/product/${product.slug}`} className={styles.viewProductBtn}>
+                  <Link href={`/products/${product.slug}`} className={styles.viewProductBtn}>
                     View Product
                   </Link>
                 </div>
@@ -367,18 +362,12 @@ const AffiliatePage: FaustTemplate<AffiliateData> = (props) => {
 };
 
 AffiliatePage.query = gql`
-  ${SIMPLE_PRODUCT_FIELDS}
-  ${VARIABLE_PRODUCT_FIELDS}
-  ${EXTERNAL_PRODUCT_FIELDS}
-  ${GROUP_PRODUCT_FIELDS}
+  ${PRODUCT_FIELDS}
   query GetAffiliatePage {
     products(first: 3, where: { orderby: [{ field: TOTAL_SALES, order: DESC }] }) {
       nodes {
         __typename
-        ... on SimpleProduct { ...SimpleProductFields }
-        ... on VariableProduct { ...VariableProductFields }
-        ... on ExternalProduct { ...ExternalProductFields }
-        ... on GroupProduct { ...GroupProductFields }
+        ...ProductFields
       }
     }
     pageBy(uri: "affiliate-data") {

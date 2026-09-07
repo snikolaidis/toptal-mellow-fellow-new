@@ -16,6 +16,7 @@ import {
 } from '@/lib/recsCache';
 import TieredProgressBar from './TieredProgressBar';
 import FreeGiftWidget from './FreeGiftWidget';
+import { useCartSubscriptions, everyLabel } from '@/lib/useCartSubscriptions';
 import styles from './CartDrawer.module.css';
 
 function parsePrice(price: string): number {
@@ -42,6 +43,7 @@ export default function CartDrawer() {
   } = useCart();
 
   const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
+  const subChoices = useCartSubscriptions(isDrawerOpen ? standalone.map((i) => i.product.databaseId) : []);
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
   const [couponCode, setCouponCode] = useState('');
@@ -49,15 +51,12 @@ export default function CartDrawer() {
   const [recsLoading, setRecsLoading] = useState(false);
   const [addingProductId, setAddingProductId] = useState<number | null>(null);
   // removingKey  → the cart item key being deleted (triggers fade + spinner)
-  // updatingKey  → the cart item key having its quantity changed (locks buttons only, no fade)
   // removingGroupKey → composite key of the bundle group being deleted (triggers fade + spinner)
   const [removingKey, setRemovingKey] = useState<string | null>(null);
-  const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [removingGroupKey, setRemovingGroupKey] = useState<string | null>(null);
 
-  const handleUpdateQuantity = useCallback(async (key: string, qty: number) => {
-    setUpdatingKey(key);
-    try { await updateQuantity(key, qty); } finally { setUpdatingKey(null); }
+  const handleUpdateQuantity = useCallback((key: string, qty: number) => {
+    updateQuantity(key, qty).catch(() => {});
   }, [updateQuantity]);
 
   const handleRemoveFromCart = useCallback(async (key: string) => {
@@ -294,7 +293,7 @@ export default function CartDrawer() {
                               <div className={styles.itemDetails}>
                                 <div className={styles.itemHeader}>
                                   <Link
-                                    href={`/product/${item.product.slug}`}
+                                    href={`/products/${item.product.slug}`}
                                     className={styles.itemName}
                                     onClick={closeDrawer}
                                   >
@@ -365,8 +364,8 @@ export default function CartDrawer() {
                 {/* Standalone items */}
                 {standalone.map((item) => {
                   const isItemRemoving = removingKey === item.key;
-                  const isItemUpdating = updatingKey === item.key;
-                  const isLocked = isItemRemoving || isItemUpdating;
+                  const isLocked = isItemRemoving;
+                  const sub = subChoices[item.product.databaseId];
                   return (
                     <li key={item.key} className={`${styles.cartItem} ${isItemRemoving ? styles.cartItemPending : ''}`}>
                       <div className={styles.itemImage}>
@@ -385,7 +384,7 @@ export default function CartDrawer() {
                       <div className={styles.itemDetails}>
                         <div className={styles.itemHeader}>
                           <Link
-                            href={`/product/${item.product.slug}`}
+                            href={`/products/${item.product.slug}`}
                             className={styles.itemName}
                             onClick={closeDrawer}
                           >
@@ -433,12 +432,27 @@ export default function CartDrawer() {
                             </button>
                           </div>
                           <div className={styles.itemPrices}>
-                            {item.subtotal && parsePrice(item.subtotal) > parsePrice(item.total) + 0.005 && (
-                              <span className={styles.itemOriginalPrice}>{item.subtotal}</span>
+                            {sub ? (
+                              <>
+                                <span className={styles.itemOriginalPrice}>{item.total}</span>
+                                <span className={styles.itemPrice}>${(sub.unitPrice * item.quantity).toFixed(2)}</span>
+                              </>
+                            ) : (
+                              <>
+                                {item.subtotal && parsePrice(item.subtotal) > parsePrice(item.total) + 0.005 && (
+                                  <span className={styles.itemOriginalPrice}>{item.subtotal}</span>
+                                )}
+                                <span className={styles.itemPrice}>{item.total}</span>
+                              </>
                             )}
-                            <span className={styles.itemPrice}>{item.total}</span>
                           </div>
                         </div>
+                        {sub && (
+                          <p className={styles.itemSubscription}>
+                            Subscribe &amp; save, every {everyLabel(sub.period, sub.interval)}
+                            {sub.discount > 0 ? ` (save ${sub.discount}%)` : ''}
+                          </p>
+                        )}
                       </div>
                     </li>
                   );
@@ -453,7 +467,7 @@ export default function CartDrawer() {
                     {recommendations.map((product) => (
                       <div key={product.id} className={styles.recCard}>
                         <Link
-                          href={`/product/${product.slug}`}
+                          href={`/products/${product.slug}`}
                           className={styles.recImageLink}
                           onClick={closeDrawer}
                         >
@@ -471,7 +485,7 @@ export default function CartDrawer() {
                         </Link>
                         <div className={styles.recInfo}>
                           <Link
-                            href={`/product/${product.slug}`}
+                            href={`/products/${product.slug}`}
                             className={styles.recName}
                             onClick={closeDrawer}
                           >
@@ -555,38 +569,38 @@ export default function CartDrawer() {
             )}
 
             {(() => {
-              const totalBundleDiscount = bundles.reduce((sum, group) => {
-                const allItems = group.instances.flatMap((inst) => inst.items);
-                const original = allItems.reduce((s, i) => s + i.quantity * parsePrice(i.product.price), 0);
-                const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
-                return sum + Math.max(0, original - discounted);
+              // Gross = full price of everything; Net = what each line actually
+              // costs after ALL discounts (coupons, BOGO, free gift, bundles).
+              // One consolidated "You saved" = gross − net, so the numbers
+              // always reconcile and never shift per-coupon.
+              const grossSubtotal = cart.items.reduce(
+                (s, i) => s + i.quantity * parsePrice(i.product.price),
+                0
+              );
+              const netTotal = cart.items.reduce((s, i) => s + parsePrice(i.total), 0);
+              const subSavings = standalone.reduce((s, it) => {
+                const c = subChoices[it.product.databaseId];
+                if (!c) return s;
+                return s + Math.max(0, parsePrice(it.total) - c.unitPrice * it.quantity);
               }, 0);
-              const couponDiscount = parsePrice(cart.discountTotal);
-              const effectiveSubtotal = parsePrice(cart.subtotal) - couponDiscount;
+              const payTotal = Math.max(0, netTotal - subSavings);
+              const saved = Math.max(0, grossSubtotal - payTotal);
 
               return (
                 <>
-                  {totalBundleDiscount > 0 && (
+                  <div className={styles.subtotalRow}>
+                    <span className={styles.subtotalLabel}>Subtotal</span>
+                    <span className={styles.subtotalValue}>${grossSubtotal.toFixed(2)}</span>
+                  </div>
+                  {saved > 0 && (
                     <div className={styles.subtotalRow}>
-                      <span className={styles.discountLabel}>Bundle Discount</span>
-                      <span className={styles.discountValue}>
-                        -${totalBundleDiscount.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {couponDiscount > 0 && (
-                    <div className={styles.subtotalRow}>
-                      <span className={styles.discountLabel}>Coupon Discount</span>
-                      <span className={styles.discountValue}>
-                        -${couponDiscount.toFixed(2)}
-                      </span>
+                      <span className={styles.discountLabel}>You saved</span>
+                      <span className={styles.discountValue}>-${saved.toFixed(2)}</span>
                     </div>
                   )}
                   <div className={styles.subtotalRow}>
-                    <span className={styles.subtotalLabel}>SUBTOTAL</span>
-                    <span className={styles.subtotalValue}>
-                      ${effectiveSubtotal.toFixed(2)}
-                    </span>
+                    <span className={styles.subtotalLabel}>Total</span>
+                    <span className={styles.subtotalValue}>${payTotal.toFixed(2)}</span>
                   </div>
                 </>
               );
@@ -595,11 +609,16 @@ export default function CartDrawer() {
               Shipping calculated at checkout
             </p>
             <Link
-              href="/checkout"
+              href={isMutating ? '#' : '/checkout'}
               className={styles.checkoutBtn}
-              onClick={closeDrawer}
+              onClick={(e) => {
+                if (isMutating) { e.preventDefault(); return; }
+                closeDrawer();
+              }}
+              aria-disabled={isMutating || undefined}
+              style={isMutating ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
             >
-              Checkout Now
+              {isMutating ? 'Updating cart...' : 'Checkout Now'}
             </Link>
             <button
               type="button"

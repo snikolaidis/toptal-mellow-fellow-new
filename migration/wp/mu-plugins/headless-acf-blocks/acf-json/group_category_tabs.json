@@ -59,8 +59,27 @@
                     "label": "Collection",
                     "name": "collection",
                     "type": "taxonomy",
-                    "instructions": "The collection loaded into the paired Collection Slider when this tab is selected.",
+                    "instructions": "Legacy fallback, used only when Product Category is empty.",
                     "taxonomy": "collection",
+                    "field_type": "select",
+                    "allow_null": 1,
+                    "add_term": 0,
+                    "save_terms": 0,
+                    "load_terms": 0,
+                    "return_format": "object",
+                    "multiple": 0,
+                    "required": 0,
+                    "wrapper": {
+                        "width": "50"
+                    }
+                },
+                {
+                    "key": "field_ct_tab_product_category",
+                    "label": "Product Category",
+                    "name": "product_category",
+                    "type": "taxonomy",
+                    "instructions": "Preferred over Collection. The product category loaded into the paired Collection Slider when this tab is selected.",
+                    "taxonomy": "product_cat",
                     "field_type": "select",
                     "allow_null": 1,
                     "add_term": 0,

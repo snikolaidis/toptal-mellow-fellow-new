@@ -11,6 +11,7 @@ import {
   GET_MEGA_MENU_FEATURED,
   MegaMenuFeaturedLink,
   NavMenuItem,
+  PromotionalSlide,
 } from '@/graphql/queries/menus';
 import { GET_ALL_MOODS } from '@/graphql/queries/moods';
 import { MoodPill } from '@/types/mood';
@@ -54,6 +55,8 @@ export default function SiteHeader() {
   const megaMoods: MoodPill[] = moodData?.moods?.nodes ?? [];
   const megaFeatured: MegaMenuFeaturedLink[] =
     featuredData?.siteSettings?.megaMenuFeatured?.links ?? [];
+  const megaSlides: PromotionalSlide[] =
+    featuredData?.siteSettings?.promotionalSlides?.slides ?? [];
 
   const megaMenuModel = useMemo(
     () =>
@@ -62,8 +65,9 @@ export default function SiteHeader() {
         navItems: menuItems,
         moods: megaMoods,
         featuredLinks: megaFeatured,
+        promotionalSlides: megaSlides,
       }),
-    [megaMenuItems, menuItems, megaMoods, megaFeatured]
+    [megaMenuItems, menuItems, megaMoods, megaFeatured, megaSlides]
   );
 
   const {
@@ -165,7 +169,14 @@ export default function SiteHeader() {
   // client render matches the server. Without this the mismatch only appears for
   // visitors who already have items, never for a developer with an empty cart.
   const itemsCount = hydrated ? cart?.itemsCount ?? 0 : 0;
-  const cartSubtotal = hydrated && cartReady ? cart?.subtotal ?? '' : '';
+  // Show the net merchandise total (after all discounts) — what the customer
+  // will actually pay for the items — matching the drawer/checkout "Total".
+  const cartSubtotal =
+    hydrated && cartReady && cart?.items?.length
+      ? `$${cart.items
+          .reduce((s, i) => s + (parseFloat((i.total || '').replace(/[^0-9.-]/g, '')) || 0), 0)
+          .toFixed(2)}`
+      : '';
 
   return (
     <>

@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import { gql, useQuery } from '@apollo/client';
 import {
+  AmexIcon,
+  DiscoverIcon,
   EmailIcon,
   FacebookIcon,
   InstagramIcon,
+  JcbIcon,
+  MastercardIcon,
   TikTokIcon,
   TwitterIcon,
+  VisaIcon,
   YouTubeIcon,
 } from '@/components/icons';
 
@@ -94,6 +100,17 @@ interface FooterMenuItem {
   target?: string | null;
 }
 
+const PAYMENT_MARKS: Array<{
+  label: string;
+  Icon: () => React.JSX.Element;
+}> = [
+  { label: 'Visa', Icon: VisaIcon },
+  { label: 'Mastercard', Icon: MastercardIcon },
+  { label: 'American Express', Icon: AmexIcon },
+  { label: 'Discover', Icon: DiscoverIcon },
+  { label: 'JCB', Icon: JcbIcon },
+];
+
 // Resolve a WordPress menu item URL to an app-appropriate href. WP items mix
 // relative paths (/contact-us/), full frontend-domain URLs (the headless app)
 // and true external links (e.g. affiliate URLs). Internal targets get
@@ -124,9 +141,17 @@ function footerHref(uri: string): { href: string; external: boolean } {
   }
 }
 
-function MenuColumn({ heading, items }: { heading: string; items: FooterMenuItem[] }) {
+function MenuColumn({
+  heading,
+  items,
+  modifier,
+}: {
+  heading: string;
+  items: FooterMenuItem[];
+  modifier: string;
+}) {
   return (
-    <div className="footer-col">
+    <div className={`footer-col ${modifier}`}>
       <h3 className="footer-col__heading">{heading}</h3>
       <ul className="footer-col__list">
         {items.map((item) => {
@@ -155,6 +180,15 @@ function MenuColumn({ heading, items }: { heading: string; items: FooterMenuItem
   );
 }
 
+type SignupStatus = 'idle' | 'submitting' | 'success' | 'error';
+
+// Must read correctly for someone already subscribed, who gets the same 202
+// and so the same success state. Do not promise the code is on its way: the
+// welcome flow does not re-trigger for an existing profile.
+const SIGNUP_SUCCESS_MESSAGE =
+  'Thanks for subscribing. Keep an eye on your inbox.';
+const SIGNUP_GENERIC_ERROR = 'Something went wrong. Please try again.';
+
 export default function Footer() {
   const { data } = useQuery(GET_FOOTER_MENU);
   const footerMenu = data?.menus?.nodes?.[0];
@@ -170,6 +204,40 @@ export default function Footer() {
   const socialLinks: SocialLinks | undefined =
     socialData?.siteSettings?.socialLinks ?? undefined;
 
+  const [email, setEmail] = useState('');
+  const [signupStatus, setSignupStatus] = useState<SignupStatus>('idle');
+  const [signupMessage, setSignupMessage] = useState('');
+
+  async function handleSignupSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (signupStatus === 'submitting') return;
+
+    setSignupStatus('submitting');
+    setSignupMessage('');
+
+    try {
+      const response = await fetch('/api/newsletter-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
+        setSignupStatus('success');
+        setSignupMessage(SIGNUP_SUCCESS_MESSAGE);
+        setEmail('');
+        return;
+      }
+
+      setSignupStatus('error');
+      setSignupMessage(data?.error || SIGNUP_GENERIC_ERROR);
+    } catch {
+      setSignupStatus('error');
+      setSignupMessage(SIGNUP_GENERIC_ERROR);
+    }
+  }
+
   return (
     <>
       {/* Signup band */}
@@ -178,21 +246,43 @@ export default function Footer() {
           Get <span className="footer-signup__accent">15% off</span> your first
           purchase when you sign up!!
         </p>
-        <form className="footer-signup__form">
+        <form className="footer-signup__form" onSubmit={handleSignupSubmit}>
           <div className="footer-signup__controls">
             <input
               type="email"
+              name="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={signupStatus === 'submitting'}
               placeholder="Enter your email"
               aria-label="Email address"
               className="footer-signup__input"
             />
-            <button type="submit" className="footer-signup__button">
-              Join now
+            <button
+              type="submit"
+              className="footer-signup__button"
+              disabled={signupStatus === 'submitting'}
+            >
+              {signupStatus === 'submitting' ? 'Joining...' : 'Join now'}
             </button>
           </div>
           <p className="footer-signup__consent">
             By joining you agree to receive marketing emails. Unsubscribe
             anytime.
+          </p>
+          {/* Always rendered, never wrapped in a `&&`: the live region has to
+              exist before the message lands or a screen reader announces
+              nothing. Collapsed by :empty in the stylesheet. */}
+          <p
+            className={
+              signupStatus === 'success' || signupStatus === 'error'
+                ? `footer-signup__status footer-signup__status--${signupStatus}`
+                : 'footer-signup__status'
+            }
+            role="status"
+          >
+            {signupMessage}
           </p>
         </form>
       </section>
@@ -201,7 +291,30 @@ export default function Footer() {
         <div className="footer__inner">
           <div className="footer-content">
             {/* Stay Mellow (WP "Footer 1" location) */}
-            <MenuColumn heading={footerMenu?.name ?? 'Stay Mellow'} items={footerItems} />
+            <MenuColumn
+              heading={footerMenu?.name ?? 'Stay Mellow'}
+              items={footerItems}
+              modifier="footer-col--menu-1"
+            />
+
+            <div className="footer-col footer-col--payment">
+              <h3 className="footer-col__heading">We accept</h3>
+              <ul className="footer-col__accept">
+                {PAYMENT_MARKS.map(({ label, Icon }) => (
+                  <li key={label}>
+                    <Icon />
+                    <span className="is-sr-only">{label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Legal (WP "Footer 2" location) */}
+            <MenuColumn
+              heading={footerMenu2?.name ?? 'Legal'}
+              items={footerItems2}
+              modifier="footer-col--menu-2"
+            />
 
             <div className="footer-col footer-col--contact">
               <div>
@@ -235,17 +348,6 @@ export default function Footer() {
                 </ul>
               </div>
             </div>
-
-            <div className="footer-col">
-              <h3 className="footer-col__heading">We accept</h3>
-              {/* The five card logos (Amex, Discover, JCB, Mastercard, Visa)
-                  go here, as a <ul className="footer-col__accept"> of images.
-                  None of them exist in the repo or the media library yet, so
-                  the column renders its heading alone until they are sourced. */}
-            </div>
-
-            {/* Legal (WP "Footer 2" location) */}
-            <MenuColumn heading={footerMenu2?.name ?? 'Legal'} items={footerItems2} />
           </div>
 
           <div className="footer-copyright">

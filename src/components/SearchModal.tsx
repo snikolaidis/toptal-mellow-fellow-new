@@ -386,7 +386,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     {visibleResults.slice(0, 6).map((product) => (
                       <Link
                         key={product.id}
-                        href={`/product/${product.slug}`}
+                        href={`/products/${product.slug}`}
                         className={styles.resultItem}
                         onClick={onClose}
                       >

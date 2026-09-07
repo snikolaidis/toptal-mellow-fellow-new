@@ -19,6 +19,7 @@ interface UseTaxonomyProductsArgs {
   initialFilterGroups: FilterGroup[];
   initialHasNextPage: boolean;
   initialTotalPages: number;
+  pageSize?: number;
 }
 
 export function useTaxonomyProducts({
@@ -28,9 +29,15 @@ export function useTaxonomyProducts({
   initialFilterGroups,
   initialHasNextPage,
   initialTotalPages,
+  pageSize = PAGE_SIZE,
 }: UseTaxonomyProductsArgs) {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  // Deliberately never recomputed from the fetched page. Every assignment below
+  // resets it to the server list, so the facets keep their full shape while
+  // filtering. Recomputing from the filtered results is what made ticking one
+  // option remove the rest of its own facet on shop and search; if counts ever
+  // need to refresh here, narrow per facet with buildFacetGroups instead.
   const [filterGroups, setFilterGroups] = useState<FilterGroup[]>(initialFilterGroups);
   const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
@@ -50,7 +57,7 @@ export function useTaxonomyProducts({
       setLoading(true);
       try {
         const params = new URLSearchParams();
-        params.set('first', String(PAGE_SIZE));
+        params.set('first', String(pageSize));
 
         // Both of these fail silently with a 200 if changed. The slug travels
         // under `collection` for every taxonomy: the BFF branches on that param
@@ -83,7 +90,7 @@ export function useTaxonomyProducts({
         setLoading(false);
       }
     },
-    [slug, taxonomy]
+    [slug, taxonomy, pageSize]
   );
 
   // Reset state when navigating between terms (React reuses the component)
@@ -108,8 +115,41 @@ export function useTaxonomyProducts({
       setSelectedSort(urlSort);
       fetchPage(urlFilters, urlSort, 1);
     }
+    // isReady, not just slug: on a cold load this runs once with an empty
+    // router.query, and without it here it never runs again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [slug, router.isReady]);
+
+  // popstate fires on back and forward only, never on our own router.push.
+  useEffect(() => {
+    const onPopState = () => {
+      const params = Object.fromEntries(new URLSearchParams(window.location.search));
+      const urlFilters = parseFilterParams(params);
+      const urlSort = typeof params.sort === 'string' && params.sort ? params.sort : 'default';
+
+      setActiveFilters(urlFilters);
+      setSelectedSort(urlSort);
+      setPage(1);
+
+      if (Object.keys(urlFilters).length > 0 || urlSort !== 'default') {
+        fetchPage(urlFilters, urlSort, 1);
+        return;
+      }
+
+      // Back to unfiltered restores the page's own initial data rather than
+      // refetching it, matching what handleFilterChange does when the last
+      // filter is cleared.
+      setProducts(initialProducts);
+      setFilterGroups(initialFilterGroups);
+      setHasNextPage(initialHasNextPage);
+      setCurrentTotalPages(initialTotalPages);
+      setFilteredTotal(null);
+      usingInitialData.current = true;
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages]);
 
   const handleFilterChange = useCallback(
     (key: string, slugs: string[]) => {

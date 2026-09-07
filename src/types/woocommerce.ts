@@ -91,16 +91,6 @@ export interface ProductTaxonomyTerm {
   extraTaxonomyFields?: { propIcon?: AcfImageField | null } | null;
 }
 
-// MellowMeter terms carry their icon under a dedicated ACF group
-// (`mellowMeterFields`) rather than `extraTaxonomyFields`, so they don't fit
-// ProductTaxonomyTerm.
-export interface MellowMeterTerm {
-  id: string;
-  name: string;
-  slug?: string;
-  mellowMeterFields?: { meterImage?: AcfImageField | null } | null;
-}
-
 // The `Nutrition` ACF group, attached directly to products (not nested under
 // productDetails). Fields are ACF "text" (not "number"), so GraphQL returns
 // them as strings, not floats. `carbs` also exists on the group but is
@@ -130,6 +120,10 @@ export interface ProductACF {
   newNoidBlendDescriptionsReference?: { node?: { id?: string; title?: string } | null } | null;
   // Relationship (multi-select posts)
   badges?: { nodes?: Array<{ id?: string; title?: string }> } | null;
+  // Mellow Meter fields — meterType is an ACF checkbox field (GraphQL
+  // returns [String]), meterValue is a plain number field.
+  meterType?: string[] | null;
+  meterValue?: number | null;
 }
 
 export interface Product {
@@ -147,12 +141,12 @@ export interface Product {
   price?: string;
   regularPrice?: string;
   salePrice?: string;
-  // Bundle Builder plugin fields — set only on products that are actually a
-  // "build your own bundle" entry point. bbLinkedBundleId points at the
-  // BundleBuilder post (fetch via bundleBuilder(id, idType: DATABASE_ID));
-  // bbFromPrice is the bundle's starting-from price since a bundle has no
-  // single fixed price.
-  bbLinkedBundleId?: number | null;
+  // Bundle Builder plugin fields, set only on products that are actually a
+  // bundle entry point. bbBundleMode ('byob' or 'fixed') is what marks one:
+  // the plugin replaced bbLinkedBundleId with it, and dropped the bundleBuilder
+  // root query with it, so the bundle's own slug now comes from mf/v1/product.
+  // bbFromPrice is the starting-from price, and is null unless bbShowPrice.
+  bbBundleMode?: string | null;
   bbFromPrice?: number | null;
   stockStatus?: 'IN_STOCK' | 'OUT_OF_STOCK' | 'ON_BACKORDER';
   stockQuantity?: number;
@@ -177,9 +171,8 @@ export interface Product {
   strainNames?: { nodes: Array<{ name: string }> };
   flavors?: { nodes: ProductTaxonomyTerm[] };
   vibes?: { nodes: ProductTaxonomyTerm[] };
-  feelings?: { nodes: ProductTaxonomyTerm[] };
+  effects?: { nodes: ProductTaxonomyTerm[] };
   settings?: { nodes: ProductTaxonomyTerm[] };
-  mellowMeters?: { nodes: MellowMeterTerm[] };
   blendTypes?: { nodes: Array<{ name: string }> };
   productLines?: { nodes: Array<{ name: string }> };
   size?: { nodes: Array<{ name: string }> };

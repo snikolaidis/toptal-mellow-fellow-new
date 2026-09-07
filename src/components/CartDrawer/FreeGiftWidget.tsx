@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
 import { fetchCartFromStore } from '@/lib/store-api';
@@ -7,6 +7,10 @@ import { getBrowserClient } from '@/lib/apollo-client';
 import { GET_GIFT_PRODUCTS } from '@/graphql/queries/products';
 import { useCartOffers } from '@/config/cartOffers';
 import styles from './FreeGiftWidget.module.css';
+
+function parsePrice(price: string): number {
+  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
+}
 
 interface GiftProduct {
   databaseId: number;
@@ -41,15 +45,34 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   const [addingId, setAddingId] = useState<number | null>(null);
   const [removing, setRemoving] = useState(false);
   const reapplyingRef = useRef(false);
+  const reapplyFailsRef = useRef(0);
   const giftIdRef = useRef<number | null>(readStoredGiftId());
 
-  const unlocked = freeGift.enabled && subtotal >= freeGift.threshold;
+  // Compute qualifying subtotal excluding the free gift item — the gift's own
+  // price must not count toward the threshold that keeps the gift active.
+  const qualifyingSubtotal = useMemo(() => {
+    if (!cart) return subtotal;
+    const trackedId = giftIdRef.current;
+    const giftCoupon = cart.appliedCoupons?.find((c) => c.code.startsWith('mf-free-gift-'));
+    const giftProductId = trackedId || (giftCoupon ? parseInt(giftCoupon.code.replace('mf-free-gift-', ''), 10) : null);
+    if (!giftProductId) return subtotal;
+    const giftItem = cart.items.find((i) => i.product.databaseId === giftProductId);
+    if (!giftItem) return subtotal;
+    return subtotal - parsePrice(giftItem.subtotal || giftItem.product.price);
+  }, [cart, subtotal]);
+
+  const unlocked = freeGift.enabled && qualifyingSubtotal >= freeGift.threshold;
+
+  // Reset re-apply failure counter when cart composition changes so we retry
+  // after the user adds/removes items instead of staying permanently stuck.
+  const itemCount = cart?.items.length ?? 0;
+  useEffect(() => { reapplyFailsRef.current = 0; }, [itemCount]);
 
   // Remove the gift item and coupon when cart drops below the threshold.
   // Uses both the coupon code AND the tracked gift ID so orphaned gifts
   // (coupon auto-removed by WooCommerce) are still cleaned up.
   useEffect(() => {
-    if (unlocked || removing || isMutating || !freeGift.enabled || !cart) return;
+    if (unlocked || removing || isMutating || addingId !== null || !freeGift.enabled || !cart) return;
     const giftCoupon = cart.appliedCoupons?.find((c) => c.code.startsWith('mf-free-gift-'));
     const couponProductId = giftCoupon ? parseInt(giftCoupon.code.replace('mf-free-gift-', ''), 10) : null;
     const trackedId = giftIdRef.current;
@@ -61,36 +84,57 @@ export default function FreeGiftWidget({ subtotal }: Props) {
     setRemoving(true);
     (async () => {
       try {
-        if (giftItem) await removeFromCart(giftItem.key);
-        if (giftCoupon) await removeCoupon(giftCoupon.code);
+        if (giftItem) {
+          try { await removeFromCart(giftItem.key); } catch {}
+        }
+        if (giftCoupon) {
+          try { await removeCoupon(giftCoupon.code); } catch {}
+        }
         giftIdRef.current = null;
         writeStoredGiftId(null);
-      } catch {
       } finally {
         setRemoving(false);
       }
     })();
-  }, [unlocked, removing, isMutating, freeGift.enabled, cart, removeFromCart, removeCoupon]);
+  }, [unlocked, removing, isMutating, addingId, freeGift.enabled, cart, removeFromCart, removeCoupon]);
 
   useEffect(() => {
     if (!unlocked || gifts.length > 0) return;
     let cancelled = false;
-    getBrowserClient()
-      .query({
+
+    const fetchGifts = async () => {
+      const variables: Record<string, unknown> = { maxPrice: freeGift.maxGiftPrice, first: 8 };
+
+      if (freeGift.collections && freeGift.collections.length > 0) {
+        try {
+          const res = await fetch(`/api/shop/gift-product-ids?collections=${freeGift.collections.join(',')}`);
+          const data = await res.json();
+          if (cancelled) return;
+          if (Array.isArray(data?.ids) && data.ids.length > 0) {
+            variables.include = data.ids;
+          } else {
+            return;
+          }
+        } catch {
+          return;
+        }
+      }
+
+      const { data } = await getBrowserClient().query({
         query: GET_GIFT_PRODUCTS,
-        variables: { maxPrice: freeGift.maxGiftPrice, first: 8 },
+        variables,
         fetchPolicy: 'cache-first',
-      })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const nodes = (data?.products?.nodes || []).filter((n: GiftProduct) => n?.databaseId);
-        setGifts(nodes);
-      })
-      .catch(() => {});
+      });
+      if (cancelled) return;
+      const nodes = (data?.products?.nodes || []).filter((n: GiftProduct) => n?.databaseId);
+      setGifts(nodes);
+    };
+
+    fetchGifts().catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [unlocked, gifts.length, freeGift.maxGiftPrice]);
+  }, [unlocked, gifts.length, freeGift.maxGiftPrice, freeGift.collections]);
 
   const pickGift = useCallback(
     async (gift: GiftProduct) => {
@@ -128,12 +172,13 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   useEffect(() => {
     if (!unlocked || !cart || isMutating || removing || reapplyingRef.current) return;
     if (gifts.length === 0) return;
+    if (reapplyFailsRef.current >= 2) return;
     const giftIds = new Set(gifts.map((g) => g.databaseId));
     const giftInCart = cart.items.find((i) => giftIds.has(i.product.databaseId));
     if (!giftInCart) return;
     const couponCode = `mf-free-gift-${giftInCart.product.databaseId}`;
     const hasCoupon = cart.appliedCoupons?.some((c) => c.code === couponCode);
-    if (hasCoupon) return;
+    if (hasCoupon) { reapplyFailsRef.current = 0; return; }
     reapplyingRef.current = true;
     (async () => {
       try {
@@ -143,10 +188,19 @@ export default function FreeGiftWidget({ subtotal }: Props) {
           body: JSON.stringify({ productId: giftInCart.product.databaseId }),
         });
         const data = await res.json();
-        if (data?.code) await applyCoupon(data.code);
+        if (data?.code) {
+          const ok = await applyCoupon(data.code);
+          if (ok) {
+            reapplyFailsRef.current = 0;
+          } else {
+            reapplyFailsRef.current++;
+          }
+        }
         giftIdRef.current = giftInCart.product.databaseId;
         writeStoredGiftId(giftInCart.product.databaseId);
-      } catch {}
+      } catch {
+        reapplyFailsRef.current++;
+      }
       reapplyingRef.current = false;
     })();
   }, [unlocked, cart, isMutating, removing, gifts, applyCoupon]);

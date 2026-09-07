@@ -165,9 +165,26 @@ export const ADD_TO_CART = gql`
   }
 `;
 
+// "byob" bundle mode — config (min/max items, discount rules) lives on the
+// product itself now, so adding to cart just needs that product's own ID
+// (the bundle "identity") plus whichever items the shopper picked.
 export const ADD_BUNDLE_TO_CART = gql`
-  mutation AddBundleToCart($bundleId: Int!, $productIds: [Int!]!) {
-    addBundleToCart(input: { bundleId: $bundleId, productIds: $productIds }) {
+  mutation AddBundleToCart($productId: Int!, $productIds: [Int!]!) {
+    addBundleToCart(input: { productId: $productId, productIds: $productIds }) {
+      success
+      message
+      groupKey
+      addedItemKeys
+    }
+  }
+`;
+
+// "Fixed" bundle mode (bbBundleMode: "fixed") — the admin has already picked
+// the exact items/quantities on the product itself (bbFixedItems), so adding
+// to cart only needs the product's own ID and how many sets to add.
+export const ADD_FIXED_BUNDLE_TO_CART = gql`
+  mutation AddFixedBundleToCart($productId: Int!, $quantity: Int) {
+    addFixedBundleToCart(input: { productId: $productId, quantity: $quantity }) {
       success
       message
       groupKey

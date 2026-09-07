@@ -23,6 +23,38 @@
     height: auto;
   }
 
+  // One dot per page of real products. Swiper's own bullets count the repeated
+  // track, so they are replaced rather than styled. Same dot and active-pill
+  // treatment as the hero slider and the PDP gallery.
+  &__dots {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 18px;
+
+    @include large-up {
+      display: flex;
+    }
+  }
+
+  &__dot {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background-color: var(--color-brown-40);
+    cursor: pointer;
+    appearance: none;
+    transition: width 0.2s ease, background-color 0.2s ease;
+  }
+
+  &__dot--active {
+    width: 33px;
+    background-color: var(--color-teal-85);
+  }
+
   @include large-up {
     .container {
       width: min(1315px, 100%);

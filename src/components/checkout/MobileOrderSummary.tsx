@@ -37,6 +37,7 @@ interface Cart {
   discountTotal: string;
   shippingTotal: string;
   appliedCoupons?: AppliedCoupon[];
+  chosenShippingMethods?: string[];
 }
 
 interface MobileOrderSummaryProps {
@@ -217,6 +218,9 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                 {cart.appliedCoupons.map((coupon) => (
                   <div key={coupon.code} className={styles.appliedCoupon}>
                     <span className={styles.couponCode}>{coupon.code}</span>
+                    {coupon.discountAmount && parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0') > 0 && (
+                      <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleRemoveCoupon(coupon.code)}
@@ -243,18 +247,24 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
             <div className={styles.row}>
               <dt>Shipping</dt>
               <dd>
-                {cart.shippingTotal && parseFloat(cart.shippingTotal.replace(/[^0-9.-]/g, '')) > 0
-                  ? cart.shippingTotal
+                {cart.shippingTotal
+                  ? parseFloat(cart.shippingTotal.replace(/[^0-9.-]/g, '')) > 0
+                    ? cart.shippingTotal
+                    : cart.chosenShippingMethods?.length ? 'Free' : 'Calculated at checkout'
                   : 'Calculated at checkout'}
               </dd>
             </div>
 
-            {hasDiscount && (
-              <div className={`${styles.row} ${styles.rowDiscount}`}>
-                <dt>Discount</dt>
-                <dd>-{cart.discountTotal}</dd>
-              </div>
-            )}
+            {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
+              const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');
+              if (amt <= 0) return null;
+              return (
+                <div key={coupon.code} className={`${styles.row} ${styles.rowDiscount}`}>
+                  <dt>{coupon.code.toUpperCase()}</dt>
+                  <dd>-{coupon.discountAmount}</dd>
+                </div>
+              );
+            })}
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>
@@ -264,7 +274,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
             {subscription && (
               <div className={styles.row}>
                 <dt>Recurring subtotal</dt>
-                <dd>${subscription.recurring.toFixed(2)} every {subscription.label}</dd>
+                <dd>${subscription.recurring.toFixed(2)} {subscription.label}</dd>
               </div>
             )}
           </dl>

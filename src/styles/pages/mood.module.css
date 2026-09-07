@@ -224,18 +224,6 @@
   color: var(--color-text-inverse);
 }
 
-.productGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 16px; /* TODO(figma) */
-}
-
-@media only screen and (min-width: 992px) {
-  .productGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 /* .page is here for specificity. collection.module.css sets width: 240px on
    this same element, so a bare .filterSidebar wins or loses on import order.
    The whole rule is inside the media query because that stylesheet only

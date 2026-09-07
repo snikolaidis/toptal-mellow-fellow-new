@@ -10,6 +10,7 @@ export interface FreeGiftConfig {
   threshold: number;
   mode: 'automatic' | 'select';
   maxGiftPrice: number;
+  collections?: string[];
 }
 
 export interface CartOffers {

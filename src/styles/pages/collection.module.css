@@ -191,6 +191,21 @@
   }
 }
 
+/* Its own class, not folded into .sidebarWrapper, which the mood page shares.
+   Must stay after that rule to win the width at equal specificity. */
+@media (min-width: 1024px) {
+  .filterCard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 272px;
+    padding: 16px 0 0;
+    border: 1px solid #eeecf2;
+    border-radius: 16px;
+    background: var(--color-surface-primary);
+  }
+}
+
 .main {
   flex: 1;
   min-width: 0;
@@ -304,6 +319,20 @@
 
 .sortSelect {
   min-width: 180px;
+}
+
+/* Do not fold this into .sortWrapper. The singular /collection page uses that
+   at every width and has no filter sheet, so it would lose sort below 1024. */
+.sortWrapperDesktop {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .sortWrapperDesktop {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
 }
 
 /* Products Grid */

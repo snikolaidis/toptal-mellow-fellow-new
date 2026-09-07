@@ -37,7 +37,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     const { data } = await getClient().query({ query: SITEMAP_QUERY, fetchPolicy: 'no-cache' });
     for (const n of data?.products?.nodes || []) {
       if (n?.slug) {
-        urls.push(SITE_URL + '/product/' + n.slug);
+        urls.push(SITE_URL + '/products/' + n.slug);
       }
     }
     for (const n of data?.collections?.nodes || []) {

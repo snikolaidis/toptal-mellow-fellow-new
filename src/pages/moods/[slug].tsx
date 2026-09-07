@@ -2,7 +2,8 @@ import { GetStaticProps, GetStaticPaths } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
-import { CSSProperties, useEffect, useRef, useState } from 'react';
+import { ComponentProps, CSSProperties, useEffect, useRef, useState } from 'react';
+import { gql } from '@apollo/client';
 import { getClient } from '@/lib/apollo-client';
 import { GET_ALL_MOOD_SLUGS, GET_ALL_MOODS } from '@/graphql/queries/moods';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
@@ -14,19 +15,26 @@ import ProductCard from '@/components/ProductCard';
 import RichText from '@/components/RichText';
 import CollectionSlider from '@/wp-blocks/CollectionSlider';
 import BlogPosts from '@/wp-blocks/BlogPosts';
+import LoyaltyTiers from '@/wp-blocks/LoyaltyTiers';
 import YouMayAlsoLike from '@/components/pdp/YouMayAlsoLike';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
+import Select, { SelectOption } from '@/components/ui/Select';
 import { Product } from '@/types/woocommerce';
 import { Mood, MoodPill } from '@/types/mood';
 import {
-  PAGE_SIZE,
   FILTER_GROUPS,
   FilterGroup,
+  SORT_OPTIONS,
   isHiddenTerm,
 } from '@/lib/shopFilters';
 import styles from '@/styles/pages/collection.module.css';
 import moodStyles from '@/styles/pages/mood.module.css';
+import gridStyles from '@/styles/shared/product-grid.module.css';
+
+const MOOD_PAGE_SIZE = 12;
+
+const sortOptions: SelectOption[] = SORT_OPTIONS;
 
 interface CategoryChip {
   slug: string;
@@ -77,6 +85,60 @@ const BLOG_POSTS = {
   buttonLink: { url: '/blogs' },
 };
 
+// LoyaltyTiers.fragments is `on AcfLoyaltyTiers`, so it cannot be reused against
+// Site Settings, which registers the same field names under its own type
+// (mellow-fellow-site-settings.php:457). Keep the two selections in step: a field
+// added to the block fragment is silently absent here.
+const GET_LOYALTY_TIERS = gql`
+  query GetMoodLoyaltyTiers {
+    siteSettings {
+      id
+      loyaltyTiers {
+        badgeText
+        heading
+        body
+        tiersTitle
+        cta {
+          url
+          title
+          target
+        }
+        badgeIcon {
+          node {
+            id
+            altText
+            sourceUrl
+          }
+        }
+        tiers {
+          name
+          points
+          iconBg
+          icon {
+            node {
+              id
+              altText
+              sourceUrl
+            }
+          }
+          benefits {
+            label
+            icon {
+              node {
+                id
+                altText
+                sourceUrl
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+type LoyaltyTiersData = ComponentProps<typeof LoyaltyTiers>['loyaltyTiers'];
+
 interface MoodPageProps {
   mood: Mood;
   moodPills: MoodPill[];
@@ -86,6 +148,7 @@ interface MoodPageProps {
   initialHasNextPage: boolean;
   initialTotalPages: number;
   moodSlug: string;
+  loyaltyTiers: LoyaltyTiersData;
 }
 
 export default function MoodPage({
@@ -97,6 +160,7 @@ export default function MoodPage({
   initialHasNextPage,
   initialTotalPages,
   moodSlug,
+  loyaltyTiers,
 }: MoodPageProps) {
   const {
     products,
@@ -120,6 +184,7 @@ export default function MoodPage({
     initialFilterGroups,
     initialHasNextPage,
     initialTotalPages,
+    pageSize: MOOD_PAGE_SIZE,
   });
 
   const [descExpanded, setDescExpanded] = useState(false);
@@ -365,6 +430,7 @@ export default function MoodPage({
                 onFilterChange={handleFilterChange}
                 sortValue={currentSort}
                 onSortChange={handleSortChange}
+                showSort={false}
               />
             </div>
 
@@ -373,6 +439,17 @@ export default function MoodPage({
                 <span className={styles.productCount}>
                   {`${displayCount} ${displayCount === 1 ? 'product' : 'products'}`}
                 </span>
+                <div className={styles.sortWrapperDesktop}>
+                  <span className={styles.sortLabel}>Sort by</span>
+                  <div className={styles.sortSelect}>
+                    <Select
+                      options={sortOptions}
+                      value={currentSort}
+                      onChange={handleSortChange}
+                      instanceId="mood-sort-select"
+                    />
+                  </div>
+                </div>
               </div>
 
               <FilterSheet
@@ -384,7 +461,7 @@ export default function MoodPage({
                 onSortChange={handleSortChange}
               />
 
-              <div className={`${moodStyles.productGrid} ${loading ? styles.gridLoading : ''}`}>
+              <div className={`${gridStyles.productGrid} ${loading ? styles.gridLoading : ''}`}>
                 {products.length > 0 ? (
                   products.map((product, index) => (
                     <ProductCard key={product.id} product={product} priority={index < 12} />
@@ -446,6 +523,8 @@ export default function MoodPage({
           );
         })()}
 
+        <LoyaltyTiers loyaltyTiers={loyaltyTiers} />
+
         <BlogPosts blogPosts={BLOG_POSTS} />
       </div>
     </Layout>
@@ -473,7 +552,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
     const qs = `slug=${encodeURIComponent(slug)}&taxonomy=mood`;
 
-    const [menuClient, metaRes, facetsRes, productsRes, moodsRes] = await Promise.all([
+    const [menuClient, metaRes, facetsRes, productsRes, moodsRes, loyaltyRes] = await Promise.all([
       prefetchMenus(),
       fetch(`${wpUrl}/wp-json/mf/v1/collection-meta?${qs}`)
         .then((r) => r.json())
@@ -481,11 +560,14 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       fetch(`${wpUrl}/wp-json/mf/v1/collection-facets?${qs}`)
         .then((r) => r.json())
         .catch(() => null),
-      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?${qs}&per_page=${PAGE_SIZE}`)
+      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?${qs}&per_page=${MOOD_PAGE_SIZE}`)
         .then((r) => r.json())
         .catch(() => null),
       getClient()
         .query({ query: GET_ALL_MOODS })
+        .catch(() => null),
+      getClient()
+        .query({ query: GET_LOYALTY_TIERS })
         .catch(() => null),
     ]);
 
@@ -507,6 +589,18 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
             introHeading: decodeEntities(raw.moodFields.introHeading),
             introText: decodeEntities(raw.moodFields.introText),
             warningMessage: decodeEntities(raw.moodFields.warningMessage),
+            faqSectionTitle: decodeEntities(raw.moodFields.faqSectionTitle),
+            faqs: raw.moodFields.faqs
+              ? {
+                  ...raw.moodFields.faqs,
+                  nodes: (raw.moodFields.faqs.nodes ?? []).map(
+                    (faq: { id: string; title: string; content: string }) => ({
+                      ...faq,
+                      title: decodeEntities(faq.title),
+                    })
+                  ),
+                }
+              : raw.moodFields.faqs,
           }
         : raw.moodFields,
       seo: raw.seo
@@ -531,7 +625,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
     const initialProducts = productsRes?.products || [];
     const initialHasNextPage = productsRes?.hasNextPage || false;
-    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / PAGE_SIZE) : 0);
+    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / MOOD_PAGE_SIZE) : 0);
 
     const moodPills: MoodPill[] = (moodsRes?.data?.moods?.nodes || [])
       .map((m: { name: string; slug: string }) => ({
@@ -550,6 +644,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         initialHasNextPage,
         initialTotalPages,
         moodSlug: slug,
+        loyaltyTiers: loyaltyRes?.data?.siteSettings?.loyaltyTiers ?? null,
       } as Record<string, any>,
       revalidate: 60,
     };

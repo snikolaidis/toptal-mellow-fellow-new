@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCollectionFilter } from '@/context/CollectionFilterContext';
+import { taxonomyForTypename } from '@/lib/taxonomy';
 import { decodeEntities } from '@/lib/decodeEntities';
 
 interface MediaItem {
@@ -22,6 +23,7 @@ interface Tab {
   icon?: { node?: MediaItem | null } | null;
   label?: string | null;
   collection?: { nodes?: CollectionNode[] | null; node?: CollectionNode | null } | null;
+  productCategory?: { nodes?: CollectionNode[] | null; node?: CollectionNode | null } | null;
   link?: { url?: string | null; title?: string | null; target?: string | null } | null;
   isActive?: boolean | null;
 }
@@ -55,10 +57,18 @@ function moodToTab(term: MoodTerm): Tab | null {
   };
 }
 
+// Product category wins over collection: the collection terms behind these tabs
+// were mis-populated (`flower` and `drinks` hold the same 70 products, most of
+// them neither), so a tab points at a product category wherever one is set.
 function tabTerm(tab: Tab) {
-  const node = tab.collection?.nodes?.[0] ?? tab.collection?.node ?? null;
+  const node =
+    tab.productCategory?.nodes?.[0] ??
+    tab.productCategory?.node ??
+    tab.collection?.nodes?.[0] ??
+    tab.collection?.node ??
+    null;
   if (!node?.slug) return null;
-  return { slug: node.slug, taxonomy: (node.__typename || 'Collection').toLowerCase() };
+  return { slug: node.slug, taxonomy: taxonomyForTypename(node.__typename) };
 }
 
 function TabInner({ tab }: { tab: Tab }) {

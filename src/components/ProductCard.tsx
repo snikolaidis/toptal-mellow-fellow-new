@@ -48,7 +48,7 @@ export default function ProductCard({ product, badge, priority = false, source }
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
   // Bundle Builder entry-point product — can't be added to cart directly,
   // has no fixed price, and needs its own bundle-picker page.
-  const isBundle = product.bbLinkedBundleId != null;
+  const isBundle = product.bbBundleMode != null;
 
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);
@@ -131,7 +131,7 @@ export default function ProductCard({ product, badge, priority = false, source }
   return (
     <>
       <div className="product-card">
-        <Link href={`/product/${product.slug}`} className="block">
+        <Link href={`/products/${product.slug}`} className="block">
           <div className="product__media-badges">
             <div className="product__tags">
               <div className="product__tags-left">
@@ -280,7 +280,7 @@ export default function ProductCard({ product, badge, priority = false, source }
                 which routes into the actual bundle builder. */}
             {isBundle && (
               <Link
-                href={`/product/${product.slug}`}
+                href={`/products/${product.slug}`}
                 className="button is-small add-to-cart is-fullwidth"
                 aria-label={`Create a bundle from ${product.name}`}
               >
