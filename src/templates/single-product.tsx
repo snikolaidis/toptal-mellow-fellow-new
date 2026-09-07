@@ -235,7 +235,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   const hasVariations = product.variations?.nodes && product.variations.nodes.length > 0;
   // Bundle Builder entry-point product — no fixed price, can't be added to
   // cart directly; "Create Bundle" routes into the actual bundle picker.
-  const isBundle = product.bbLinkedBundleId != null;
+  const isBundle = product.bbBundleMode != null;
   const categories = product.productCategories?.nodes || [];
 
   // Get selected variation details

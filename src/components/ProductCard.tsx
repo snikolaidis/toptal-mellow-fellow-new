@@ -48,7 +48,7 @@ export default function ProductCard({ product, badge, priority = false, source }
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
   // Bundle Builder entry-point product — can't be added to cart directly,
   // has no fixed price, and needs its own bundle-picker page.
-  const isBundle = product.bbLinkedBundleId != null;
+  const isBundle = product.bbBundleMode != null;
 
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);

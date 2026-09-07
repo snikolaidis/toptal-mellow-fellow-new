@@ -434,7 +434,7 @@ function meiliHitToProduct(hit: Record<string, any>): Product {
     regularPrice: hit.regularPrice ?? '',
     salePrice: hit.salePrice ?? '',
     stockStatus: hit.stockStatus ?? 'IN_STOCK',
-    bbLinkedBundleId: hit.bbLinkedBundleId ?? null,
+    bbBundleMode: hit.bbBundleMode ?? null,
     bbFromPrice: hit.bbFromPrice ?? null,
   };
 

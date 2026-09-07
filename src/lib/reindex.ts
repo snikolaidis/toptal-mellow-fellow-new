@@ -138,7 +138,7 @@ const PRODUCT_FIELDS = `
   singleCannabinoid { nodes { name slug } }
   mG { nodes { name slug } }
   pieces { nodes { name slug } }
-  bbLinkedBundleId
+  bbBundleMode
   bbFromPrice
   uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
 `;
@@ -200,7 +200,7 @@ const DISPLAYED_ATTRIBUTES = [
   'salePrice',
   'stockStatus',
   'image',
-  'bbLinkedBundleId',
+  'bbBundleMode',
   'bbFromPrice',
   'uniqueSellingProps',
   ...TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
@@ -378,7 +378,7 @@ function toDocument(product: WooProduct): ProductDocument {
       sourceUrl: product.image?.sourceUrl ?? null,
       altText: product.image?.altText ?? null,
     },
-    bbLinkedBundleId: (product.bbLinkedBundleId as number | null | undefined) ?? null,
+    bbBundleMode: (product.bbBundleMode as string | null | undefined) ?? null,
     bbFromPrice: (product.bbFromPrice as number | null | undefined) ?? null,
     uniqueSellingProps: (product.uniqueSellingProps as unknown) ?? null,
   };

@@ -141,12 +141,12 @@ export interface Product {
   price?: string;
   regularPrice?: string;
   salePrice?: string;
-  // Bundle Builder plugin fields — set only on products that are actually a
-  // "build your own bundle" entry point. bbLinkedBundleId points at the
-  // BundleBuilder post (fetch via bundleBuilder(id, idType: DATABASE_ID));
-  // bbFromPrice is the bundle's starting-from price since a bundle has no
-  // single fixed price.
-  bbLinkedBundleId?: number | null;
+  // Bundle Builder plugin fields, set only on products that are actually a
+  // bundle entry point. bbBundleMode ('byob' or 'fixed') is what marks one:
+  // the plugin replaced bbLinkedBundleId with it, and dropped the bundleBuilder
+  // root query with it, so the bundle's own slug now comes from mf/v1/product.
+  // bbFromPrice is the starting-from price, and is null unless bbShowPrice.
+  bbBundleMode?: string | null;
   bbFromPrice?: number | null;
   stockStatus?: 'IN_STOCK' | 'OUT_OF_STOCK' | 'ON_BACKORDER';
   stockQuantity?: number;
