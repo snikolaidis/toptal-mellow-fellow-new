@@ -221,6 +221,41 @@ export const PRODUCT_FIELDS = gql`
         count
       }
     }
+
+    # Not narrowing: every product type implements ProductWithPricing. The blocks
+    # below are simply the fields the schema does not put on Product.
+    ... on ProductWithPricing {
+      price
+      regularPrice
+      salePrice
+    }
+    ... on InventoriedProduct {
+      stockStatus
+      stockQuantity
+    }
+    ... on ProductWithVariations {
+      variations {
+        nodes {
+          id
+          databaseId
+          name
+          price
+          regularPrice
+          salePrice
+          stockStatus
+          attributes {
+            nodes {
+              name
+              value
+            }
+          }
+        }
+      }
+    }
+    ... on ExternalProduct {
+      externalUrl
+      buttonText
+    }
   }
 `;
 

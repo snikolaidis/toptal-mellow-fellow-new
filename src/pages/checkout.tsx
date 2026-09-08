@@ -8,6 +8,13 @@ import OrderSummary from '@/components/checkout/OrderSummary';
 import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
 import RealIdVerification, { STRONGLY_VERIFIED_STEPS } from '@/components/RealIdVerification';
 
+// Bundle/sale discounts apply via the product's own sale price, not a coupon,
+// so `product.price` is already the discounted unit price — `regularPrice`
+// (when present) is the only source for the true original price.
+function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
+  return parseFloat((item.product.regularPrice || item.product.price).replace(/[^0-9.]/g, '')) || 0;
+}
+
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
@@ -726,6 +733,16 @@ export default function CheckoutPage() {
       );
     }
 
+    // Sum of every bundled line's (original - discounted) — passed through so
+    // the order carries a "Bundle Discount" line the same way a coupon does
+    // (see mellow-fellow-create-order.php).
+    const bundleDiscountTotal = (cart?.items ?? []).reduce((sum, item) => {
+      if (!item.bbGroupKey) return sum;
+      const lineOriginal = item.quantity * originalUnitPrice(item);
+      const lineTotal = parseFloat((item.total || '').replace(/[^0-9.]/g, '')) || 0;
+      return sum + Math.max(0, lineOriginal - lineTotal);
+    }, 0);
+
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
@@ -751,6 +768,7 @@ export default function CheckoutPage() {
               : undefined,
           amount: cart?.total,
           coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
+          bundleDiscountTotal: bundleDiscountTotal > 0 ? bundleDiscountTotal : undefined,
           items: cart?.items.map((item) => ({
             productId: item.product.databaseId,
             name: item.product.name,

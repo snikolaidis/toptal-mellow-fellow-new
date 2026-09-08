@@ -93,6 +93,19 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
 
   const { bundles, standalone } = groupCartItems(cart.items as any[], bundleNames, bundleImages, bundleModes, bundleGroupSetCounts);
 
+  // Shown as its own coupon-style row in the totals, same as an applied
+  // coupon — the sum of every bundle group's (original - discounted) total.
+  const totalBundleDiscount = bundles.reduce((sum, group) => {
+    const allItems = group.instances.flatMap((inst) => inst.items);
+    const original = allItems.reduce(
+      (s, i) => s + i.quantity * originalUnitPrice(i), 0
+    );
+    const discounted = allItems.reduce(
+      (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
+    );
+    return sum + Math.max(0, original - discounted);
+  }, 0);
+
   const handleUpdateQuantity = useCallback(async (key: string, quantity: number) => {
     setMutatingKey(key);
     try {
@@ -487,6 +500,13 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                   : 'Calculated at checkout'}
               </dd>
             </div>
+
+            {!subscription && totalBundleDiscount > 0 && (
+              <div className={`${styles.row} ${styles.rowDiscount}`}>
+                <dt>Bundle Discount</dt>
+                <dd>-${totalBundleDiscount.toFixed(2)}</dd>
+              </div>
+            )}
 
             {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
               const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');

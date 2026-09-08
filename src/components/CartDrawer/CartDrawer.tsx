@@ -642,14 +642,6 @@ export default function CartDrawer() {
             )}
 
             {(() => {
-              const totalBundleDiscount = bundles.reduce((sum, group) => {
-                const allItems = group.instances.flatMap((inst) => inst.items);
-                const original = allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
-                const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
-                return sum + Math.max(0, original - discounted);
-              }, 0);
-              const couponDiscount = parsePrice(cart.discountTotal);
-              const effectiveSubtotal = parsePrice(cart.subtotal) - couponDiscount;
               // Gross = full price of everything; Net = what each line actually
               // costs after ALL discounts (coupons, BOGO, free gift, bundles).
               // One consolidated "You saved" = gross − net, so the numbers
@@ -667,16 +659,34 @@ export default function CartDrawer() {
               const payTotal = Math.max(0, netTotal - subSavings);
               const saved = Math.max(0, grossSubtotal - payTotal);
 
+              // Bundle discount broken out on its own line — everything else
+              // (coupons, BOGO, free gift, subscriptions) collapses into
+              // "You saved" below it, so the two lines add up to `saved`
+              // instead of double-counting the bundle portion in both.
+              const totalBundleDiscount = bundles.reduce((sum, group) => {
+                const allItems = group.instances.flatMap((inst) => inst.items);
+                const original = allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
+                const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
+                return sum + Math.max(0, original - discounted);
+              }, 0);
+              const otherSaved = Math.max(0, saved - totalBundleDiscount);
+
               return (
                 <>
                   <div className={styles.subtotalRow}>
                     <span className={styles.subtotalLabel}>Subtotal</span>
                     <span className={styles.subtotalValue}>${grossSubtotal.toFixed(2)}</span>
                   </div>
-                  {saved > 0 && (
+                  {totalBundleDiscount > 0 && (
+                    <div className={styles.subtotalRow}>
+                      <span className={styles.discountLabel}>Bundle Discount</span>
+                      <span className={styles.discountValue}>-${totalBundleDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {otherSaved > 0 && (
                     <div className={styles.subtotalRow}>
                       <span className={styles.discountLabel}>You saved</span>
-                      <span className={styles.discountValue}>-${saved.toFixed(2)}</span>
+                      <span className={styles.discountValue}>-${otherSaved.toFixed(2)}</span>
                     </div>
                   )}
                   <div className={styles.subtotalRow}>

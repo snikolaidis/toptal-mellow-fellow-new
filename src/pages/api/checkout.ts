@@ -81,6 +81,9 @@ interface CheckoutRequest {
   subscriptionItems?: Array<{ productId: number; period: string; interval: number }>;
   amount: string;
   coupons?: string[];
+  // Sum of every bundled line's (original - discounted) total — recorded on
+  // the order as a "Bundle Discount" line, the same way a coupon is.
+  bundleDiscountTotal?: number;
   items: Array<{
     productId: number;
     name: string;
@@ -585,6 +588,7 @@ async function createOrderWithPayment(
     realIdCheckId: body.realIdCheckId,
     cartItemTotals: serverCart?.itemTotals || [],
     cartCoupons: serverCart?.coupons || [],
+    bundleDiscountTotal: body.bundleDiscountTotal || undefined,
   };
 
   console.log('[Checkout][RealID] orderPayload.realIdCheckId =', JSON.stringify(orderPayload.realIdCheckId));

@@ -337,6 +337,20 @@ export async function addBundleToStore(
   return transformStoreApiCart(data);
 }
 
+export async function addFixedBundleToStore(
+  productId: number,
+  quantity: number
+): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'add_fixed_bundle', product_id: productId, quantity },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
 export async function removeBundleGroupsFromStore(groupKeys: string[]): Promise<Cart | null> {
   const data = await storeApiFetch('cart/extensions', {
     method: 'POST',

@@ -168,7 +168,7 @@ export default function SiteHeader() {
   // the server had none. Both values stay empty until after mount so the first
   // client render matches the server. Without this the mismatch only appears for
   // visitors who already have items, never for a developer with an empty cart.
-  const itemsCount = hydrated ? cart?.itemsCount ?? 0 : 0;
+  const itemsCount = hydrated ? cartItemCount : 0;
   // Show the net merchandise total (after all discounts) — what the customer
   // will actually pay for the items — matching the drawer/checkout "Total".
   const cartSubtotal =

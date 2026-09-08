@@ -8,12 +8,7 @@ import {
   ReactNode,
 } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
-import {
-  ADD_BUNDLE_TO_CART,
-  ADD_FIXED_BUNDLE_TO_CART,
-  REMOVE_BUNDLE_FROM_CART,
-} from '@/graphql/queries/cart';
+import { resetBrowserClient } from '@/lib/apollo-client';
 import { ShippingPackage, AppliedCoupon } from '@/types/checkout';
 import {
   CartError,
@@ -25,6 +20,7 @@ import {
   fetchCartFromStore,
   addItemToStore,
   addBundleToStore,
+  addFixedBundleToStore,
   removeBundleGroupsFromStore,
   updateItemInStore,
   removeItemFromStore,
@@ -558,14 +554,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       hasFetchedRef.current = true;
       startMutation();
       try {
-        const client = getClient();
-        const { data } = await client.mutate({
-          mutation: ADD_BUNDLE_TO_CART,
-          variables: { productId, productIds },
-        });
-        if (!data?.addBundleToCart?.success) {
-          throw new Error(data?.addBundleToCart?.message || 'Bundle add failed');
-        }
+        // Server-truth grouping: addBundleToStore's response already carries
+        // bb_group_key/bb_bundle_id per item (via the Store API extension in
+        // mellow-fellow-cart-persistence.php), so there's no addedItemKeys
+        // list to correlate into bundleItemMap here the way the old GraphQL
+        // mutation needed — enrichCartItems below is just a no-op safety net.
+        const storeCart = await enqueueMutation(() => addBundleToStore(productId, productIds));
 
         setBundleNames((prev) => {
           const next = { ...prev, [productId]: bundleName };
@@ -593,39 +587,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        const { groupKey, addedItemKeys } = data.addBundleToCart;
-        if (groupKey && Array.isArray(addedItemKeys) && addedItemKeys.length > 0) {
-          const additions: Record<string, { groupKey: string; bundleId: number }> = {};
-          for (const itemKey of addedItemKeys) {
-            additions[itemKey] = { groupKey, bundleId: productId };
-          }
-          const nextMap = { ...bundleItemMapRef.current, ...additions };
-          bundleItemMapRef.current = nextMap;
-          setBundleItemMap(nextMap);
-          try { localStorage.setItem('bundleItemMap', JSON.stringify(nextMap)); } catch {}
-        }
-
-        // Fetch updated cart via Store API instead of GraphQL
-        const storeCart = await fetchCartFromStore();
         if (isStaleSeq(seq)) return;
         if (storeCart) {
           setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
           if (openDrawerOnSuccess) setIsDrawerOpen(true);
         }
       } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
         logError('CartContext.addBundleToCart', err, { productId });
-        const pluginMessage = friendlyBundleErrorMessage(err instanceof Error ? err.message : null);
-        const cartError = new CartError(
-          pluginMessage || 'Failed to add bundle to cart',
-          ErrorCode.CART_ADD_FAILED
-        );
-        setError(pluginMessage || getUserMessage(cartError));
-        throw cartError;
+        const message = friendlyBundleErrorMessage(extractCartErrorMessage(err, 'Failed to add bundle to cart'))
+          || 'Failed to add bundle to cart';
+        setError(message);
+        throw new CartError(message, ErrorCode.CART_ADD_FAILED);
       } finally {
-        setIsMutating(false);
+        endMutation();
       }
     },
-    [getClient]
+    [enqueueMutation, startMutation, endMutation]
   );
 
   // "Fixed" bundle mode: the product's own bbFixedItems already define what's
@@ -637,16 +615,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(null);
       const seq = nextSeq();
       hasFetchedRef.current = true;
-      setIsMutating(true);
+      startMutation();
       try {
-        const client = getClient();
-        const { data } = await client.mutate({
-          mutation: ADD_FIXED_BUNDLE_TO_CART,
-          variables: { productId, quantity },
-        });
-        if (!data?.addFixedBundleToCart?.success) {
-          throw new Error(data?.addFixedBundleToCart?.message || 'Bundle add failed');
-        }
+        // Same Store API extension as the byob path — server-truth
+        // bb_group_key/bb_bundle_id come back on each item via
+        // mellow-fellow-cart-persistence.php's endpoint-data registration.
+        // (The GraphQL mutation this used to call runs through /api/graphql,
+        // which carries no WooCommerce session identity by design — it would
+        // "succeed" against a throwaway session nobody ever reads back.)
+        const prevKeys = new Set((cartRef.current?.items ?? []).map((i) => i.key));
+        const storeCart = await enqueueMutation(() => addFixedBundleToStore(productId, quantity));
 
         setBundleNames((prev) => {
           const next = { ...prev, [productId]: bundleName };
@@ -667,40 +645,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        const { groupKey, addedItemKeys } = data.addFixedBundleToCart;
-        if (groupKey && Array.isArray(addedItemKeys) && addedItemKeys.length > 0) {
-          const additions: Record<string, { groupKey: string; bundleId: number }> = {};
-          for (const itemKey of addedItemKeys) {
-            additions[itemKey] = { groupKey, bundleId: productId };
-          }
-          const nextMap = { ...bundleItemMapRef.current, ...additions };
-          bundleItemMapRef.current = nextMap;
-          setBundleItemMap(nextMap);
-          try { localStorage.setItem('bundleItemMap', JSON.stringify(nextMap)); } catch {}
-        }
-        if (groupKey) {
+        const newGroupKey = storeCart?.items.find(
+          (i) => !prevKeys.has(i.key) && i.bbBundleId === productId && i.bbGroupKey
+        )?.bbGroupKey;
+        if (newGroupKey) {
           setBundleGroupSetCounts((prev) => {
-            const next = { ...prev, [groupKey]: quantity };
+            const next = { ...prev, [newGroupKey]: quantity };
             try { localStorage.setItem('bundleGroupSetCounts', JSON.stringify(next)); } catch {}
             return next;
           });
         }
 
-        const storeCart = await fetchCartFromStore();
         if (isStaleSeq(seq)) return;
         if (storeCart) {
           setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
           setIsDrawerOpen(true);
         }
       } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
         logError('CartContext.addFixedBundleToCart', err, { productId });
-        const pluginMessage = friendlyBundleErrorMessage(err instanceof Error ? err.message : null);
-        const cartError = new CartError(
-          pluginMessage || 'Failed to add bundle to cart',
-          ErrorCode.CART_ADD_FAILED
-        );
-        setError(pluginMessage || getUserMessage(cartError));
-        throw cartError;
+        const message = friendlyBundleErrorMessage(extractCartErrorMessage(err, 'Failed to add bundle to cart'))
+          || 'Failed to add bundle to cart';
+        setError(message);
+        throw new CartError(message, ErrorCode.CART_ADD_FAILED);
       } finally {
         endMutation();
       }

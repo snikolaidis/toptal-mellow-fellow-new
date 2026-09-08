@@ -53,6 +53,19 @@ add_action( 'woocommerce_blocks_loaded', function() {
                     return;
                 }
 
+                if ( $action === 'add_fixed_bundle' ) {
+                    if ( ! class_exists( 'BB_Cart' ) ) {
+                        mf_cart_ops_error( 'Bundle builder is not available.' );
+                    }
+                    $product_id = intval( $data['product_id'] ?? 0 );
+                    $quantity   = intval( $data['quantity'] ?? 1 );
+                    $result     = BB_Cart::get_instance()->add_fixed_bundle_to_cart( $product_id, $quantity );
+                    if ( empty( $result['success'] ) ) {
+                        mf_cart_ops_error( $result['message'] ?? 'Could not add bundle to cart.' );
+                    }
+                    return;
+                }
+
                 if ( $action === 'remove_bundle_group' ) {
                     if ( ! class_exists( 'BB_Cart' ) ) {
                         mf_cart_ops_error( 'Bundle builder is not available.' );
