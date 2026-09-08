@@ -7,11 +7,11 @@ import React, { useState, useEffect } from 'react';
 import { GET_PRODUCT_BY_DATABASE_ID } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
-import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
 import ProductReviews from '@/components/pdp/ProductReviews';
 import ShippingReturns from '@/components/pdp/ShippingReturns';
 import FreeShippingTracker from '@/components/pdp/FreeShippingTracker';
+import ProductRating from '@/components/pdp/ProductRating';
 import type { KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
 import Nutrition from '@/components/pdp/Nutrition';
@@ -32,7 +32,6 @@ import 'swiper/css/free-mode';
 import 'swiper/css/thumbs';
 
 const YouMayAlsoLike = dynamic(() => import('@/components/pdp/YouMayAlsoLike'), { ssr: false });
-const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
 const RAW_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
 const SITE_URL = RAW_SITE_URL && !/^https?:\/\//i.test(RAW_SITE_URL) ? `https://${RAW_SITE_URL}` : RAW_SITE_URL;
@@ -791,13 +790,12 @@ const SingleProduct: React.FC<SingleProductProps> & {
               {product.name}
             </h1>
 
-            {mounted && product.shopifyId && (
-              <div
-                className="klaviyo-star-rating-widget"
-                data-id={product.shopifyId}
-                data-product-title={product.name}
-              />
-            )}
+            <ProductRating
+              average={reviewData?.summary?.average ?? 0}
+              total={reviewData?.summary?.total ?? 0}
+            />
+
+            <div className="divider is-hidden is-block-tablet"></div>
 
             {/* Price — byob bundles have no fixed price (they're priced by
                 selection) so show a "starting from" price; fixed bundles
@@ -837,11 +835,15 @@ const SingleProduct: React.FC<SingleProductProps> & {
             
             <FreeShippingTracker />
 
+            <div className="divider is-hidden is-block-tablet"></div>
+
             <AvailableOptions
               options={availableOptions}
               currentProductId={product.id}
               baseName={availableOptionsBase}
             />
+
+            <div className="divider is-hidden is-block-tablet"></div>
 
             {/* Fixed bundle contents — read-only, the admin already picked
                 these; there's nothing for the shopper to select. */}
@@ -945,39 +947,12 @@ const SingleProduct: React.FC<SingleProductProps> & {
 
             {!isBundle && <FlavorsBox product={product} taxonomies={taxonomies} />}
             <ProductTimeline product={product} />
-
-            {/* Product Meta */}
-            <div className="meta">
-              {categories.length > 0 && (
-                <div className="meta-item">
-                  <span className="meta-label">Category</span>
-                  <div className="meta-links">
-                    {categories.map((cat, index) => (
-                      <span key={cat.id}>
-                        <Link href={`/shop?category=${cat.slug}`}>{cat.name}</Link>
-                        {index < categories.length - 1 && ', '}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {collectionName && collectionSlug && (
-                <div className="meta-item">
-                  <span className="meta-label">Collection</span>
-                  <Link href={`/collections/${collectionSlug}`} className="meta-link">
-                    {collectionName}
-                  </Link>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
         <ProductDescription product={product} />
 
         <ProductReviews summary={reviewData?.summary} reviews={reviewData?.reviews || []} />
-
-        <ProductFaqs details={product.productDetails} noidName={product.blendTypes?.nodes?.[0]?.name} />
 
         {mounted && product.shopifyId && (
           <div className="description-section reviews-section">
@@ -997,8 +972,6 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 .filter(Boolean),
             }}
           />
-
-          <RecentlyViewed currentSlug={product.slug} />
         </div>
       </div>
     </Layout>

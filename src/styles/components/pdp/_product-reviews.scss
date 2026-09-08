@@ -1,6 +1,9 @@
 .product-reviews-section {
   width: 100%;
   margin: 3rem 0;
+  // The rating link above jumps to this section's `id`, and .site-header is
+  // position: sticky — without this the heading lands underneath it.
+  scroll-margin-top: 7rem;
 }
 
 .product-reviews {

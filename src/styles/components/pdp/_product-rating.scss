@@ -1,0 +1,53 @@
+@use "bulma/sass/utilities/mixins";
+
+.product-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 24px;
+
+  @include mixins.tablet {
+    margin-bottom: 0;
+  }
+  
+  &__stars {
+    position: relative;
+    display: inline-block;
+    font-size: 1.5rem;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+
+    @include mixins.tablet {
+      font-size: 1rem;
+    }
+  }
+
+  &__stars-track {
+    color: var(--color-border-light-grey);
+  }
+
+  &__stars-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    overflow: hidden;
+    color: #D59B33;
+  }
+
+  &__average {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-teal-85);
+  }
+
+  &__count {
+    font-size: 15px;
+    color: var(--color-tan);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+
+    &:hover {
+      color: var(--color-teal-85);
+    }
+  }
+}

@@ -214,7 +214,7 @@ export default function ProductReviews({ summary, reviews }: Props) {
   };
 
   return (
-    <section className="product-reviews-section">
+    <section className="product-reviews-section" id="reviews">
       <h2 className="product-reviews__heading">
         Customer reviews
       </h2>
