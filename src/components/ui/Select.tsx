@@ -20,25 +20,29 @@ const BORDER = '#C1B5A5';
 const TINT = '#F7F3EA';
 const MENU_BORDER = '#D5D0C9';
 
-// Coordinates are inset by half the stroke so the glyph occupies the frame's
-// box exactly rather than clipping its own outline at the viewBox edge.
+// The path is not centred in its own viewBox, so rotating about the element
+// centre lands 0.85 off the open path. About the path's centre it reproduces it
+// exactly, which keeps the design's two shapes and the animation between them.
+const CHEVRON_PIVOT = '48.636% 44.286%';
+
 function Chevron({ open }: { open: boolean }) {
   return (
     <svg
-      width="9"
-      height="4.5"
-      viewBox="0 0 9 4.5"
+      width="11"
+      height="7"
+      viewBox="0 0 11 7"
       fill="none"
       aria-hidden="true"
       focusable="false"
       style={{
         display: 'block',
         transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+        transformOrigin: CHEVRON_PIVOT,
         transition: 'transform 0.2s ease',
       }}
     >
       <path
-        d="M0.85 0.85L4.5 3.65L8.15 0.85"
+        d="M0.849976 0.850006L5.34998 5.35001L9.84998 0.850006"
         stroke={INK}
         strokeWidth="1.7"
         strokeLinecap="round"
@@ -51,16 +55,16 @@ function Chevron({ open }: { open: boolean }) {
 function Check() {
   return (
     <svg
-      width="10"
-      height="7"
-      viewBox="0 0 10 7"
+      width="12"
+      height="9"
+      viewBox="0 0 12 9"
       fill="none"
       aria-hidden="true"
       focusable="false"
       style={{ display: 'block', flex: '0 0 auto' }}
     >
       <path
-        d="M1 3.9L3.9 6L9 1"
+        d="M1 4.5L4.5 8L11 1"
         stroke={INK}
         strokeWidth="2"
         strokeLinecap="round"
