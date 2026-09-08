@@ -8,6 +8,7 @@ import styles from '../styles/CheckoutLogin.module.css';
 type CheckoutAuthMethod = 'google' | 'mellow' | 'guest';
 
 const CHECKOUT_AUTH_KEY = 'checkoutAuthMethod';
+const GUEST_EMAIL_KEY = 'checkoutGuestEmail';
 
 export default function CheckoutLoginPage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function CheckoutLoginPage() {
   const [googleAuthenticated, setGoogleAuthenticated] =
     useState<boolean | null>(null);
   const [googleAuthReady, setGoogleAuthReady] = useState(false);
+  const [guestEmail, setGuestEmail] = useState('');
 
   /*
    * If the user is already authenticated, they must NOT see
@@ -155,10 +157,18 @@ router.push('/login?redirect=/checkout');
 };
 
   const handleGuestCheckout = () => {
+    const trimmedEmail = guestEmail.trim();
+
+    if (!trimmedEmail) {
+      alert('Please enter your email to continue as a guest.');
+      return;
+    }
+
     /*
      * Guest checkout must never reuse authenticated customer data.
      */
     sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'guest');
+    sessionStorage.setItem(GUEST_EMAIL_KEY, trimmedEmail);
 
 router.push('/checkout');
   };
@@ -235,6 +245,8 @@ router.push('/checkout');
           type="email"
           placeholder="Email*"
           className={styles.input}
+          value={guestEmail}
+          onChange={(e) => setGuestEmail(e.target.value)}
         />
 
         <label className={styles.checkbox}>

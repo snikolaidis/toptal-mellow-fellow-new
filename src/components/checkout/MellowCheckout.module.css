@@ -209,6 +209,12 @@
   color: #aaa7a0;
 }
 
+.field input:read-only {
+  background: #f2efe9;
+  color: #6b6b6b;
+  cursor: not-allowed;
+}
+
 /* =========================================================
    SHIPPING METHODS
    ========================================================= */

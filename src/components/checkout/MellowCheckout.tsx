@@ -68,8 +68,7 @@ export default function MellowCheckout({
   const { isAuthenticated: faustAuthenticated } = useAuth();
   const { cart } = useCart();
   const client = getApolloAuthClient();
-  // checkoutAuthMethod is intentionally available for the checkout auth flow.
-  void checkoutAuthMethod;
+  const isGuestCheckout = checkoutAuthMethod === "guest";
 
   const [updateCustomer, { loading: savingCustomer }] = useMutation(
     UPDATE_CUSTOMER,
@@ -399,6 +398,17 @@ export default function MellowCheckout({
     }
 
     /*
+     * GUEST
+     *
+     * No account to persist to - the address is only kept in
+     * local checkout state via onBillingChange/updateBilling.
+     */
+    if (isGuestCheckout) {
+      setEditingContact(false);
+      return;
+    }
+
+    /*
      * GOOGLE
      */
     try {
@@ -576,6 +586,17 @@ export default function MellowCheckout({
     }
 
     /*
+     * GUEST
+     *
+     * No account to persist to - the address is only kept in
+     * local checkout state via onShippingChange/updateShipping.
+     */
+    if (isGuestCheckout) {
+      setEditingShipping(false);
+      return;
+    }
+
+    /*
      * GOOGLE
      */
     try {
@@ -690,6 +711,7 @@ export default function MellowCheckout({
                     type="email"
                     value={billing.email}
                     onChange={(e) => updateBilling("email", e.target.value)}
+                    readOnly={isGuestCheckout}
                   />
                 </div>
 

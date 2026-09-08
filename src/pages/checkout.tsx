@@ -264,6 +264,7 @@ export default function CheckoutNewPage() {
   type CheckoutAuthMethod = "google" | "mellow" | "guest" | null;
 
   const CHECKOUT_AUTH_KEY = "checkoutAuthMethod";
+  const GUEST_EMAIL_KEY = "checkoutGuestEmail";
 
   const [checkoutAuthMethod, setCheckoutAuthMethod] =
     useState<CheckoutAuthMethod>(null);
@@ -676,9 +677,17 @@ export default function CheckoutNewPage() {
      * Guest
      */
     if (checkoutAuthMethod === "guest" || checkoutAuthMethod === null) {
-      setBilling(emptyAddress);
+      let guestEmail = "";
 
-      setShipping(emptyAddress);
+      try {
+        guestEmail = sessionStorage.getItem(GUEST_EMAIL_KEY) || "";
+      } catch (error) {
+        console.warn("Unable to read guest email:", error);
+      }
+
+      setBilling({ ...emptyAddress, email: guestEmail });
+
+      setShipping({ ...emptyAddress, email: guestEmail });
 
       setCustomerId(null);
 
