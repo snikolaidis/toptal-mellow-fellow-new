@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useCartOffers } from '@/config/cartOffers';
 import { useCart } from '@/context/CartContext';
 
@@ -42,12 +43,20 @@ function parsePrice(price: string): number {
 export default function FreeShippingTracker() {
   const { freeShippingThreshold } = useCartOffers();
   const { cart } = useCart();
+  // CartContext seeds its initial state from localStorage on the client, so a
+  // returning visitor's real cart is already present on the very first client
+  // render — before that matches what the server rendered (always an empty
+  // cart, since localStorage isn't available server-side). Holding off on the
+  // real subtotal until after mount keeps this render in sync with the server
+  // HTML and avoids a hydration mismatch; see CartContext's readCachedCart().
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   if (!freeShippingThreshold || freeShippingThreshold <= 0) {
     return null;
   }
 
-  const subtotal = parsePrice(cart?.subtotal || '0');
+  const subtotal = mounted ? parsePrice(cart?.subtotal || '0') : 0;
   const remaining = freeShippingThreshold - subtotal;
   const unlocked = remaining <= 0;
 
