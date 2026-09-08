@@ -77,6 +77,8 @@ export default function SiteHeader() {
     panelRef: megaMenuPanelRef,
     toggle: toggleMegaMenu,
     close: closeMegaMenu,
+    handlePointerEnter: megaMenuPointerEnter,
+    handlePointerLeave: megaMenuPointerLeave,
   } = useShopMegaMenu({ isCondensed });
 
   const burgerRef = useRef<HTMLButtonElement>(null);
@@ -265,6 +267,8 @@ export default function SiteHeader() {
           megaMenuId={MEGA_MENU_ID}
           megaMenuTriggerRef={megaMenuTriggerRef}
           onMegaMenuToggle={toggleMegaMenu}
+          onMegaMenuPointerEnter={megaMenuPointerEnter}
+          onMegaMenuPointerLeave={megaMenuPointerLeave}
           onSiblingActivate={closeMegaMenu}
           megaMenuPanel={
             megaMenuOpen ? (
