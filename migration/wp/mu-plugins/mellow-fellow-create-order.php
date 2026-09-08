@@ -64,6 +64,7 @@ function mf_create_order( WP_REST_Request $request ) {
     $realid_check_id  = sanitize_text_field( $body['realIdCheckId'] ?? '' );
     $cart_item_totals = $body['cartItemTotals'] ?? [];
     $cart_coupons     = $body['cartCoupons'] ?? [];
+    $bundle_discount_total = floatval( $body['bundleDiscountTotal'] ?? 0 );
 
     /**
      * Real ID (getverdict.com) identity verification is currently enforced only
@@ -133,7 +134,27 @@ function mf_create_order( WP_REST_Request $request ) {
                 $add_args['total']    = $unit_total;
             }
 
-            $order->add_product( $product, $quantity, $add_args );
+            $item_id = $order->add_product( $product, $quantity, $add_args );
+
+            // Tag this line item as part of a bundle, when the frontend sent
+            // one — see CartContext's bbGroupKey/bbBundleId and
+            // checkout.tsx's items[].bundleGroupKey/bundleName. Items without
+            // these fields (i.e. every non-bundle product) are left exactly
+            // as before.
+            $bundle_group_key = sanitize_text_field( $item['bundleGroupKey'] ?? '' );
+            $bundle_name       = sanitize_text_field( $item['bundleName'] ?? '' );
+            if ( $item_id && ! is_wp_error( $item_id ) && ( $bundle_group_key || $bundle_name ) ) {
+                $order_item = $order->get_item( $item_id );
+                if ( $order_item ) {
+                    if ( $bundle_name ) {
+                        $order_item->add_meta_data( 'Bundle', $bundle_name );
+                    }
+                    if ( $bundle_group_key ) {
+                        $order_item->add_meta_data( '_bundle_group_key', $bundle_group_key );
+                    }
+                    $order_item->save();
+                }
+            }
         }
 
         // Billing address
@@ -195,6 +216,22 @@ function mf_create_order( WP_REST_Request $request ) {
             } else {
                 $order->apply_coupon( $code );
             }
+        }
+
+        // Bundle discount — already baked into the bundled line items' totals
+        // (see bb_unit_price / cartItemTotals above), so this doesn't touch
+        // $order->set_total()/set_discount_total() below, which are derived
+        // straight from item totals either way. It's purely a visible "Coupon(s)
+        // used" line in the admin order view, the same shape a real coupon gets,
+        // and it also lets the "unattributed" gap-absorption below correctly
+        // attribute the bundle's share instead of misattributing it to a real
+        // zero-discount coupon on the same order.
+        if ( $bundle_discount_total > 0.01 ) {
+            $bundle_discount_item = new WC_Order_Item_Coupon();
+            $bundle_discount_item->set_code( 'Bundle Discount' );
+            $bundle_discount_item->set_discount( $bundle_discount_total );
+            $bundle_discount_item->set_discount_tax( 0 );
+            $order->add_item( $bundle_discount_item );
         }
 
         // Payment details

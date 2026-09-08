@@ -20,6 +20,7 @@ import {
   fetchCartFromStore,
   addItemToStore,
   addBundleToStore,
+  addFixedBundleToStore,
   removeBundleGroupsFromStore,
   updateItemInStore,
   removeItemFromStore,
@@ -58,6 +59,19 @@ function extractCartErrorMessage(err: unknown, fallback: string): string {
   return decodeHtmlEntities(raw);
 }
 
+// The Bundle Builder plugin returns this exact generic string whenever it
+// can't place one of a bundle's component products in the cart — in practice
+// that's a stock shortfall on one of the components (confirmed by testing the
+// mutation directly against a low-stock item). Reword it into something a
+// shopper can actually act on instead of the raw plugin message.
+const BUNDLE_ADD_FAILURE_MESSAGE = 'Could not add one of the bundle products to your cart.';
+function friendlyBundleErrorMessage(message: string | null): string | null {
+  if (message === BUNDLE_ADD_FAILURE_MESSAGE) {
+    return 'Sorry, one or more items in this bundle are out of stock or too low in quantity. Please try a smaller quantity.';
+  }
+  return message;
+}
+
 function parseMoney(value: string | undefined): number {
   return parseFloat((value || '').replace(/[^0-9.-]/g, '')) || 0;
 }
@@ -81,10 +95,19 @@ export interface BundleGroupInstance {
   items: CartItem[];
 }
 
+export interface BundleImage {
+  sourceUrl: string;
+  altText: string;
+}
+
+export type BundleMode = 'byob' | 'fixed';
+
 export interface BundleGroup {
   mergeKey: string;
   bundleId: number;
   bundleName: string;
+  bundleMode: BundleMode;
+  image?: BundleImage;
   quantity: number;
   representativeItems: CartItem[];
   instances: BundleGroupInstance[];
@@ -92,7 +115,17 @@ export interface BundleGroup {
 
 export function groupCartItems(
   items: CartItem[],
-  bundleNames: Record<number, string>
+  bundleNames: Record<number, string>,
+  bundleImages: Record<number, BundleImage> = {},
+  bundleModes: Record<number, BundleMode> = {},
+  // "Fixed" bundles can add several sets in a single mutation call, which
+  // still produces just one groupKey/instance — this lets the real set count
+  // for that instance override the default "1 instance = 1 set" assumption
+  // that's correct for "byob" bundles (each add-another click there always
+  // makes a new, separate groupKey). Untracked instances (byob, or older
+  // cached fixed-bundle instances added before this map existed) fall back
+  // to counting as 1 set each, matching the previous behavior exactly.
+  bundleGroupSetCounts: Record<string, number> = {}
 ): { bundles: BundleGroup[]; standalone: CartItem[] } {
   const byGroupKey: Record<string, { bundleId: number; items: CartItem[] }> = {};
   const standalone: CartItem[] = [];
@@ -120,13 +153,15 @@ export function groupCartItems(
         mergeKey,
         bundleId,
         bundleName: bundleNames[bundleId] || 'Bundle',
+        bundleMode: bundleModes[bundleId] || 'byob',
+        image: bundleImages[bundleId],
         quantity: 0,
         representativeItems: groupItems,
         instances: [],
       };
     }
     byProductSet[mergeKey].instances.push({ groupKey, items: groupItems });
-    byProductSet[mergeKey].quantity++;
+    byProductSet[mergeKey].quantity += bundleGroupSetCounts[groupKey] ?? 1;
   }
 
   return { bundles: Object.values(byProductSet), standalone };
@@ -134,6 +169,10 @@ export function groupCartItems(
 
 interface CartContextType {
   cart: Cart | null;
+  // Bundle-aware item count for the header badge — each bundle group counts
+  // as its own quantity, not the sum of the products inside it. Differs from
+  // cart.itemsCount, which is the raw Store API line-quantity sum.
+  cartItemCount: number;
   isLoading: boolean;
   cartReady: boolean;
   isMutating: boolean;
@@ -141,11 +180,15 @@ interface CartContextType {
   isDrawerOpen: boolean;
   bundleNames: Record<number, string>;
   bundleDiscounts: Record<number, number>;
+  bundleImages: Record<number, BundleImage>;
+  bundleModes: Record<number, BundleMode>;
+  bundleGroupSetCounts: Record<string, number>;
   openDrawer: () => void;
   closeDrawer: () => void;
   toggleDrawer: () => void;
   addToCart: (input: AddToCartInput) => Promise<void>;
-  addBundleToCart: (bundleId: number, productIds: number[], bundleName: string, discountPercent?: number) => Promise<void>;
+  addBundleToCart: (productId: number, productIds: number[], bundleName: string, discountPercent?: number, bundleImage?: BundleImage | null, openDrawerOnSuccess?: boolean) => Promise<void>;
+  addFixedBundleToCart: (productId: number, quantity: number, bundleName: string, bundleImage?: BundleImage | null) => Promise<void>;
   updateQuantity: (key: string, quantity: number) => Promise<void>;
   removeFromCart: (key: string) => Promise<void>;
   removeBundleGroup: (groupKeys: string[]) => Promise<void>;
@@ -238,12 +281,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return {};
     try { return JSON.parse(localStorage.getItem('bundleDiscounts') || '{}'); } catch { return {}; }
   });
+  const [bundleImages, setBundleImages] = useState<Record<number, BundleImage>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('bundleImages') || '{}'); } catch { return {}; }
+  });
   const [bundleItemMap, setBundleItemMap] = useState<Record<string, { groupKey: string; bundleId: number }>>(() => {
     if (typeof window === 'undefined') return {};
-    try { return JSON.parse(sessionStorage.getItem('bundleItemMap') || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem('bundleItemMap') || '{}'); } catch { return {}; }
+  });
+  const [bundleModes, setBundleModes] = useState<Record<number, BundleMode>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('bundleModes') || '{}'); } catch { return {}; }
+  });
+  const [bundleGroupSetCounts, setBundleGroupSetCounts] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('bundleGroupSetCounts') || '{}'); } catch { return {}; }
   });
   const bundleItemMapRef = useRef(bundleItemMap);
   bundleItemMapRef.current = bundleItemMap;
+  const bundleImagesRef = useRef(bundleImages);
+  bundleImagesRef.current = bundleImages;
 
   const { isAuthenticated, isReady } = useAuth();
   const prevAuthState = useRef<boolean | null>(null);
@@ -491,23 +548,110 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // with bb_group_key/bb_bundle_id exposed server-side on each item.
   // -------------------------------------------------------------------------
   const addBundleToCart = useCallback(
-    async (bundleId: number, productIds: number[], bundleName: string, discountPercent = 0) => {
+    async (productId: number, productIds: number[], bundleName: string, discountPercent = 0, bundleImage?: BundleImage | null, openDrawerOnSuccess = true) => {
       setError(null);
       const seq = nextSeq();
       hasFetchedRef.current = true;
       startMutation();
       try {
-        const storeCart = await enqueueMutation(() => addBundleToStore(bundleId, productIds));
+        // Server-truth grouping: addBundleToStore's response already carries
+        // bb_group_key/bb_bundle_id per item (via the Store API extension in
+        // mellow-fellow-cart-persistence.php), so there's no addedItemKeys
+        // list to correlate into bundleItemMap here the way the old GraphQL
+        // mutation needed — enrichCartItems below is just a no-op safety net.
+        const storeCart = await enqueueMutation(() => addBundleToStore(productId, productIds));
 
         setBundleNames((prev) => {
-          const next = { ...prev, [bundleId]: bundleName };
+          const next = { ...prev, [productId]: bundleName };
           try { localStorage.setItem('bundleNames', JSON.stringify(next)); } catch {}
+          return next;
+        });
+        setBundleModes((prev) => {
+          if (prev[productId] === 'byob') return prev;
+          const next = { ...prev, [productId]: 'byob' as const };
+          try { localStorage.setItem('bundleModes', JSON.stringify(next)); } catch {}
           return next;
         });
         if (discountPercent > 0) {
           setBundleDiscounts((prev) => {
-            const next = { ...prev, [bundleId]: discountPercent };
+            const next = { ...prev, [productId]: discountPercent };
             try { localStorage.setItem('bundleDiscounts', JSON.stringify(next)); } catch {}
+            return next;
+          });
+        }
+        if (bundleImage) {
+          setBundleImages((prev) => {
+            const next = { ...prev, [productId]: bundleImage };
+            try { localStorage.setItem('bundleImages', JSON.stringify(next)); } catch {}
+            return next;
+          });
+        }
+
+        if (isStaleSeq(seq)) return;
+        if (storeCart) {
+          setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
+          if (openDrawerOnSuccess) setIsDrawerOpen(true);
+        }
+      } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+        logError('CartContext.addBundleToCart', err, { productId });
+        const message = friendlyBundleErrorMessage(extractCartErrorMessage(err, 'Failed to add bundle to cart'))
+          || 'Failed to add bundle to cart';
+        setError(message);
+        throw new CartError(message, ErrorCode.CART_ADD_FAILED);
+      } finally {
+        endMutation();
+      }
+    },
+    [enqueueMutation, startMutation, endMutation]
+  );
+
+  // "Fixed" bundle mode: the product's own bbFixedItems already define what's
+  // inside, so the product's own databaseId doubles as the group key
+  // everywhere addBundleToCart uses bundleId (bundleNames, bundleItemMap,
+  // groupCartItems).
+  const addFixedBundleToCart = useCallback(
+    async (productId: number, quantity: number, bundleName: string, bundleImage?: BundleImage | null) => {
+      setError(null);
+      const seq = nextSeq();
+      hasFetchedRef.current = true;
+      startMutation();
+      try {
+        // Same Store API extension as the byob path — server-truth
+        // bb_group_key/bb_bundle_id come back on each item via
+        // mellow-fellow-cart-persistence.php's endpoint-data registration.
+        // (The GraphQL mutation this used to call runs through /api/graphql,
+        // which carries no WooCommerce session identity by design — it would
+        // "succeed" against a throwaway session nobody ever reads back.)
+        const prevKeys = new Set((cartRef.current?.items ?? []).map((i) => i.key));
+        const storeCart = await enqueueMutation(() => addFixedBundleToStore(productId, quantity));
+
+        setBundleNames((prev) => {
+          const next = { ...prev, [productId]: bundleName };
+          try { localStorage.setItem('bundleNames', JSON.stringify(next)); } catch {}
+          return next;
+        });
+        setBundleModes((prev) => {
+          if (prev[productId] === 'fixed') return prev;
+          const next = { ...prev, [productId]: 'fixed' as const };
+          try { localStorage.setItem('bundleModes', JSON.stringify(next)); } catch {}
+          return next;
+        });
+        if (bundleImage) {
+          setBundleImages((prev) => {
+            const next = { ...prev, [productId]: bundleImage };
+            try { localStorage.setItem('bundleImages', JSON.stringify(next)); } catch {}
+            return next;
+          });
+        }
+
+        const newGroupKey = storeCart?.items.find(
+          (i) => !prevKeys.has(i.key) && i.bbBundleId === productId && i.bbGroupKey
+        )?.bbGroupKey;
+        if (newGroupKey) {
+          setBundleGroupSetCounts((prev) => {
+            const next = { ...prev, [newGroupKey]: quantity };
+            try { localStorage.setItem('bundleGroupSetCounts', JSON.stringify(next)); } catch {}
             return next;
           });
         }
@@ -519,8 +663,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         if (isSessionExpired(err)) { resetToEmptyCart(); return; }
-        logError('CartContext.addBundleToCart', err, { bundleId });
-        const message = extractCartErrorMessage(err, 'Failed to add bundle to cart');
+        logError('CartContext.addFixedBundleToCart', err, { productId });
+        const message = friendlyBundleErrorMessage(extractCartErrorMessage(err, 'Failed to add bundle to cart'))
+          || 'Failed to add bundle to cart';
         setError(message);
         throw new CartError(message, ErrorCode.CART_ADD_FAILED);
       } finally {
@@ -838,10 +983,83 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [cartItemIds, cartSubtotalStr]);
 
+  // Bundle groups show the bundle product's own image (matching its PDP),
+  // not any of the items inside it. That image is normally cached to
+  // bundleImages at add-to-cart time, but a cart restored from an existing
+  // session (or another device) may reference a bundleId that was never
+  // added through this browser — fetch those missing images once per id.
+  const cartBundleIds = Array.from(
+    new Set((cart?.items ?? []).map((i) => i.bbBundleId).filter((id): id is number => id != null))
+  ).join(',');
+  useEffect(() => {
+    if (!cartBundleIds) return;
+    const missingIds = cartBundleIds
+      .split(',')
+      .map(Number)
+      .filter((id) => !bundleImagesRef.current[id]);
+    if (missingIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            query: `query GetBundleImages($ids: [Int]!) {
+              products(first: 100, where: { include: $ids }) {
+                nodes {
+                  databaseId
+                  ... on SimpleProduct { image { sourceUrl altText } }
+                  ... on VariableProduct { image { sourceUrl altText } }
+                }
+              }
+            }`,
+            variables: { ids: missingIds },
+          }),
+        });
+        const json = await res.json();
+        const nodes: { databaseId: number; image?: BundleImage }[] = json?.data?.products?.nodes || [];
+        if (cancelled) return;
+        const additions: Record<number, BundleImage> = {};
+        for (const node of nodes) {
+          if (node.image) additions[node.databaseId] = node.image;
+        }
+        if (Object.keys(additions).length === 0) return;
+        setBundleImages((prev) => {
+          const next = { ...prev, ...additions };
+          try { localStorage.setItem('bundleImages', JSON.stringify(next)); } catch {}
+          return next;
+        });
+      } catch {
+        // Non-critical — the bundle group just keeps showing a placeholder.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartBundleIds]);
+
+  // Badge count: the Store API's itemsCount sums every line's quantity, which
+  // counts each product inside a bundle separately. Shoppers think of a
+  // bundle as one thing, so re-derive the count from the same grouping the
+  // cart UI uses — one unit per bundle group's own quantity, not per item.
+  const { bundles: countBundles, standalone: countStandalone } = groupCartItems(
+    cart?.items ?? [],
+    bundleNames,
+    bundleImages,
+    bundleModes,
+    bundleGroupSetCounts
+  );
+  const cartItemCount =
+    countStandalone.reduce((sum, i) => sum + i.quantity, 0) +
+    countBundles.reduce((sum, g) => sum + g.quantity, 0);
+
   return (
     <CartContext.Provider
       value={{
         cart,
+        cartItemCount,
         isLoading,
         cartReady,
         isMutating,
@@ -849,11 +1067,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         isDrawerOpen,
         bundleNames,
         bundleDiscounts,
+        bundleImages,
+        bundleModes,
+        bundleGroupSetCounts,
         openDrawer,
         closeDrawer,
         toggleDrawer,
         addToCart,
         addBundleToCart,
+        addFixedBundleToCart,
         updateQuantity,
         removeFromCart,
         removeBundleGroup,

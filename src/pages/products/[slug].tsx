@@ -8,7 +8,7 @@ import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import type { SingleProductExtras } from '@/templates/single-product';
-import type { ProductNutrition } from '@/types/woocommerce';
+import type { Product, ProductNutrition } from '@/types/woocommerce';
 import { fetchKlaviyoReviews, type KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 
 /**
@@ -36,7 +36,7 @@ export default function ProductRoute(props: Record<string, unknown>) {
 async function fetchProductExtras(
   wpUrl: string,
   slug: string
-): Promise<Omit<SingleProductExtras, 'nutrition' | 'reviewData'> & { databaseId: number | null }> {
+): Promise<Omit<SingleProductExtras, 'nutrition' | 'reviewData' | 'fixedBundleItems'> & { databaseId: number | null }> {
   const empty = {
     collectionName: null,
     collectionSlug: null,
@@ -93,6 +93,67 @@ async function fetchProductNutrition(slug: string): Promise<ProductNutrition | n
     return data?.product?.nutrition ?? null;
   } catch {
     return null;
+  }
+}
+
+export interface ResolvedFixedBundleItem {
+  productId: number;
+  quantity: number;
+  product?: Product;
+}
+
+/**
+ * Fixed bundles have no picker — the admin-picked line items (bbFixedItems:
+ * just productId + quantity) need resolving into full product records for
+ * the "What's included" list. Doing that here at build/ISR time (instead of
+ * a client-side fetch after hydration, as this used to work) means visitors
+ * see the section immediately instead of watching it pop in.
+ */
+async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<ResolvedFixedBundleItem[]> {
+  const modeQuery = `
+    query GetFixedBundleMode($slug: ID!) {
+      product(id: $slug, idType: SLUG) {
+        ... on SimpleProduct { bbBundleMode bbFixedItems { productId quantity } }
+        ... on VariableProduct { bbBundleMode bbFixedItems { productId quantity } }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(`${wpUrl}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: modeQuery, variables: { slug } }),
+    });
+    const json = await res.json();
+    const p = json?.data?.product;
+    const items: Array<{ productId: number; quantity: number }> =
+      p?.bbBundleMode === 'fixed' ? p.bbFixedItems || [] : [];
+    if (items.length === 0) return [];
+
+    const ids = items.map((i) => i.productId);
+    const itemsQuery = `
+      query GetFixedBundleItemProducts($ids: [Int]!) {
+        products(first: 100, where: { include: $ids }) {
+          nodes {
+            __typename
+            ... on SimpleProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
+            ... on VariableProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
+          }
+        }
+      }
+    `;
+    const res2 = await fetch(`${wpUrl}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: itemsQuery, variables: { ids } }),
+    });
+    const json2 = await res2.json();
+    const nodes: Product[] = json2?.data?.products?.nodes || [];
+    const byId = new Map(nodes.map((n) => [n.databaseId, n]));
+    return items.map((item) => ({ ...item, product: byId.get(item.productId) }));
+  } catch {
+    return [];
   }
 }
 
@@ -183,11 +244,12 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   const seedCtx = { ...ctx, params: { wordpressNode: ['products', slug] } };
 
   try {
-    const [menuClient, result, { extras, reviewData }, nutrition] = await Promise.all([
+    const [menuClient, result, { extras, reviewData }, nutrition, fixedBundleItems] = await Promise.all([
       prefetchMenus(),
       withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: 60 })),
       fetchExtrasAndReviews(wpUrl, slug),
       fetchProductNutrition(slug),
+      fetchFixedBundleItems(wpUrl, slug),
     ]);
 
     // The only evidence this route gets that WordPress genuinely has no such
@@ -197,7 +259,7 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       return result;
     }
 
-    Object.assign(result.props, extras, { nutrition, reviewData });
+    Object.assign(result.props, extras, { nutrition, reviewData, fixedBundleItems });
     mergeMenuState(result.props, menuClient);
     return result;
   } catch (error) {

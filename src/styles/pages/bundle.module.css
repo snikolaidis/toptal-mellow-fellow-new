@@ -2,17 +2,6 @@
   padding-bottom: 4rem;
 }
 
-.banner {
-  width: 100%;
-  margin-bottom: 1.5rem;
-}
-
-.bannerImage {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
 .pageTitle {
   font-family: var(--font-family-body);
   font-size: 20px;

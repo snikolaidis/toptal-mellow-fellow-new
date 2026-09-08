@@ -46,9 +46,13 @@ export default function ProductCard({ product, badge, priority = false, source }
   const productType = product.__typename || product.type;
   const isSimpleProduct = productType === 'SimpleProduct' || product.type === 'SIMPLE';
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
-  // Bundle Builder entry-point product — can't be added to cart directly,
-  // has no fixed price, and needs its own bundle-picker page.
-  const isBundle = product.bbBundleMode != null;
+  // Bundle Builder entry-point product. "byob" can't be added to cart
+  // directly — it has no fixed price and needs its own bundle-picker page.
+  // "fixed" is a normal add-to-cart, just with a flat bundle price and a
+  // pre-picked set of items behind it (see addFixedBundleToCart).
+  const isByobBundle = product.bbBundleMode === 'byob';
+  const isFixedBundle = product.bbBundleMode === 'fixed';
+  const isBundle = isByobBundle || isFixedBundle;
 
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);
@@ -248,8 +252,20 @@ export default function ProductCard({ product, badge, priority = false, source }
             </div>
 
             <div className="product__price">
-              {isBundle ? (
-                product.bbFromPrice != null && (
+              {isFixedBundle ? (
+                product.bbFixedPrice != null && (
+                  product.bbFixedOriginalPrice != null &&
+                  product.bbFixedOriginalPrice > product.bbFixedPrice + 0.005 ? (
+                    <>
+                      <span className="product__price--sale">${product.bbFixedPrice.toFixed(2)}</span>
+                      <span className="product__price--regular">${product.bbFixedOriginalPrice.toFixed(2)}</span>
+                    </>
+                  ) : (
+                    <span>${product.bbFixedPrice.toFixed(2)}</span>
+                  )
+                )
+              ) : isByobBundle ? (
+                product.bbShowPrice && product.bbFromPrice != null && (
                   <span>From ${product.bbFromPrice.toFixed(2)}</span>
                 )
               ) : product.salePrice ? (
@@ -276,15 +292,17 @@ export default function ProductCard({ product, badge, priority = false, source }
               Quick view
             </button>*/}
 
-            {/* Bundle products can't be added to cart directly — send to the PDP,
-                which routes into the actual bundle builder. */}
+            {/* Neither bundle type can be added to cart directly from the
+                card. byob goes straight to its picker (same slug, /bundle/
+                route); fixed has no picker, so it goes to the PDP to review
+                what's included first. */}
             {isBundle && (
               <Link
-                href={`/products/${product.slug}`}
+                href={isByobBundle ? `/bundle/${product.slug}` : `/products/${product.slug}`}
                 className="button is-small add-to-cart is-fullwidth"
-                aria-label={`Create a bundle from ${product.name}`}
+                aria-label={isFixedBundle ? `View ${product.name} bundle` : `Create a bundle from ${product.name}`}
               >
-                Create Bundle
+                {isFixedBundle ? 'View Bundle' : 'Create Bundle'}
               </Link>
             )}
 
