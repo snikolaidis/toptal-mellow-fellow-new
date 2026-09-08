@@ -61,6 +61,12 @@ type RememberMeOption =
 interface StoredRealIdRemember {
   checkId: string;
   expiresAt: number;
+  rememberOption?: RememberMeOption;
+}
+
+interface RememberedRealIdData {
+  checkId: string;
+  rememberOption: RememberMeOption;
 }
 
 const REAL_ID_REMEMBER_KEY_PREFIX = "realIdRemember:";
@@ -122,10 +128,10 @@ function clearRealIdVerificationState(): void {
   }
 }
 
-function getRememberedRealIdCheck(
+function getRememberedRealIdData(
   customerId: number | null,
   email: string,
-): string | null {
+): RememberedRealIdData | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -157,7 +163,10 @@ function getRememberedRealIdCheck(
       return null;
     }
 
-    return stored.checkId;
+    return {
+      checkId: stored.checkId,
+      rememberOption: stored.rememberOption || "remember_30",
+    };
   } catch (error) {
     console.warn("Unable to read remembered Real ID verification:", error);
 
@@ -165,6 +174,13 @@ function getRememberedRealIdCheck(
 
     return null;
   }
+}
+
+function getRememberedRealIdCheck(
+  customerId: number | null,
+  email: string,
+): string | null {
+  return getRememberedRealIdData(customerId, email)?.checkId ?? null;
 }
 
 function saveRememberedRealIdCheck(
@@ -202,6 +218,7 @@ function saveRememberedRealIdCheck(
     const value: StoredRealIdRemember = {
       checkId,
       expiresAt,
+      rememberOption,
     };
 
     window.localStorage.setItem(key, JSON.stringify(value));
@@ -976,7 +993,7 @@ export default function CheckoutNewPage() {
 
               setRealIdCheckId(rememberedCheckId);
 
-              setCheckoutStep("payment");
+              setCheckoutStep("real-id");
 
               return;
             }
@@ -1008,7 +1025,9 @@ export default function CheckoutNewPage() {
           REAL ID
           ===================================================== */}
 
-      {checkoutStep === "real-id" && (
+      {checkoutStep === "real-id" && (() => {
+        const rememberedData = getRememberedRealIdData(customerId, billing.email);
+        return (
         <RealIdStep
           customer={{
             id: customerId,
@@ -1019,6 +1038,8 @@ export default function CheckoutNewPage() {
 
             lastName: billing.lastName,
           }}
+          initialCheckId={rememberedData?.checkId || realIdCheckId}
+          initialRememberOption={rememberedData?.rememberOption}
           onBack={() => {
             setCheckoutStep("billing");
           }}
@@ -1052,7 +1073,8 @@ export default function CheckoutNewPage() {
             setCheckoutStep("payment");
           }}
         />
-      )}
+        );
+      })()}
 
       {/* =====================================================
           PAYMENT

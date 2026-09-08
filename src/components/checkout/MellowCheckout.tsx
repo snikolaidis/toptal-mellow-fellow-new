@@ -954,7 +954,7 @@ export default function MellowCheckout({
             <div className={styles.row}>
               <span>Subtotal</span>
 
-              <span>{subtotalAmount?.toFixed(2)}</span>
+              <span>${subtotalAmount?.toFixed(2)}</span>
             </div>
 
             <div className={styles.row}>

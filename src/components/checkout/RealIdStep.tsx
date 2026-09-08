@@ -15,6 +15,8 @@ interface RealIdStepProps {
     firstName?: string;
     lastName?: string;
   };
+  initialCheckId?: string | null;
+  initialRememberOption?: RememberMeOption;
 
   onBack: () => void;
 
@@ -26,16 +28,21 @@ interface RealIdStepProps {
 
 export default function RealIdStep({
   customer,
+  initialCheckId,
+  initialRememberOption,
   onBack,
   onContinue,
 }: RealIdStepProps) {
-  const [started, setStarted] = useState(false);
-  const [verified, setVerified] = useState(false);
-  const [verifiedCheckId, setVerifiedCheckId] = useState<string | null>(null);
+  const [started, setStarted] = useState(() => !!initialCheckId);
+  const [verified, setVerified] = useState(() => !!initialCheckId);
+  const [verifiedCheckId, setVerifiedCheckId] = useState<string | null>(
+    () => initialCheckId || null
+  );
 
   // Remember Me selection
-  const [rememberOption, setRememberOption] =
-    useState<RememberMeOption>('do_not_remember');
+  const [rememberOption, setRememberOption] = useState<RememberMeOption>(
+    () => initialRememberOption || 'do_not_remember'
+  );
 
   return (
     <div className={styles.page}>
@@ -274,19 +281,21 @@ export default function RealIdStep({
               </p>
             </div>
 
-            <RealIdVerification
-              customer={customer}
-              onVerifiedChange={(isVerified, checkId) => {
-                if (isVerified && checkId) {
-                  setVerified(true);
-                  setVerifiedCheckId(checkId);
+            {!verified && (
+              <RealIdVerification
+                customer={customer}
+                onVerifiedChange={(isVerified, checkId) => {
+                  if (isVerified && checkId) {
+                    setVerified(true);
+                    setVerifiedCheckId(checkId);
 
-                  // Every new verification starts with
-                  // "Do not remember me" selected.
-                  setRememberOption('do_not_remember');
-                }
-              }}
-            />
+                    // Every new verification starts with
+                    // "Do not remember me" selected.
+                    setRememberOption('do_not_remember');
+                  }
+                }}
+              />
+            )}
 
             {/* ================================
                 VERIFIED MESSAGE

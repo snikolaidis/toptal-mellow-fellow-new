@@ -64,39 +64,39 @@ console.log("[OrderConfirmation] | products", products)
         /*
          * Load WooCommerce order information.
          */
-        const orderResponse = await fetch(
+       /* const orderResponse = await fetch(
           `/api/checkout/order/${orderId}`,
           {
             credentials: 'include',
           }
-        );
+        );*/
 
-        if (orderResponse.ok) {
+       /* if (orderResponse.ok) {
           const orderData = await orderResponse.json();
 
           setOrder(
             orderData?.order || orderData
           );
-        }
+        }*/
 
         /*
          * Load recommended products.
          */
-        const productsResponse = await fetch(
+       /* const productsResponse = await fetch(
           '/api/checkout/recommendations',
           {
             credentials: 'include',
           }
-        );
+        );*/
 
-        if (productsResponse.ok) {
+       /* if (productsResponse.ok) {
           const productData =
             await productsResponse.json();
 
           setProducts(
             productData?.products || []
           );
-        }
+        }*/
       } catch (error) {
         console.error(
           'Failed to load confirmation page:',
@@ -107,7 +107,7 @@ console.log("[OrderConfirmation] | products", products)
       }
     }
 
-    loadConfirmationData();
+  //  loadConfirmationData();
   }, [
     router.isReady,
     router.query.orderId,
