@@ -11,6 +11,7 @@ import ProductCard from '@/components/ProductCard';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
+import Pagination from '@/components/ui/Pagination';
 import { Product } from '@/types/woocommerce';
 import { capQuery, getSearchClient, isSearchConfigured } from '@/lib/search-client';
 import {
@@ -347,21 +348,12 @@ export default function SearchPage({
               </div>
             ) : null}
 
-            {totalPages > 1 && (
-              <div className={styles.pagination}>
-                {hasPrev ? (
-                  <button onClick={() => goToPage(page - 1)} className={styles.pageBtn}>
-                    &larr; Previous
-                  </button>
-                ) : <span />}
-                <span className={styles.pageNum}>Page {page} of {totalPages}</span>
-                {hasMore ? (
-                  <button onClick={() => goToPage(page + 1)} className={styles.pageBtn}>
-                    Next &rarr;
-                  </button>
-                ) : <span />}
-              </div>
-            )}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={goToPage}
+              label="Search results pagination"
+            />
           </main>
         </div>
         )}

@@ -104,68 +104,6 @@
   gap: 2rem;
 }
 
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 3rem;
-}
-
-.pageArrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1px solid var(--color-border-default);
-  background: none;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
-}
-
-.pageArrow:hover:not(:disabled) {
-  background-color: var(--color-surface-secondary);
-  border-color: var(--color-text-primary);
-}
-
-.pageArrow:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.pageNumber {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 0.25rem;
-  border: none;
-  background: none;
-  color: var(--color-text-secondary);
-  font-size: 0.9375rem;
-  cursor: pointer;
-}
-
-.pageNumber:hover {
-  color: var(--color-text-primary);
-}
-
-.pageNumberActive {
-  color: var(--color-text-primary);
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.pageEllipsis {
-  color: var(--color-text-secondary);
-  padding: 0 0.25rem;
-}
-
 .postCard {
   display: flex;
   flex-direction: column;
