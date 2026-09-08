@@ -7,13 +7,8 @@ import {
   useRef,
   ReactNode,
 } from 'react';
-import { getApolloAuthClient } from '@faustwp/core';
 import { useAuth } from '@/context/AuthContext';
-import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
-import {
-  ADD_BUNDLE_TO_CART,
-  REMOVE_BUNDLE_FROM_CART,
-} from '@/graphql/queries/cart';
+import { resetBrowserClient } from '@/lib/apollo-client';
 import { ShippingPackage, AppliedCoupon } from '@/types/checkout';
 import {
   CartError,
@@ -24,6 +19,8 @@ import {
 import {
   fetchCartFromStore,
   addItemToStore,
+  addBundleToStore,
+  removeBundleGroupsFromStore,
   updateItemInStore,
   removeItemFromStore,
   clearStoreCart,
@@ -188,8 +185,15 @@ function readCachedCart(): Cart | null {
 
 function writeCachedCart(cart: Cart | null) {
   try {
-    if (cart && cart.items.length > 0) localStorage.setItem(CART_CACHE_KEY, JSON.stringify(cart));
-    else localStorage.removeItem(CART_CACHE_KEY);
+    // Never persist optimistic placeholders — if the request then fails or the
+    // page reloads mid-flight, the cache would resurrect a phantom $0
+    // "Adding..." item that no refresh can clear.
+    const items = cart ? cart.items.filter((i) => !i.key.startsWith('optimistic-')) : [];
+    if (cart && items.length > 0) {
+      localStorage.setItem(CART_CACHE_KEY, JSON.stringify({ ...cart, items }));
+    } else {
+      localStorage.removeItem(CART_CACHE_KEY);
+    }
   } catch {}
 }
 
@@ -206,6 +210,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const requestSeqRef = useRef(0);
   const nextSeq = () => ++requestSeqRef.current;
   const isStaleSeq = (seq: number) => seq !== requestSeqRef.current;
+
+  // Mutation queue — serializes Store API calls so concurrent requests don't
+  // cause lost-update races (request B loading stale state before A saves).
+  const mutationQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const enqueueMutation = useCallback(<T,>(fn: () => Promise<T>): Promise<T> => {
+    const queued = mutationQueueRef.current.then(fn, fn);
+    mutationQueueRef.current = queued.catch(() => {});
+    return queued;
+  }, []);
+
+  const mutatingCountRef = useRef(0);
+  const startMutation = useCallback(() => {
+    mutatingCountRef.current++;
+    setIsMutating(true);
+  }, []);
+  const endMutation = useCallback(() => {
+    mutatingCountRef.current = Math.max(0, mutatingCountRef.current - 1);
+    if (mutatingCountRef.current === 0) setIsMutating(false);
+  }, []);
 
   const [bundleNames, setBundleNames] = useState<Record<number, string>>(() => {
     if (typeof window === 'undefined') return {};
@@ -230,20 +253,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
 
-  // GraphQL client — only used for bundle operations
-  const getClient = useCallback(() => {
-    if (isAuthenticated) {
-      try {
-        return getApolloAuthClient();
-      } catch {
-        return getBrowserClient();
-      }
-    }
-    return getBrowserClient();
-  }, [isAuthenticated]);
-
   function isSessionExpired(err: unknown): boolean {
     return err instanceof StoreApiError && err.code === 'session_expired';
+  }
+
+  // WC returns 409 with the current server-side cart when the client's state is
+  // stale (item key changed, stock adjusted, coupon expired). Use the server's
+  // cart instead of rolling back to a potentially-stale snapshot.
+  function tryReconcile(err: unknown): boolean {
+    if (err instanceof StoreApiError && err.updatedCart) {
+      setCart(enrichCartItems(err.updatedCart, bundleItemMapRef.current));
+      return true;
+    }
+    return false;
   }
 
   function resetToEmptyCart() {
@@ -421,14 +443,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     hasFetchedRef.current = true;
     setIsDrawerOpen(true);
-    setIsMutating(true);
+    startMutation();
 
     try {
-      const storeCart = await addItemToStore(input.productId, input.quantity, input.variationId);
+      const storeCart = await enqueueMutation(() => addItemToStore(input.productId, input.quantity, input.variationId));
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
       if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (tryReconcile(err)) return;
+
+      // Timeout/connection errors mean the outcome is UNKNOWN — WordPress may
+      // have completed the add after our proxy gave up. Fetch the truth before
+      // rolling back, or we show a scary error for an add that succeeded.
+      if (err instanceof StoreApiError && (err.code === 'store_api_proxy_error' || err.code === 'invalid_response')) {
+        try {
+          const fresh = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && fresh) {
+            setCart(enrichCartItems(fresh, bundleItemMapRef.current));
+            const landed = fresh.items.some((i) =>
+              input.variationId
+                ? i.variation?.databaseId === input.variationId
+                : i.product.databaseId === input.productId
+            );
+            if (landed) return; // the add actually succeeded
+          }
+        } catch {}
+      }
+
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.addToCart', err, { productId: input.productId });
       const message = extractCartErrorMessage(
@@ -438,28 +480,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       throw new CartError(message, ErrorCode.CART_ADD_FAILED);
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
-  // Bundle operations — still use GraphQL (custom mutations), then Store API fetch
+  // Bundle operations — Store API extension (mellow-fellow/cart-ops), which
+  // calls the same BB_Cart core methods the old GraphQL mutations wrapped.
+  // Single request, single session: the response is the full updated cart
+  // with bb_group_key/bb_bundle_id exposed server-side on each item.
   // -------------------------------------------------------------------------
   const addBundleToCart = useCallback(
     async (bundleId: number, productIds: number[], bundleName: string, discountPercent = 0) => {
       setError(null);
       const seq = nextSeq();
       hasFetchedRef.current = true;
-      setIsMutating(true);
+      startMutation();
       try {
-        const client = getClient();
-        const { data } = await client.mutate({
-          mutation: ADD_BUNDLE_TO_CART,
-          variables: { bundleId, productIds },
-        });
-        if (!data?.addBundleToCart?.success) {
-          throw new Error(data?.addBundleToCart?.message || 'Bundle add failed');
-        }
+        const storeCart = await enqueueMutation(() => addBundleToStore(bundleId, productIds));
 
         setBundleNames((prev) => {
           const next = { ...prev, [bundleId]: bundleName };
@@ -474,68 +512,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        const { groupKey, addedItemKeys } = data.addBundleToCart;
-        if (groupKey && Array.isArray(addedItemKeys) && addedItemKeys.length > 0) {
-          const additions: Record<string, { groupKey: string; bundleId: number }> = {};
-          for (const itemKey of addedItemKeys) {
-            additions[itemKey] = { groupKey, bundleId };
-          }
-          const nextMap = { ...bundleItemMapRef.current, ...additions };
-          bundleItemMapRef.current = nextMap;
-          setBundleItemMap(nextMap);
-          try { sessionStorage.setItem('bundleItemMap', JSON.stringify(nextMap)); } catch {}
-        }
-
-        // Fetch updated cart via Store API instead of GraphQL
-        const storeCart = await fetchCartFromStore();
         if (isStaleSeq(seq)) return;
         if (storeCart) {
           setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
           setIsDrawerOpen(true);
         }
       } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
         logError('CartContext.addBundleToCart', err, { bundleId });
-        const pluginMessage = err instanceof Error ? err.message : null;
-        const cartError = new CartError(
-          pluginMessage || 'Failed to add bundle to cart',
-          ErrorCode.CART_ADD_FAILED
-        );
-        setError(pluginMessage || getUserMessage(cartError));
-        throw cartError;
+        const message = extractCartErrorMessage(err, 'Failed to add bundle to cart');
+        setError(message);
+        throw new CartError(message, ErrorCode.CART_ADD_FAILED);
       } finally {
-        setIsMutating(false);
+        endMutation();
       }
     },
-    [getClient]
+    [enqueueMutation, startMutation, endMutation]
   );
 
   const removeBundleGroup = useCallback(
     async (groupKeys: string[]) => {
       setError(null);
       const seq = nextSeq();
-      setIsMutating(true);
+      startMutation();
       try {
-        const client = getClient();
-        for (const groupKey of groupKeys) {
-          await client.mutate({
-            mutation: REMOVE_BUNDLE_FROM_CART,
-            variables: { groupKey },
-          });
-        }
-        // Fetch updated cart via Store API
-        const storeCart = await fetchCartFromStore();
+        const storeCart = await enqueueMutation(() => removeBundleGroupsFromStore(groupKeys));
         if (isStaleSeq(seq)) return;
         if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
         logError('CartContext.removeBundleGroup', err);
         const cartError = new CartError('Failed to remove bundle', ErrorCode.CART_REMOVE_FAILED);
         setError(getUserMessage(cartError));
         throw cartError;
       } finally {
-        setIsMutating(false);
+        endMutation();
       }
     },
-    [getClient]
+    [enqueueMutation, startMutation, endMutation]
   );
 
   // -------------------------------------------------------------------------
@@ -552,41 +566,47 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!item) return prev;
 
       if (quantity <= 0) {
+        const itemSub = parseMoney(item.subtotal || item.total);
         return enrichCartItems(
           {
             ...prev,
             items: prev.items.filter((i) => i.key !== key),
             itemsCount: prev.itemsCount - item.quantity,
             isEmpty: prev.items.length <= 1,
+            subtotal: formatMoney(Math.max(0, parseMoney(prev.subtotal) - itemSub)),
           },
           bundleItemMapRef.current
         );
       }
 
+      const unitPrice = item.quantity > 0 ? parseMoney(item.subtotal || item.total) / item.quantity : 0;
+      const delta = quantity - item.quantity;
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.map((i) =>
             i.key === key ? { ...i, quantity } : i
           ),
-          itemsCount: prev.itemsCount + (quantity - item.quantity),
+          itemsCount: prev.itemsCount + delta,
+          subtotal: formatMoney(Math.max(0, parseMoney(prev.subtotal) + unitPrice * delta)),
         },
         bundleItemMapRef.current
       );
     });
 
-    setIsMutating(true);
+    startMutation();
     try {
       let storeCart: Cart | null;
       if (quantity <= 0) {
-        storeCart = await removeItemFromStore(key);
+        storeCart = await enqueueMutation(() => removeItemFromStore(key));
       } else {
-        storeCart = await updateItemInStore(key, quantity);
+        storeCart = await enqueueMutation(() => updateItemInStore(key, quantity));
       }
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
       if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (tryReconcile(err)) return;
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.updateQuantity', err, { key, quantity });
       const message = extractCartErrorMessage(
@@ -596,9 +616,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       throw new CartError(message, ErrorCode.CART_UPDATE_FAILED);
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Remove item via Store API — optimistic
@@ -612,24 +632,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev;
       const item = prev.items.find((i) => i.key === key);
       const removedQty = item ? item.quantity : 0;
+      const itemSub = item ? parseMoney(item.subtotal || item.total) : 0;
       return enrichCartItems(
         {
           ...prev,
           items: prev.items.filter((i) => i.key !== key),
           itemsCount: prev.itemsCount - removedQty,
           isEmpty: prev.items.length <= 1,
+          subtotal: formatMoney(Math.max(0, parseMoney(prev.subtotal) - itemSub)),
         },
         bundleItemMapRef.current
       );
     });
 
-    setIsMutating(true);
+    startMutation();
     try {
-      const storeCart = await removeItemFromStore(key);
-      if (isStaleSeq(seq)) return;
+      const storeCart = await enqueueMutation(() => removeItemFromStore(key));
+      if (isStaleSeq(seq)) {
+        enqueueMutation(() => fetchCartFromStore()).then((fresh) => {
+          if (fresh) setCart(enrichCartItems(fresh, bundleItemMapRef.current));
+        }).catch(() => {});
+        return;
+      }
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
       if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (tryReconcile(err)) return;
       if (!isStaleSeq(seq)) setCart(snapshot);
       logError('CartContext.removeFromCart', err, { key });
       const message = extractCartErrorMessage(
@@ -639,43 +667,54 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       throw new CartError(message, ErrorCode.CART_REMOVE_FAILED);
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Clear cart via Store API
   // -------------------------------------------------------------------------
+  const emptyCart: StoreCart = {
+    items: [],
+    subtotal: '$0.00',
+    total: '$0.00',
+    discountTotal: '$0.00',
+    shippingTotal: '$0.00',
+    isEmpty: true,
+    itemsCount: 0,
+    appliedCoupons: [],
+    availableShippingMethods: [],
+    chosenShippingMethods: [],
+  };
+
   const clearCart = useCallback(async () => {
     setError(null);
-    const seq = nextSeq();
-    setIsMutating(true);
+    nextSeq();
+    startMutation();
+    writeCachedCart(null);
     try {
-      const storeCart = await clearStoreCart();
-      if (isStaleSeq(seq)) return;
-      if (storeCart) {
-        setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
-      }
-      writeCachedCart(null);
+      await enqueueMutation(() => clearStoreCart());
     } catch (err) {
       logError('CartContext.clearCart', err);
-      writeCachedCart(null);
-      setCart({
-        items: [],
-        subtotal: '$0.00',
-        total: '$0.00',
-        discountTotal: '$0.00',
-        shippingTotal: '$0.00',
-        isEmpty: true,
-        itemsCount: 0,
-        appliedCoupons: [],
-        availableShippingMethods: [],
-        chosenShippingMethods: [],
-      });
-    } finally {
-      setIsMutating(false);
     }
-  }, []);
+
+    // Force empty regardless of server response — we've already removed
+    // everything server-side; trusting the response led to stale data.
+    setCart(emptyCart);
+
+    // Nuke persistent state: delete WP user meta token AND clear the
+    // wc_cart_token cookie so the next add-to-cart creates a fresh WC session.
+    // MUST await — fire-and-forget races with the next page load's restore.
+    try {
+      await fetch('/api/cart/clear-persistent', { method: 'POST', credentials: 'include' });
+    } catch {}
+
+    // Clear free gift + bundle tracking so widgets don't re-apply stale state.
+    try { sessionStorage.removeItem('mf_gift_product_id'); } catch {}
+    try { sessionStorage.removeItem('bundleItemMap'); } catch {}
+
+    endMutation();
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Coupons via Store API
@@ -683,14 +722,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const applyCoupon = useCallback(async (code: string): Promise<boolean> => {
     setError(null);
     const seq = nextSeq();
-    setIsMutating(true);
+    startMutation();
     try {
-      const storeCart = await applyCouponToStore(code);
+      const storeCart = await enqueueMutation(() => applyCouponToStore(code));
       if (isStaleSeq(seq)) return true;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       return true;
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return false; }
+      if (isSessionExpired(err)) {
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart && freshCart.items.length > 0) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+            setError('Could not apply coupon. Please try again.');
+            return false;
+          }
+        } catch {}
+        resetToEmptyCart();
+        return false;
+      }
       logError('CartContext.applyCoupon', err, { code });
       const message = extractCartErrorMessage(
         err,
@@ -699,20 +749,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       return false;
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   const removeCoupon = useCallback(async (code: string) => {
     setError(null);
     const seq = nextSeq();
-    setIsMutating(true);
+    startMutation();
     try {
-      const storeCart = await removeCouponFromStore(code);
+      const storeCart = await enqueueMutation(() => removeCouponFromStore(code));
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (isSessionExpired(err)) {
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart && freshCart.items.length > 0) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+            setError('Could not remove coupon. Please try again.');
+            return;
+          }
+        } catch {}
+        resetToEmptyCart();
+        return;
+      }
       if (err instanceof StoreApiError && (err.status === 409 || err.status === 400)) {
         // Coupon already removed or deleted server-side — sync local state
         try {
@@ -728,9 +789,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(getUserMessage(cartError));
       throw cartError;
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Shipping via Store API
@@ -738,9 +799,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const updateShippingMethod = useCallback(async (methodId: string) => {
     setError(null);
     const seq = nextSeq();
-    setIsMutating(true);
+    startMutation();
     try {
-      const storeCart = await selectShippingRate(0, methodId);
+      const storeCart = await enqueueMutation(() => selectShippingRate(0, methodId));
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
@@ -749,9 +810,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(getUserMessage(cartError));
       throw cartError;
     } finally {
-      setIsMutating(false);
+      endMutation();
     }
-  }, []);
+  }, [enqueueMutation, startMutation, endMutation]);
+
+  useEffect(() => { writeCachedCart(cart); }, [cart]);
 
   // Prefetch recommendations in the background whenever cart composition changes.
   // This warms the cache so the CartDrawer shows recs instantly when opened.
@@ -759,14 +822,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartSubtotalStr = cart?.subtotal || '';
   useEffect(() => {
     if (!cart || cart.items.length === 0) return;
-    const productIds = cart.items.map((i) => i.product.databaseId);
-    const productSlugs = cart.items.map((i) => i.product.slug);
-    const subtotal = parseFloat(cart.subtotal.replace(/[^0-9.]/g, '')) || 0;
-    const key = buildRecsCacheKey(productIds, subtotal);
-    if (isRecsFresh(key)) return;
-    fetchRecommendations(productIds, productSlugs, subtotal)
-      .then((products) => setRecsCache(key, products))
-      .catch(() => {});
+    // Debounce: rapid add/remove bursts change cart composition several times
+    // in a few seconds — only prefetch recs once the cart settles, instead of
+    // stampeding WordPress with a request per change.
+    const timer = setTimeout(() => {
+      const productIds = cart.items.map((i) => i.product.databaseId);
+      const productSlugs = cart.items.map((i) => i.product.slug);
+      const subtotal = parseFloat(cart.subtotal.replace(/[^0-9.]/g, '')) || 0;
+      const key = buildRecsCacheKey(productIds, subtotal);
+      if (isRecsFresh(key)) return;
+      fetchRecommendations(productIds, productSlugs, subtotal)
+        .then((products) => setRecsCache(key, products))
+        .catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [cartItemIds, cartSubtotalStr]);
 
   return (

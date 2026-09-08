@@ -9,6 +9,8 @@ import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
 import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
+import ProductReviews from '@/components/pdp/ProductReviews';
+import type { KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
 import Nutrition from '@/components/pdp/Nutrition';
 import FlavorsBox from '@/components/pdp/FlavorsBox';
@@ -51,6 +53,7 @@ export interface SingleProductExtras {
   availableOptionsBase: string;
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
+  reviewData: KlaviyoReviewsResult;
 }
 
 type SingleProductProps = FaustTemplateProps<SingleProductData, SingleProductExtras>;
@@ -70,6 +73,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   availableOptionsBase = '',
   bundleSlug = null,
   nutrition = null,
+  reviewData = null,
 }) => {
   const product = data?.product as Product | undefined;
   const [quantity, setQuantity] = useState(1);
@@ -231,7 +235,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   const hasVariations = product.variations?.nodes && product.variations.nodes.length > 0;
   // Bundle Builder entry-point product — no fixed price, can't be added to
   // cart directly; "Create Bundle" routes into the actual bundle picker.
-  const isBundle = product.bbLinkedBundleId != null;
+  const isBundle = product.bbBundleMode != null;
   const categories = product.productCategories?.nodes || [];
 
   // Get selected variation details
@@ -730,7 +734,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
               {collectionName && collectionSlug && (
                 <div className="meta-item">
                   <span className="meta-label">Collection</span>
-                  <Link href={`/collection/${collectionSlug}`} className="meta-link">
+                  <Link href={`/collections/${collectionSlug}`} className="meta-link">
                     {collectionName}
                   </Link>
                 </div>
@@ -741,6 +745,8 @@ const SingleProduct: React.FC<SingleProductProps> & {
 
         <ProductDescription product={product} />
 
+        <ProductReviews summary={reviewData?.summary} reviews={reviewData?.reviews || []} />
+
         <ProductFaqs details={product.productDetails} noidName={product.blendTypes?.nodes?.[0]?.name} />
 
         {mounted && product.shopifyId && (
@@ -749,19 +755,21 @@ const SingleProduct: React.FC<SingleProductProps> & {
           </div>
         )}
 
-        <YouMayAlsoLike
-          source={{
-            kind: 'recommendations',
-            productId: product.databaseId,
-            productSlug: product.slug,
-            productPrice: product.price || '',
-            typeSlugs: (product.mfproductTypes?.nodes || [])
-              .map((t) => (t as { slug?: string }).slug || '')
-              .filter(Boolean),
-          }}
-        />
+        <div className="pdp-recommendations">
+          <YouMayAlsoLike
+            source={{
+              kind: 'recommendations',
+              productId: product.databaseId,
+              productSlug: product.slug,
+              productPrice: product.price || '',
+              typeSlugs: (product.mfproductTypes?.nodes || [])
+                .map((t) => (t as { slug?: string }).slug || '')
+                .filter(Boolean),
+            }}
+          />
 
-        <RecentlyViewed currentSlug={product.slug} />
+          <RecentlyViewed currentSlug={product.slug} />
+        </div>
       </div>
     </Layout>
   );

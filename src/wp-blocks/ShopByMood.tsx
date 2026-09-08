@@ -1,6 +1,7 @@
 import { fragments } from './ShopByMood.fragments';
 import Image from 'next/image';
 import Link from 'next/link';
+import { decodeEntities } from '@/lib/decodeEntities';
 
 interface MediaItem {
   id?: string;
@@ -58,7 +59,9 @@ function CardInner({ card }: { card: MoodCard }) {
           style={COVER_STYLE}
         />
       )}
-      {card.label && <span className="shop-by-mood__label">{card.label}</span>}
+      {card.label && (
+        <span className="shop-by-mood__label">{decodeEntities(card.label)}</span>
+      )}
     </>
   );
 }

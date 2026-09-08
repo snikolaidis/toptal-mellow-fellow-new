@@ -354,6 +354,11 @@
   text-transform: uppercase;
 }
 
+.couponAmount {
+  font-size: 0.8125rem;
+  color: #6b6b6b;
+}
+
 .couponRemoveBtn {
   display: flex;
   align-items: center;

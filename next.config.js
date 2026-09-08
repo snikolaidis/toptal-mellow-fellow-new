@@ -34,6 +34,14 @@ const nextConfig = {
         destination: '/products/:slug',
         statusCode: 301,
       },
+      // Precautionary: unlike /product/ above, this was never a Shopify or
+      // WordPress URL and is not in our sitemap. /collections/ does not match
+      // this source, so there is no loop.
+      {
+        source: '/collection/:slug',
+        destination: '/collections/:slug',
+        statusCode: 301,
+      },
     ];
   },
   images: {

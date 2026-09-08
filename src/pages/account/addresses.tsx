@@ -1,11 +1,8 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
-import type { GetServerSideProps } from 'next';
-import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
-import Layout from '@/components/Layout';
-import { getServerSideAuthWithToken, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
+import AccountGuard from '@/components/account/AccountGuard';
 import { UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { COUNTRIES, getStatesForCountry } from '@/constants/geography';
 
@@ -207,40 +204,59 @@ const CUSTOMER_BILLING_QUERY = `
   }
 `;
 
-interface AddressesPageProps {
-  initialBilling: AddressState;
-  initialShipping: AddressState;
+function AddressesSkeleton() {
+  return (
+    <div className="account">
+      <div className="account__header">
+        <div>
+          <div className="account__skeleton-bar" style={{ width: '160px', height: 36, marginBottom: 8 }} />
+          <div className="account__skeleton-bar" style={{ width: '120px', height: 14 }} />
+        </div>
+      </div>
+      {[1, 2].map((s) => (
+        <div key={s} style={{ marginTop: 24 }}>
+          <div className="account__skeleton-bar" style={{ width: '180px', height: 20, marginBottom: 16 }} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 500 }}>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i}>
+                <div className="account__skeleton-bar" style={{ width: '80px', height: 12, marginBottom: 8 }} />
+                <div className="account__skeleton-bar" style={{ width: '100%', height: 42 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
-
-  const auth = await getServerSideAuthWithToken(ctx);
-  if (!auth) return redirectToLogin(ctx);
-
-  try {
-    const [data, menuClient] = await Promise.all([
-      serverSideGraphQL(CUSTOMER_BILLING_QUERY, auth.accessToken),
-      prefetchMenus(),
-    ]);
-    const props: Record<string, any> = {
-      initialBilling: fromApi(data?.customer?.billing),
-      initialShipping: fromApi(data?.customer?.shipping),
-    };
-    mergeMenuState(props, menuClient);
-    return { props };
-  } catch {
-    return { props: { initialBilling: EMPTY, initialShipping: EMPTY } };
-  }
-};
-
-export default function AddressesPage({ initialBilling, initialShipping }: AddressesPageProps) {
+function AddressesContent() {
   const client = getApolloAuthClient();
   const [updateCustomer, { loading: saving }] = useMutation(UPDATE_CUSTOMER, { client });
 
-  const [billing, setBilling] = useState<AddressState>(initialBilling);
-  const [shipping, setShipping] = useState<AddressState>(initialShipping);
+  const [billing, setBilling] = useState<AddressState>(EMPTY);
+  const [shipping, setShipping] = useState<AddressState>(EMPTY);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/account/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: CUSTOMER_BILLING_QUERY }),
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        const c = res?.data?.customer;
+        if (c) {
+          setBilling(fromApi(c.billing));
+          setShipping(fromApi(c.shipping));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -255,40 +271,48 @@ export default function AddressesPage({ initialBilling, initialShipping }: Addre
     }
   };
 
+  if (loading) return <AddressesSkeleton />;
+
   return (
-    <Layout title="Addresses">
-      <div className="account">
-        <div className="account__header">
-          <div>
-            <h1 className="account__title">Addresses</h1>
-            <Link href="/account" className="account__link">
-              Back to account
-            </Link>
-          </div>
+    <div className="account">
+      <div className="account__header">
+        <div>
+          <h1 className="account__title">Addresses</h1>
+          <Link href="/account" className="account__link">
+            Back to account
+          </Link>
         </div>
-
-        <form className="account-form" onSubmit={handleSubmit}>
-          <AddressFieldset title="Billing Address" data={billing} set={setBilling} withContact />
-          <AddressFieldset
-            title="Shipping Address"
-            data={shipping}
-            set={setShipping}
-            withContact={false}
-          />
-
-          <div className="account-form__actions">
-            <button type="submit" className="account__button" disabled={saving}>
-              {saving ? 'Saving...' : 'Save addresses'}
-            </button>
-            {status === 'saved' && <span className="account-form__note">Addresses saved.</span>}
-            {status === 'error' && (
-              <span className="account-form__note account-form__note--error">
-                Could not save. Please try again.
-              </span>
-            )}
-          </div>
-        </form>
       </div>
-    </Layout>
+
+      <form className="account-form" onSubmit={handleSubmit}>
+        <AddressFieldset title="Billing Address" data={billing} set={setBilling} withContact />
+        <AddressFieldset
+          title="Shipping Address"
+          data={shipping}
+          set={setShipping}
+          withContact={false}
+        />
+
+        <div className="account-form__actions">
+          <button type="submit" className="account__button" disabled={saving}>
+            {saving ? 'Saving...' : 'Save addresses'}
+          </button>
+          {status === 'saved' && <span className="account-form__note">Addresses saved.</span>}
+          {status === 'error' && (
+            <span className="account-form__note account-form__note--error">
+              Could not save. Please try again.
+            </span>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export default function AddressesPage() {
+  return (
+    <AccountGuard title="Addresses">
+      <AddressesContent />
+    </AccountGuard>
   );
 }

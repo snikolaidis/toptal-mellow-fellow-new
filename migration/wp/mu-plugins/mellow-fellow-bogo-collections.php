@@ -135,12 +135,14 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
     ?>
     <div class="wbte_sc_bogo_edit_step_content" style="padding:20px;border-top:1px solid #e2e4e7;">
 
-        <?php if (!$has_any_restriction) : ?>
-        <div style="background:#fcf0f0;border:1px solid #d63638;border-radius:4px;padding:12px 16px;margin-bottom:16px;">
+        <div id="mf_bogo_no_restrictions"
+             style="background:#fcf0f0;border:1px solid #d63638;border-radius:4px;padding:12px 16px;margin-bottom:16px;<?php echo $has_any_restriction ? 'display:none;' : ''; ?>">
             <strong style="color:#d63638;">&#9888; No product restrictions set.</strong>
             This BOGO will apply to <em>any</em> products in the cart. Select collections below or set product/category restrictions above.
         </div>
-        <?php endif; ?>
+        <div id="mf_bogo_unsaved" style="background:#fcf9e8;border:1px solid #dba617;border-radius:4px;padding:12px 16px;margin-bottom:16px;display:none;">
+            <strong>Not saved yet.</strong> Save this BOGO to apply the collection restriction.
+        </div>
 
         <h4 style="margin:0 0 12px;font-size:14px;font-weight:600;">Collection Restrictions</h4>
 
@@ -195,11 +197,28 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
 
     <script>
     jQuery(function($) {
-        $('#mf_bogo_collections, #mf_bogo_exclude_collections').select2({
+        var $picker = $('#mf_bogo_collections');
+
+        $picker.add('#mf_bogo_exclude_collections').select2({
             placeholder: 'Search collections...',
             allowClear: true,
             width: '100%'
         });
+
+        // The red warning is rendered from what is stored, so without this it stays up
+        // while a collection is sitting selected but unsaved, which reads as the pick
+        // having failed. Reflect the current selection instead, and say plainly that it
+        // still needs saving.
+        var hadRestrictionOnLoad = <?php echo $has_any_restriction ? 'true' : 'false'; ?>;
+
+        function syncNotices() {
+            var chosen = ($picker.val() || []).length > 0;
+            $('#mf_bogo_no_restrictions').toggle(!chosen && !hadRestrictionOnLoad);
+            $('#mf_bogo_unsaved').toggle(chosen && !hadRestrictionOnLoad);
+        }
+
+        $picker.on('change', syncNotices);
+        syncNotices();
     });
     </script>
     <?php
@@ -207,19 +226,22 @@ add_action('wbte_sc_bogo_edit_step2_content', function ($coupon_id) {
 
 // ─── Admin: save collection meta from the BOGO form ─────────────────────────
 
+// The BOGO screen does not post its form normally. Smart Coupons serialises the
+// whole form into a single `data` parameter and runs parse_str() on it, then hands
+// the result to this hook. So these fields are in $data and never in $_POST, and
+// reading $_POST here wrote an empty string on every save, which is why a chosen
+// collection never stuck and the "no product restrictions" warning kept showing.
 add_action('wt_sc_before_bogo_coupon_save', function ($coupon_id, $data) {
-    $collections = '';
-    if (!empty($_POST['_mf_bogo_collections_arr']) && is_array($_POST['_mf_bogo_collections_arr'])) {
-        $collections = implode(',', array_map('sanitize_text_field', $_POST['_mf_bogo_collections_arr']));
-    }
+    $read = function ($key) use ($data) {
+        $value = $data[$key] ?? ($_POST[$key] ?? null);
+        if (empty($value) || !is_array($value)) {
+            return '';
+        }
+        return implode(',', array_map('sanitize_text_field', $value));
+    };
 
-    $exclude = '';
-    if (!empty($_POST['_mf_bogo_exclude_collections_arr']) && is_array($_POST['_mf_bogo_exclude_collections_arr'])) {
-        $exclude = implode(',', array_map('sanitize_text_field', $_POST['_mf_bogo_exclude_collections_arr']));
-    }
-
-    update_post_meta($coupon_id, '_mf_bogo_collections', $collections);
-    update_post_meta($coupon_id, '_mf_bogo_exclude_collections', $exclude);
+    update_post_meta($coupon_id, '_mf_bogo_collections', $read('_mf_bogo_collections_arr'));
+    update_post_meta($coupon_id, '_mf_bogo_exclude_collections', $read('_mf_bogo_exclude_collections_arr'));
 }, 10, 2);
 
 // ─── Standard Coupons: collection fields on Usage Restriction tab ──────────
@@ -246,7 +268,7 @@ add_action('woocommerce_coupon_options_usage_restriction', function ($coupon_id)
         $all_collections = [];
     }
     ?>
-    <div class="options_group">
+    <div class="options_group" id="mf-collection-restrictions">
         <p class="form-field"><label><strong>Collection restrictions</strong></label></p>
         <p class="form-field">
             <label for="mf_coupon_collections">Qualifying collections</label>
@@ -277,6 +299,19 @@ add_action('woocommerce_coupon_options_usage_restriction', function ($coupon_id)
             <?php echo wc_help_tip('Products in these collections will not receive this coupon\'s discount, even if they match other restrictions.'); ?>
         </p>
     </div>
+    <script>
+    jQuery(function($) {
+        var $section = $('#mf-collection-restrictions');
+        if (!$section.length) return;
+        var $target = $('#product_categories').closest('.options_group');
+        if (!$target.length) {
+            $target = $('#product_ids').closest('.options_group');
+        }
+        if ($target.length) {
+            $target.after($section);
+        }
+    });
+    </script>
     <?php
 }, 10, 1);
 
@@ -327,6 +362,64 @@ add_filter('woocommerce_coupon_is_valid_for_product', function ($valid, $product
     return $valid;
 }, 10, 4);
 
+// ─── Runtime: enforce collection restrictions for fixed_cart coupons ───────
+//
+// woocommerce_coupon_is_valid_for_product only fires for per-product discount
+// types (fixed_product, percent). fixed_cart coupons bypass it entirely because
+// WooCommerce applies them at the cart level. This filter enforces collection
+// restrictions at the cart level so fixed_cart coupons respect them too.
+
+add_filter('woocommerce_coupon_is_valid', function ($valid, $coupon, $discounts) {
+    if (!$valid) {
+        return false;
+    }
+
+    if ('fixed_cart' !== $coupon->get_discount_type()) {
+        return $valid;
+    }
+
+    $coupon_id   = $coupon->get_id();
+    $include_raw = get_post_meta($coupon_id, '_mf_coupon_collections', true);
+    $exclude_raw = get_post_meta($coupon_id, '_mf_coupon_exclude_collections', true);
+
+    $include_slugs = !empty($include_raw) ? array_filter(array_map('trim', explode(',', $include_raw))) : [];
+    $exclude_slugs = !empty($exclude_raw) ? array_filter(array_map('trim', explode(',', $exclude_raw))) : [];
+
+    if (empty($include_slugs) && empty($exclude_slugs)) {
+        return $valid;
+    }
+
+    $cart = WC()->cart;
+    if (!$cart) {
+        return $valid;
+    }
+
+    $exclude_ids = !empty($exclude_slugs) ? mf_get_products_in_collections($exclude_slugs) : [];
+    $include_ids = !empty($include_slugs) ? mf_get_products_in_collections($include_slugs) : [];
+
+    foreach ($cart->get_cart() as $cart_item) {
+        $product_id = $cart_item['product_id'];
+        if (!empty($exclude_ids) && in_array($product_id, $exclude_ids)) {
+            throw new Exception(__('This coupon is not valid for items in your cart.', 'mellow-fellow'));
+        }
+    }
+
+    if (!empty($include_ids)) {
+        $has_qualifying = false;
+        foreach ($cart->get_cart() as $cart_item) {
+            if (in_array($cart_item['product_id'], $include_ids)) {
+                $has_qualifying = true;
+                break;
+            }
+        }
+        if (!$has_qualifying) {
+            throw new Exception(__('This coupon requires qualifying products in your cart.', 'mellow-fellow'));
+        }
+    }
+
+    return $valid;
+}, 10, 3);
+
 // ─── Runtime fix: force BOGO recalculation on cart changes ──────────────────
 //
 // WT Smart Coupon Pro caches BOGO discount calculations in static properties
@@ -343,18 +436,6 @@ add_action('woocommerce_before_calculate_totals', 'mf_clear_bogo_static_cache', 
 
 function mf_clear_bogo_static_cache($cart) {
     if (!class_exists('Wbte_Smart_Coupon_Bogo_Public')) {
-        return;
-    }
-
-    $has_bogo = false;
-    foreach ($cart->get_applied_coupons() as $code) {
-        $coupon = new WC_Coupon($code);
-        if ('wbte_sc_bogo' === $coupon->get_discount_type()) {
-            $has_bogo = true;
-            break;
-        }
-    }
-    if (!$has_bogo) {
         return;
     }
 

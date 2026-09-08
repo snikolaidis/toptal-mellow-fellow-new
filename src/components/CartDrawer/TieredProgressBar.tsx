@@ -60,7 +60,7 @@ export default function TieredProgressBar({ subtotal }: Props) {
   if (tiers.length === 0) return null;
 
   const maxAmount = tiers[tiers.length - 1].amount;
-  const progress = Math.min(100, (subtotal / maxAmount) * 100);
+  const progress = maxAmount > 0 ? Math.min(100, (subtotal / maxAmount) * 100) : 0;
   const nextTier = tiers.find((t) => subtotal < t.amount);
 
   return (

@@ -144,6 +144,35 @@
   color: #5a493a;
 }
 
+.footer-signup__input:disabled,
+.footer-signup__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Do not swap these for the palette's sage and alert red. Both fail contrast
+   against the gold band at this size. */
+.footer-signup__status {
+  align-self: stretch;
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16.5px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.footer-signup__status--success {
+  color: #2e5339;
+}
+
+.footer-signup__status--error {
+  color: #8a1c27;
+}
+
 // A media query cannot read a custom property, so this sits beside the token
 // block rather than in it. 480 not the project's 576, to keep #103's breakpoint.
 $ft-bp-2col: 480px;
@@ -184,10 +213,11 @@ $ft-bp-2col: 480px;
   --ft-social-icon: 22px;
   --ft-social-color: var(--color-text-primary);
 
-  // Reserved for the card logos, which do not exist yet. See the slot comment
-  // in Footer.tsx.
   --ft-accept-gap: 10px;
-  --ft-accept-icon-h: 24px;
+  --ft-accept-box-w: 40px;
+  --ft-accept-box-h: 26px;
+  --ft-accept-cols: 4;
+  --ft-accept-color: #000000;
 
   --ft-copyright-gap: 40px;
   --ft-copyright-size: 13px;
@@ -220,6 +250,22 @@ $ft-bp-2col: 480px;
 
   @include large-up {
     grid-template-columns: var(--ft-grid-4);
+
+    .footer-col--menu-1 {
+      order: 1;
+    }
+
+    .footer-col--contact {
+      order: 2;
+    }
+
+    .footer-col--payment {
+      order: 3;
+    }
+
+    .footer-col--menu-2 {
+      order: 4;
+    }
   }
 }
 
@@ -311,17 +357,19 @@ $ft-bp-2col: 480px;
   }
 }
 
-// The card logos slot in here as a row of images. Nothing renders under the
-// heading until they exist.
 .footer-col__accept {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(var(--ft-accept-cols), var(--ft-accept-box-w));
   align-items: center;
   gap: var(--ft-accept-gap);
+  list-style: none;
+  margin: 0;
+  color: var(--ft-accept-color);
 
-  img {
-    height: var(--ft-accept-icon-h);
-    width: auto;
+  svg {
+    display: block;
+    width: var(--ft-accept-box-w);
+    height: var(--ft-accept-box-h);
   }
 }
 

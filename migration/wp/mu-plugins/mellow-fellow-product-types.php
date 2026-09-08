@@ -17,7 +17,8 @@ add_action('rest_api_init', function () {
 
 function mf_product_types_handler(WP_REST_Request $request) {
     $ids_raw = $request->get_param('ids');
-    if (empty($ids_raw)) {
+    // is_string: this route declares no args, so ids[]=1 would reach explode() and fatal.
+    if (empty($ids_raw) || !is_string($ids_raw)) {
         return new WP_REST_Response(['success' => true, 'types' => []], 200);
     }
 

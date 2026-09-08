@@ -278,6 +278,9 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             {cart.appliedCoupons.map((coupon) => (
               <div key={coupon.code} className={styles.appliedCoupon}>
                 <span className={styles.couponCode}>{coupon.code}</span>
+                {coupon.discountAmount && parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0') > 0 && (
+                  <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
+                )}
                 <button
                   type="button"
                   onClick={() => handleRemoveCoupon(coupon.code)}
@@ -296,46 +299,41 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
 
       {/* Totals */}
       {(() => {
-        const totalBundleDiscount = bundles.reduce((sum, group) => {
-          const allItems = group.instances.flatMap((inst) => inst.items);
-          const original = allItems.reduce(
-            (s, i) => s + i.quantity * parseFloat(i.product.price.replace(/[^0-9.]/g, '') || '0'), 0
-          );
-          const discounted = allItems.reduce(
-            (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
-          );
-          return sum + Math.max(0, original - discounted);
-        }, 0);
+        // Gross = full price of everything; net = after ALL discounts
+        // (coupons, BOGO, free gift, bundles). One consolidated "You saved"
+        // line, matching the cart drawer — no shifting per-coupon amounts.
+        const grossSubtotal = cart.items.reduce(
+          (s, i) => s + i.quantity * parseFloat(i.product.price.replace(/[^0-9.]/g, '') || '0'), 0
+        );
+        const netMerch = cart.items.reduce(
+          (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
+        );
+        const saved = Math.max(0, grossSubtotal - netMerch);
 
         return (
           <dl className={styles.totals}>
             <div className={styles.row}>
               <dt>Subtotal</dt>
-              <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : cart.subtotal}</dd>
+              <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : `$${grossSubtotal.toFixed(2)}`}</dd>
             </div>
+
+            {!subscription && saved > 0 && (
+              <div className={`${styles.row} ${styles.rowDiscount}`}>
+                <dt>You saved</dt>
+                <dd>-${saved.toFixed(2)}</dd>
+              </div>
+            )}
 
             <div className={styles.row}>
               <dt>Shipping</dt>
               <dd>
-                {cart.shippingTotal && parseFloat(cart.shippingTotal.replace(/[^0-9.-]/g, '')) > 0
-                  ? cart.shippingTotal
+                {cart.shippingTotal
+                  ? parseFloat(cart.shippingTotal.replace(/[^0-9.-]/g, '')) > 0
+                    ? cart.shippingTotal
+                    : cart.chosenShippingMethods?.length ? 'Free' : 'Calculated at checkout'
                   : 'Calculated at checkout'}
               </dd>
             </div>
-
-            {totalBundleDiscount > 0 && (
-              <div className={`${styles.row} ${styles.rowDiscount}`}>
-                <dt>Bundle Discount</dt>
-                <dd>-${totalBundleDiscount.toFixed(2)}</dd>
-              </div>
-            )}
-
-            {hasDiscount && (
-              <div className={`${styles.row} ${styles.rowDiscount}`}>
-                <dt>Coupon Discount</dt>
-                <dd>-{cart.discountTotal}</dd>
-              </div>
-            )}
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>
@@ -345,7 +343,7 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             {subscription && (
               <div className={styles.row}>
                 <dt>Recurring subtotal</dt>
-                <dd>${subscription.recurring.toFixed(2)} every {subscription.label}</dd>
+                <dd>${subscription.recurring.toFixed(2)} {subscription.label}</dd>
               </div>
             )}
           </dl>

@@ -14,11 +14,20 @@ const keepAliveAgentHttp = new http.Agent({ keepAlive: true });
 // WooGraphQL session header name
 export const WC_SESSION_HEADER = 'woocommerce-session';
 
+// WooCommerce Store API cart-session header name. wp-graphql-woocommerce's
+// `set_session_token_type` setting is set to 'both' (see woographql_settings),
+// so it accepts/emits this same header alongside its own woocommerce-session
+// one — letting GraphQL cart mutations (e.g. addBundleToCart) land in the
+// exact WC session the Store API proxy (/api/store/*) reads right after,
+// instead of a disconnected GraphQL-only session that the Store API never sees.
+export const CART_TOKEN_HEADER = 'Cart-Token';
+
 export interface HttpRequestOptions {
   url: string;
   body: string;
   cookies?: string;
   wcSessionToken?: string;
+  cartToken?: string;
   authToken?: string;
   faustSecretKey?: string;
 }
@@ -50,6 +59,12 @@ export async function makeHttpRequest(options: HttpRequestOptions): Promise<Http
     // Include WooCommerce session header if we have a token
     if (options.wcSessionToken) {
       headers[WC_SESSION_HEADER] = `Session ${options.wcSessionToken}`;
+    }
+
+    // Include the Store API cart token so this GraphQL request resolves to
+    // the same WC session the Store API proxy uses.
+    if (options.cartToken) {
+      headers[CART_TOKEN_HEADER] = options.cartToken;
     }
 
     // Include Authorization header for authenticated users
@@ -163,6 +178,26 @@ export async function makeHttpGetRequest(
 export function extractWcSessionToken(cookies: string): string | null {
   const match = cookies.match(/wc_session_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Extract the Store API cart token from cookies. Same cookie the
+ * /api/store/[...path].ts proxy reads/writes — sharing it here is what lets
+ * a GraphQL cart mutation and the following Store API cart fetch agree on
+ * the same WC session.
+ */
+export function extractCartToken(cookies: string): string | null {
+  const match = cookies.match(/wc_cart_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Format a Set-Cookie header for the Store API cart token.
+ */
+export function createCartTokenCookie(token: string): string {
+  const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return `wc_cart_token=${encodeURIComponent(token)}; Path=/; HttpOnly; Expires=${expiry}; SameSite=Lax${secure}`;
 }
 
 /**

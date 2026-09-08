@@ -27,40 +27,27 @@ export default function LoginPage() {
   }, [isReady, isAuthenticated, redirectUrl, router]);
 
   useEffect(() => {
-    if (data?.generateAuthorizationCode?.code) {
-      setIsRedirecting(true);
+    const code = data?.generateAuthorizationCode?.code;
+    if (!code) return;
 
-      const issueJwt = () =>
-        fetch('/api/auth/jwt', { method: 'POST', credentials: 'same-origin' });
+    setIsRedirecting(true);
 
-      issueJwt()
-        .then((r) => {
-          if (!r.ok) return issueJwt();
-          return r;
-        })
-        .then((r) => r?.json())
-        .then((json) => {
-          if (json?.success && json.userId) {
-            authenticate(json.userId, json.expiresIn);
-            router.push(redirectUrl);
-          } else {
-            setIsRedirecting(false);
-          }
-        })
-        .catch(() => {
-          issueJwt()
-            .then((r) => r.json())
-            .then((json) => {
-              if (json?.success && json.userId) {
-                authenticate(json.userId, json.expiresIn);
-                router.push(redirectUrl);
-              } else {
-                setIsRedirecting(false);
-              }
-            })
-            .catch(() => setIsRedirecting(false));
-        });
-    }
+    fetch('/api/auth/jwt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && json.userId) {
+          authenticate(json.userId, json.expiresIn);
+          router.push(redirectUrl);
+        } else {
+          setIsRedirecting(false);
+        }
+      })
+      .catch(() => setIsRedirecting(false));
   }, [data, redirectUrl, authenticate, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {

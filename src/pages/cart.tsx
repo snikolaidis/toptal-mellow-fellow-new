@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Layout from '@/components/Layout';
 import { useCart, groupCartItems } from '@/context/CartContext';
+import { useCartSubscriptions, everyLabel } from '@/lib/useCartSubscriptions';
 import styles from '@/styles/pages/cart.module.css';
 
 export default function CartPage() {
@@ -16,6 +17,7 @@ export default function CartPage() {
     }
   }, []);
   const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
+  const subChoices = useCartSubscriptions(standalone.map((i) => i.product.databaseId));
 
   if (isLoading || !cartReady) {
     return (
@@ -153,7 +155,9 @@ export default function CartPage() {
                 })}
 
                 {/* Standalone items */}
-                {standalone.map((item) => (
+                {standalone.map((item) => {
+                  const sub = subChoices[item.product.databaseId];
+                  return (
                   <tr key={item.key}>
                     <td>
                       <div className={styles.productCell}>
@@ -172,6 +176,12 @@ export default function CartPage() {
                           </Link>
                           {item.variation && (
                             <p className={styles.variationInfo}>{item.variation.name}</p>
+                          )}
+                          {sub && (
+                            <p className={styles.subscriptionInfo}>
+                              Subscribe &amp; save: ${(sub.unitPrice * item.quantity).toFixed(2)} / {everyLabel(sub.period, sub.interval)}
+                              {sub.discount > 0 ? ` (save ${sub.discount}%)` : ''}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -220,7 +230,8 @@ export default function CartPage() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -262,6 +273,9 @@ export default function CartPage() {
                 {cart.appliedCoupons.map((coupon) => (
                   <span key={coupon.code} className={styles.appliedCoupon}>
                     {coupon.code}
+                    {coupon.discountAmount && parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0') > 0 && (
+                      <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeCoupon(coupon.code)}
@@ -279,16 +293,20 @@ export default function CartPage() {
               <span>Subtotal</span>
               <span>{cart.subtotal}</span>
             </div>
-            {cart.discountTotal && parseFloat(cart.discountTotal.replace(/[^0-9.-]/g, '')) > 0 && (
-              <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
-                <span>Discount</span>
-                <span>-{cart.discountTotal}</span>
-              </div>
-            )}
+            {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
+              const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');
+              if (amt <= 0) return null;
+              return (
+                <div key={coupon.code} className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
+                  <span>{coupon.code.toUpperCase()}</span>
+                  <span>-{coupon.discountAmount}</span>
+                </div>
+              );
+            })}
             {cart.shippingTotal && (
               <div className={styles.summaryRow}>
                 <span>Shipping</span>
-                <span>{cart.shippingTotal}</span>
+                <span>{parseFloat(cart.shippingTotal.replace(/[^0-9.]/g, '') || '0') === 0 ? 'Free' : cart.shippingTotal}</span>
               </div>
             )}
             <div className={`${styles.summaryRow} ${styles.summaryRowTotal}`}>

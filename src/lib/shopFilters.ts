@@ -1,8 +1,7 @@
 /**
- * Shared product-filter helpers used by the shop page, the collection detail
- * page, and the /api/shop/products load-more endpoint. Single source of truth
- * for filter param mapping, sort variables, and (for collection pages) deriving
- * collection-scoped facet terms from a product set.
+ * Shared product-filter helpers used by the four listing pages and the
+ * /api/shop/products load-more endpoint. Single source of truth for filter
+ * param mapping, sort variables, and facet group building.
  */
 
 export const PAGE_SIZE = 24;
@@ -56,8 +55,7 @@ export function isHiddenTerm(groupKey: string, term: { name: string; slug: strin
   return slugs.includes(term.slug) || slugs.includes(term.name.toLowerCase());
 }
 
-// Maps each filter group key to the matching product taxonomy connection field,
-// used to derive collection-scoped facet terms from a product set.
+// Maps each filter group key to the matching product taxonomy connection field.
 export const FACET_PRODUCT_CONNECTION: Record<string, string> = {
   productType: 'mfproductTypes',
   size: 'size',
@@ -147,28 +145,56 @@ export function getSortVariables(sort: string) {
   }
 }
 
+/** Shop reads a prebuilt index, search reads taxonomy connections, so the
+ *  caller supplies both lookups. */
+export type FacetSlugLookup<T> = (product: T, facetKey: string) => string[];
+export type FacetTermLookup = (facetKey: string) => Array<{ name: string; slug: string }>;
+
 /**
- * Derive collection-scoped filter groups by tallying the facet taxonomy
- * connections across a set of products (from GET_COLLECTION_FACET_TERMS). Each
- * term's `count` is the number of products in the set carrying that term, so
- * only facets present in the collection appear. Empty groups are returned with
- * `terms: []` and hidden by the sidebar.
+ * Build the facet groups for a filtered listing page.
+ *
+ * Terms within a facet are OR'd and facets are AND'd, so facet X must be
+ * counted against every active filter EXCEPT X's own. Counting against all of
+ * them, which is what recomputing from the filtered list does, leaves only the
+ * option just ticked and makes the rest of the facet unreachable by clicking.
+ *
+ * Zero count terms are kept so the panel can grey them rather than drop them.
  */
-export function deriveFilterGroups(
-  nodes: Array<Record<string, { nodes?: Array<{ name: string; slug: string }> } | undefined>>,
+export function buildFacetGroups<T>(
+  allProducts: T[],
+  activeFilters: ActiveFilters,
+  slugsFor: FacetSlugLookup<T>,
+  termsFor: FacetTermLookup,
 ): FilterGroup[] {
+  const matches = (product: T, filters: ActiveFilters) => {
+    for (const [key, slugs] of Object.entries(filters)) {
+      if (slugs.length === 0) continue;
+      const productSlugs = slugsFor(product, key);
+      if (!slugs.some((s) => productSlugs.includes(s))) return false;
+    }
+    return true;
+  };
+
   return FILTER_GROUPS.map((fg) => {
-    const connection = FACET_PRODUCT_CONNECTION[fg.key];
-    const counts = new Map<string, TaxonomyTerm>();
-    for (const node of nodes) {
-      const terms = node?.[connection]?.nodes || [];
-      for (const t of terms) {
-        if (!t?.slug || isHiddenTerm(fg.key, t)) continue;
-        const existing = counts.get(t.slug);
-        if (existing) existing.count += 1;
-        else counts.set(t.slug, { name: t.name, slug: t.slug, count: 1 });
+    const universe = new Map<string, TaxonomyTerm>();
+    for (const term of termsFor(fg.key)) {
+      if (!term?.slug || isHiddenTerm(fg.key, term)) continue;
+      universe.set(term.slug, { name: term.name, slug: term.slug, count: 0 });
+    }
+
+    const others: ActiveFilters = {};
+    for (const [key, slugs] of Object.entries(activeFilters)) {
+      if (key !== fg.key) others[key] = slugs;
+    }
+
+    for (const product of allProducts) {
+      if (!matches(product, others)) continue;
+      for (const slug of slugsFor(product, fg.key)) {
+        const term = universe.get(slug);
+        if (term) term.count += 1;
       }
     }
-    return { key: fg.key, label: fg.label, terms: Array.from(counts.values()) };
+
+    return { key: fg.key, label: fg.label, terms: Array.from(universe.values()) };
   });
 }

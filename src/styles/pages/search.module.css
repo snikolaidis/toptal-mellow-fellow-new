@@ -153,6 +153,20 @@
   }
 }
 
+/* Must stay after .sidebarWrapper to win the width at equal specificity. */
+@media (min-width: 1024px) {
+  .filterCard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 272px;
+    padding: 16px 0 0;
+    border: 1px solid #eeecf2;
+    border-radius: 16px;
+    background: var(--color-surface-primary);
+  }
+}
+
 .main {
   flex: 1;
   min-width: 0;
@@ -179,10 +193,17 @@
   color: #666666;
 }
 
+/* Hidden below 1024 or mobile gets two sort controls: the sheet carries one. */
 .sortWrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .sortWrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
 }
 
 .sortLabel {
