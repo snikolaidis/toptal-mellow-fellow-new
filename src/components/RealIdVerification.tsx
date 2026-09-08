@@ -11,14 +11,17 @@ const ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const WP_BASE = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 const FLOW_SDK = 'https://real-id-flow.getverdict.com/assets/index.js';
 const SHOP_NAME = process.env.NEXT_PUBLIC_REALID_SHOP_NAME || WP_BASE;
-export const VERIFIED_STEPS = ['completed', 'in_review', 'manually_approved', 'opened', 'delivered'];
+export const VERIFIED_STEPS = ['completed', 'manually_approved', 'opened', 'delivered'];
 // 'opened'/'delivered' are set the instant a check is *created* - before any photo,
 // selfie, or confirmation code has ever been submitted. They're only meaningful for
 // tracking the in-progress confirmation-code flow here, on the same page load as the
 // live widget. They must never be trusted for a "skip verification entirely" decision
-// (like checkout.tsx's remember-me check) - only these three can only ever be reached
-// once getverdict's own backend has actually processed something and made a decision.
-export const STRONGLY_VERIFIED_STEPS = ['completed', 'in_review', 'manually_approved'];
+// (like checkout.tsx's remember-me check) - only these two can only ever be reached
+// once getverdict's own backend has actually made a final accept decision.
+// 'in_review' is intentionally excluded from both lists below - per getverdict's own
+// check-state machine it is a *pending* status that can still resolve to either
+// 'manually_approved' or 'manually_rejected', so it must never be treated as verified.
+export const STRONGLY_VERIFIED_STEPS = ['completed', 'manually_approved'];
 
 interface RealIdVerificationProps {
   customer?: RealIdCustomer;
@@ -195,6 +198,9 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
         const status = d?.check?.status ?? d?.status;
         const email = (d?.check?.email ?? d?.email ?? '').trim().toLowerCase();
         const verified = (VERIFIED_STEPS.includes(step) || VERIFIED_STEPS.includes(status)) && completedInThisBrowser(id);
+        console.log(
+          `[RealID][verdict] id=${id} step=${step} status=${status} completedInThisBrowser=${completedInThisBrowser(id)} -> verified=${verified}`,
+        );
         return { verified, email, step, status };
       } catch {
         return null;
@@ -202,7 +208,16 @@ export default function RealIdVerification({ customer, onVerifiedChange }: RealI
     };
 
     const markVerifiedIfOwned = (verified: boolean, result: { verified: boolean; email: string, step: string, status: string } | null) => {
-      if (!active || !verified || !result || !currentEmail || result.email !== currentEmail) return;
+      if (!active) return;
+      if (!verified || !result || !currentEmail || result.email !== currentEmail) {
+        if (verified && result && result.email !== currentEmail) {
+          console.log(
+            `[RealID][verdict] verified check found but email mismatch - not accepted (checkEmail=${result.email}, currentEmail=${currentEmail})`,
+          );
+        }
+        return;
+      }
+      console.log(`[RealID][verdict] accepting verification for checkId=${activeCheckId()} email=${currentEmail}`);
       onVerifiedRef.current?.(true, activeCheckId());
       active = false;
     };

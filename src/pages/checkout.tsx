@@ -968,6 +968,10 @@ export default function CheckoutNewPage() {
             );
 
             if (rememberedCheckId) {
+              console.log(
+                `[RealID][remember-me] skipping verification, reusing checkId=${rememberedCheckId} for customerId=${customerId} email=${billing.email}`,
+              );
+
               setRealIdVerified(true);
 
               setRealIdCheckId(rememberedCheckId);

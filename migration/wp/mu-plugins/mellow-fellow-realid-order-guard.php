@@ -85,8 +85,11 @@ function mf_realid_guard_order( $allowed, $check_id, $billing ) {
 
 	// Mirrors STRONGLY_VERIFIED_STEPS in src/components/RealIdVerification.tsx -
 	// 'opened'/'delivered' are set the instant a check is created, before anything
-	// is actually verified, so they must never be accepted here.
-	$verified_steps = array( 'completed', 'in_review', 'manually_approved' );
+	// is actually verified, so they must never be accepted here. 'in_review' is
+	// also excluded: per getverdict's own check-state machine it is a *pending*
+	// status that can still resolve to either 'manually_approved' or
+	// 'manually_rejected', so it is not yet a final accept decision.
+	$verified_steps = array( 'completed', 'manually_approved' );
 	$step           = $check['step'] ?? null;
 	$status         = $check['status'] ?? null;
 
