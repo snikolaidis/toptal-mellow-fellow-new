@@ -215,8 +215,8 @@ export function useTaxonomyProducts({
     [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
   );
 
-  // Numbered pagination jumps to arbitrary pages, so next and prev are now thin
-  // wrappers over this rather than the other way round.
+  // Numbered pagination jumps to arbitrary pages, so this takes the target
+  // directly rather than stepping from the current page.
   const goToPage = useCallback(
     (target: number) => {
       if (loading || target === page || target < 1) return;
@@ -254,16 +254,6 @@ export function useTaxonomyProducts({
     ]
   );
 
-  const goToNextPage = useCallback(() => {
-    if (!hasNextPage) return;
-    goToPage(page + 1);
-  }, [page, hasNextPage, goToPage]);
-
-  const goToPrevPage = useCallback(() => {
-    if (page <= 1) return;
-    goToPage(page - 1);
-  }, [page, goToPage]);
-
   const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
   const currentSort = SORT_OPTIONS.find((o) => o.value === selectedSort) || SORT_OPTIONS[0];
 
@@ -282,7 +272,5 @@ export function useTaxonomyProducts({
     handleFilterChange,
     handleSortChange,
     goToPage,
-    goToNextPage,
-    goToPrevPage,
   };
 }
