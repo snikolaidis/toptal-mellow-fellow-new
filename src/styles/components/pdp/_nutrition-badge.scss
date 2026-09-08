@@ -17,15 +17,18 @@
   &__unit {
     font-family: var(--font-family-display);
     font-weight: 800;
-    fill: var(--color-text-primary);
+    // Matches the mockup's numeral fill, and the `&__label` rule below — not
+    // --color-text-primary (#232323), which is close but would leave the value
+    // and the arced label subtly different colours inside the same badge.
+    fill: #2e292b;
   }
 
   &__value {
-    font-size: 26px;
+    font-size: 28px;
   }
 
   &__unit {
-    font-size: 11.5px;
+    font-size: 12px;
     letter-spacing: 0.05em;
   }
 

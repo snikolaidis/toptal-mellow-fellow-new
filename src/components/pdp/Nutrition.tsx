@@ -1,4 +1,4 @@
-import { Product, ProductNutrition } from '@/types/woocommerce';
+import { CannabinoidServing, Product, ProductNutrition } from '@/types/woocommerce';
 import NutritionBadge, { NUTRITION_BADGE_PRESETS } from './NutritionBadge';
 import { CaloriesIcon, CansIcon, OnsetIcon, SocialBuzzIcon } from './FeatureIcons';
 
@@ -6,7 +6,8 @@ interface Props {
   nutrition?: ProductNutrition | null;
   mG?: Product['mG'];
   pieces?: Product['pieces'];
-  mfproductTypes?: Product['mfproductTypes'];
+  cannabinoids?: CannabinoidServing[];
+  productTypes?: Product['mfproductTypes'];
 }
 
 // `calories`/`sugar` are ACF text fields, not number fields, so an unset
@@ -31,6 +32,30 @@ function computePerPack(mG?: Props['mG'], pieces?: Props['pieces']): string | nu
   return String(mgValue * pieceCount);
 }
 
+// The badge labels are outlined vector artwork, and the only cannabinoid
+// labels drawn are "DELTA-9 THC" and "CANNABIDIOL". Beverages are the one
+// category whose data consistently uses those two (D9 + CBD, whole-milligram
+// values); the rest of the catalogue leads with D8, THCp, CBG and others, often
+// at sub-milligram doses, which these badges cannot label or display honestly.
+// The feature tiles below are scoped to beverages for the same reason — the
+// copy ("12oz Cans", onset window) only holds for drinks.
+function isBeverageProduct(productTypes?: Props['productTypes']): boolean {
+  return (productTypes?.nodes || []).some((t) => t.name?.toLowerCase() === 'beverage');
+}
+
+// `cannabinoid` is free text, so match case-insensitively and tolerate the
+// handful of spellings seen in the data rather than an exact key.
+function findCannabinoid(
+  rows: CannabinoidServing[] | undefined,
+  aliases: string[]
+): string | null {
+  const row = (rows || []).find((r) => {
+    const key = (r.cannabinoid || '').trim().toLowerCase();
+    return aliases.includes(key);
+  });
+  return row?.mg != null ? String(row.mg) : null;
+}
+
 // "12oz Cans" isn't backed by any field — no beverage has a volume or
 // container-type taxonomy today — so it's fixed copy, scoped to beverages
 // only. Pack count still comes from the real `pieces` term.
@@ -40,16 +65,24 @@ function cansLabel(pieces?: Props['pieces']): string {
   return count === 1 ? 'Single 12oz Can' : `${count}-Pack 12oz Cans`;
 }
 
-export default function Nutrition({ nutrition, mG, pieces, mfproductTypes }: Props) {
-
+export default function Nutrition({
+  nutrition,
+  mG,
+  pieces,
+  cannabinoids,
+  productTypes,
+}: Props) {
   const { calories, sugar } = nutrition || {};
   const hasSugar = hasValue(sugar);
   const hasCalories = hasValue(calories);
   const perPack = computePerPack(mG, pieces);
-  const isBeverage = mfproductTypes?.nodes?.some((node) => node.name === 'Beverage') ?? false;
+
+  const isBeverage = isBeverageProduct(productTypes);
+  const thc = isBeverage ? findCannabinoid(cannabinoids, ['d9', 'delta-9', 'delta 9']) : null;
+  const cbd = isBeverage ? findCannabinoid(cannabinoids, ['cbd', 'cannabidiol']) : null;
   const hasFeatureTiles = hasCalories || isBeverage;
 
-  if (!hasSugar && !hasCalories && !perPack && !isBeverage) {
+  if (!hasSugar && !hasCalories && !perPack && !thc && !cbd && !isBeverage) {
     return null;
   }
 
@@ -57,16 +90,27 @@ export default function Nutrition({ nutrition, mG, pieces, mfproductTypes }: Pro
     <div className="product-nutrition">
       <h3 className="product-nutrition__heading">Nutrition</h3>
 
-      {(hasSugar || perPack) && (
+      {/* Badge order follows the mockup: THC, CBD, per pack, sugar. */}
+      {(thc || cbd || hasSugar || perPack) && (
         <ul className="product-nutrition__badges">
-          {hasSugar && (
+          {thc && (
             <li>
-              <NutritionBadge preset={NUTRITION_BADGE_PRESETS.sugar} value={sugar} />
+              <NutritionBadge preset={NUTRITION_BADGE_PRESETS.thc} value={thc} />
+            </li>
+          )}
+          {cbd && (
+            <li>
+              <NutritionBadge preset={NUTRITION_BADGE_PRESETS.cbd} value={cbd} />
             </li>
           )}
           {perPack && (
             <li>
               <NutritionBadge preset={NUTRITION_BADGE_PRESETS.perPack} value={perPack} />
+            </li>
+          )}
+          {hasSugar && (
+            <li>
+              <NutritionBadge preset={NUTRITION_BADGE_PRESETS.sugar} value={sugar} />
             </li>
           )}
         </ul>
