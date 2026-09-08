@@ -155,8 +155,37 @@ function mf_subs_ids_by_slug(array $slugs) {
     return $out;
 }
 
-// Columns (case-insensitive): slug (required), period, interval, discount,
-// price (optional fixed price), remove (yes/1 clears a product's plan).
+// Resolve many SKUs to product ids in one query. A SKU on a variation maps to
+// its parent product, since the subscribe plan lives on the parent.
+function mf_subs_ids_by_sku(array $skus) {
+    global $wpdb;
+    $skus = array_values(array_unique(array_filter(array_map('trim', $skus), 'strlen')));
+    if (empty($skus)) {
+        return array();
+    }
+    $placeholders = implode(',', array_fill(0, count($skus), '%s'));
+    $sql = $wpdb->prepare(
+        "SELECT pm.meta_value AS sku, " .
+        "CASE WHEN p.post_type = 'product_variation' THEN p.post_parent ELSE p.ID END AS pid " .
+        "FROM {$wpdb->postmeta} pm " .
+        "JOIN {$wpdb->posts} p ON p.ID = pm.post_id " .
+        "WHERE pm.meta_key = '_sku' AND pm.meta_value IN ($placeholders) " .
+        "AND p.post_type IN ('product','product_variation') " .
+        "AND p.post_status IN ('publish','draft','pending','private') " .
+        "ORDER BY (p.post_status = 'publish') DESC, (p.post_type = 'product') DESC",
+        $skus
+    );
+    $out = array();
+    foreach ($wpdb->get_results($sql) as $row) {
+        if (!isset($out[$row->sku]) && (int) $row->pid > 0) {
+            $out[$row->sku] = (int) $row->pid;
+        }
+    }
+    return $out;
+}
+
+// Columns (case-insensitive): sku (primary key), slug (fallback when no sku),
+// period, interval, discount, price (optional fixed price), remove (yes/1 clears).
 function mf_subs_parse_csv($path) {
     $fh = fopen($path, 'r');
     if (!$fh) {
@@ -171,23 +200,31 @@ function mf_subs_parse_csv($path) {
     foreach ($header as $i => $name) {
         $cols[strtolower(trim($name))] = $i;
     }
-    if (!isset($cols['slug'])) {
+    if (!isset($cols['sku']) && !isset($cols['slug'])) {
         fclose($fh);
-        return new WP_Error('mf_subs_csv', 'The file needs a "slug" column.');
+        return new WP_Error('mf_subs_csv', 'The file needs a "sku" column (a "slug" column also works).');
     }
     $get = function ($row, $key) use ($cols) {
         return isset($cols[$key], $row[$cols[$key]]) ? trim($row[$cols[$key]]) : '';
     };
-    $bySlug = array();
-    $removed = array();
+    $applySku = array();
+    $applySlug = array();
+    $removeSku = array();
+    $removeSlug = array();
     while (($row = fgetcsv($fh)) !== false) {
+        $sku  = $get($row, 'sku');
         $slug = sanitize_title($get($row, 'slug'));
-        if ($slug === '') {
+        $useSku = $sku !== '';
+        if (!$useSku && $slug === '') {
             continue;
         }
         $remove = strtolower($get($row, 'remove'));
         if ($remove === 'yes' || $remove === '1' || $remove === 'true') {
-            $removed[$slug] = true;
+            if ($useSku) {
+                $removeSku[$sku] = true;
+            } else {
+                $removeSlug[$slug] = true;
+            }
             continue;
         }
         $entry = mf_subs_scheme_entry(
@@ -196,13 +233,25 @@ function mf_subs_parse_csv($path) {
             preg_replace('/[^0-9.]/', '', $get($row, 'discount')),
             preg_replace('/[^0-9.]/', '', $get($row, 'price'))
         );
-        if (!isset($bySlug[$slug])) {
-            $bySlug[$slug] = array();
+        if ($useSku) {
+            if (!isset($applySku[$sku])) {
+                $applySku[$sku] = array();
+            }
+            $applySku[$sku] = array_merge($applySku[$sku], $entry);
+        } else {
+            if (!isset($applySlug[$slug])) {
+                $applySlug[$slug] = array();
+            }
+            $applySlug[$slug] = array_merge($applySlug[$slug], $entry);
         }
-        $bySlug[$slug] = array_merge($bySlug[$slug], $entry);
     }
     fclose($fh);
-    return array('apply' => $bySlug, 'remove' => $removed);
+    return array(
+        'apply_sku'   => $applySku,
+        'apply_slug'  => $applySlug,
+        'remove_sku'  => $removeSku,
+        'remove_slug' => $removeSlug,
+    );
 }
 
 function mf_subs_apply_csv($path) {
@@ -211,35 +260,57 @@ function mf_subs_apply_csv($path) {
         return $parsed;
     }
     @set_time_limit(0);
-    $slugs = array_merge(array_keys($parsed['apply']), array_keys($parsed['remove']));
-    $ids   = mf_subs_ids_by_slug($slugs);
+    $idsBySku  = mf_subs_ids_by_sku(array_merge(array_keys($parsed['apply_sku']), array_keys($parsed['remove_sku'])));
+    $idsBySlug = mf_subs_ids_by_slug(array_merge(array_keys($parsed['apply_slug']), array_keys($parsed['remove_slug'])));
     $applied = 0;
     $cleared = 0;
     $missing = array();
-    foreach ($parsed['apply'] as $slug => $schemes) {
-        if (!isset($ids[$slug])) {
-            $missing[] = $slug;
-            continue;
-        }
-        $pid = $ids[$slug];
+
+    $apply_to = function ($pid, $schemes) {
         update_post_meta($pid, MF_SUBS_META, $schemes);
         update_post_meta($pid, MF_SUBS_FORCE_META, 'no');
         if (function_exists('wc_delete_product_transients')) {
             wc_delete_product_transients($pid);
         }
-        $applied++;
-    }
-    foreach (array_keys($parsed['remove']) as $slug) {
-        if (!isset($ids[$slug])) {
-            $missing[] = $slug;
-            continue;
-        }
-        $pid = $ids[$slug];
+    };
+    $clear_from = function ($pid) {
         delete_post_meta($pid, MF_SUBS_META);
         delete_post_meta($pid, MF_SUBS_FORCE_META);
         if (function_exists('wc_delete_product_transients')) {
             wc_delete_product_transients($pid);
         }
+    };
+
+    foreach ($parsed['apply_sku'] as $sku => $schemes) {
+        if (!isset($idsBySku[$sku])) {
+            $missing[] = $sku;
+            continue;
+        }
+        $apply_to($idsBySku[$sku], $schemes);
+        $applied++;
+    }
+    foreach ($parsed['apply_slug'] as $slug => $schemes) {
+        if (!isset($idsBySlug[$slug])) {
+            $missing[] = $slug;
+            continue;
+        }
+        $apply_to($idsBySlug[$slug], $schemes);
+        $applied++;
+    }
+    foreach (array_keys($parsed['remove_sku']) as $sku) {
+        if (!isset($idsBySku[$sku])) {
+            $missing[] = $sku;
+            continue;
+        }
+        $clear_from($idsBySku[$sku]);
+        $cleared++;
+    }
+    foreach (array_keys($parsed['remove_slug']) as $slug) {
+        if (!isset($idsBySlug[$slug])) {
+            $missing[] = $slug;
+            continue;
+        }
+        $clear_from($idsBySlug[$slug]);
         $cleared++;
     }
     return array('applied' => $applied, 'cleared' => $cleared, 'missing' => $missing);
@@ -263,9 +334,10 @@ function mf_subs_list($active, $page) {
     $offset = max(0, ($page - 1) * MF_SUBS_PER_PAGE);
     if ($active) {
         $sql = $wpdb->prepare(
-            "SELECT p.ID, p.post_title, p.post_name, pm.meta_value AS schemes " .
+            "SELECT p.ID, p.post_title, p.post_name, sku.meta_value AS sku, pm.meta_value AS schemes " .
             "FROM {$wpdb->posts} p " .
             "JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '" . MF_SUBS_META . "' " .
+            "LEFT JOIN {$wpdb->postmeta} sku ON sku.post_id = p.ID AND sku.meta_key = '_sku' " .
             "WHERE p.post_type = 'product' AND p.post_status = 'publish' AND pm.meta_value != '' AND pm.meta_value != 'a:0:{}' " .
             "ORDER BY p.post_title ASC LIMIT %d OFFSET %d",
             MF_SUBS_PER_PAGE,
@@ -273,9 +345,10 @@ function mf_subs_list($active, $page) {
         );
     } else {
         $sql = $wpdb->prepare(
-            "SELECT p.ID, p.post_title, p.post_name, '' AS schemes " .
+            "SELECT p.ID, p.post_title, p.post_name, sku.meta_value AS sku, '' AS schemes " .
             "FROM {$wpdb->posts} p " .
             "LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '" . MF_SUBS_META . "' " .
+            "LEFT JOIN {$wpdb->postmeta} sku ON sku.post_id = p.ID AND sku.meta_key = '_sku' " .
             "WHERE p.post_type = 'product' AND p.post_status = 'publish' " .
             "AND (pm.meta_id IS NULL OR pm.meta_value = '' OR pm.meta_value = 'a:0:{}') " .
             "ORDER BY p.post_title ASC LIMIT %d OFFSET %d",
@@ -312,16 +385,17 @@ function mf_subs_tiers_label($serialized) {
 function mf_subs_export_csv() {
     global $wpdb;
     $rows = $wpdb->get_results(
-        "SELECT p.post_name, pm.meta_value AS schemes " .
+        "SELECT p.post_name, p.post_title, sku.meta_value AS sku, pm.meta_value AS schemes " .
         "FROM {$wpdb->posts} p " .
         "JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '" . MF_SUBS_META . "' " .
+        "LEFT JOIN {$wpdb->postmeta} sku ON sku.post_id = p.ID AND sku.meta_key = '_sku' " .
         "WHERE p.post_type = 'product' AND p.post_status = 'publish' AND pm.meta_value != '' AND pm.meta_value != 'a:0:{}' " .
-        "ORDER BY p.post_name ASC"
+        "ORDER BY p.post_title ASC"
     );
     header('Content-Type: text/csv');
     header('Content-Disposition: attachment; filename=subscription-plans.csv');
     $out = fopen('php://output', 'w');
-    fputcsv($out, array('slug', 'period', 'interval', 'discount', 'price'));
+    fputcsv($out, array('sku', 'name', 'slug', 'period', 'interval', 'discount', 'price'));
     foreach ($rows as $row) {
         $schemes = maybe_unserialize($row->schemes);
         if (!is_array($schemes)) {
@@ -333,6 +407,8 @@ function mf_subs_export_csv() {
             }
             $override = isset($s['subscription_pricing_method']) && $s['subscription_pricing_method'] === 'override';
             fputcsv($out, array(
+                $row->sku,
+                $row->post_title,
                 $row->post_name,
                 isset($s['subscription_period']) ? $s['subscription_period'] : 'month',
                 isset($s['subscription_period_interval']) ? $s['subscription_period_interval'] : 1,
@@ -391,7 +467,7 @@ function mf_subs_render_csv_section() {
     $base    = admin_url('admin.php?page=mf-subscription-bulk');
 
     echo '<hr /><h2>Import plans from CSV</h2>';
-    echo '<p>Set Subscribe &amp; Save plans by product slug. Columns: <code>slug</code> (required), <code>period</code> (day/week/month/year), <code>interval</code>, <code>discount</code> (percent off), optional <code>price</code> (fixed price instead of a discount), optional <code>remove</code> (yes to clear). One row per plan; a product can have several rows for multiple frequencies.</p>';
+    echo '<p>Set Subscribe &amp; Save plans by SKU. Columns: <code>sku</code> (required, the product SKU), <code>period</code> (day/week/month/year), <code>interval</code>, <code>discount</code> (percent off), optional <code>price</code> (fixed price instead of a discount), optional <code>remove</code> (yes to clear). A <code>slug</code> column is accepted as a fallback when a row has no SKU. One row per plan; a product can have several rows for multiple frequencies.</p>';
 
     if ($notice) {
         echo '<div class="notice ' . esc_attr($notice_class) . ' is-dismissible"><p>' . wp_kses_post($notice) . '</p></div>';
@@ -416,13 +492,14 @@ function mf_subs_render_csv_section() {
     echo '<a href="' . esc_url($base . '&view=inactive') . '"' . ($view === 'inactive' ? ' style="font-weight:700"' : '') . '>No plan (' . (int) $counts['inactive'] . ')</a>';
     echo '</p>';
 
-    echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th>Product</th><th>Slug</th><th>Plan</th></tr></thead><tbody>';
+    echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th>Product</th><th>SKU</th><th>Slug</th><th>Plan</th></tr></thead><tbody>';
     if (empty($list)) {
-        echo '<tr><td colspan="3">No products.</td></tr>';
+        echo '<tr><td colspan="4">No products.</td></tr>';
     } else {
         foreach ($list as $row) {
             echo '<tr>';
             echo '<td><a href="' . esc_url(get_edit_post_link($row->ID)) . '">' . esc_html($row->post_title) . '</a></td>';
+            echo '<td><code>' . esc_html($row->sku) . '</code></td>';
             echo '<td><code>' . esc_html($row->post_name) . '</code></td>';
             echo '<td>' . esc_html($view === 'active' ? mf_subs_tiers_label($row->schemes) : 'not active') . '</td>';
             echo '</tr>';
