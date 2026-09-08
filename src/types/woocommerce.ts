@@ -146,13 +146,33 @@ export interface Product {
   price?: string;
   regularPrice?: string;
   salePrice?: string;
-  // Bundle Builder plugin fields, set only on products that are actually a
-  // bundle entry point. bbBundleMode ('byob' or 'fixed') is what marks one:
-  // the plugin replaced bbLinkedBundleId with it, and dropped the bundleBuilder
-  // root query with it, so the bundle's own slug now comes from mf/v1/product.
-  // bbFromPrice is the starting-from price, and is null unless bbShowPrice.
-  bbBundleMode?: string | null;
+  // Bundle Builder plugin fields — the whole config lives directly on the
+  // product. bbBundleMode distinguishes the two flows:
+  // "byob" — shopper picks their own items from bbBundleProducts, within
+  //   bbMinItems/bbMaxItems, priced by tiered bbDiscountRules. bbFromPrice is
+  //   the cheapest-possible total, for a "From $X" teaser.
+  // "fixed" — admin-picked exact items/quantities, nothing for the shopper
+  //   to select. bbFixedItems is that picked set, bbFixedPrice is the flat
+  //   total, bbFixedQtyMin/Max bound how many sets can be added.
+  // The plugin dropped the bundleBuilder root query when it added these, so
+  // a bundle's own slug now comes from mf/v1/product rather than GraphQL.
+  bbBundleMode?: 'byob' | 'fixed' | null;
+  bbDescription?: string | null;
+  // Whether the "From $X" teaser (bbFromPrice) should render on the card/PDP
+  // for a byob bundle — an admin-facing toggle.
+  bbShowPrice?: boolean | null;
   bbFromPrice?: number | null;
+  bbMinItems?: number | null;
+  bbMaxItems?: number | null;
+  bbDiscountRules?: Array<{ minQty: number; percent: number }> | null;
+  bbBundleProducts?: Product[] | null;
+  bbFixedItems?: Array<{ productId: number; quantity: number }> | null;
+  bbFixedPrice?: number | null;
+  // Undiscounted total for one set (sum of each item's regular price × qty)
+  // — shown struck through next to bbFixedPrice when it's a real discount.
+  bbFixedOriginalPrice?: number | null;
+  bbFixedQtyMin?: number | null;
+  bbFixedQtyMax?: number | null;
   stockStatus?: 'IN_STOCK' | 'OUT_OF_STOCK' | 'ON_BACKORDER';
   stockQuantity?: number;
   externalUrl?: string;

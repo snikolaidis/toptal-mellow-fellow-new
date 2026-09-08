@@ -1,7 +1,7 @@
 import { useState, useCallback, ReactNode } from 'react';
 import Image from 'next/image';
 import { useCart, groupCartItems } from '@/context/CartContext';
-import { CloseIcon } from '@/components/icons';
+import { CloseIcon, ChevronDownIcon } from '@/components/icons';
 import LoyaltyCheckoutRewards from '@/components/LoyaltyCheckoutRewards';
 import styles from './OrderSummary.module.css';
 
@@ -14,6 +14,7 @@ interface CartItem {
   product: {
     name: string;
     price: string;
+    regularPrice?: string;
     image?: {
       sourceUrl: string;
       altText: string;
@@ -23,6 +24,13 @@ interface CartItem {
     name: string;
     price: string;
   };
+}
+
+// Bundle/sale discounts apply via the product's own sale price, not a coupon,
+// so `product.price` is already the discounted unit price — `regularPrice`
+// (when present) is the only source for the true original price.
+function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
+  return parseFloat((item.product.regularPrice || item.product.price).replace(/[^0-9.]/g, '')) || 0;
 }
 
 interface AppliedCoupon {
@@ -47,11 +55,40 @@ interface OrderSummaryProps {
 }
 
 export default function OrderSummary({ cart, subscription, subscriptionSlot }: OrderSummaryProps) {
-  const { applyCoupon, removeCoupon, error: cartError, bundleNames, updateQuantity, removeFromCart } = useCart();
-  const { bundles, standalone } = groupCartItems(cart.items as any[], bundleNames);
+  const {
+    applyCoupon,
+    removeCoupon,
+    error: cartError,
+    bundleNames,
+    bundleImages,
+    bundleDiscounts,
+    bundleModes,
+    bundleGroupSetCounts,
+    updateQuantity,
+    removeFromCart,
+    addBundleToCart,
+    addFixedBundleToCart,
+    removeBundleGroup,
+  } = useCart();
+  const { bundles, standalone } = groupCartItems(cart.items as any[], bundleNames, bundleImages, bundleModes, bundleGroupSetCounts);
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
   const [mutatingKey, setMutatingKey] = useState<string | null>(null);
+  const [mutatingGroupKey, setMutatingGroupKey] = useState<string | null>(null);
+  // Bundle groups collapse to a single "name - price" row by default; this
+  // tracks which ones the shopper has expanded to see the bundled products.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroupExpanded = useCallback((mergeKey: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(mergeKey)) {
+        next.delete(mergeKey);
+      } else {
+        next.add(mergeKey);
+      }
+      return next;
+    });
+  }, []);
 
   const handleUpdateQuantity = useCallback(async (key: string, quantity: number) => {
     setMutatingKey(key);
@@ -70,6 +107,47 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
       setMutatingKey(null);
     }
   }, [removeFromCart]);
+
+  const handleAddAnotherBundle = useCallback(async (group: (typeof bundles)[number]) => {
+    setMutatingGroupKey(group.mergeKey);
+    try {
+      if (group.bundleMode === 'fixed') {
+        await addFixedBundleToCart(group.bundleId, 1, group.bundleName, group.image);
+      } else {
+        await addBundleToCart(
+          group.bundleId,
+          group.representativeItems.flatMap((i) => Array(i.quantity).fill(i.product.databaseId)),
+          group.bundleName,
+          bundleDiscounts[group.bundleId] ?? 0,
+          group.image,
+          false
+        );
+      }
+    } catch {
+      // Failure reason is already surfaced via the shared cartError banner —
+      // this just stops it from becoming an unhandled promise rejection.
+    } finally {
+      setMutatingGroupKey(null);
+    }
+  }, [addBundleToCart, addFixedBundleToCart, bundleDiscounts]);
+
+  const handleRemoveOneBundle = useCallback(async (group: (typeof bundles)[number]) => {
+    setMutatingGroupKey(group.mergeKey);
+    try {
+      await removeBundleGroup([group.instances[group.instances.length - 1].groupKey]);
+    } finally {
+      setMutatingGroupKey(null);
+    }
+  }, [removeBundleGroup]);
+
+  const handleRemoveBundleGroup = useCallback(async (group: (typeof bundles)[number]) => {
+    setMutatingGroupKey(group.mergeKey);
+    try {
+      await removeBundleGroup(group.instances.map((inst) => inst.groupKey));
+    } finally {
+      setMutatingGroupKey(null);
+    }
+  }, [removeBundleGroup]);
 
   const hasDiscount = cart.discountTotal &&
     parseFloat(cart.discountTotal.replace(/[^0-9.-]/g, '')) > 0;
@@ -106,27 +184,101 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
         {bundles.map((group) => {
           const allItems = group.instances.flatMap((inst) => inst.items);
           const originalTotal = allItems.reduce(
-            (sum, i) => sum + i.quantity * parseFloat(i.product.price.replace(/[^0-9.]/g, '') || '0'), 0
+            (sum, i) => sum + i.quantity * originalUnitPrice(i), 0
           );
           const discountedTotal = allItems.reduce(
             (sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
           );
           const hasDiscount = discountedTotal < originalTotal - 0.005;
+          const isExpanded = expandedGroups.has(group.mergeKey);
+          const panelId = `bundle-panel-${group.mergeKey}`;
 
           return (
-            <li key={group.bundleId} className={styles.bundleGroup}>
+            <li key={group.mergeKey} className={styles.bundleGroup}>
               <div className={styles.bundleGroupHeader}>
-                <span className={styles.bundleGroupName}>
-                  {group.bundleName}{group.quantity > 1 ? ` ×${group.quantity}` : ''}
-                </span>
+                <div className={styles.itemImage}>
+                  {group.image ? (
+                    <Image
+                      src={group.image.sourceUrl}
+                      alt={group.image.altText || group.bundleName}
+                      width={64}
+                      height={64}
+                      style={{ objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div className={styles.placeholderImage} />
+                  )}
+                  <span className={styles.itemQuantity}>{group.quantity}</span>
+                </div>
+                <div className={styles.bundleHeaderDetails}>
+                  <div className={styles.bundleHeaderTop}>
+                    <span className={styles.bundleGroupName}>{group.bundleName}</span>
+                    <div className={styles.bundleHeaderPrices}>
+                      {hasDiscount && (
+                        <span className={styles.bundleOriginalTotal}>
+                          ${originalTotal.toFixed(2)}
+                        </span>
+                      )}
+                      <span className={styles.bundleDiscountedTotal}>
+                        ${discountedTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.bundleToggleBtn}
+                    onClick={() => toggleGroupExpanded(group.mergeKey)}
+                    aria-expanded={isExpanded}
+                    aria-controls={panelId}
+                  >
+                    <span className={`${styles.bundleChevron} ${isExpanded ? styles.bundleChevronExpanded : ''}`}>
+                      <ChevronDownIcon />
+                    </span>
+                    {isExpanded ? 'Hide items' : 'Show items'}
+                  </button>
+                  <div className={styles.itemQtyRow}>
+                    <div className={styles.qtyControls}>
+                      <button
+                        type="button"
+                        className={styles.qtyBtn}
+                        onClick={() => handleRemoveOneBundle(group)}
+                        disabled={mutatingGroupKey === group.mergeKey}
+                        aria-label={group.quantity <= 1 ? `Remove ${group.bundleName}` : 'Decrease quantity'}
+                      >
+                        &minus;
+                      </button>
+                      <span className={styles.qtyValue}>{group.quantity}</span>
+                      <button
+                        type="button"
+                        className={styles.qtyBtn}
+                        onClick={() => handleAddAnotherBundle(group)}
+                        disabled={mutatingGroupKey === group.mergeKey}
+                        aria-label={`Add another ${group.bundleName}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.removeItemBtn}
+                      onClick={() => handleRemoveBundleGroup(group)}
+                      disabled={mutatingGroupKey === group.mergeKey}
+                      aria-label={`Remove all ${group.bundleName}`}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
               </div>
-              {group.representativeItems
-                .reduce<{ item: typeof group.representativeItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
+              {isExpanded && (
+              <div id={panelId} className={styles.bundleItemsPanel}>
+              {allItems
+                .reduce<{ item: typeof allItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
                   (acc, item) => {
                     const existing = acc.find(
                       (r) => r.item.product.databaseId === item.product.databaseId
                     );
-                    const lineOriginal = item.quantity * parseFloat(item.product.price.replace(/[^0-9.]/g, '') || '0');
+                    const lineOriginal = item.quantity * originalUnitPrice(item);
                     const lineTotal = parseFloat(item.total.replace(/[^0-9.]/g, '') || '0');
                     if (existing) {
                       existing.qty += item.quantity;
@@ -169,16 +321,8 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
                     </div>
                   );
                 })}
-              <div className={styles.bundleGroupFooter}>
-                {hasDiscount && (
-                  <span className={styles.bundleOriginalTotal}>
-                    ${originalTotal.toFixed(2)}
-                  </span>
-                )}
-                <span className={styles.bundleDiscountedTotal}>
-                  ${discountedTotal.toFixed(2)}
-                </span>
               </div>
+              )}
             </li>
           );
         })}
@@ -240,7 +384,15 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
                   </button>
                 </div>
               </div>
-              <span className={styles.itemTotal}>{item.total}</span>
+              <div className={styles.bundleItemTotal}>
+                {(() => {
+                  const originalLineTotal = item.quantity * originalUnitPrice(item);
+                  return originalLineTotal > parseFloat(item.total.replace(/[^0-9.]/g, '') || '0') + 0.005 && (
+                    <span className={styles.bundleOriginalPrice}>${originalLineTotal.toFixed(2)}</span>
+                  );
+                })()}
+                <span className={styles.itemTotal}>{item.total}</span>
+              </div>
             </li>
           );
         })}
@@ -310,6 +462,22 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
         );
         const saved = Math.max(0, grossSubtotal - netMerch);
 
+        // Bundle discount broken out on its own line — the rest (coupons,
+        // BOGO, free gift, subscriptions) collapses into "You saved" below
+        // it, so the two lines add up to `saved` instead of double-counting
+        // the bundle portion in both.
+        const totalBundleDiscount = bundles.reduce((sum, group) => {
+          const allItems = group.instances.flatMap((inst) => inst.items);
+          const original = allItems.reduce(
+            (s, i) => s + i.quantity * originalUnitPrice(i), 0
+          );
+          const discounted = allItems.reduce(
+            (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
+          );
+          return sum + Math.max(0, original - discounted);
+        }, 0);
+        const otherSaved = Math.max(0, saved - totalBundleDiscount);
+
         return (
           <dl className={styles.totals}>
             <div className={styles.row}>
@@ -317,10 +485,17 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
               <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : `$${grossSubtotal.toFixed(2)}`}</dd>
             </div>
 
-            {!subscription && saved > 0 && (
+            {!subscription && totalBundleDiscount > 0 && (
+              <div className={`${styles.row} ${styles.rowDiscount}`}>
+                <dt>Bundle Discount</dt>
+                <dd>-${totalBundleDiscount.toFixed(2)}</dd>
+              </div>
+            )}
+
+            {!subscription && otherSaved > 0 && (
               <div className={`${styles.row} ${styles.rowDiscount}`}>
                 <dt>You saved</dt>
-                <dd>-${saved.toFixed(2)}</dd>
+                <dd>-${otherSaved.toFixed(2)}</dd>
               </div>
             )}
 

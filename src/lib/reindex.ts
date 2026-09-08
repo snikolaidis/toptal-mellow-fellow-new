@@ -140,6 +140,9 @@ const PRODUCT_FIELDS = `
   pieces { nodes { name slug } }
   bbBundleMode
   bbFromPrice
+  bbShowPrice
+  bbFixedPrice
+  bbFixedOriginalPrice
   uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
 `;
 
@@ -202,6 +205,9 @@ const DISPLAYED_ATTRIBUTES = [
   'image',
   'bbBundleMode',
   'bbFromPrice',
+  'bbShowPrice',
+  'bbFixedPrice',
+  'bbFixedOriginalPrice',
   'uniqueSellingProps',
   ...TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
   ...DISPLAY_TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
@@ -380,6 +386,9 @@ function toDocument(product: WooProduct): ProductDocument {
     },
     bbBundleMode: (product.bbBundleMode as string | null | undefined) ?? null,
     bbFromPrice: (product.bbFromPrice as number | null | undefined) ?? null,
+    bbShowPrice: (product.bbShowPrice as boolean | null | undefined) ?? null,
+    bbFixedPrice: (product.bbFixedPrice as number | null | undefined) ?? null,
+    bbFixedOriginalPrice: (product.bbFixedOriginalPrice as number | null | undefined) ?? null,
     uniqueSellingProps: (product.uniqueSellingProps as unknown) ?? null,
   };
 
