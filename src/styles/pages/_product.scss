@@ -28,14 +28,18 @@
         order: 2;
       }
 
-      .purchase-block {
-        margin-bottom: 2rem;
+      > .column:last-child > .free-shipping-tracker {
         order: 3;
       }
-      
+
+      .purchase-block {
+        margin-bottom: 2rem;
+        order: 4;
+      }
+
       > .column:last-child > .product-nutrition,
       > .column:last-child > .product-nutrition ~ * {
-        order: 4;
+        order: 5;
       }
     }
   }

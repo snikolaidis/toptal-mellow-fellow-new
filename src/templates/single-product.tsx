@@ -11,6 +11,7 @@ import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
 import ProductReviews from '@/components/pdp/ProductReviews';
 import ShippingReturns from '@/components/pdp/ShippingReturns';
+import FreeShippingTracker from '@/components/pdp/FreeShippingTracker';
 import type { KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
 import Nutrition from '@/components/pdp/Nutrition';
@@ -831,6 +832,8 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 )}
               </div>
             )}
+            
+            <FreeShippingTracker />
 
             <AvailableOptions
               options={availableOptions}
