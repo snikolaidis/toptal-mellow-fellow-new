@@ -776,7 +776,7 @@
 
 .site-header__mega-sub-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   align-self: stretch;
   gap: var(--sh-mega-link-gap);
 }
@@ -798,6 +798,9 @@
 // unifying the family back wraps it. 700 is a real face here, not synthesised.
 .site-header__mega-sub .site-header__mega-heading {
   margin-bottom: 0;
+  // align-items on the row cannot reach this: the base heading's align-self of
+  // stretch wins, and at the icon's 42px the text sits 7px above its centre.
+  align-self: center;
   font-family: var(--font-family-display);
 }
 
