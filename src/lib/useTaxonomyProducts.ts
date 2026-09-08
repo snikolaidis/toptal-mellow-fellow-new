@@ -215,33 +215,54 @@ export function useTaxonomyProducts({
     [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
   );
 
+  // Numbered pagination jumps to arbitrary pages, so next and prev are now thin
+  // wrappers over this rather than the other way round.
+  const goToPage = useCallback(
+    (target: number) => {
+      if (loading || target === page || target < 1) return;
+
+      // Page one unfiltered is the payload getStaticProps already delivered, so
+      // returning to it costs nothing. Refetching it was always wasted.
+      if (
+        target === 1 &&
+        Object.keys(activeFilters).length === 0 &&
+        selectedSort === 'default'
+      ) {
+        setPage(1);
+        setProducts(initialProducts);
+        setHasNextPage(initialHasNextPage);
+        setCurrentTotalPages(initialTotalPages);
+        setFilteredTotal(null);
+        usingInitialData.current = true;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      setPage(target);
+      fetchPage(activeFilters, selectedSort, target);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    [
+      page,
+      loading,
+      activeFilters,
+      selectedSort,
+      fetchPage,
+      initialProducts,
+      initialHasNextPage,
+      initialTotalPages,
+    ]
+  );
+
   const goToNextPage = useCallback(() => {
-    if (!hasNextPage || loading) return;
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchPage(activeFilters, selectedSort, nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page, hasNextPage, loading, activeFilters, selectedSort, fetchPage]);
+    if (!hasNextPage) return;
+    goToPage(page + 1);
+  }, [page, hasNextPage, goToPage]);
 
   const goToPrevPage = useCallback(() => {
-    if (page <= 1 || loading) return;
-    const prevPage = page - 1;
-
-    if (prevPage === 1 && Object.keys(activeFilters).length === 0 && selectedSort === 'default') {
-      setPage(1);
-      setProducts(initialProducts);
-      setHasNextPage(initialHasNextPage);
-      setCurrentTotalPages(initialTotalPages);
-      setFilteredTotal(null);
-      usingInitialData.current = true;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    setPage(prevPage);
-    fetchPage(activeFilters, selectedSort, prevPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, initialHasNextPage, initialTotalPages]);
+    if (page <= 1) return;
+    goToPage(page - 1);
+  }, [page, goToPage]);
 
   const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
   const currentSort = SORT_OPTIONS.find((o) => o.value === selectedSort) || SORT_OPTIONS[0];
@@ -260,6 +281,7 @@ export function useTaxonomyProducts({
     isFiltered,
     handleFilterChange,
     handleSortChange,
+    goToPage,
     goToNextPage,
     goToPrevPage,
   };
