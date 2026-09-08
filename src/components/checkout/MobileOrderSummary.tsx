@@ -464,9 +464,6 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                 {cart.appliedCoupons.map((coupon) => (
                   <div key={coupon.code} className={styles.appliedCoupon}>
                     <span className={styles.couponCode}>{coupon.code}</span>
-                    {coupon.discountAmount && parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0') > 0 && (
-                      <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
-                    )}
                     <button
                       type="button"
                       onClick={() => handleRemoveCoupon(coupon.code)}
@@ -483,12 +480,37 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
 
           {subscriptionSlot}
 
-          {/* Totals */}
+          {/* Totals — gross Subtotal, Bundle Discount broken out, the rest
+              consolidated into "You saved", net Total. Mirrors OrderSummary. */}
+          {(() => {
+            const grossSubtotal = cart.items.reduce(
+              (s, i) => s + i.quantity * parseFloat(i.product.price.replace(/[^0-9.]/g, '') || '0'), 0
+            );
+            const netMerch = cart.items.reduce(
+              (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
+            );
+            const saved = Math.max(0, grossSubtotal - netMerch);
+            const otherSaved = Math.max(0, saved - totalBundleDiscount);
+            return (
           <dl className={styles.totals}>
             <div className={styles.row}>
               <dt>Subtotal</dt>
-              <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : cart.subtotal}</dd>
+              <dd>{subscription ? `$${subscription.recurring.toFixed(2)}` : `$${grossSubtotal.toFixed(2)}`}</dd>
             </div>
+
+            {!subscription && totalBundleDiscount > 0 && (
+              <div className={`${styles.row} ${styles.rowDiscount}`}>
+                <dt>Bundle Discount</dt>
+                <dd>-${totalBundleDiscount.toFixed(2)}</dd>
+              </div>
+            )}
+
+            {!subscription && otherSaved > 0 && (
+              <div className={`${styles.row} ${styles.rowDiscount}`}>
+                <dt>You saved</dt>
+                <dd>-${otherSaved.toFixed(2)}</dd>
+              </div>
+            )}
 
             <div className={styles.row}>
               <dt>Shipping</dt>
@@ -500,24 +522,6 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                   : 'Calculated at checkout'}
               </dd>
             </div>
-
-            {!subscription && totalBundleDiscount > 0 && (
-              <div className={`${styles.row} ${styles.rowDiscount}`}>
-                <dt>Bundle Discount</dt>
-                <dd>-${totalBundleDiscount.toFixed(2)}</dd>
-              </div>
-            )}
-
-            {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
-              const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');
-              if (amt <= 0) return null;
-              return (
-                <div key={coupon.code} className={`${styles.row} ${styles.rowDiscount}`}>
-                  <dt>{coupon.code.toUpperCase()}</dt>
-                  <dd>-{coupon.discountAmount}</dd>
-                </div>
-              );
-            })}
 
             <div className={`${styles.row} ${styles.rowTotal}`}>
               <dt>Total</dt>
@@ -531,6 +535,8 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
               </div>
             )}
           </dl>
+            );
+          })()}
         </div>
       )}
     </div>

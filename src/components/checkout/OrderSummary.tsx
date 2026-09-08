@@ -430,9 +430,6 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             {cart.appliedCoupons.map((coupon) => (
               <div key={coupon.code} className={styles.appliedCoupon}>
                 <span className={styles.couponCode}>{coupon.code}</span>
-                {coupon.discountAmount && parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0') > 0 && (
-                  <span className={styles.couponAmount}>-{coupon.discountAmount}</span>
-                )}
                 <button
                   type="button"
                   onClick={() => handleRemoveCoupon(coupon.code)}
