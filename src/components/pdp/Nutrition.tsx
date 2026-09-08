@@ -1,10 +1,12 @@
-import { Product, ProductNutrition } from '@/types/woocommerce';
+import { CannabinoidServing, Product, ProductNutrition } from '@/types/woocommerce';
 import NutritionBadge, { NUTRITION_BADGE_PRESETS } from './NutritionBadge';
 
 interface Props {
   nutrition?: ProductNutrition | null;
   mG?: Product['mG'];
   pieces?: Product['pieces'];
+  cannabinoids?: CannabinoidServing[];
+  productTypes?: Product['mfproductTypes'];
 }
 
 // `calories`/`sugar` are ACF text fields, not number fields, so an unset
@@ -29,14 +31,33 @@ function computePerPack(mG?: Props['mG'], pieces?: Props['pieces']): string | nu
   return String(mgValue * pieceCount);
 }
 
-export default function Nutrition({ nutrition, mG, pieces }: Props) {
+function isBeverage(productTypes?: Props['productTypes']): boolean {
+  return (productTypes?.nodes || []).some((t) => t.name?.toLowerCase() === 'beverage');
+}
+
+function findCannabinoid(
+  rows: CannabinoidServing[] | undefined,
+  aliases: string[]
+): string | null {
+  const row = (rows || []).find((r) => {
+    const key = (r.cannabinoid || '').trim().toLowerCase();
+    return aliases.includes(key);
+  });
+  return row?.mg != null ? String(row.mg) : null;
+}
+
+export default function Nutrition({ nutrition, mG, pieces, cannabinoids, productTypes }: Props) {
 
   const { calories, sugar } = nutrition || {};
   const hasSugar = hasValue(sugar);
   const hasCalories = hasValue(calories);
   const perPack = computePerPack(mG, pieces);
 
-  if (!hasSugar && !hasCalories && !perPack) {
+  const showCannabinoids = isBeverage(productTypes);
+  const thc = showCannabinoids ? findCannabinoid(cannabinoids, ['d9', 'delta-9', 'delta 9']) : null;
+  const cbd = showCannabinoids ? findCannabinoid(cannabinoids, ['cbd', 'cannabidiol']) : null;
+
+  if (!hasSugar && !hasCalories && !perPack && !thc && !cbd) {
     return null;
   }
 
@@ -44,16 +65,26 @@ export default function Nutrition({ nutrition, mG, pieces }: Props) {
     <div className="product-nutrition">
       <h3 className="product-nutrition__heading">Nutrition</h3>
 
-      {(hasSugar || perPack) && (
+      {(thc || cbd || hasSugar || perPack) && (
         <ul className="product-nutrition__badges">
-          {hasSugar && (
+          {thc && (
             <li>
-              <NutritionBadge preset={NUTRITION_BADGE_PRESETS.sugar} value={sugar} />
+              <NutritionBadge preset={NUTRITION_BADGE_PRESETS.thc} value={thc} />
+            </li>
+          )}
+          {cbd && (
+            <li>
+              <NutritionBadge preset={NUTRITION_BADGE_PRESETS.cbd} value={cbd} />
             </li>
           )}
           {perPack && (
             <li>
               <NutritionBadge preset={NUTRITION_BADGE_PRESETS.perPack} value={perPack} />
+            </li>
+          )}
+          {hasSugar && (
+            <li>
+              <NutritionBadge preset={NUTRITION_BADGE_PRESETS.sugar} value={sugar} />
             </li>
           )}
         </ul>

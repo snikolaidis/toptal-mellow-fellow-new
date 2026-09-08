@@ -5,7 +5,7 @@
 
   background-color: var(--color-gold-cream-20);
   border-radius: var(--border-radius);
-  padding: 20px;
+  padding-bottom: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -27,7 +27,7 @@
     justify-content: center;
     gap: 16px;
     list-style: none;
-    margin: 0;
+    margin: 0 20px;
     padding: 0;
   }
 
@@ -36,7 +36,7 @@
     grid-template-columns: 1fr;
     gap: 16px;
     list-style: none;
-    margin: 0;
+    margin: 0 20px;
     padding: 0;
 
     @include mixins.tablet {
