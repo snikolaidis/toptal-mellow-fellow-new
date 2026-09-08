@@ -559,6 +559,32 @@ const handleShippingMethodChange = async (
     );
   }
 };
+
+const handleSaveBilling = async () => {
+  try {
+    const response = await fetch('/api/checkout/customer', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        billing,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data?.success) {
+      throw new Error(
+        data?.message || data?.error || 'Unable to save billing address.'
+      );
+    }
+  } catch (error) {
+    console.error('Failed to save billing address:', error);
+    throw error;
+  }
+};
   // const selectedShippingMethod =
   //   shippingMethods.find(
   //     (method) =>
@@ -1040,7 +1066,7 @@ const handleShippingMethodChange = async (
           }
 
           selectedShipping={
-            selectedShipping
+            selectedShipping || ''
           }
 
           selectedShippingMethod={
@@ -1098,6 +1124,8 @@ const handleShippingMethodChange = async (
           onBillingChange={
             setBilling
           }
+
+          onSaveBilling={handleSaveBilling}
 
           onBack={() => {
             setCheckoutStep(

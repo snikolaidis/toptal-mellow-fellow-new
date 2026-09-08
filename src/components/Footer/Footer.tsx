@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import { gql, useQuery } from '@apollo/client';
 import {
+  AmexIcon,
+  DiscoverIcon,
   EmailIcon,
   FacebookIcon,
   InstagramIcon,
+  JcbIcon,
+  MastercardIcon,
   TikTokIcon,
   TwitterIcon,
+  VisaIcon,
   YouTubeIcon,
 } from '@/components/icons';
 
@@ -53,6 +59,9 @@ export const GET_FOOTER_MENU_2 = gql`
 export const GET_SOCIAL_LINKS = gql`
   query GetSocialLinks {
     siteSettings {
+      # See GET_MEGA_MENU_FEATURED: both write RootQuery.siteSettings, and
+      # without an id the later write replaces this one instead of merging.
+      id
       socialLinks {
         instagramUrl
         twitterUrl
@@ -91,6 +100,17 @@ interface FooterMenuItem {
   target?: string | null;
 }
 
+const PAYMENT_MARKS: Array<{
+  label: string;
+  Icon: () => React.JSX.Element;
+}> = [
+  { label: 'Visa', Icon: VisaIcon },
+  { label: 'Mastercard', Icon: MastercardIcon },
+  { label: 'American Express', Icon: AmexIcon },
+  { label: 'Discover', Icon: DiscoverIcon },
+  { label: 'JCB', Icon: JcbIcon },
+];
+
 // Resolve a WordPress menu item URL to an app-appropriate href. WP items mix
 // relative paths (/contact-us/), full frontend-domain URLs (the headless app)
 // and true external links (e.g. affiliate URLs). Internal targets get
@@ -121,6 +141,54 @@ function footerHref(uri: string): { href: string; external: boolean } {
   }
 }
 
+function MenuColumn({
+  heading,
+  items,
+  modifier,
+}: {
+  heading: string;
+  items: FooterMenuItem[];
+  modifier: string;
+}) {
+  return (
+    <div className={`footer-col ${modifier}`}>
+      <h3 className="footer-col__heading">{heading}</h3>
+      <ul className="footer-col__list">
+        {items.map((item) => {
+          const { href, external } = footerHref(item.uri);
+          return (
+            <li key={item.id}>
+              {external ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="footer-col__link"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link href={href} className="footer-col__link">
+                  {item.label}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+type SignupStatus = 'idle' | 'submitting' | 'success' | 'error';
+
+// Must read correctly for someone already subscribed, who gets the same 202
+// and so the same success state. Do not promise the code is on its way: the
+// welcome flow does not re-trigger for an existing profile.
+const SIGNUP_SUCCESS_MESSAGE =
+  'Thanks for subscribing. Keep an eye on your inbox.';
+const SIGNUP_GENERIC_ERROR = 'Something went wrong. Please try again.';
+
 export default function Footer() {
   const { data } = useQuery(GET_FOOTER_MENU);
   const footerMenu = data?.menus?.nodes?.[0];
@@ -136,90 +204,143 @@ export default function Footer() {
   const socialLinks: SocialLinks | undefined =
     socialData?.siteSettings?.socialLinks ?? undefined;
 
+  const [email, setEmail] = useState('');
+  const [signupStatus, setSignupStatus] = useState<SignupStatus>('idle');
+  const [signupMessage, setSignupMessage] = useState('');
+
+  async function handleSignupSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (signupStatus === 'submitting') return;
+
+    setSignupStatus('submitting');
+    setSignupMessage('');
+
+    try {
+      const response = await fetch('/api/newsletter-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
+        setSignupStatus('success');
+        setSignupMessage(SIGNUP_SUCCESS_MESSAGE);
+        setEmail('');
+        return;
+      }
+
+      setSignupStatus('error');
+      setSignupMessage(data?.error || SIGNUP_GENERIC_ERROR);
+    } catch {
+      setSignupStatus('error');
+      setSignupMessage(SIGNUP_GENERIC_ERROR);
+    }
+  }
+
   return (
     <>
-      {/* Newsletter */}
-      <section className="footer-newsletter section">
-        <div className="container">
-          <p><span>Get 15% off your first purchase </span>when you join the Mellow Fam!</p>
-          <form className="newsletter-form">
+      {/* Signup band */}
+      <section className="footer-signup">
+        <p className="footer-signup__heading">
+          Get <span className="footer-signup__accent">15% off</span> your first
+          purchase when you sign up!!
+        </p>
+        <form className="footer-signup__form" onSubmit={handleSignupSubmit}>
+          <div className="footer-signup__controls">
             <input
               type="email"
-              placeholder="your@email.com"
-              className="newsletter-input"
+              name="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={signupStatus === 'submitting'}
+              placeholder="Enter your email"
+              aria-label="Email address"
+              className="footer-signup__input"
             />
-            <button type="submit" className="newsletter-btn">
-              Subscribe
+            <button
+              type="submit"
+              className="footer-signup__button"
+              disabled={signupStatus === 'submitting'}
+            >
+              {signupStatus === 'submitting' ? 'Joining...' : 'Join now'}
             </button>
-          </form>
-        </div>
+          </div>
+          <p className="footer-signup__consent">
+            By joining you agree to receive marketing emails. Unsubscribe
+            anytime.
+          </p>
+          {/* Always rendered, never wrapped in a `&&`: the live region has to
+              exist before the message lands or a screen reader announces
+              nothing. Collapsed by :empty in the stylesheet. */}
+          <p
+            className={
+              signupStatus === 'success' || signupStatus === 'error'
+                ? `footer-signup__status footer-signup__status--${signupStatus}`
+                : 'footer-signup__status'
+            }
+            role="status"
+          >
+            {signupMessage}
+          </p>
+        </form>
       </section>
 
       <footer className="footer">
-        <div className="container">
+        <div className="footer__inner">
           <div className="footer-content">
-            {/* Backend-managed menu (WP "Footer 1" location) */}
-            <div className="link-section">
-              <h3 className="section-title">{footerMenu?.name ?? 'Shop'}</h3>
-              <ul className="link-list">
-                {footerItems.map((item) => {
-                  const { href, external } = footerHref(item.uri);
-                  return (
-                    <li key={item.id}>
-                      {external ? (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link"
-                        >
-                          {item.label}
-                        </a>
-                      ) : (
-                        <Link href={href} className="link">
-                          {item.label}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
+            {/* Stay Mellow (WP "Footer 1" location) */}
+            <MenuColumn
+              heading={footerMenu?.name ?? 'Stay Mellow'}
+              items={footerItems}
+              modifier="footer-col--menu-1"
+            />
+
+            <div className="footer-col footer-col--payment">
+              <h3 className="footer-col__heading">We accept</h3>
+              <ul className="footer-col__accept">
+                {PAYMENT_MARKS.map(({ label, Icon }) => (
+                  <li key={label}>
+                    <Icon />
+                    <span className="is-sr-only">{label}</span>
+                  </li>
+                ))}
               </ul>
             </div>
 
-            {/* Brand */}
-            <div className="brand-section">
-              <div className="email-link">
-                <h4 className="section-title">Get in touch</h4>
-                <a href="/pages/contact-us">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <EmailIcon />
-                    </span>
-                    <span>Email us</span>
-                  </span>
-                </a>
+            {/* Legal (WP "Footer 2" location) */}
+            <MenuColumn
+              heading={footerMenu2?.name ?? 'Legal'}
+              items={footerItems2}
+              modifier="footer-col--menu-2"
+            />
+
+            <div className="footer-col footer-col--contact">
+              <div>
+                <h3 className="footer-col__heading">Get in touch</h3>
+                <Link href="/pages/contact-us" className="footer-col__email">
+                  <EmailIcon />
+                  <span>Email us</span>
+                </Link>
               </div>
-              
-              <div className="social-links">
-                <h6>
-                  Follow us
-                </h6>
-                <ul>
+
+              <div>
+                <h4 className="footer-social__label">Follow us</h4>
+                <ul className="footer-social__list">
                   {SOCIAL_NETWORKS.map(({ key, label, Icon }) => {
                     const url = socialLinks?.[key];
                     if (!url) return null;
                     return (
-                      <li className="social-link" key={key}>
+                      <li key={key}>
                         <a
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="social-link"
+                          className="footer-social__link"
                           aria-label={label}
                         >
-                          <span className="icon">
-                            <Icon />
-                          </span>
+                          <Icon />
                         </a>
                       </li>
                     );
@@ -227,40 +348,10 @@ export default function Footer() {
                 </ul>
               </div>
             </div>
-
-            {/* Backend-managed menu (WP "Footer 2" location) */}
-            <div className="link-section">
-              <h4 className="section-title">{footerMenu2?.name ?? 'Information'}</h4>
-              <ul className="link-list">
-                {footerItems2.map((item) => {
-                  const { href, external } = footerHref(item.uri);
-                  return (
-                    <li key={item.id}>
-                      {external ? (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link"
-                        >
-                          {item.label}
-                        </a>
-                      ) : (
-                        <Link href={href} className="link">
-                          {item.label}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
           </div>
 
-          <div className="copyright-section section">
-            <p>
-              &copy; {new Date().getFullYear()} Mellow Fellow
-            </p>
+          <div className="footer-copyright">
+            <p>&copy; {new Date().getFullYear()} Mellow Fellow</p>
           </div>
         </div>
       </footer>
@@ -268,7 +359,24 @@ export default function Footer() {
       {/* Footer Bottom */}
       <div className="footer-bottom section">
         <p>
-          THCA Disclaimer - This product is not available for shipment to the following states: Arkansas, Hawaii, Idaho, Kansas, Louisiana, Oklahoma, Oregon, Rhode Island, Utah
+          <svg
+            className="footer-bottom__icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <span>
+            THCA Disclaimer - This product is not available for shipment to the following states: Arkansas, Hawaii, Idaho, Kansas, Louisiana, Oklahoma, Oregon, Rhode Island, Utah
+          </span>
         </p>
       </div>
     </>

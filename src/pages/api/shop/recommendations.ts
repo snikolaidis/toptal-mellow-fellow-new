@@ -440,7 +440,24 @@ async function handleCart(
     const typeSlugs = CATEGORY_SLUGS[category] || [category];
     return fetchRecsProducts({ types: typeSlugs, limit: 4, exclude: allExcludeIds });
   });
-  const fetchResults = await Promise.all(fetchPromises);
+
+  // Fire impulse fetch in parallel with category fetches to avoid sequential round-trip
+  const impulseTypes = [...EDIBLE_TYPES, ...PREROLL_TYPES, ...FLOWER_TYPES];
+  if (hasDisposables) impulseTypes.push(...DISP_TYPES);
+  if (hasCartridges) impulseTypes.push(...CART_TYPES);
+  const impulseFetch = wantsImpulse
+    ? fetchRecsProducts({
+        types: impulseTypes,
+        priceMax: Math.min(gap + 5, 16),
+        exclude: allExcludeIds,
+        limit: 12,
+      })
+    : Promise.resolve([]);
+
+  const [fetchResults, prefetchedImpulse] = await Promise.all([
+    Promise.all(fetchPromises),
+    impulseFetch,
+  ]);
 
   const categoryProducts: Record<string, any[]> = {};
   for (let i = 0; i < categoriesToFetch.length; i++) {
@@ -475,16 +492,7 @@ async function handleCart(
 
   // ── Impulse add-ons (cheap gap-closers, only when under $80) ──
   if (wantsImpulse && results.length < limit) {
-    const impulseTypes = [...EDIBLE_TYPES, ...PREROLL_TYPES, ...FLOWER_TYPES];
-    if (hasDisposables) impulseTypes.push(...DISP_TYPES);
-    if (hasCartridges) impulseTypes.push(...CART_TYPES);
-
-    const impulseCandidates = await fetchRecsProducts({
-      types: impulseTypes,
-      priceMax: Math.min(gap + 5, 16),
-      exclude: [...excludeIds, ...Array.from(seenIds)],
-      limit: 12,
-    });
+    const impulseCandidates = prefetchedImpulse;
 
     const isVapeOnly = cartTypeSlugs.every(
       (t) => t === 'disposable-vape' || t === 'vape-cartridge'

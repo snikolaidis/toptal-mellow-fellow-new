@@ -1,9 +1,9 @@
-import styles from './MellowCheckout.module.css';
-import { useEffect, useState } from 'react';
-import { getApolloAuthClient,
-  useAuth, } from '@faustwp/core';
-import { useMutation } from '@apollo/client';
-import { UPDATE_CUSTOMER } from '@/graphql/queries/auth';
+import styles from "./MellowCheckout.module.css";
+import { useEffect, useState } from "react";
+import { getApolloAuthClient, useAuth } from "@faustwp/core";
+import { useMutation } from "@apollo/client";
+import { UPDATE_CUSTOMER } from "@/graphql/queries/auth";
+import { useCart } from "@/context/CartContext";
 
 interface Address {
   firstName: string;
@@ -36,60 +36,47 @@ interface ShippingMethod {
 
 interface MellowCheckoutProps {
   isAuthenticated: boolean;
-  checkoutAuthMethod?: 'google' | 'mellow' | 'guest' | null;
-
+  checkoutAuthMethod?: "google" | "mellow" | "guest" | null;
   billing: Address;
   shipping: Address;
-
   products: Product[];
-
   subtotal: number;
-
   shippingMethods: ShippingMethod[];
-
   selectedShipping: string;
   selectedShippingMethod: ShippingMethod;
-
   onBillingChange: (value: Address) => void;
   onShippingChange: (value: Address) => void;
   onShippingChangeMethod: (value: string) => void;
-
-    onContinueToBilling: () => void;
-
+  onContinueToBilling: () => void;
 }
 
 export default function MellowCheckout({
   isAuthenticated,
   checkoutAuthMethod,
-
   billing,
   shipping,
-
   products,
-
   subtotal,
-
   shippingMethods,
-
   selectedShipping,
   selectedShippingMethod,
-
   onBillingChange,
   onShippingChange,
   onShippingChangeMethod,
   onContinueToBilling,
 }: MellowCheckoutProps) {
-  const {
-  isAuthenticated: faustAuthenticated,
-} = useAuth();
+  const { isAuthenticated: faustAuthenticated } = useAuth();
+  const { cart } = useCart();
   const client = getApolloAuthClient();
   // checkoutAuthMethod is intentionally available for the checkout auth flow.
   void checkoutAuthMethod;
 
-  const [updateCustomer, { loading: savingCustomer }] =
-    useMutation(UPDATE_CUSTOMER, {
+  const [updateCustomer, { loading: savingCustomer }] = useMutation(
+    UPDATE_CUSTOMER,
+    {
       client,
-    });
+    },
+  );
 
   /*
    * Controls whether Contact Information is being edited.
@@ -97,8 +84,7 @@ export default function MellowCheckout({
    * Logged-in users start in summary mode.
    * Guest users start in edit mode.
    */
-  const [editingContact, setEditingContact] =
-    useState(!isAuthenticated);
+  const [editingContact, setEditingContact] = useState(!isAuthenticated);
 
   /*
    * Controls whether Shipping Address is being edited.
@@ -106,14 +92,12 @@ export default function MellowCheckout({
    * Logged-in users start in summary mode.
    * Guest users start in edit mode.
    */
-  const [editingShipping, setEditingShipping] =
-    useState(!isAuthenticated);
+  const [editingShipping, setEditingShipping] = useState(!isAuthenticated);
 
   /*
    * Prevent customer API from being loaded repeatedly.
    */
-  const [customerLoaded, setCustomerLoaded] =
-    useState(false);
+  const [customerLoaded, setCustomerLoaded] = useState(false);
 
   /*
    * Load logged-in WooCommerce customer.
@@ -131,84 +115,46 @@ export default function MellowCheckout({
 
     const loadCustomer = async () => {
       try {
-        console.log('Loading checkout customer...');
-
-        const response = await fetch(
-          '/api/checkout/customer'
-        );
-
+        const response = await fetch("/api/checkout/customer");
         const data = await response.json();
-
-        console.log(
-          'Checkout customer response:',
-          data
-        );
-
-        if (
-          !response.ok ||
-          !data.success ||
-          !data.customer
-        ) {
-          console.error(
-            'Unable to load checkout customer:',
-            data
-          );
+        if (!response.ok || !data.success || !data.customer) {
+          console.error("Unable to load checkout customer:", data);
 
           return;
         }
 
         const customer = data.customer;
 
-        console.log('Customer:', customer);
 
         /*
          * Billing data
          */
         const customerBilling: Address = {
           firstName:
-            customer.billing?.firstName ||
-            customer.contact?.firstName ||
-            '',
+            customer.billing?.firstName || customer.contact?.firstName || "",
 
           lastName:
-            customer.billing?.lastName ||
-            customer.contact?.lastName ||
-            '',
+            customer.billing?.lastName || customer.contact?.lastName || "",
 
           email:
             customer.billing?.email ||
             customer.contact?.email ||
             customer.email ||
-            '',
+            "",
 
-          phone:
-            customer.billing?.phone ||
-            customer.contact?.phone ||
-            '',
+          phone: customer.billing?.phone || customer.contact?.phone || "",
 
-          address1:
-            customer.billing?.address1 ||
-            '',
+          address1: customer.billing?.address1 || "",
 
-          address2:
-            customer.billing?.address2 ||
-            '',
+          address2: customer.billing?.address2 || "",
 
-          city:
-            customer.billing?.city ||
-            '',
+          city: customer.billing?.city || "",
 
-          state:
-            customer.billing?.state ||
-            '',
+          state: customer.billing?.state || "",
 
-          postcode:
-            customer.billing?.postcode ||
-            '',
+          postcode: customer.billing?.postcode || "",
 
-          country:
-            customer.billing?.country ||
-            'US',
+          country: customer.billing?.country || "US",
         };
 
         /*
@@ -219,60 +165,38 @@ export default function MellowCheckout({
             customer.shipping?.firstName ||
             customer.billing?.firstName ||
             customer.contact?.firstName ||
-            '',
+            "",
 
           lastName:
             customer.shipping?.lastName ||
             customer.billing?.lastName ||
             customer.contact?.lastName ||
-            '',
+            "",
 
           email:
             customer.billing?.email ||
             customer.contact?.email ||
             customer.email ||
-            '',
+            "",
 
           phone:
             customer.shipping?.phone ||
             customer.billing?.phone ||
             customer.contact?.phone ||
-            '',
+            "",
 
-          address1:
-            customer.shipping?.address1 ||
-            '',
+          address1: customer.shipping?.address1 || "",
 
-          address2:
-            customer.shipping?.address2 ||
-            '',
+          address2: customer.shipping?.address2 || "",
 
-          city:
-            customer.shipping?.city ||
-            '',
+          city: customer.shipping?.city || "",
 
-          state:
-            customer.shipping?.state ||
-            '',
+          state: customer.shipping?.state || "",
 
-          postcode:
-            customer.shipping?.postcode ||
-            '',
+          postcode: customer.shipping?.postcode || "",
 
-          country:
-            customer.shipping?.country ||
-            'US',
+          country: customer.shipping?.country || "US",
         };
-
-        console.log(
-          'Autofill billing:',
-          customerBilling
-        );
-
-        console.log(
-          'Autofill shipping:',
-          customerShipping
-        );
 
         /*
          * Send customer data to checkout page.
@@ -289,20 +213,12 @@ export default function MellowCheckout({
 
         setCustomerLoaded(true);
       } catch (error) {
-        console.error(
-          'Failed to load checkout customer:',
-          error
-        );
+        console.error("Failed to load checkout customer:", error);
       }
     };
 
     loadCustomer();
-  }, [
-    isAuthenticated,
-    customerLoaded,
-    onBillingChange,
-    onShippingChange,
-  ]);
+  }, [isAuthenticated, customerLoaded, onBillingChange, onShippingChange]);
 
   /*
    * When authentication changes from guest
@@ -321,10 +237,7 @@ export default function MellowCheckout({
   /*
    * Update billing field.
    */
-  const updateBilling = (
-    field: keyof Address,
-    value: string
-  ) => {
+  const updateBilling = (field: keyof Address, value: string) => {
     onBillingChange({
       ...billing,
       [field]: value,
@@ -334,10 +247,7 @@ export default function MellowCheckout({
   /*
    * Update shipping field.
    */
-  const updateShipping = (
-    field: keyof Address,
-    value: string
-  ) => {
+  const updateShipping = (field: keyof Address, value: string) => {
     onShippingChange({
       ...shipping,
       [field]: value,
@@ -384,130 +294,119 @@ export default function MellowCheckout({
   //   setEditingContact(false);
   // };
 
+  // const saveContact = async () => {
+  //   try {
+  //     const sessionResponse = await fetch(
+  //       '/api/auth/session',
+  //       {
+  //         credentials: 'include',
+  //       }
+  //     );
 
-// const saveContact = async () => {
-//   try {
-//     const sessionResponse = await fetch(
-//       '/api/auth/session',
-//       {
-//         credentials: 'include',
-//       }
-//     );
+  //     const session =
+  //       await sessionResponse.json();
 
-//     const session =
-//       await sessionResponse.json();
+  //     /*
+  //      * Only Google users use this new save API.
+  //      *
+  //      * Mellow Fellow and Guest remain unchanged.
+  //      */
+  //     if (
+  //       sessionResponse.ok &&
+  //       session?.isAuthenticated === true
+  //     ) {
+  //       const response = await fetch(
+  //         '/api/checkout/google-customer',
+  //         {
+  //           method: 'POST',
+  //           credentials: 'include',
+  //           headers: {
+  //             'Content-Type': 'application/json',
+  //           },
+  //           body: JSON.stringify({
+  //             billing,
+  //           }),
+  //         }
+  //       );
 
-//     /*
-//      * Only Google users use this new save API.
-//      *
-//      * Mellow Fellow and Guest remain unchanged.
-//      */
-//     if (
-//       sessionResponse.ok &&
-//       session?.isAuthenticated === true
-//     ) {
-//       const response = await fetch(
-//         '/api/checkout/google-customer',
-//         {
-//           method: 'POST',
-//           credentials: 'include',
-//           headers: {
-//             'Content-Type': 'application/json',
-//           },
-//           body: JSON.stringify({
-//             billing,
-//           }),
-//         }
-//       );
+  //       const data =
+  //         await response.json();
 
-//       const data =
-//         await response.json();
+  //       if (!response.ok || !data.success) {
+  //         console.error(
+  //           'Google billing save failed:',
+  //           data
+  //         );
 
-//       if (!response.ok || !data.success) {
-//         console.error(
-//           'Google billing save failed:',
-//           data
-//         );
+  //         return;
+  //       }
+  //     }
 
-//         return;
-//       }
-//     }
+  //     setEditingContact(false);
 
-//     setEditingContact(false);
-
-//   } catch (error) {
-//     console.error(
-//       'Google billing save error:',
-//       error
-//     );
-//   }
-// };
-
+  //   } catch (error) {
+  //     console.error(
+  //       'Google billing save error:',
+  //       error
+  //     );
+  //   }
+  // };
 
   const saveContact = async () => {
-  /*
-   * MELLOW FELLOW
-   */
-  if (faustAuthenticated) {
-    try {
-      await updateCustomer({
-        variables: {
-          input: {
-            billing: {
-              firstName: billing.firstName,
-              lastName: billing.lastName,
-              email: billing.email,
-              phone: billing.phone,
-              address1: billing.address1,
-              address2: billing.address2,
-              city: billing.city,
-              state: billing.state,
-              postcode: billing.postcode,
-              country: billing.country,
-            },
+    /*
+     * MELLOW FELLOW
+     */
+    if (faustAuthenticated) {
+      try {
+        await updateCustomer({
+          variables: {
+            input: {
+              billing: {
+                firstName: billing.firstName,
+                lastName: billing.lastName,
+                email: billing.email,
+                phone: billing.phone,
+                address1: billing.address1,
+                address2: billing.address2,
+                city: billing.city,
+                state: billing.state,
+                postcode: billing.postcode,
+                country: billing.country,
+              },
 
-            shipping: {
-              firstName: shipping.firstName,
-              lastName: shipping.lastName,
-              address1: shipping.address1,
-              address2: shipping.address2,
-              city: shipping.city,
-              state: shipping.state,
-              postcode: shipping.postcode,
-              country: shipping.country,
+              shipping: {
+                firstName: shipping.firstName,
+                lastName: shipping.lastName,
+                address1: shipping.address1,
+                address2: shipping.address2,
+                city: shipping.city,
+                state: shipping.state,
+                postcode: shipping.postcode,
+                country: shipping.country,
+              },
             },
           },
-        },
-      });
+        });
 
-      console.log(
-        'Mellow Fellow billing address saved'
-      );
+      } catch (error) {
+        console.error("Mellow Fellow billing update failed:", error);
 
-    } catch (error) {
-      console.error(
-        'Mellow Fellow billing update failed:',
-        error
-      );
+        return;
+      }
 
+      setEditingContact(false);
       return;
     }
 
-    setEditingContact(false);
-    return;
-  }
-
-  /*
-   * GOOGLE
-   */
-  try {
-    const response = await fetch(
-      '/api/checkout/google-customer',
-      {
-        method: 'POST',
-        credentials: 'include',
+    /*
+     * GOOGLE
+     */
+    try {
+      const response = await fetch("/api/checkout/google-customer", {
+        method: "POST",
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           billing: {
@@ -523,33 +422,21 @@ export default function MellowCheckout({
             country: billing.country,
           },
         }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error("Google billing address update failed:", data);
+
+        return;
       }
-    );
 
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      console.error(
-        'Google billing address update failed:',
-        data
-      );
-
-      return;
+      setEditingContact(false);
+    } catch (error) {
+      console.error("Google billing address save failed:", error);
     }
-
-    console.log(
-      'Google billing address saved'
-    );
-
-    setEditingContact(false);
-
-  } catch (error) {
-    console.error(
-      'Google billing address save failed:',
-      error
-    );
-  }
-};
+  };
   /*
    * Save shipping information.
    *
@@ -588,123 +475,115 @@ export default function MellowCheckout({
   //   setEditingShipping(false);
   // };
 
-// const saveShipping = async () => {
-//   try {
-//     const sessionResponse = await fetch(
-//       '/api/auth/session',
-//       {
-//         credentials: 'include',
-//       }
-//     );
+  // const saveShipping = async () => {
+  //   try {
+  //     const sessionResponse = await fetch(
+  //       '/api/auth/session',
+  //       {
+  //         credentials: 'include',
+  //       }
+  //     );
 
-//     const session =
-//       await sessionResponse.json();
+  //     const session =
+  //       await sessionResponse.json();
 
-//     if (
-//       sessionResponse.ok &&
-//       session?.isAuthenticated === true
-//     ) {
-//       const response = await fetch(
-//         '/api/checkout/google-customer',
-//         {
-//           method: 'POST',
-//           credentials: 'include',
-//           headers: {
-//             'Content-Type': 'application/json',
-//           },
-//           body: JSON.stringify({
-//             shipping,
-//           }),
-//         }
-//       );
+  //     if (
+  //       sessionResponse.ok &&
+  //       session?.isAuthenticated === true
+  //     ) {
+  //       const response = await fetch(
+  //         '/api/checkout/google-customer',
+  //         {
+  //           method: 'POST',
+  //           credentials: 'include',
+  //           headers: {
+  //             'Content-Type': 'application/json',
+  //           },
+  //           body: JSON.stringify({
+  //             shipping,
+  //           }),
+  //         }
+  //       );
 
-//       const data =
-//         await response.json();
+  //       const data =
+  //         await response.json();
 
-//       if (!response.ok || !data.success) {
-//         console.error(
-//           'Google shipping save failed:',
-//           data
-//         );
+  //       if (!response.ok || !data.success) {
+  //         console.error(
+  //           'Google shipping save failed:',
+  //           data
+  //         );
 
-//         return;
-//       }
-//     }
+  //         return;
+  //       }
+  //     }
 
-//     setEditingShipping(false);
+  //     setEditingShipping(false);
 
-//   } catch (error) {
-//     console.error(
-//       'Google shipping save error:',
-//       error
-//     );
-//   }
-// };
+  //   } catch (error) {
+  //     console.error(
+  //       'Google shipping save error:',
+  //       error
+  //     );
+  //   }
+  // };
 
-const saveShipping = async () => {
-  /*
-   * MELLOW FELLOW
-   */
-  if (faustAuthenticated) {
-    try {
-      await updateCustomer({
-        variables: {
-          input: {
-            billing: {
-              firstName: billing.firstName,
-              lastName: billing.lastName,
-              email: billing.email,
-              phone: billing.phone,
-              address1: billing.address1,
-              address2: billing.address2,
-              city: billing.city,
-              state: billing.state,
-              postcode: billing.postcode,
-              country: billing.country,
-            },
+  const saveShipping = async () => {
+    /*
+     * MELLOW FELLOW
+     */
+    if (faustAuthenticated) {
+      try {
+        await updateCustomer({
+          variables: {
+            input: {
+              billing: {
+                firstName: billing.firstName,
+                lastName: billing.lastName,
+                email: billing.email,
+                phone: billing.phone,
+                address1: billing.address1,
+                address2: billing.address2,
+                city: billing.city,
+                state: billing.state,
+                postcode: billing.postcode,
+                country: billing.country,
+              },
 
-            shipping: {
-              firstName: shipping.firstName,
-              lastName: shipping.lastName,
-              address1: shipping.address1,
-              address2: shipping.address2,
-              city: shipping.city,
-              state: shipping.state,
-              postcode: shipping.postcode,
-              country: shipping.country,
+              shipping: {
+                firstName: shipping.firstName,
+                lastName: shipping.lastName,
+                address1: shipping.address1,
+                address2: shipping.address2,
+                city: shipping.city,
+                state: shipping.state,
+                postcode: shipping.postcode,
+                country: shipping.country,
+              },
             },
           },
-        },
-      });
+        });
 
-      console.log(
-        'Mellow Fellow shipping address saved'
-      );
+        console.log("Mellow Fellow shipping address saved");
+      } catch (error) {
+        console.error("Mellow Fellow shipping update failed:", error);
 
-    } catch (error) {
-      console.error(
-        'Mellow Fellow shipping update failed:',
-        error
-      );
+        return;
+      }
 
+      setEditingShipping(false);
       return;
     }
 
-    setEditingShipping(false);
-    return;
-  }
-
-  /*
-   * GOOGLE
-   */
-  try {
-    const response = await fetch(
-      '/api/checkout/google-customer',
-      {
-        method: 'POST',
-        credentials: 'include',
+    /*
+     * GOOGLE
+     */
+    try {
+      const response = await fetch("/api/checkout/google-customer", {
+        method: "POST",
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           shipping: {
@@ -718,187 +597,110 @@ const saveShipping = async () => {
             country: shipping.country,
           },
         }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error("Google shipping address update failed:", data);
+
+        return;
       }
-    );
 
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      console.error(
-        'Google shipping address update failed:',
-        data
-      );
-
-      return;
+      setEditingShipping(false);
+    } catch (error) {
+      console.error("Google shipping address save failed:", error);
     }
-
-    console.log(
-      'Google shipping address saved'
-    );
-
-    setEditingShipping(false);
-
-  } catch (error) {
-    console.error(
-      'Google shipping address save failed:',
-      error
-    );
-  }
-};
-  const total =
-    subtotal + selectedShippingMethod.price;
+  };
+  const subtotalAmount =
+    (cart?.total?.replace("$", "") as any) * 1 - selectedShippingMethod.price;
 
   return (
     <div className={styles.wrapper}>
       <div className={styles.checkoutContainer}>
-
         {/* =====================================================
             LEFT
         ====================================================== */}
         <main className={styles.left}>
-
           {/* Progress */}
           <div className={styles.progress}>
-
-            <span className={styles.active}>
-              Checkout
-            </span>
-
+            <span className={styles.active}>Checkout</span>
             <span>›</span>
-
-            <span>
-              Shipping
-            </span>
-
+            <span>Shipping</span>
             <span>›</span>
-
-            <span>
-              Billing
-            </span>
-
+            <span>Billing</span>
             <span>›</span>
-
-            <span>
-              Real ID
-            </span>
-
+            <span>Real ID</span>
             <span>›</span>
-
-            <span>
-              Payment
-            </span>
-
+            <span>Payment</span>
           </div>
 
           {/* =================================================
               CONTACT INFORMATION
           ================================================== */}
           <section className={styles.card}>
-
             <div className={styles.cardHeader}>
-
-              <h3>
-                Contact Information
-              </h3>
+              <h3>Contact Information</h3>
 
               {!editingContact && (
                 <button
                   type="button"
                   className={styles.editButton}
-                  onClick={() =>
-                    setEditingContact(true)
-                  }
+                  onClick={() => setEditingContact(true)}
                   aria-label="Edit contact information"
                 >
                   ✎
                 </button>
               )}
-
             </div>
 
             {editingContact ? (
-
               /*
                * EDIT CONTACT
                */
               <div className={styles.guestForm}>
-
                 <div className={styles.formRow}>
-
                   <div className={styles.field}>
-
-                    <label>
-                      First Name *
-                    </label>
+                    <label>First Name *</label>
 
                     <input
                       value={billing.firstName}
                       onChange={(e) =>
-                        updateBilling(
-                          'firstName',
-                          e.target.value
-                        )
+                        updateBilling("firstName", e.target.value)
                       }
                     />
-
                   </div>
 
                   <div className={styles.field}>
-
-                    <label>
-                      Last Name *
-                    </label>
+                    <label>Last Name *</label>
 
                     <input
                       value={billing.lastName}
                       onChange={(e) =>
-                        updateBilling(
-                          'lastName',
-                          e.target.value
-                        )
+                        updateBilling("lastName", e.target.value)
                       }
                     />
-
                   </div>
-
                 </div>
 
                 <div className={styles.field}>
-
-                  <label>
-                    Email Address *
-                  </label>
+                  <label>Email Address *</label>
 
                   <input
                     type="email"
                     value={billing.email}
-                    onChange={(e) =>
-                      updateBilling(
-                        'email',
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => updateBilling("email", e.target.value)}
                   />
-
                 </div>
 
                 <div className={styles.field}>
-
-                  <label>
-                    Phone Number *
-                  </label>
+                  <label>Phone Number *</label>
 
                   <input
                     type="tel"
                     value={billing.phone}
-                    onChange={(e) =>
-                      updateBilling(
-                        'phone',
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => updateBilling("phone", e.target.value)}
                   />
-
                 </div>
 
                 <button
@@ -908,190 +710,109 @@ const saveShipping = async () => {
                 >
                   SAVE
                 </button>
-
               </div>
-
             ) : (
-
               /*
                * CONTACT SUMMARY
                */
               <div className={styles.info}>
-
                 <strong>
-                  {billing.firstName}{' '}
-                  {billing.lastName}
+                  {billing.firstName} {billing.lastName}
                 </strong>
 
-                {billing.email && (
-                  <p>
-                    {billing.email}
-                  </p>
-                )}
+                {billing.email && <p>{billing.email}</p>}
 
-                {billing.phone && (
-                  <p>
-                    {billing.phone}
-                  </p>
-                )}
-
+                {billing.phone && <p>{billing.phone}</p>}
               </div>
-
             )}
-
           </section>
 
           {/* =================================================
               SHIPPING ADDRESS
           ================================================== */}
           <section className={styles.card}>
-
             <div className={styles.cardHeader}>
-
-              <h3>
-                Shipping Address
-              </h3>
+              <h3>Shipping Address</h3>
 
               {!editingShipping && (
                 <button
                   type="button"
                   className={styles.editButton}
-                  onClick={() =>
-                    setEditingShipping(true)
-                  }
+                  onClick={() => setEditingShipping(true)}
                   aria-label="Edit shipping address"
                 >
                   ✎
                 </button>
               )}
-
             </div>
 
             {editingShipping ? (
-
               /*
                * EDIT SHIPPING
                */
               <div className={styles.guestForm}>
-
                 <div className={styles.field}>
-
-                  <label>
-                    Street Address *
-                  </label>
+                  <label>Street Address *</label>
 
                   <input
                     value={shipping.address1}
-                    onChange={(e) =>
-                      updateShipping(
-                        'address1',
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => updateShipping("address1", e.target.value)}
                   />
-
                 </div>
 
                 <div className={styles.field}>
-
-                  <label>
-                    Apartment, Suite, Unit
-                  </label>
+                  <label>Apartment, Suite, Unit</label>
 
                   <input
                     value={shipping.address2}
-                    onChange={(e) =>
-                      updateShipping(
-                        'address2',
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => updateShipping("address2", e.target.value)}
                   />
-
                 </div>
 
                 <div className={styles.formRow}>
-
                   <div className={styles.field}>
-
-                    <label>
-                      City *
-                    </label>
+                    <label>City *</label>
 
                     <input
                       value={shipping.city}
-                      onChange={(e) =>
-                        updateShipping(
-                          'city',
-                          e.target.value
-                        )
-                      }
+                      onChange={(e) => updateShipping("city", e.target.value)}
                     />
-
                   </div>
 
                   <div className={styles.field}>
-
-                    <label>
-                      State *
-                    </label>
+                    <label>State *</label>
 
                     <input
                       value={shipping.state}
-                      onChange={(e) =>
-                        updateShipping(
-                          'state',
-                          e.target.value
-                        )
-                      }
+                      onChange={(e) => updateShipping("state", e.target.value)}
                     />
-
                   </div>
-
                 </div>
 
                 <div className={styles.formRow}>
-
                   <div className={styles.field}>
-
-                    <label>
-                      ZIP Code *
-                    </label>
+                    <label>ZIP Code *</label>
 
                     <input
                       value={shipping.postcode}
                       onChange={(e) =>
-                        updateShipping(
-                          'postcode',
-                          e.target.value
-                        )
+                        updateShipping("postcode", e.target.value)
                       }
                     />
-
                   </div>
 
                   <div className={styles.field}>
-
-                    <label>
-                      Country *
-                    </label>
+                    <label>Country *</label>
 
                     <select
                       value={shipping.country}
                       onChange={(e) =>
-                        updateShipping(
-                          'country',
-                          e.target.value
-                        )
+                        updateShipping("country", e.target.value)
                       }
                     >
-                      <option value="US">
-                        United States
-                      </option>
+                      <option value="US">United States</option>
                     </select>
-
                   </div>
-
                 </div>
 
                 <button
@@ -1101,137 +822,67 @@ const saveShipping = async () => {
                 >
                   SAVE
                 </button>
-
               </div>
-
             ) : (
-
               /*
                * SHIPPING SUMMARY
                */
               <div className={styles.info}>
-
                 <strong>
-                  {shipping.firstName}{' '}
-                  {shipping.lastName}
+                  {shipping.firstName} {shipping.lastName}
                 </strong>
 
-                {shipping.address1 && (
-                  <p>
-                    {shipping.address1}
-                  </p>
-                )}
+                {shipping.address1 && <p>{shipping.address1}</p>}
 
-                {shipping.address2 && (
-                  <p>
-                    {shipping.address2}
-                  </p>
-                )}
+                {shipping.address2 && <p>{shipping.address2}</p>}
 
-                {(shipping.city ||
-                  shipping.state ||
-                  shipping.postcode) && (
+                {(shipping.city || shipping.state || shipping.postcode) && (
                   <p>
                     {shipping.city}
-
-                    {shipping.city &&
-                      shipping.state
-                      ? ', '
-                      : ''}
-
-                    {shipping.state}{' '}
-
-                    {shipping.postcode}
+                    {shipping.city && shipping.state ? ", " : ""}
+                    {shipping.state} {shipping.postcode}
                   </p>
                 )}
 
-                {shipping.country && (
-                  <p>
-                    {shipping.country}
-                  </p>
-                )}
-
+                {shipping.country && <p>{shipping.country}</p>}
               </div>
-
             )}
-
           </section>
 
           {/* =================================================
               SHIPPING METHOD
           ================================================== */}
           <section className={styles.card}>
+            <h3>Shipping Method</h3>
 
-            <h3>
-              Shipping Method
-            </h3>
+            <div className={styles.shippingMethods}>
+              {shippingMethods.map((method) => (
+                <label
+                  key={method.id}
+                  className={
+                    selectedShipping === method.id
+                      ? `${styles.shippingMethod} ${styles.shippingMethodActive}`
+                      : styles.shippingMethod
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="shipping-method"
+                    value={method.id}
+                    checked={selectedShipping === method.id}
+                    onChange={() => onShippingChangeMethod(method.id)}
+                  />
 
-            <div
-              className={
-                styles.shippingMethods
-              }
-            >
+                  <div className={styles.shippingDetails}>
+                    <strong>{method.name}</strong>
 
-              {shippingMethods.map(
-                (method) => (
+                    {method.description && <small>{method.description}</small>}
+                  </div>
 
-                  <label
-                    key={method.id}
-                    className={
-                      selectedShipping ===
-                      method.id
-                        ? `${styles.shippingMethod} ${styles.shippingMethodActive}`
-                        : styles.shippingMethod
-                    }
-                  >
-
-                    <input
-                      type="radio"
-                      name="shipping-method"
-                      value={method.id}
-                      checked={
-                        selectedShipping ===
-                        method.id
-                      }
-                      onChange={() =>
-                        onShippingChangeMethod(
-                          method.id
-                        )
-                      }
-                    />
-
-                    <div
-                      className={
-                        styles.shippingDetails
-                      }
-                    >
-
-                      <strong>
-                        {method.name}
-                      </strong>
-
-                      {method.description && (
-                        <small>
-                          {method.description}
-                        </small>
-                      )}
-
-                    </div>
-
-                    <strong>
-                      $
-                      {method.price.toFixed(
-                        2
-                      )}
-                    </strong>
-
-                  </label>
-
-                )
-              )}
-
+                  <strong>${method.price.toFixed(2)}</strong>
+                </label>
+              ))}
             </div>
-
           </section>
 
           {/* =================================================
@@ -1240,129 +891,63 @@ const saveShipping = async () => {
           <button
             type="button"
             className={styles.continueBtn}
-              onClick={onContinueToBilling}
-
+            onClick={onContinueToBilling}
           >
             Continue to Billing
           </button>
-
         </main>
 
         {/* =====================================================
             RIGHT - ORDER SUMMARY
         ====================================================== */}
         <aside className={styles.right}>
-
           <section className={styles.summary}>
+            <h3>Order Summary</h3>
 
-            <h3>
-              Order Summary
-            </h3>
-
-            {products.map((product) => (
-
-              <div
-                key={product.id}
-                className={styles.product}
-              >
-
-                <div
-                  className={
-                    styles.productImage
-                  }
-                >
-
-                  {product.image ? (
-
+            {cart?.items.map((product) => (
+              <div key={product.key} className={styles.product}>
+                <div className={styles.productImage}>
+                  {product.product.image ? (
                     <img
-                      src={product.image}
-                      alt={product.name}
-                    />
-
-                  ) : (
-
-                    <div
-                      className={
-                        styles.imagePlaceholder
+                      src={product.product.image.sourceUrl}
+                      alt={
+                        product.product.image.altText ?? product.product.name
                       }
                     />
-
+                  ) : (
+                    <div className={styles.imagePlaceholder} />
                   )}
-
                 </div>
 
-                <div
-                  className={
-                    styles.productInfo
-                  }
-                >
+                <div className={styles.productInfo}>
+                  <strong>{product.product.name}</strong>
 
-                  <strong>
-                    {product.name}
-                  </strong>
-
-                  <p>
-                    Qty: {product.quantity}
-                  </p>
-
+                  <p>Qty: {product.quantity}</p>
                 </div>
 
-                <strong>
-                  $
-                  {product.total.toFixed(
-                    2
-                  )}
-                </strong>
-
+                <strong>{product.total}</strong>
               </div>
-
             ))}
 
             <div className={styles.row}>
+              <span>Subtotal</span>
 
-              <span>
-                Subtotal
-              </span>
-
-              <span>
-                $
-                {subtotal.toFixed(2)}
-              </span>
-
+              <span>{subtotalAmount?.toFixed(2)}</span>
             </div>
 
             <div className={styles.row}>
+              <span>Shipping</span>
 
-              <span>
-                Shipping
-              </span>
-
-              <span>
-                $
-                {selectedShippingMethod.price.toFixed(
-                  2
-                )}
-              </span>
-
+              <span>${selectedShippingMethod.price.toFixed(2)}</span>
             </div>
 
             <div className={styles.total}>
+              <span>Total</span>
 
-              <span>
-                Total
-              </span>
-
-              <strong>
-                $
-                {total.toFixed(2)}
-              </strong>
-
+              <strong>{cart?.total}</strong>
             </div>
-
           </section>
-
         </aside>
-
       </div>
     </div>
   );

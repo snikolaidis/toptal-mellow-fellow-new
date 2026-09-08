@@ -47,6 +47,14 @@ function mf_create_order( WP_REST_Request $request ) {
         ], 400 );
     }
 
+    $billing_email = sanitize_email( $billing['email'] ?? '' );
+    if ( ! $billing_email || ! is_email( $billing_email ) ) {
+        return new WP_REST_Response( [
+            'success' => false,
+            'message' => 'A valid billing email is required',
+        ], 400 );
+    }
+
     $transaction_id = sanitize_text_field( $body['transactionId'] ?? '' );
     $payment_method = sanitize_text_field( $body['paymentMethod'] ?? 'authorize_net' );
     $coupon_codes   = $body['couponCodes'] ?? [];

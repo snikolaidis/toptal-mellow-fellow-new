@@ -1,0 +1,77 @@
+.product-mellow-meter {
+  margin-bottom: 22px;
+
+  --mm-c1: #88c36d; // level 1
+  --mm-c2: #f7c65c; // level 2
+  --mm-c3: #f1a954; // level 3
+  --mm-c4: #e97c5e; // level 4
+  --mm-c5: #e64e67; // level 5
+  --mm-ink: #05060b;
+  --mm-track: #dccfb1;
+  --mm-border: #dccfb1;
+  --mm-bg: #ffffff;
+
+  &__card {
+    background: var(--mm-bg);
+    border: 1.5px solid var(--mm-border);
+    border-radius: 20px;
+    padding: 22px 22px 26px;
+  }
+
+  &__title-row {
+    border: 1.5px solid var(--mm-border);
+    border-radius: 16px;
+    padding: 12px 16px;
+    text-align: center;
+    margin-bottom: 6px;
+
+    h3 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+      color: var(--mm-ink);
+      font-weight: 600;
+
+      b {
+        font-weight: 800;
+      }
+    }
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  &__label {
+    font-weight: 700;
+    fill: var(--mm-ink);
+    letter-spacing: 0.2px;
+  }
+
+  &__subtitle {
+    text-align: center;
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--mm-ink);
+    margin-top: 4px;
+    min-height: 18px;
+  }
+
+  &__segment {
+    transition: opacity 0.5s ease, filter 0.5s ease;
+
+    &.is-active {
+      filter: none;
+    }
+
+    &.is-inactive {
+      opacity: 0.32;
+    }
+  }
+
+  &__needle {
+    transition: transform 2.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}

@@ -2,6 +2,12 @@ import { useState } from 'react';
 import RealIdVerification from '../RealIdVerification';
 import styles from './RealIdStep.module.css';
 
+type RememberMeOption =
+  | 'do_not_remember'
+  | 'remember_30'
+  | 'remember_60'
+  | 'remember_90';
+
 interface RealIdStepProps {
   customer: {
     id?: number | null;
@@ -12,7 +18,10 @@ interface RealIdStepProps {
 
   onBack: () => void;
 
-  onContinue: () => void;
+  onContinue: (
+    checkId: string,
+    rememberOption: RememberMeOption
+  ) => void;
 }
 
 export default function RealIdStep({
@@ -22,6 +31,11 @@ export default function RealIdStep({
 }: RealIdStepProps) {
   const [started, setStarted] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [verifiedCheckId, setVerifiedCheckId] = useState<string | null>(null);
+
+  // Remember Me selection
+  const [rememberOption, setRememberOption] =
+    useState<RememberMeOption>('do_not_remember');
 
   return (
     <div className={styles.page}>
@@ -51,9 +65,9 @@ export default function RealIdStep({
                 <div className={styles.feature}>
                   <div className={styles.featureIcon}>
                     <img
-      src="/images/protected.png"
-      alt="Your data is protected"
-    />
+                      src="/images/protected.png"
+                      alt="Your data is protected"
+                    />
                   </div>
 
                   <strong>
@@ -69,9 +83,9 @@ export default function RealIdStep({
                 <div className={styles.feature}>
                   <div className={styles.featureIcon}>
                     <img
-      src="/images/id-card.png"
-      alt="Government ID required"
-    />
+                      src="/images/id-card.png"
+                      alt="Government ID required"
+                    />
                   </div>
 
                   <strong>
@@ -85,10 +99,10 @@ export default function RealIdStep({
 
                 <div className={styles.feature}>
                   <div className={styles.featureIcon}>
-                   <img
-      src="/images/secure.png"
-      alt="Verified for 90 days"
-    />
+                    <img
+                      src="/images/secure.png"
+                      alt="Verified for 90 days"
+                    />
                   </div>
 
                   <strong>
@@ -263,13 +277,21 @@ export default function RealIdStep({
 
             <RealIdVerification
               customer={customer}
-              onVerifiedChange={(isVerified) => {
-                if (isVerified) {
+              onVerifiedChange={(isVerified, checkId) => {
+                if (isVerified && checkId) {
                   setVerified(true);
+                  setVerifiedCheckId(checkId);
+
+                  // Every new verification starts with
+                  // "Do not remember me" selected.
+                  setRememberOption('do_not_remember');
                 }
               }}
             />
 
+            {/* ================================
+                VERIFIED MESSAGE
+                ================================ */}
             {verified && (
               <div className={styles.verifiedBox}>
                 <span>✓</span>
@@ -286,11 +308,103 @@ export default function RealIdStep({
               </div>
             )}
 
-            {verified && (
+            {/* ================================
+                REMEMBER ME
+                ================================ */}
+            {verified && verifiedCheckId && (
+              <div className={styles.rememberMeBox}>
+
+                <p className={styles.rememberMeTitle}>
+                  You're verified! Skip this step next time
+                  by letting us remember your Real ID check
+                  on this device:
+                </p>
+
+                <div className={styles.rememberMeOptions}>
+
+                  <label>
+                    <input
+                      type="radio"
+                      name="remember_me_radio"
+                      value="do_not_remember"
+                      checked={
+                        rememberOption === 'do_not_remember'
+                      }
+                      onChange={() =>
+                        setRememberOption('do_not_remember')
+                      }
+                    />
+
+                    <strong>
+                      Do not remember me
+                    </strong>
+                  </label>
+
+                  <label>
+                    <input
+                      type="radio"
+                      name="remember_me_radio"
+                      value="remember_30"
+                      checked={
+                        rememberOption === 'remember_30'
+                      }
+                      onChange={() =>
+                        setRememberOption('remember_30')
+                      }
+                    />
+
+                    Remember me for <strong>30 days</strong>
+                  </label>
+
+                  <label>
+                    <input
+                      type="radio"
+                      name="remember_me_radio"
+                      value="remember_60"
+                      checked={
+                        rememberOption === 'remember_60'
+                      }
+                      onChange={() =>
+                        setRememberOption('remember_60')
+                      }
+                    />
+
+                    Remember me for <strong>60 days</strong>
+                  </label>
+
+                  <label>
+                    <input
+                      type="radio"
+                      name="remember_me_radio"
+                      value="remember_90"
+                      checked={
+                        rememberOption === 'remember_90'
+                      }
+                      onChange={() =>
+                        setRememberOption('remember_90')
+                      }
+                    />
+
+                    Remember me for <strong>90 days</strong>
+                  </label>
+
+                </div>
+              </div>
+            )}
+
+            {/* ================================
+                CONTINUE TO PAYMENT
+                ================================ */}
+            {verified && verifiedCheckId && (
               <button
                 type="button"
                 className={styles.continueButton}
-                onClick={onContinue}
+                onClick={() =>
+                  onContinue(
+                    verifiedCheckId,
+                    rememberOption
+                  )
+                }
               >
                 Continue to Payment
               </button>

@@ -26,8 +26,9 @@ export default async function handler(
     ? [String(existingSetCookie)]
     : [];
 
-  res.setHeader('Set-Cookie', [
+   res.setHeader('Set-Cookie', [
     ...existingCookies,
+    `wc_cart_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
     `wc_session_token=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
     `wp_woocommerce_session=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`,
   ]);

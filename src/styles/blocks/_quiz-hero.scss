@@ -1,13 +1,18 @@
+@use '../mixins' as *;
+
 .quiz-hero {
   position: relative;
   display: flex;
   align-items: flex-start;
   overflow: hidden;
   min-height: 397px;
-  background: linear-gradient(180deg, var(--color-hero-gold) 0%, rgba(255, 255, 255, 0) 112%);
+  // Figma ends the ramp at 112%, which leaves roughly 11% of the gold still
+  // painted at the block's bottom edge and cuts a visible line against the white
+  // section below. Ending at 100% lets it reach the page background cleanly.
+  background: linear-gradient(180deg, var(--color-hero-gold) 0%, rgba(255, 255, 255, 0) 100%);
   padding: 21px 17px 46px;
 
-  @media screen and (min-width: 483px) {
+  @include small-up {
     align-items: flex-start;
     min-height: 399px;
     padding: 32px 40px 40px;
@@ -18,7 +23,7 @@
     inset: 0;
     z-index: 0;
 
-    @media screen and (min-width: 483px) {
+    @include small-up {
       display: none;
     }
   }
@@ -31,7 +36,7 @@
     align-items: flex-start;
     max-width: 225px;
 
-    @media screen and (min-width: 483px) {
+    @include small-up {
       max-width: 520px;
     }
   }
@@ -46,7 +51,7 @@
     text-transform: uppercase;
     color: var(--color-ink);
 
-    @media screen and (min-width: 483px) {
+    @include small-up {
       margin-bottom: 20px;
       line-height: 20px;
     }
@@ -60,7 +65,7 @@
     line-height: 50px;
     color: var(--color-ink);
 
-    @media screen and (min-width: 483px) {
+    @include small-up {
       margin-bottom: 23px;
       line-height: 1.05;
     }
@@ -81,7 +86,7 @@
     line-height: 24px;
     color: var(--color-ink);
 
-    @media screen and (min-width: 483px) {
+    @include small-up {
       margin-bottom: 32px;
       max-width: 400px;
       font-size: 17px;
@@ -109,7 +114,7 @@
     color: var(--color-hero-cta-peach);
     transition: filter 0.2s ease;
 
-    @media screen and (min-width: 483px) {
+    @include small-up {
       width: 346px;
       height: 65px;
       margin-left: 0;

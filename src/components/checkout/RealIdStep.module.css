@@ -279,3 +279,41 @@
   height: 64px;
   object-fit: contain;
 }
+
+
+.rememberMeBox {
+  width: 100%;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.rememberMeTitle {
+  margin: 0 0 16px;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.rememberMeOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.rememberMeOptions label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.rememberMeOptions input[type='radio'] {
+  margin: 0;
+}

@@ -72,6 +72,34 @@ export interface ProductVariation {
   };
 }
 
+/**
+ * ACF image fields come through WPGraphQL as a media-item connection edge
+ * (`AcfMediaItemConnectionEdge`), not a flat object.
+ */
+export interface AcfImageField {
+  node?: {
+    sourceUrl?: string | null;
+    altText?: string | null;
+    mediaDetails?: { width?: number | null; height?: number | null } | null;
+  } | null;
+}
+
+export interface ProductTaxonomyTerm {
+  id: string;
+  name: string;
+  slug?: string;
+  extraTaxonomyFields?: { propIcon?: AcfImageField | null } | null;
+}
+
+// The `Nutrition` ACF group, attached directly to products (not nested under
+// productDetails). Fields are ACF "text" (not "number"), so GraphQL returns
+// them as strings, not floats. `carbs` also exists on the group but is
+// unused so far.
+export interface ProductNutrition {
+  calories?: string | null;
+  sugar?: string | null;
+}
+
 export interface ProductACF {
   // Text / textarea / wysiwyg
   coaLink?: string | null;
@@ -83,8 +111,8 @@ export interface ProductACF {
   whatIsNoid?: string | null;
   // Link field (url + title + target)
   userManual?: { url?: string | null; title?: string | null; target?: string | null } | null;
-  // Image field
-  blendsHighlights?: { sourceUrl?: string | null; altText?: string | null } | null;
+  // Image fields
+  timelineImage?: AcfImageField | null;
   // Post-object references (single)
   deviceFaqsReference?: { nodes?: Array<{ id?: string; title?: string; content?: string }> } | null;
   deviceFaqTest?: { node?: { id?: string; title?: string } | null } | null;
@@ -92,6 +120,10 @@ export interface ProductACF {
   newNoidBlendDescriptionsReference?: { node?: { id?: string; title?: string } | null } | null;
   // Relationship (multi-select posts)
   badges?: { nodes?: Array<{ id?: string; title?: string }> } | null;
+  // Mellow Meter fields — meterType is an ACF checkbox field (GraphQL
+  // returns [String]), meterValue is a plain number field.
+  meterType?: string[] | null;
+  meterValue?: number | null;
 }
 
 export interface Product {
@@ -137,6 +169,10 @@ export interface Product {
   // Product attribute taxonomies (migrated from Shopify), surfaced on cards.
   strainTypes?: { nodes: Array<{ name: string }> };
   strainNames?: { nodes: Array<{ name: string }> };
+  flavors?: { nodes: ProductTaxonomyTerm[] };
+  vibes?: { nodes: ProductTaxonomyTerm[] };
+  feelings?: { nodes: ProductTaxonomyTerm[] };
+  settings?: { nodes: ProductTaxonomyTerm[] };
   blendTypes?: { nodes: Array<{ name: string }> };
   productLines?: { nodes: Array<{ name: string }> };
   size?: { nodes: Array<{ name: string }> };

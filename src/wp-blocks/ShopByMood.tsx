@@ -1,12 +1,21 @@
 import { fragments } from './ShopByMood.fragments';
 import Image from 'next/image';
 import Link from 'next/link';
+import { decodeEntities } from '@/lib/decodeEntities';
 
 interface MediaItem {
   id?: string;
   altText?: string | null;
   sourceUrl?: string | null;
   mediaDetails?: { width?: number | null; height?: number | null } | null;
+}
+
+interface MoodTerm {
+  databaseId?: number | null;
+  name?: string | null;
+  slug?: string | null;
+  imageUrl?: string | null;
+  imageAlt?: string | null;
 }
 
 interface MoodCard {
@@ -18,11 +27,21 @@ interface MoodCard {
 const COVER_STYLE = { objectFit: 'cover' } as const;
 
 interface ShopByMoodProps {
+  moodTerms?: MoodTerm[] | null;
   shopByMood?: {
     heading?: string | null;
     subheading?: string | null;
     cards?: MoodCard[] | null;
   } | null;
+}
+
+function termToCard(term: MoodTerm): MoodCard | null {
+  if (!term.slug || !term.name) return null;
+  return {
+    label: term.name,
+    image: term.imageUrl ? { node: { sourceUrl: term.imageUrl, altText: term.imageAlt ?? '' } } : null,
+    link: { url: `/moods/${term.slug}`, title: term.name, target: '' },
+  };
 }
 
 function CardInner({ card }: { card: MoodCard }) {
@@ -40,14 +59,17 @@ function CardInner({ card }: { card: MoodCard }) {
           style={COVER_STYLE}
         />
       )}
-      {card.label && <span className="shop-by-mood__label">{card.label}</span>}
+      {card.label && (
+        <span className="shop-by-mood__label">{decodeEntities(card.label)}</span>
+      )}
     </>
   );
 }
 
 export default function ShopByMood(props: ShopByMoodProps) {
   const { shopByMood } = props;
-  const cards = shopByMood?.cards ?? [];
+  const fromTerms = (props.moodTerms ?? []).map(termToCard).filter(Boolean) as MoodCard[];
+  const cards = fromTerms.length > 0 ? fromTerms : shopByMood?.cards ?? [];
 
   if (!shopByMood || cards.length === 0) {
     return null;

@@ -4,6 +4,7 @@ import type {
 } from 'next';
 
 import { getSession } from '@/lib/session';
+import { clearAllAuthCookieHeaders } from '@/lib/session-manager';
 
 export default async function handler(
   req: NextApiRequest,
@@ -25,12 +26,13 @@ export default async function handler(
      * This does NOT logout the user's
      * actual Google account.
      */
-    session.userId = undefined;
-    session.accessToken = undefined;
-    session.accessTokenExpiration =
-      undefined;
+    (session as any).userId = undefined;
+    (session as any).accessToken = undefined;
+    (session as any).accessTokenExpiration = undefined;
 
     await session.save();
+
+    res.setHeader('Set-Cookie', clearAllAuthCookieHeaders());
 
     return res.status(200).json({
       success: true,

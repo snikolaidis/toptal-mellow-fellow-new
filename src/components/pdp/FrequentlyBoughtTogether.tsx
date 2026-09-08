@@ -214,7 +214,7 @@ export default function FrequentlyBoughtTogether({
                         </svg>
                       )}
                     </button>
-                    <Link href={`/product/${item.slug}`} className={styles.imageLink}>
+                    <Link href={`/products/${item.slug}`} className={styles.imageLink}>
                       {item.image?.sourceUrl ? (
                         <Image
                           src={item.image.sourceUrl}
@@ -228,7 +228,7 @@ export default function FrequentlyBoughtTogether({
                       )}
                     </Link>
                     {item.typeLabel ? <span className={styles.typeLabel}>{item.typeLabel}</span> : null}
-                    <Link href={`/product/${item.slug}`} className={styles.name}>
+                    <Link href={`/products/${item.slug}`} className={styles.name}>
                       {item.name}
                     </Link>
                     {item.subtitle ? <span className={styles.subtitle}>{item.subtitle}</span> : null}

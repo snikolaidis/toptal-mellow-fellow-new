@@ -108,11 +108,19 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({
-      error: 'Method not allowed',
-    });
-  }
+  // if (req.method !== 'GET') {
+  //   return res.status(405).json({
+  //     error: 'Method not allowed',
+  //   });
+  // }
+
+  const allowedMethods = ['GET', 'POST'];
+
+if (!allowedMethods.includes(req.method || '')) {
+  return res.status(405).json({
+    error: 'Method not allowed',
+  });
+}
 
   try {
 
@@ -158,6 +166,60 @@ export default async function handler(
         error: 'Not authenticated',
       });
     }
+
+    if (req.method === 'POST') {
+  const body = req.body;
+
+  if (!body || !body.billing) {
+    return res.status(400).json({
+      error: 'Billing address is required.',
+    });
+  }
+
+  const wordpressUrl =
+    process.env.NEXT_PUBLIC_WORDPRESS_URL;
+
+  const settingsSecret =
+    process.env.FAUSTWP_SECRET_KEY ||
+    process.env.MF_FAUST_SECRET ||
+    process.env.FAUST_SECRET_KEY ||
+    process.env.NEXT_PUBLIC_FAUSTWP_SECRET_KEY;
+
+  if (!wordpressUrl) {
+    return res.status(500).json({
+      error: 'WordPress URL is not configured',
+    });
+  }
+
+  if (!settingsSecret) {
+    return res.status(500).json({
+      error: 'Faust secret is not configured',
+    });
+  }
+
+  const response = await fetch(
+    `${wordpressUrl}/wp-json/mellow-fellow/v1/checkout-customer`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-FaustWP-Secret': settingsSecret,
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        billing: body.billing,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    return res.status(response.status).json(data);
+  }
+
+  return res.status(200).json(data);
+}
 
     const wordpressUrl =
       process.env.NEXT_PUBLIC_WORDPRESS_URL;

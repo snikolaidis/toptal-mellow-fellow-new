@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { OAuth2Client } from 'google-auth-library';
 import { getSession } from '@/lib/session';
+import { createSession } from '@/lib/session-manager';
 
 const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -230,6 +231,21 @@ session.accessTokenExpiration =
   Math.floor(Date.now() / 1000) + 86400;
 
 await session.save();
+
+// Google bypasses Faust's authorization-code exchange, so issue the same
+// first-party JWT session used by the regular login flow.
+const jwtSession = await createSession(Number(wordpressResult.user.id), req);
+const existingCookies = res.getHeader('Set-Cookie');
+let legacyCookies: string[] = [];
+if (Array.isArray(existingCookies)) {
+  legacyCookies = existingCookies.map(String);
+} else if (existingCookies) {
+  legacyCookies = [String(existingCookies)];
+}
+res.setHeader('Set-Cookie', [
+  ...legacyCookies,
+  ...jwtSession.setCookieHeaders,
+]);
 
 console.log('Google session saved:', {
   userId: session.userId,

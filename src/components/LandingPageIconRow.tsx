@@ -8,6 +8,10 @@ import { getClient, getBrowserClient } from '@/lib/apollo-client';
 const GET_LANDING_PAGE_ICON_ROW = gql`
   query GetLandingPageIconRow {
     siteSettings {
+      # See GET_MEGA_MENU_FEATURED and GET_SOCIAL_LINKS: every query writing
+      # RootQuery.siteSettings needs an id, or the later write replaces the
+      # earlier one instead of merging.
+      id
       landingPageIconRow {
         icons {
           label

@@ -1,7 +1,12 @@
 import { getApolloClient } from '@faustwp/core';
 import type { ApolloClient, NormalizedCacheObject } from '@apollo/client';
 import merge from 'deepmerge';
-import { GET_NAV } from '@/graphql/queries/menus';
+import {
+  GET_NAV,
+  GET_SHOP_MEGA_MENU,
+  GET_MEGA_MENU_FEATURED,
+} from '@/graphql/queries/menus';
+import { GET_ALL_MOODS } from '@/graphql/queries/moods';
 import { GET_FOOTER_MENU, GET_FOOTER_MENU_2, GET_SOCIAL_LINKS } from '@/components/Footer/Footer';
 
 const STATE_KEY = '__APOLLO_STATE__';
@@ -21,6 +26,9 @@ export async function prefetchMenus() {
 
   await Promise.all([
     client.query({ query: GET_NAV }).catch(() => null),
+    client.query({ query: GET_SHOP_MEGA_MENU }).catch(() => null),
+    client.query({ query: GET_ALL_MOODS }).catch(() => null),
+    client.query({ query: GET_MEGA_MENU_FEATURED }).catch(() => null),
     client.query({ query: GET_FOOTER_MENU }).catch(() => null),
     client.query({ query: GET_FOOTER_MENU_2 }).catch(() => null),
     client.query({ query: GET_SOCIAL_LINKS }).catch(() => null),

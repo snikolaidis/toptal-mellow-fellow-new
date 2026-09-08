@@ -48,8 +48,11 @@
     }
   }
 
+  // Sized by height, so a wide logo overflows its slide and gets clipped by the
+  // bar unless it is also capped to the slide width.
   img {
     max-height: 42px;
+    max-width: 100%;
     width: auto;
     object-fit: contain;
 

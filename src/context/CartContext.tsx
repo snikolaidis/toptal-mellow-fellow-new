@@ -7,14 +7,13 @@ import {
   useRef,
   ReactNode,
 } from 'react';
-import { getApolloAuthClient } from '@faustwp/core';
 import { useAuth } from '@/context/AuthContext';
 import { getBrowserClient, resetBrowserClient } from '@/lib/apollo-client';
 import {
   ADD_BUNDLE_TO_CART,
   REMOVE_BUNDLE_FROM_CART,
 } from '@/graphql/queries/cart';
-import { ShippingPackage, AppliedCoupon } from '@/types/checkout';
+// import { ShippingPackage, AppliedCoupon } from '@/types/checkout';
 import {
   CartError,
   ErrorCode,
@@ -32,6 +31,12 @@ import {
   selectShippingRate,
   StoreApiError,
 } from '@/lib/store-api';
+import {
+  buildRecsCacheKey,
+  isRecsFresh,
+  setRecsCache,
+  fetchRecommendations,
+} from '@/lib/recsCache';
 import type { Cart as StoreCart, CartItem as StoreCartItem } from '@/lib/store-api';
 
 function decodeHtmlEntities(text: string): string {
@@ -176,7 +181,7 @@ function readCachedCart(): Cart | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.items)) return parsed as Cart;
-  } catch {}
+  } catch { }
   return null;
 }
 
@@ -184,7 +189,7 @@ function writeCachedCart(cart: Cart | null) {
   try {
     if (cart && cart.items.length > 0) localStorage.setItem(CART_CACHE_KEY, JSON.stringify(cart));
     else localStorage.removeItem(CART_CACHE_KEY);
-  } catch {}
+  } catch { }
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -196,6 +201,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const cartRef = useRef<Cart | null>(null);
   cartRef.current = cart;
+  const pendingAddsRef = useRef(new Set<string>());
 
   const requestSeqRef = useRef(0);
   const nextSeq = () => ++requestSeqRef.current;
@@ -224,17 +230,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
 
-  // GraphQL client — only used for bundle operations
-  const getClient = useCallback(() => {
-    if (isAuthenticated) {
-      try {
-        return getApolloAuthClient();
-      } catch {
-        return getBrowserClient();
-      }
-    }
-    return getBrowserClient();
-  }, [isAuthenticated]);
+  // GraphQL client — only used for bundle operations. Always the same-origin
+  // browser client, even when logged in: every other cart operation already
+  // runs through the Store API's anonymous Cart-Token session regardless of
+  // auth state (see fetchCartFromStore/addItemToStore/etc. below), so bundle
+  // add/remove has to land in that same session to be visible afterward.
+  // The authenticated Apollo client hits WordPress directly cross-origin with
+  // a Bearer JWT, bypassing the Store API bridge entirely and resolving to a
+  // *different* WC session (keyed by the logged-in user's ID) — a leftover
+  // from before cart ops moved to the Store API, when the whole cart lived in
+  // GraphQL and needed that per-user session for persistence.
+  const getClient = useCallback(() => getBrowserClient(), []);
 
   function isSessionExpired(err: unknown): boolean {
     return err instanceof StoreApiError && err.code === 'session_expired';
@@ -255,7 +261,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
     setCart(empty);
     writeCachedCart(null);
-    try { localStorage.removeItem(CART_CACHE_KEY); } catch {}
+    try { localStorage.removeItem(CART_CACHE_KEY); } catch { }
     setError('Your cart session has expired. Please add your items again.');
   }
 
@@ -269,6 +275,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     try {
       const storeCart = await fetchCartFromStore();
+      console.log('storeCart', storeCart);
+      console.log('isStaleSeq', isStaleSeq(seq));
+      console.log('hasFetchedRef', hasFetchedRef.current);
       if (isStaleSeq(seq)) return;
       hasFetchedRef.current = true;
       if (storeCart) {
@@ -278,10 +287,85 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       setCartReady(true);
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); setCartReady(true); return; }
+      if (isSessionExpired(err)) {
+        console.log('Cart session expired');
+        resetToEmptyCart();
+        setCartReady(true);
+        return;
+      }
       logError('CartContext.fetchCart', err);
       const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
       setError(getUserMessage(cartError));
+      setCartReady(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const syncAndMigrateCartOnLogin = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    const seq = nextSeq();
+    const guestItems = cartRef.current?.items || readCachedCart()?.items || [];
+    const guestCoupons = cartRef.current?.appliedCoupons || readCachedCart()?.appliedCoupons || [];
+
+    try {
+      let storeCart = await fetchCartFromStore();
+      if (isStaleSeq(seq)) return;
+
+      // 1. Migrate guest cart items
+      if (guestItems.length > 0) {
+        const currentStoreItems = storeCart?.items || [];
+        for (const guestItem of guestItems) {
+          const productId = guestItem.product.databaseId;
+          const variationId = guestItem.variation?.databaseId;
+          const existingInStore = currentStoreItems.find(
+            (i) =>
+              i.product.databaseId === productId &&
+              (variationId ? i.variation?.databaseId === variationId : !i.variation)
+          );
+
+          if (!existingInStore) {
+            const updated = await addItemToStore(productId, guestItem.quantity, variationId);
+            if (updated) storeCart = updated;
+          }
+        }
+      }
+
+      // 2. Migrate guest applied coupons
+      if (guestCoupons.length > 0) {
+        const currentStoreCoupons = storeCart?.appliedCoupons || [];
+        for (const guestCoupon of guestCoupons) {
+          if (!guestCoupon.code) continue;
+          const existingInStore = currentStoreCoupons.some(
+            (c) => c.code.toLowerCase() === guestCoupon.code.toLowerCase()
+          );
+
+          if (!existingInStore) {
+            try {
+              const updated = await applyCouponToStore(guestCoupon.code);
+              if (updated) storeCart = updated;
+            } catch (couponErr) {
+              console.warn(`[syncAndMigrateCartOnLogin] Could not re-apply coupon ${guestCoupon.code}:`, couponErr);
+            }
+          }
+        }
+      }
+
+      hasFetchedRef.current = true;
+      if (storeCart) {
+        const enriched = enrichCartItems(storeCart, bundleItemMapRef.current);
+        setCart(enriched);
+        writeCachedCart(enriched);
+      }
+      setCartReady(true);
+    } catch (err) {
+      if (isSessionExpired(err)) {
+        resetToEmptyCart();
+        setCartReady(true);
+        return;
+      }
+      logError('CartContext.syncAndMigrateCartOnLogin', err);
       setCartReady(true);
     } finally {
       setIsLoading(false);
@@ -293,26 +377,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [fetchCart]);
 
   // Fetch cart on page load so the counter and cart page are accurate on reload.
-  // Safe now that all cart ops use the Store API (database sessions, no PHP file-lock contention).
   useEffect(() => {
     if (!isReady || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    fetchCart();
+  }, [isReady, fetchCart]);
 
-    if (isAuthenticated) {
-      fetch('/api/cart/restore-for-user', {
-        method: 'POST',
-        credentials: 'include',
-      })
-        .catch(() => {})
-        .finally(() => {
-          fetchCart();
-        });
-    } else {
-      fetchCart();
-    }
-  }, [isReady, isAuthenticated, fetchCart]);
-
-  // Handle auth state changes — clear cached cart so the fresh fetch from the
-  // new session (guest or authenticated) isn't masked by stale localStorage data.
+  // Handle auth state changes — reset to empty cart on logout; migrate and retain cart on login.
   useEffect(() => {
     if (!isReady) return;
     if (prevAuthState.current === null) {
@@ -320,18 +391,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (prevAuthState.current !== isAuthenticated) {
+      const wasAuth = prevAuthState.current;
       prevAuthState.current = isAuthenticated;
       resetBrowserClient();
-      writeCachedCart(null);
-      hasFetchedRef.current = true;
-      fetchCart();
+      if (wasAuth && !isAuthenticated) {
+        // User logged out — clear cart state and cache completely
+        resetToEmptyCart();
+      } else {
+        // User logged in — retain and migrate pre-login guest cart items
+        hasFetchedRef.current = true;
+        syncAndMigrateCartOnLogin();
+      }
     }
-  }, [isAuthenticated, isReady, fetchCart]);
+  }, [isAuthenticated, isReady, syncAndMigrateCartOnLogin]);
 
   // -------------------------------------------------------------------------
   // Add item via Store API — full optimistic UI including NEW items
   // -------------------------------------------------------------------------
   const addToCart = useCallback(async (input: AddToCartInput) => {
+    const addKey = `${input.productId}:${input.variationId || 0}`;
+    if (pendingAddsRef.current.has(addKey)) return;
+    pendingAddsRef.current.add(addKey);
+
     setError(null);
     const seq = nextSeq();
     const snapshot = cartRef.current;
@@ -432,6 +513,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(message);
       throw new CartError(message, ErrorCode.CART_ADD_FAILED);
     } finally {
+      pendingAddsRef.current.delete(addKey);
       setIsMutating(false);
     }
   }, []);
@@ -457,13 +539,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         setBundleNames((prev) => {
           const next = { ...prev, [bundleId]: bundleName };
-          try { localStorage.setItem('bundleNames', JSON.stringify(next)); } catch {}
+          try { localStorage.setItem('bundleNames', JSON.stringify(next)); } catch { }
           return next;
         });
         if (discountPercent > 0) {
           setBundleDiscounts((prev) => {
             const next = { ...prev, [bundleId]: discountPercent };
-            try { localStorage.setItem('bundleDiscounts', JSON.stringify(next)); } catch {}
+            try { localStorage.setItem('bundleDiscounts', JSON.stringify(next)); } catch { }
             return next;
           });
         }
@@ -477,7 +559,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const nextMap = { ...bundleItemMapRef.current, ...additions };
           bundleItemMapRef.current = nextMap;
           setBundleItemMap(nextMap);
-          try { sessionStorage.setItem('bundleItemMap', JSON.stringify(nextMap)); } catch {}
+          try { sessionStorage.setItem('bundleItemMap', JSON.stringify(nextMap)); } catch { }
         }
 
         // Fetch updated cart via Store API instead of GraphQL
@@ -684,7 +766,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
       return true;
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return false; }
+      if (isSessionExpired(err)) {
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart && freshCart.items.length > 0) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+            setError('Could not apply coupon. Please try again.');
+            return false;
+          }
+        } catch { }
+        resetToEmptyCart();
+        return false;
+      }
       logError('CartContext.applyCoupon', err, { code });
       const message = extractCartErrorMessage(
         err,
@@ -706,7 +799,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (isStaleSeq(seq)) return;
       if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
     } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      if (isSessionExpired(err)) {
+        try {
+          const freshCart = await fetchCartFromStore();
+          if (!isStaleSeq(seq) && freshCart && freshCart.items.length > 0) {
+            setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
+            setError('Could not remove coupon. Please try again.');
+            return;
+          }
+        } catch { }
+        resetToEmptyCart();
+        return;
+      }
       if (err instanceof StoreApiError && (err.status === 409 || err.status === 400)) {
         // Coupon already removed or deleted server-side — sync local state
         try {
@@ -714,7 +818,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           if (!isStaleSeq(seq) && freshCart) {
             setCart(enrichCartItems(freshCart, bundleItemMapRef.current));
           }
-        } catch {}
+        } catch { }
         return;
       }
       logError('CartContext.removeCoupon', err, { code });
@@ -746,6 +850,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setIsMutating(false);
     }
   }, []);
+
+  // Prefetch recommendations in the background whenever cart composition changes.
+  // This warms the cache so the CartDrawer shows recs instantly when opened.
+  const cartItemIds = cart?.items.map((i) => i.product.databaseId).join(',') || '';
+  const cartSubtotalStr = cart?.subtotal || '';
+  useEffect(() => {
+    if (!cart || cart.items.length === 0) return;
+    const productIds = cart.items.map((i) => i.product.databaseId);
+    const productSlugs = cart.items.map((i) => i.product.slug);
+    const subtotal = parseFloat(cart.subtotal.replace(/[^0-9.]/g, '')) || 0;
+    const key = buildRecsCacheKey(productIds, subtotal);
+    if (isRecsFresh(key)) return;
+    fetchRecommendations(productIds, productSlugs, subtotal)
+      .then((products) => setRecsCache(key, products))
+      .catch(() => { });
+  }, [cartItemIds, cartSubtotalStr]);
 
   return (
     <CartContext.Provider

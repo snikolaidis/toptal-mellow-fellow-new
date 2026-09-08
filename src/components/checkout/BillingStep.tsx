@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import styles from './BillingStep.module.css';
+import { useState } from "react";
+import styles from "./BillingStep.module.css";
+import { useCart } from "@/context/CartContext";
 
 interface Address {
   firstName: string;
@@ -33,7 +34,7 @@ interface BillingStepProps {
   shippingPrice: number;
 
   onBillingChange: (value: Address) => void;
-
+  onSaveBilling: () => Promise<void>;
   onBack: () => void;
   onContinue: () => void;
 }
@@ -45,99 +46,134 @@ export default function BillingStep({
   subtotal,
   shippingPrice,
   onBillingChange,
+  onSaveBilling,
   onBack,
   onContinue,
 }: BillingStepProps) {
-  const [sameAsShipping, setSameAsShipping] =
-    useState(true);
-
-  const [editing, setEditing] =
-    useState(false);
+  const { cart } = useCart();
+  /*
+   * Checkbox ONLY controls:
+   *
+   * checked   -> show shipping address
+   * unchecked -> show billing form
+   */
+  const [sameAsShipping, setSameAsShipping] = useState(true);
 
   /*
-   * IMPORTANT:
+   * Keep the user's manually entered billing address
+   * separate from the shipping address.
    *
-   * Do not copy an empty shipping first/last name over the
-   * guest's billing first/last name.
-   *
-   * The Shipping step collects the address separately, while
-   * Contact Information contains the guest's first/last name.
+   * We NEVER clear billing when the checkbox changes.
    */
-  useEffect(() => {
-    if (!sameAsShipping) {
-      return;
-    }
+  /*const shippingAsBilling: Address = {
+    ...shipping,
 
-    onBillingChange({
-      ...shipping,
-      firstName:
-        shipping.firstName || billing.firstName,
-      lastName:
-        shipping.lastName || billing.lastName,
-      email: billing.email,
-      phone: billing.phone,
-    });
-  }, [
-    sameAsShipping,
-    shipping,
-  ]);
+    firstName:
+      shipping.firstName ||
+      billing.firstName ||
+      '',
 
-  const updateBilling = (
-    field: keyof Address,
-    value: string
+    lastName:
+      shipping.lastName ||
+      billing.lastName ||
+      '',
+
+    email:
+      billing.email ||
+      shipping.email ||
+      '',
+
+    phone:
+      billing.phone ||
+      shipping.phone ||
+      '',
+  };*/
+
+  /*
+   * Checkbox handler.
+   *
+   * Checked:
+   *   Copy shipping into billing and show shipping summary.
+   *
+   * Unchecked:
+   *   Show billing form.
+   *
+   * IMPORTANT:
+   * We do NOT clear billing when unchecked.
+   */
+  /*const handleSameAsShippingChange = (
+    checked: boolean
   ) => {
+    setSameAsShipping(checked);
+
+    if (checked) {
+      onBillingChange(shippingAsBilling);
+    }
+  };*/
+
+  const handleSameAsShippingChange = (checked: boolean) => {
+    setSameAsShipping(checked);
+  };
+
+  /*
+   * Update billing form.
+   */
+  const updateBilling = (field: keyof Address, value: string) => {
     onBillingChange({
       ...billing,
       [field]: value,
     });
   };
 
-  const total =
-    subtotal + shippingPrice;
+  /*
+   * Save button.
+   *
+   * Billing is already stored through onBillingChange()
+   * while typing, so Save does not need to do anything else.
+   */
+  const handleSaveBilling = async () => {
+    try {
+      await onSaveBilling();
+      setSameAsShipping(false);
+    } catch (error) {
+      console.error("Failed to save billing address:", error);
+    }
+  };
+
+  const displayedBilling = sameAsShipping ? shipping : billing;
+
+  const subtotalAmount =
+    (cart?.total?.replace("$", "") as any) * 1 -
+    (cart?.shippingTotal?.replace("$", "") as any) * 1;
 
   return (
     <div className={styles.page}>
-
       <div className={styles.container}>
-
         {/* =========================================
             LEFT
         ========================================== */}
 
         <main className={styles.left}>
-
           {/* Progress */}
 
           <div className={styles.progress}>
-
-            <span>
-              Checkout
-            </span>
+            <span>Checkout</span>
 
             <span>›</span>
 
-            <span>
-              Shipping
-            </span>
+            <span>Shipping</span>
 
             <span>›</span>
 
-            <span className={styles.active}>
-              Billing
-            </span>
+            <span className={styles.active}>Billing</span>
 
             <span>›</span>
 
-            <span>
-              Real ID
-            </span>
+            <span>Real ID</span>
 
             <span>›</span>
 
-            <span>
-              Payment
-            </span>
-
+            <span>Payment</span>
           </div>
 
           {/* =====================================
@@ -145,411 +181,190 @@ export default function BillingStep({
           ====================================== */}
 
           <section className={styles.card}>
-
             <div className={styles.cardHeader}>
-
-              <h2>
-                Billing Address
-              </h2>
-
-            {!editing && (
-                <button
-                  type="button"
-                  className={styles.editButton}
-                  onClick={() =>
-                    setEditing(true)
-                  }
-                >
-                  ✎
-                </button>
-              )}
-
+              <h2>Billing Address</h2>
             </div>
 
-            {/* Same as shipping */}
+            {/* =====================================
+                SAME AS SHIPPING CHECKBOX
+            ====================================== */}
 
-            {!editing && (
-              <label
-                className={
-                  styles.checkboxRow
-                }
-              >
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={sameAsShipping}
+                onChange={(e) => handleSameAsShippingChange(e.target.checked)}
+              />
 
-                <input
-                  type="checkbox"
-                  checked={sameAsShipping}
-                  onChange={(e) => {
-                    const checked =
-                      e.target.checked;
+              <span>Same as shipping address</span>
+            </label>
 
-                    setSameAsShipping(
-                      checked
-                    );
+            {/* =====================================
+                CHECKED:
+                SHOW SHIPPING ADDRESS
+            ====================================== */}
 
-                    if (checked) {
-                      onBillingChange({
-                        ...shipping,
-                        firstName:
-                          shipping.firstName ||
-                          billing.firstName,
-                        lastName:
-                          shipping.lastName ||
-                          billing.lastName,
-                        email:
-                          billing.email,
-                        phone:
-                          billing.phone,
-                      });
-                    }
-                  }}
-                />
-
-                <span>
-                  Same as shipping address
-                </span>
-
-              </label>
-            )}
-
-            {/* =================================
-                SUMMARY
-            ================================== */}
-
-            {!editing ? (
-
-              <div
-                className={
-                  styles.addressSummary
-                }
-              >
-
+            {sameAsShipping ? (
+              <div className={styles.addressSummary}>
                 <strong>
-                  {billing.firstName}{' '}
-                  {billing.lastName}
+                  {displayedBilling.firstName} {displayedBilling.lastName}
                 </strong>
 
-                {billing.address1 && (
+                {displayedBilling.address1 && (
+                  <p>{displayedBilling.address1}</p>
+                )}
+
+                {displayedBilling.address2 && (
+                  <p>{displayedBilling.address2}</p>
+                )}
+
+                {(displayedBilling.city ||
+                  displayedBilling.state ||
+                  displayedBilling.postcode) && (
                   <p>
-                    {billing.address1}
+                    {displayedBilling.city}
+                    {displayedBilling.city && displayedBilling.state
+                      ? ", "
+                      : " "}
+                    {displayedBilling.state} {displayedBilling.postcode}
                   </p>
                 )}
 
-                {billing.address2 && (
-                  <p>
-                    {billing.address2}
-                  </p>
-                )}
-
-                {(billing.city ||
-                  billing.state ||
-                  billing.postcode) && (
-                  <p>
-                    {billing.city}
-                    {billing.city &&
-                    billing.state
-                      ? ', '
-                      : ' '}
-
-                    {billing.state}{' '}
-
-                    {billing.postcode}
-                  </p>
-                )}
-
-                {billing.country && (
-                  <p>
-                    {billing.country}
-                  </p>
-                )}
-
+                {displayedBilling.country && <p>{displayedBilling.country}</p>}
               </div>
-
             ) : (
-
               /* =================================
-                 EDIT FORM
+                 UNCHECKED:
+                 SHOW BILLING FORM
               ================================== */
 
-              <div
-                className={
-                  styles.form
-                }
-              >
+              <div className={styles.form}>
+                {/* First Name / Last Name */}
 
-                <div
-                  className={
-                    styles.formRow
-                  }
-                >
-
-                  <div
-                    className={
-                      styles.field
-                    }
-                  >
-
-                    <label>
-                      First Name *
-                    </label>
+                <div className={styles.formRow}>
+                  <div className={styles.field}>
+                    <label>First Name *</label>
 
                     <input
-                      value={
-                        billing.firstName
-                      }
+                      type="text"
+                      value={billing.firstName || ""}
                       onChange={(e) =>
-                        updateBilling(
-                          'firstName',
-                          e.target.value
-                        )
+                        updateBilling("firstName", e.target.value)
                       }
                     />
-
                   </div>
 
-                  <div
-                    className={
-                      styles.field
-                    }
-                  >
-
-                    <label>
-                      Last Name *
-                    </label>
+                  <div className={styles.field}>
+                    <label>Last Name *</label>
 
                     <input
-                      value={
-                        billing.lastName
-                      }
+                      type="text"
+                      value={billing.lastName || ""}
                       onChange={(e) =>
-                        updateBilling(
-                          'lastName',
-                          e.target.value
-                        )
+                        updateBilling("lastName", e.target.value)
                       }
                     />
-
                   </div>
-
                 </div>
 
-                <div
-                  className={
-                    styles.field
-                  }
-                >
+                {/* Street Address */}
 
-                  <label>
-                    Street Address *
-                  </label>
+                <div className={styles.field}>
+                  <label>Street Address *</label>
 
                   <input
-                    value={
-                      billing.address1
-                    }
-                    onChange={(e) =>
-                      updateBilling(
-                        'address1',
-                        e.target.value
-                      )
-                    }
+                    type="text"
+                    value={billing.address1 || ""}
+                    onChange={(e) => updateBilling("address1", e.target.value)}
                   />
-
                 </div>
 
-                <div
-                  className={
-                    styles.field
-                  }
-                >
+                {/* Apartment */}
 
-                  <label>
-                    Apartment, Suite, Unit
-                  </label>
+                <div className={styles.field}>
+                  <label>Apartment, Suite, Unit</label>
 
                   <input
-                    value={
-                      billing.address2
-                    }
-                    onChange={(e) =>
-                      updateBilling(
-                        'address2',
-                        e.target.value
-                      )
-                    }
+                    type="text"
+                    value={billing.address2 || ""}
+                    onChange={(e) => updateBilling("address2", e.target.value)}
                   />
-
                 </div>
 
-                <div
-                  className={
-                    styles.formRow
-                  }
-                >
+                {/* City / State */}
 
-                  <div
-                    className={
-                      styles.field
-                    }
-                  >
-
-                    <label>
-                      City *
-                    </label>
+                <div className={styles.formRow}>
+                  <div className={styles.field}>
+                    <label>City *</label>
 
                     <input
-                      value={
-                        billing.city
-                      }
-                      onChange={(e) =>
-                        updateBilling(
-                          'city',
-                          e.target.value
-                        )
-                      }
+                      type="text"
+                      value={billing.city || ""}
+                      onChange={(e) => updateBilling("city", e.target.value)}
                     />
-
                   </div>
 
-                  <div
-                    className={
-                      styles.field
-                    }
-                  >
-
-                    <label>
-                      State *
-                    </label>
+                  <div className={styles.field}>
+                    <label>State *</label>
 
                     <input
-                      value={
-                        billing.state
-                      }
-                      onChange={(e) =>
-                        updateBilling(
-                          'state',
-                          e.target.value
-                        )
-                      }
+                      type="text"
+                      value={billing.state || ""}
+                      onChange={(e) => updateBilling("state", e.target.value)}
                     />
-
                   </div>
-
                 </div>
 
-                <div
-                  className={
-                    styles.formRow
-                  }
-                >
+                {/* ZIP / Country */}
 
-                  <div
-                    className={
-                      styles.field
-                    }
-                  >
-
-                    <label>
-                      ZIP Code *
-                    </label>
+                <div className={styles.formRow}>
+                  <div className={styles.field}>
+                    <label>ZIP Code *</label>
 
                     <input
-                      value={
-                        billing.postcode
-                      }
+                      type="text"
+                      value={billing.postcode || ""}
                       onChange={(e) =>
-                        updateBilling(
-                          'postcode',
-                          e.target.value
-                        )
+                        updateBilling("postcode", e.target.value)
                       }
                     />
-
                   </div>
 
-                  <div
-                    className={
-                      styles.field
-                    }
-                  >
-
-                    <label>
-                      Country *
-                    </label>
+                  <div className={styles.field}>
+                    <label>Country *</label>
 
                     <select
-                      value={
-                        billing.country
-                      }
-                      onChange={(e) =>
-                        updateBilling(
-                          'country',
-                          e.target.value
-                        )
-                      }
+                      value={billing.country || "US"}
+                      onChange={(e) => updateBilling("country", e.target.value)}
                     >
-
-                      <option value="US">
-                        United States
-                      </option>
-
+                      <option value="US">United States</option>
                     </select>
-
                   </div>
-
                 </div>
 
-                <div
-                  className={
-                    styles.formRow
-                  }
-                >
+                {/* Save */}
 
+                <div className={styles.formRow}>
                   <button
                     type="button"
-                    className={
-                      styles.secondaryButton
-                    }
-                    onClick={() =>
-                      setEditing(false)
-                    }
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="button"
-                    className={
-                      styles.saveButton
-                    }
-                    onClick={() =>
-                      setEditing(false)
-                    }
+                    className={styles.saveButton}
+                    onClick={handleSaveBilling}
                   >
                     Save
                   </button>
-
                 </div>
-
               </div>
             )}
-
           </section>
 
           {/* =====================================
               NAVIGATION
           ====================================== */}
 
-          <div
-            className={
-              styles.navigation
-            }
-          >
-
+          <div className={styles.navigation}>
             <button
               type="button"
-              className={
-                styles.backButton
-              }
+              className={styles.backButton}
               onClick={onBack}
             >
               Back to Shipping
@@ -557,171 +372,69 @@ export default function BillingStep({
 
             <button
               type="button"
-              className={
-                styles.continueButton
-              }
+              className={styles.continueButton}
               onClick={onContinue}
             >
               Continue to Payment
             </button>
-
           </div>
-
         </main>
 
         {/* =========================================
             RIGHT - ORDER SUMMARY
         ========================================== */}
 
-        <aside
-          className={
-            styles.right
-          }
-        >
+        <aside className={styles.right}>
+          <section className={styles.summary}>
+            <h2>Order Summary</h2>
 
-          <section
-            className={
-              styles.summary
-            }
-          >
+            {cart?.items.map((product) => (
+              <div key={product.key} className={styles.product}>
+                <div className={styles.productImage}>
+                  {product.product.image ? (
+                    <img
+                      src={product.product.image.sourceUrl}
+                      alt={product?.product?.image?.altText}
+                    />
+                  ) : (
+                    <div className={styles.placeholder} />
+                  )}
 
-            <h2>
-              Order Summary
-            </h2>
-
-            {products.map(
-              (product) => (
-
-                <div
-                  key={product.id}
-                  className={
-                    styles.product
-                  }
-                >
-
-                  <div
-                    className={
-                      styles.productImage
-                    }
-                  >
-
-                    {product.image ? (
-
-                      <img
-                        src={
-                          product.image
-                        }
-                        alt={
-                          product.name
-                        }
-                      />
-
-                    ) : (
-
-                      <div
-                        className={
-                          styles.placeholder
-                        }
-                      />
-
-                    )}
-
-                    <span
-                      className={
-                        styles.quantity
-                      }
-                    >
-                      {product.quantity}
-                    </span>
-
-                  </div>
-
-                  <div
-                    className={
-                      styles.productInfo
-                    }
-                  >
-
-                    <strong>
-                      {product.name}
-                    </strong>
-
-                  </div>
-
-                  <strong>
-                    $
-                    {product.total.toFixed(
-                      2
-                    )}
-                  </strong>
-
+                  <span className={styles.quantity}>{product.quantity}</span>
                 </div>
 
-              )
-            )}
+                <div className={styles.productInfo}>
+                  <strong>{product.product.name}</strong>
+                </div>
 
-            <div
-              className={
-                styles.row
-              }
-            >
+                <strong>{product.total}</strong>
+              </div>
+            ))}
 
-              <span>
-                Subtotal
-              </span>
+            <div className={styles.row}>
+              <span>Subtotal</span>
 
-              <span>
-                $
-                {subtotal.toFixed(
-                  2
-                )}
-              </span>
-
+              <span>${subtotalAmount.toFixed(2)}</span>
             </div>
 
-            <div
-              className={
-                styles.row
-              }
-            >
+            <div className={styles.row}>
+              <span>Shipping</span>
 
               <span>
-                Shipping
+                {cart?.shippingTotal === "$0.00"
+                  ? "Free"
+                  : `${cart?.shippingTotal}`}
               </span>
-
-              <span>
-                {shippingPrice === 0
-                  ? 'Free'
-                  : `$${shippingPrice.toFixed(
-                      2
-                    )}`}
-              </span>
-
             </div>
 
-            <div
-              className={
-                styles.total
-              }
-            >
+            <div className={styles.total}>
+              <span>Total</span>
 
-              <span>
-                Total
-              </span>
-
-              <strong>
-                $
-                {total.toFixed(2)}
-              </strong>
-
+              <strong>{cart?.total}</strong>
             </div>
-
           </section>
-
         </aside>
-
       </div>
-
     </div>
   );
 }

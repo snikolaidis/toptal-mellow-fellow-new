@@ -1,0 +1,283 @@
+.page {
+  background: #f7f3e9;
+  min-height: 100vh;
+  padding: 30px 20px 80px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.confirmationCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.successIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #edf8ed;
+  color: #55a05c;
+  border: 1px solid #c8e7c8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+  font-size: 18px;
+}
+
+.confirmationCard h1 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.confirmationCard p {
+  margin: 0 auto 12px;
+  color: #777;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.confirmationCard strong {
+  font-size: 11px;
+}
+
+.forgotCard {
+  background: #fff;
+  border: 1px solid #efc84a;
+  border-radius: 12px;
+  padding: 20px 12px 16px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.timer {
+  color: #d84545;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+.forgotCard h2 {
+  font-size: 17px;
+  margin: 0 0 6px;
+}
+
+.forgotCard > p {
+  color: #777;
+  font-size: 11px;
+  margin: 0 0 14px;
+}
+
+.productSlider {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 5px;
+}
+
+.productSlider::-webkit-scrollbar {
+  display: none;
+}
+
+.productCard {
+  min-width: 115px;
+  width: 115px;
+  background: #fff;
+  border-radius: 9px;
+  padding: 6px;
+  text-align: left;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+
+.productImage {
+  width: 100%;
+  height: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.productImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.productCard small {
+  display: block;
+  font-size: 8px;
+  color: #777;
+  margin-top: 4px;
+}
+
+.productCard h3 {
+  font-size: 9px;
+  line-height: 1.2;
+  margin: 3px 0;
+  text-transform: uppercase;
+  min-height: 22px;
+}
+
+.price {
+  font-size: 9px;
+  margin-bottom: 7px;
+}
+
+.productCard button {
+  width: 100%;
+  border: 0;
+  border-radius: 15px;
+  background: #111;
+  color: #fff;
+  font-size: 8px;
+  padding: 7px 4px;
+  cursor: pointer;
+}
+
+.accordions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.accordions details {
+  background: #fff;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.accordions summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.accordions summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordionContent {
+  padding: 0 14px 14px;
+  font-size: 10px;
+  color: #777;
+  line-height: 1.5;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.pointsCard,
+.shareCard {
+  border-radius: 10px;
+  padding: 13px;
+  min-height: 82px;
+}
+
+.pointsCard {
+  background: #a994ca;
+  color: #fff;
+}
+
+.shareCard {
+  background: #b5d6d9;
+  color: #fff;
+}
+
+.pointsCard strong,
+.shareCard strong {
+  font-size: 10px;
+}
+
+.pointsCard p,
+.shareCard p {
+  font-size: 8px;
+  line-height: 1.4;
+  margin: 6px 0;
+}
+
+.pointsCard button,
+.shareCard button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  padding: 0;
+  text-decoration: underline;
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.alsoLike {
+  text-align: center;
+}
+
+.alsoLike h2 {
+  font-size: 16px;
+  margin: 15px 0 10px;
+}
+
+.alsoLike .productSlider {
+  text-align: left;
+}
+
+.bottomActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 28px;
+}
+
+.continueButton,
+.accountButton {
+  border-radius: 8px;
+  padding: 11px 10px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.continueButton {
+  border: 0;
+  background: #efc33f;
+  color: #111;
+}
+
+.accountButton {
+  border: 1px solid #eee;
+  background: #fff;
+  color: #111;
+}
+
+.noProducts {
+  font-size: 11px;
+  color: #888;
+  padding: 20px;
+}
+
+@media (min-width: 768px) {
+  .page {
+    max-width: 720px;
+    padding-top: 35px;
+  }
+
+  .confirmationCard {
+    padding: 35px;
+  }
+
+  .productCard {
+    min-width: 125px;
+    width: 125px;
+  }
+}

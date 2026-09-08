@@ -27,6 +27,21 @@ const nextConfig = {
         destination: '/collections',
         statusCode: 301,
       },
+      // The PDP moved from /product/ to /products/. Old URLs are still indexed
+      // and linked externally, so keep them permanently redirected.
+      {
+        source: '/product/:slug',
+        destination: '/products/:slug',
+        statusCode: 301,
+      },
+      // Precautionary: unlike /product/ above, this was never a Shopify or
+      // WordPress URL and is not in our sitemap. /collections/ does not match
+      // this source, so there is no loop.
+      {
+        source: '/collection/:slug',
+        destination: '/collections/:slug',
+        statusCode: 301,
+      },
     ];
   },
   images: {

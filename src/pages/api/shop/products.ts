@@ -13,7 +13,10 @@ const COLLECTION_FILTER_KEYS = [
   'singleCannabinoid', 'size', 'mg', 'pieces',
 ];
 
-const ALLOWED_TAXONOMIES = ['collection', 'mood'];
+// Mirrors MF_TAXONOMY_PARAM_ALLOWLIST in mellow-fellow-taxonomy-param.php. An
+// unlisted taxonomy is not rejected, it silently falls back to `collection` and
+// serves the wrong products, so both lists have to be kept in step.
+const ALLOWED_TAXONOMIES = ['collection', 'mood', 'product_cat'];
 
 async function handleCollectionProducts(req: NextApiRequest, res: NextApiResponse) {
   const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');

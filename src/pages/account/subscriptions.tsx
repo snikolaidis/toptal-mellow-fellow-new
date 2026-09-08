@@ -1,13 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
-import type { GetServerSideProps } from 'next';
-import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { getApolloAuthClient } from '@faustwp/core';
 import { useMutation } from '@apollo/client';
-import Layout from '@/components/Layout';
+import AccountGuard from '@/components/account/AccountGuard';
 import { CANCEL_SUBSCRIPTION, PAUSE_SUBSCRIPTION, RESUME_SUBSCRIPTION } from '@/graphql/mutations/subscriptions';
-import { getServerSideAuth, redirectToLogin, serverSideGraphQL } from '@/lib/server-auth';
 
 interface SubItem {
   name: string;
@@ -25,10 +21,6 @@ interface Subscription {
   canPause: boolean;
   canResume: boolean;
   items: SubItem[];
-}
-
-interface SubscriptionsPageProps {
-  subscriptions: Subscription[];
 }
 
 function frequency(period: string, interval: number): string {
@@ -75,10 +67,6 @@ const CANCELLABLE_STATUSES = ['active', 'on-hold', 'pending'];
 const PAUSABLE_STATUSES = ['active'];
 const RESUMABLE_STATUSES = ['on-hold'];
 
-// WooCommerce Subscriptions refuses to reactivate a subscription once its end
-// date has passed (WC_Subscription::can_be_updated_to()) — hide Resume for
-// that case rather than let the customer hit a failed mutation. A missing
-// end date means the subscription has no fixed term, so it's never "expired".
 function isPastEndDate(endDate: string | null | undefined): boolean {
   if (!endDate) return false;
   const d = new Date(endDate.replace(' ', 'T'));
@@ -106,9 +94,6 @@ function mapSubscription(node: SubscriptionNode): Subscription {
   const status = (node.status || '').toLowerCase().replace(/_/g, '-');
 
   return {
-    // Subscriptions expose neither `id` nor `databaseId` through this
-    // connection (the model leaves them unresolved), but orderNumber is the
-    // subscription's post ID, which cancelSubscription accepts.
     id: Number(node.orderNumber) || 0,
     status,
     total: node.total ?? '',
@@ -125,26 +110,6 @@ function mapSubscription(node: SubscriptionNode): Subscription {
   };
 }
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  ctx.res.setHeader('Cache-Control', 'private, no-cache, no-store');
-
-  const auth = await getServerSideAuth(ctx);
-  if (!auth) return redirectToLogin(ctx);
-
-  try {
-    const [data, menuClient] = await Promise.all([
-      serverSideGraphQL(CUSTOMER_SUBSCRIPTIONS_QUERY, auth.accessToken),
-      prefetchMenus(),
-    ]);
-    const nodes: SubscriptionNode[] = data?.customer?.subscriptions?.nodes || [];
-    const props: Record<string, any> = { subscriptions: nodes.map(mapSubscription) };
-    mergeMenuState(props, menuClient);
-    return { props };
-  } catch {
-    return { props: { subscriptions: [] } };
-  }
-};
-
 type Action = 'cancel' | 'pause' | 'resume';
 
 const ACTION_LABELS: Record<Action, { label: string; busyLabel: string }> = {
@@ -153,13 +118,57 @@ const ACTION_LABELS: Record<Action, { label: string; busyLabel: string }> = {
   resume: { label: 'Resume', busyLabel: 'Resuming...' },
 };
 
-export default function SubscriptionsPage({ subscriptions: subs }: SubscriptionsPageProps) {
-  const router = useRouter();
+function SubscriptionsSkeleton() {
+  return (
+    <div className="account">
+      <header className="account__header">
+        <div className="account__skeleton-bar" style={{ width: '220px', height: 36 }} />
+        <div className="account__skeleton-bar" style={{ width: '120px', height: 14 }} />
+      </header>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="account__skeleton-row" style={{ gridTemplateColumns: '80px 1fr 100px 100px 60px 80px 80px' }}>
+          <div className="account__skeleton-bar" style={{ width: '60px' }} />
+          <div className="account__skeleton-bar" style={{ width: '140px' }} />
+          <div className="account__skeleton-bar" style={{ width: '90px' }} />
+          <div className="account__skeleton-bar" style={{ width: '85px' }} />
+          <div className="account__skeleton-bar" style={{ width: '50px' }} />
+          <div className="account__skeleton-bar" style={{ width: '65px', height: 22 }} />
+          <div className="account__skeleton-bar" style={{ width: '60px', height: 22 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function fetchSubscriptions(): Promise<Subscription[]> {
+  return fetch('/api/account/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: CUSTOMER_SUBSCRIPTIONS_QUERY }),
+    credentials: 'same-origin',
+  })
+    .then((r) => r.json())
+    .then((res) => {
+      const nodes: SubscriptionNode[] = res?.data?.customer?.subscriptions?.nodes || [];
+      return nodes.map(mapSubscription);
+    })
+    .catch(() => []);
+}
+
+function SubscriptionsContent() {
   const client = getApolloAuthClient();
   const [cancelSubscription] = useMutation(CANCEL_SUBSCRIPTION, { client });
   const [pauseSubscription] = useMutation(PAUSE_SUBSCRIPTION, { client });
   const [resumeSubscription] = useMutation(RESUME_SUBSCRIPTION, { client });
+  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<{ id: number; action: Action } | null>(null);
+
+  useEffect(() => {
+    fetchSubscriptions()
+      .then(setSubs)
+      .finally(() => setLoading(false));
+  }, []);
 
   const runAction = useCallback(async (
     sub: Subscription,
@@ -170,17 +179,14 @@ export default function SubscriptionsPage({ subscriptions: subs }: Subscriptions
     setBusy({ id: sub.id, action });
     try {
       await mutate();
-      // Re-run getServerSideProps so the row shows the new status for
-      // whichever action ran — e.g. pause lands on on-hold, resume on
-      // active, and a cancelled subscription with a paid-up period left
-      // lands on pending-cancel rather than cancelled.
-      router.replace(router.asPath);
+      const refreshed = await fetchSubscriptions();
+      setSubs(refreshed);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : fallbackMessage);
     } finally {
       setBusy(null);
     }
-  }, [router]);
+  }, []);
 
   const cancel = useCallback((sub: Subscription) => {
     if (!window.confirm('Cancel this subscription? This cannot be undone.')) return;
@@ -195,88 +201,96 @@ export default function SubscriptionsPage({ subscriptions: subs }: Subscriptions
     runAction(sub, 'resume', () => resumeSubscription({ variables: { id: String(sub.id) } }), 'Could not resume subscription');
   }, [resumeSubscription, runAction]);
 
+  if (loading) return <SubscriptionsSkeleton />;
+
   return (
-    <Layout title="My subscriptions">
-      <div className="account">
-        <header className="account__header">
-          <h1 className="account__title">My subscriptions</h1>
-          <Link href="/account" className="account__link">
-            Back to account
-          </Link>
-        </header>
+    <div className="account">
+      <header className="account__header">
+        <h1 className="account__title">My subscriptions</h1>
+        <Link href="/account" className="account__link">
+          Back to account
+        </Link>
+      </header>
 
-        {subs.length === 0 && (
-          <p className="account__muted">You don&apos;t have any subscriptions yet.</p>
-        )}
+      {subs.length === 0 && (
+        <p className="account__muted">You don&apos;t have any subscriptions yet.</p>
+      )}
 
-        {subs.length > 0 && (
-          <table className="account__orders">
-            <thead>
-              <tr>
-                <th>Subscription</th>
-                <th>Items</th>
-                <th>Frequency</th>
-                <th>Next payment</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th />
+      {subs.length > 0 && (
+        <table className="account__orders">
+          <thead>
+            <tr>
+              <th>Subscription</th>
+              <th>Items</th>
+              <th>Frequency</th>
+              <th>Next payment</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {subs.map((s) => (
+              <tr key={s.id}>
+                <td className="account__order-number">#{s.id}</td>
+                <td>
+                  {s.items
+                    .map((i) => `${i.name}${i.quantity > 1 ? ` x${i.quantity}` : ''}`)
+                    .join(', ')}
+                </td>
+                <td>{frequency(s.billingPeriod, s.billingInterval)}</td>
+                <td>{formatDate(s.nextPayment)}</td>
+                <td>{s.total}</td>
+                <td>
+                  <span className="account__status">{s.status}</span>
+                </td>
+                {s.status !== 'expired' && (
+                  <td style={{ display: 'flex', gap: '12px' }}>
+                    {s.canPause && (
+                      <button
+                        type="button"
+                        className="account__link button"
+                        onClick={() => pause(s)}
+                        disabled={busy?.id === s.id}
+                      >
+                        {busy?.id === s.id && busy.action === 'pause' ? ACTION_LABELS.pause.busyLabel : ACTION_LABELS.pause.label}
+                      </button>
+                    )}
+                    {s.canResume && (
+                      <button
+                        type="button"
+                        className="account__link button"
+                        onClick={() => resume(s)}
+                        disabled={busy?.id === s.id}
+                      >
+                        {busy?.id === s.id && busy.action === 'resume' ? ACTION_LABELS.resume.busyLabel : ACTION_LABELS.resume.label}
+                      </button>
+                    )}
+                    {s.canCancel && (
+                      <button
+                        type="button"
+                        className="account__link button"
+                        onClick={() => cancel(s)}
+                        disabled={busy?.id === s.id}
+                      >
+                        {busy?.id === s.id && busy.action === 'cancel' ? ACTION_LABELS.cancel.busyLabel : ACTION_LABELS.cancel.label}
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
-            </thead>
-            <tbody>
-              {subs.map((s) => (
-                <tr key={s.id}>
-                  <td className="account__order-number">#{s.id}</td>
-                  <td>
-                    {s.items
-                      .map((i) => `${i.name}${i.quantity > 1 ? ` x${i.quantity}` : ''}`)
-                      .join(', ')}
-                  </td>
-                  <td>{frequency(s.billingPeriod, s.billingInterval)}</td>
-                  <td>{formatDate(s.nextPayment)}</td>
-                  <td>{s.total}</td>
-                  <td>
-                    <span className="account__status">{s.status}</span>
-                  </td>
-                  {s.status !== 'expired' && (
-                    <td style={{ display: 'flex', gap: '12px' }}>
-                      {s.canPause && (
-                        <button
-                          type="button"
-                          className="account__link button"
-                          onClick={() => pause(s)}
-                          disabled={busy?.id === s.id}
-                        >
-                          {busy?.id === s.id && busy.action === 'pause' ? ACTION_LABELS.pause.busyLabel : ACTION_LABELS.pause.label}
-                        </button>
-                      )}
-                      {s.canResume && (
-                        <button
-                          type="button"
-                          className="account__link button"
-                          onClick={() => resume(s)}
-                          disabled={busy?.id === s.id}
-                        >
-                          {busy?.id === s.id && busy.action === 'resume' ? ACTION_LABELS.resume.busyLabel : ACTION_LABELS.resume.label}
-                        </button>
-                      )}
-                      {s.canCancel && (
-                        <button
-                          type="button"
-                          className="account__link button"
-                          onClick={() => cancel(s)}
-                          disabled={busy?.id === s.id}
-                        >
-                          {busy?.id === s.id && busy.action === 'cancel' ? ACTION_LABELS.cancel.busyLabel : ACTION_LABELS.cancel.label}
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </Layout>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+export default function SubscriptionsPage() {
+  return (
+    <AccountGuard title="My subscriptions">
+      <SubscriptionsContent />
+    </AccountGuard>
   );
 }

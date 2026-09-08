@@ -1,11 +1,18 @@
 .social-proof-strip {
-  padding: 0 0 24px;
+  padding: 28px 0 24px;
 
+  @media screen and (min-width: 768px) {
+    padding: 30px 0 40px;
+  }
+
+  // overflow-x: auto makes this a scroll container, which clips on the vertical
+  // axis too, so the track has to be tall enough to hold the blurred glow or a
+  // hard line cuts across the shadows.
   &__track {
     display: flex;
     align-items: center;
     gap: 10px;
-    height: 86px;
+    height: 132px;
     padding-left: 5px;
     overflow-x: auto;
     scrollbar-width: none;
@@ -17,9 +24,9 @@
     @media screen and (min-width: 768px) {
       justify-content: center;
       overflow-x: visible;
-      padding-left: 0;
+      padding: 0;
       gap: 0;
-      height: 110px;
+      height: 170px;
     }
   }
 
@@ -66,10 +73,19 @@
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+
+    // Both gummies are solid opaque blobs that fill their box edge to edge, so
+    // at full size they read much heavier than the bottles and cartridges next
+    // to them. Matched on filename because the src is a Next.js optimizer URL.
+    &[src*='gummy'],
+    &[src*='cherry'] {
+      max-width: 82%;
+      max-height: 82%;
+    }
   }
 
   &__heading {
-    margin: 25px 0 0;
+    margin: 38px 0 0;
     font-family: var(--font-family-body);
     font-weight: 700;
     font-size: 36px;

@@ -150,8 +150,8 @@ export default function CheckoutLoginPage() {
 const handleMellowFellowLogin = async () => {
   await clearGoogleSession();
 
-  window.location.href =
-    '/login?redirect=/checkout';
+router.push('/login?redirect=/checkout');
+   
 };
 
   const handleGuestCheckout = () => {
@@ -160,7 +160,7 @@ const handleMellowFellowLogin = async () => {
      */
     sessionStorage.setItem(CHECKOUT_AUTH_KEY, 'guest');
 
-    window.location.href = '/checkout';
+router.push('/checkout');
   };
 
   /*

@@ -1,4 +1,5 @@
 import { fragments } from './ImageCarousel.fragments';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay } from 'swiper/modules';
@@ -8,9 +9,15 @@ import 'swiper/css';
  * Backend-managed image carousel (ACF block `acf/image-carousel`). Replaces
  * the hardcoded FeaturedIn component: the title and images (an ACF gallery
  * field) come from WordPress, while the carousel behaviour is fixed here —
- * autoplay every 5s, loop, 2 slides on mobile and all images visible from
+ * autoplay on a seamless loop, 3 slides on mobile and all images visible from
  * 768px up — matching the original FeaturedIn exactly.
+ *
+ * Swiper only loops when the track holds more slides than it shows at once, so
+ * the images are repeated until there are enough for the widest breakpoint.
  */
+
+const SLIDE_DELAY = 2500;
+const MIN_TRACK_SLIDES = 12;
 
 interface MediaItem {
   altText?: string | null;
@@ -35,6 +42,18 @@ interface ImageCarouselProps {
 }
 
 export default function ImageCarousel(props: ImageCarouselProps) {
+  // Starts false so the server and the first client render agree; the media
+  // query result only lands after mount.
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReduceMotion(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
   const title = props.imageCarousel?.title;
   const images = (props.imageCarousel?.images?.nodes ?? []).filter(
     (img): img is MediaItem => Boolean(img?.sourceUrl)
@@ -42,6 +61,9 @@ export default function ImageCarousel(props: ImageCarouselProps) {
   if (images.length === 0) {
     return null;
   }
+
+  const copies = Math.max(3, Math.ceil(MIN_TRACK_SLIDES / images.length));
+  const track = Array.from({ length: copies }, () => images).flat();
 
   const link = props.imageCarousel?.link;
   const linkUrl = link?.url;
@@ -54,18 +76,23 @@ export default function ImageCarousel(props: ImageCarouselProps) {
 
   const carousel = (
     <Swiper
-      slidesPerView={2}
+      slidesPerView={3}
       spaceBetween={30}
       modules={[Autoplay]}
-      autoplay={{ delay: 5000, disableOnInteraction: false }}
+      autoplay={
+        reduceMotion
+          ? false
+          : { delay: SLIDE_DELAY, disableOnInteraction: false, pauseOnMouseEnter: true }
+      }
       loop
+      allowTouchMove={false}
       breakpoints={{
         768: {
           slidesPerView: images.length,
         },
       }}
     >
-      {images.map((img, i) => (
+      {track.map((img, i) => (
         <SwiperSlide key={i}>
           <Image
             src={img.sourceUrl!}

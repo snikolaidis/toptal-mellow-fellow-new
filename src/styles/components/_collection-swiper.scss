@@ -3,57 +3,56 @@
 .collection-swiper {
   margin-bottom: 3rem;
 
+  @include swiper-product-carousel;
+
+  // Equal-height cards without clipping. The slide is the flex container and
+  // .product-card grows inside it; giving the card `height: 100%` instead makes
+  // it resolve against an auto-height slide, so tall cards overflow and the
+  // swiper's `overflow: hidden` cuts their bottom corners off.
   .swiper {
-    .swiper-wrapper {
-      padding-top: 10px;
-      padding-bottom: 10px;
+    height: auto;
+  }
+
+  .swiper-wrapper {
+    height: auto;
+    align-items: stretch;
+  }
+
+  .swiper-slide {
+    display: flex;
+    height: auto;
+  }
+
+  // One dot per page of real products. Swiper's own bullets count the repeated
+  // track, so they are replaced rather than styled. Same dot and active-pill
+  // treatment as the hero slider and the PDP gallery.
+  &__dots {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 18px;
+
+    @include large-up {
+      display: flex;
     }
+  }
 
-    .swiper-slide {
-      height: auto;
-    }
+  &__dot {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background-color: var(--color-brown-40);
+    cursor: pointer;
+    appearance: none;
+    transition: width 0.2s ease, background-color 0.2s ease;
+  }
 
-    .swiper-pagination {
-      --swiper-pagination-bottom: 0;
-
-      display: none;
-      position: relative;
-
-      @include large-up {
-        display: block;
-      }
-    }
-
-    .swiper-pagination-bullet {
-      --swiper-pagination-bullet-height: 12px;
-      --swiper-pagination-bullet-width: 12px;
-      --swiper-pagination-bullet-inactive-opacity: .1;
-    }
-
-    .swiper-pagination-bullet-active {
-      --swiper-pagination-color: #d9caab;
-    }
-
-    .swiper-button-next,
-    .swiper-button-prev {
-      --swiper-navigation-size: 30px;
-      --swiper-navigation-color: #000000;
-      background-color: #ffffff;
-      border-radius: 100%;
-      padding: 5px;
-      box-shadow: 0 0 0 1px rgba(55, 63, 71, .04), 0 4px 4px 0 rgba(55, 63, 71, .08), 0 8px 24px 0 rgba(55, 63, 71, .16);
-      width: 25px;
-      height: 25px;
-    }
-
-    .swiper-navigation-icon {
-      height: 12px;
-    }
-
-    .swiper-navigation-icon path {
-      stroke: currentColor;
-      stroke-width: 2px;
-    }
+  &__dot--active {
+    width: 33px;
+    background-color: var(--color-teal-85);
   }
 
   @include large-up {
@@ -100,6 +99,32 @@
     var(--color-hero-gold) 0%,
     rgba(255, 255, 255, 0) 100%
   );
+
+  // The mood panel begins on the colour the tab ends on, so the two meet as one
+  // surface and then fade out together, exactly how the gold panel above works.
+  &[data-term='sleep-better'] {
+    background: linear-gradient(180deg, #7c629e 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='relief'] {
+    background: linear-gradient(180deg, #ffcc4f 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='chill-out'] {
+    background: linear-gradient(180deg, #005069 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='energy-focus'] {
+    background: linear-gradient(180deg, #fcbb77 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='happy-social'] {
+    background: linear-gradient(180deg, #628b6a 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  &[data-term='better-intimacy'] {
+    background: linear-gradient(180deg, #dd6e7a 0%, rgba(255, 255, 255, 0) 100%);
+  }
 
   @include large-up {
     margin-bottom: 0;

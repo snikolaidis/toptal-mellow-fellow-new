@@ -1,0 +1,38 @@
+.product-coa-box {
+  display: flex;
+  padding: 24px 20px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  align-self: stretch;
+  border-radius: 16px;
+  background: linear-gradient(0deg, #9AB5C4 0%, #4A7A8A 100%);
+  
+  &__title {
+    font-family: var(--font-family-body);
+    color: #FFF;
+    font-size: 24px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 30px;
+    margin: 0;
+  }
+
+  &__description {
+    color: var(--color-gold-cream-20);
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 22.75px;
+  }
+
+  &__button {
+    color: var(--color-teal-85);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
+    padding: 12.5px 20px 11.5px;
+    border-radius: 24px;
+    background: var(--color-gold-cream);
+  }
+}

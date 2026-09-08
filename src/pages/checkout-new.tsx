@@ -6,7 +6,7 @@ import BillingForm from '@/components/checkout/BillingForm';
 import ShippingForm from '@/components/checkout/ShippingForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
-import ContactInformation from '@/components/checkout/ContactInformation';
+//import ContactInformation from '@/components/checkout/ContactInformation';
 import RealIdVerification, { STRONGLY_VERIFIED_STEPS } from '@/components/RealIdVerification';
 
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
@@ -995,13 +995,13 @@ export default function CheckoutPage() {
 
             {step === 'shipping' && (
               <>
-                <ContactInformation
+                {/*<ContactInformation
                   customer={{ firstName: billing.firstName, lastName: billing.lastName, email: billing.email }}
                   onEdit={() => {
                     setStep('billing');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                />
+                />*/}
                 <div className={styles.formCard}>
                   <ShippingForm
                     billing={billing}

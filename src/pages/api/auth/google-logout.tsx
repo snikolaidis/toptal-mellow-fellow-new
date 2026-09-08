@@ -1,9 +1,6 @@
-import type {
-  NextApiRequest,
-  NextApiResponse,
-} from 'next';
-
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@/lib/session';
+import { clearAllAuthCookieHeaders } from '@/lib/session-manager';
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,10 +13,9 @@ export default async function handler(
   }
 
   try {
-    const session =
-      await getSession(req, res);
-
+    const session = await getSession(req, res);
     session.destroy();
+    res.setHeader('Set-Cookie', clearAllAuthCookieHeaders());
 
     return res.status(200).json({
       success: true,

@@ -1,5 +1,8 @@
-import { FormEvent, useState } from 'react';
-import styles from './PaymentStep.module.css';
+import { FormEvent, useState } from "react";
+import styles from "./PaymentStep.module.css";
+import { processPayment } from "@/lib/authorize-net";
+import { useCart } from "@/context/CartContext";
+import LoyaltyCheckoutRewards from "@/components/LoyaltyCheckoutRewards";
 
 interface Product {
   id: number | string;
@@ -14,16 +17,13 @@ interface PaymentStepProps {
   products: Product[];
   subtotal: number;
   shippingPrice: number;
-
   onBack: () => void;
-
   onPlaceOrder?: (paymentData: {
-    cardNumber: string;
-    nameOnCard: string;
-    expiry: string;
-    cvv: string;
-    paymentMethod: 'card' | 'klarna';
-  }) => void;
+    opaqueData: {
+      dataDescriptor: string;
+      dataValue: string;
+    };
+  }) => Promise<void> | void;
 }
 
 export default function PaymentStep({
@@ -33,171 +33,233 @@ export default function PaymentStep({
   onBack,
   onPlaceOrder,
 }: PaymentStepProps) {
-  const [paymentMethod, setPaymentMethod] =
-    useState<'card' | 'klarna'>('card');
+  const { cart, applyCoupon, removeCoupon, error: cartError } = useCart();
 
-  const [cardNumber, setCardNumber] =
-    useState('');
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "klarna">("card");
 
-  const [nameOnCard, setNameOnCard] =
-    useState('');
+  const [cardNumber, setCardNumber] = useState("");
+  const [nameOnCard, setNameOnCard] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
 
-  const [expiry, setExpiry] =
-    useState('');
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [loyaltyOpen, setLoyaltyOpen] = useState(false);
 
-  const [cvv, setCvv] =
-    useState('');
+  const [couponCode, setCouponCode] = useState("");
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
-  const [promoOpen, setPromoOpen] =
-    useState(false);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  /**
+   * Convert WooCommerce money values to numbers.
+   *
+   * Example:
+   * "$20.00" -> 20
+   * "20.00"  -> 20
+   */
+  const moneyToNumber = (value: string | number | undefined | null): number => {
+    if (value === undefined || value === null) {
+      return 0;
+    }
 
-  const [loyaltyOpen, setLoyaltyOpen] =
-    useState(false);
+    const parsed = parseFloat(String(value).replace(/[^0-9.-]/g, ""));
 
-  const [error, setError] =
-    useState('');
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
 
-  const total =
-    subtotal + shippingPrice;
+  /**
+   * WooCommerce cart.total is the final cart amount.
+   *
+   * It already contains:
+   * - product subtotal
+   * - shipping
+   * - coupon discounts
+   * - loyalty discounts
+   * - other cart adjustments
+   *
+   * Therefore DO NOT add shipping again when cart.total exists.
+   */
+  const hasCartTotal =
+    cart?.total !== undefined &&
+    cart?.total !== null &&
+    String(cart.total).trim() !== "";
 
-  const handleSubmit = (
-    event: FormEvent
-  ) => {
+  const total = hasCartTotal
+    ? moneyToNumber(cart.total)
+    : subtotal + shippingPrice;
+
+  /**
+   * WooCommerce discount total.
+   */
+  const discountTotal = moneyToNumber(cart?.discountTotal);
+
+  /**
+   * Apply coupon.
+   */
+  const handleApplyCoupon = async (event: FormEvent) => {
     event.preventDefault();
 
-    setError('');
+    const code = couponCode.trim();
 
-    if (paymentMethod === 'card') {
+    if (!code) {
+      return;
+    }
+
+    setError("");
+    setIsApplyingCoupon(true);
+
+    try {
+      const success = await applyCoupon(code);
+
+      if (success) {
+        setCouponCode("");
+      }
+    } catch (couponError) {
+      setError(
+        couponError instanceof Error
+          ? couponError.message
+          : "Unable to apply coupon.",
+      );
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  /**
+   * Remove coupon.
+   */
+  const handleRemoveCoupon = async (code: string) => {
+    setError("");
+
+    try {
+      await removeCoupon(code);
+    } catch (couponError) {
+      setError(
+        couponError instanceof Error
+          ? couponError.message
+          : "Unable to remove coupon.",
+      );
+    }
+  };
+
+  /**
+   * EXISTING PAYMENT LOGIC
+   *
+   * Authorize.Net processing remains unchanged.
+   */
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+
+    setError("");
+
+    if (paymentMethod === "card") {
       if (
         !cardNumber.trim() ||
         !nameOnCard.trim() ||
         !expiry.trim() ||
         !cvv.trim()
       ) {
-        setError(
-          'Please complete all card details.'
-        );
+        setError("Please complete all card details.");
 
         return;
       }
 
-      if (cardNumber.replace(/\s/g, '').length < 13) {
-        setError(
-          'Please enter a valid card number.'
-        );
+      if (cardNumber.replace(/\s/g, "").length < 13) {
+        setError("Please enter a valid card number.");
 
         return;
       }
 
       if (!/^\d{2}\/\d{2}$/.test(expiry)) {
-        setError(
-          'Expiry date must be in MM/YY format.'
-        );
+        setError("Expiry date must be in MM/YY format.");
 
         return;
       }
 
       if (!/^\d{3,4}$/.test(cvv)) {
-        setError(
-          'Please enter a valid CVV.'
-        );
+        setError("Please enter a valid CVV.");
 
         return;
       }
     }
 
-    if (onPlaceOrder) {
-      onPlaceOrder({
-        cardNumber,
-        nameOnCard,
-        expiry,
+    if (!onPlaceOrder) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const opaqueData = await processPayment({
+        cardNumber: cardNumber.replace(/\s/g, ""),
+        expirationMonth: expiry.slice(0, 2),
+        expirationYear: `20${expiry.slice(3)}`,
         cvv,
-        paymentMethod,
       });
+
+      await onPlaceOrder({
+        opaqueData,
+      });
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Payment could not be processed. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const formatCardNumber = (
-    value: string
-  ) => {
-    const digits =
-      value
-        .replace(/\D/g, '')
-        .slice(0, 16);
+  const formatCardNumber = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 16);
 
-    return digits.replace(
-      /(.{4})/g,
-      '$1 '
-    ).trim();
+    return digits.replace(/(.{4})/g, "$1 ").trim();
   };
 
-  const formatExpiry = (
-    value: string
-  ) => {
-    const digits =
-      value
-        .replace(/\D/g, '')
-        .slice(0, 4);
+  const formatExpiry = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 4);
 
     if (digits.length <= 2) {
       return digits;
     }
 
-    return `${digits.slice(
-      0,
-      2
-    )}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   };
 
   return (
     <div className={styles.page}>
-
       {/* PROGRESS */}
       <div className={styles.progress}>
-        <span className={styles.done}>
-          Checkout
-        </span>
+        <span className={styles.done}>Checkout</span>
 
         <span>›</span>
 
-        <span className={styles.done}>
-          Shipping
-        </span>
+        <span className={styles.done}>Shipping</span>
 
         <span>›</span>
 
-        <span className={styles.done}>
-          Billing
-        </span>
+        <span className={styles.done}>Billing</span>
 
         <span>›</span>
 
-        <span className={styles.done}>
-          Real ID
-        </span>
+        <span className={styles.done}>Real ID</span>
 
         <span>›</span>
 
-        <span className={styles.active}>
-          Payment
-        </span>
+        <span className={styles.active}>Payment</span>
       </div>
 
       <div className={styles.layout}>
-
         {/* LEFT */}
         <main className={styles.left}>
-
           {/* PAYMENT METHOD */}
           <section className={styles.card}>
-
-            <h3>
-              Payment Method
-            </h3>
+            <h3>Payment Method</h3>
 
             <label
               className={
-                paymentMethod === 'card'
+                paymentMethod === "card"
                   ? `${styles.paymentOption} ${styles.selected}`
                   : styles.paymentOption
               }
@@ -205,64 +267,25 @@ export default function PaymentStep({
               <input
                 type="radio"
                 name="payment-method"
-                checked={
-                  paymentMethod === 'card'
-                }
-                onChange={() =>
-                  setPaymentMethod('card')
-                }
+                checked={paymentMethod === "card"}
+                onChange={() => setPaymentMethod("card")}
               />
 
-              <span>
-                Credit / Debit Card
-              </span>
+              <span>Credit / Debit Card</span>
 
               <span className={styles.cardIcon}>
-                ▭
+                <img src="/images/CardIcon.png" alt="Credit / Debit Card" />
               </span>
             </label>
-
-            <label
-              className={
-                paymentMethod === 'klarna'
-                  ? `${styles.paymentOption} ${styles.selected}`
-                  : styles.paymentOption
-              }
-            >
-              <input
-                type="radio"
-                name="payment-method"
-                checked={
-                  paymentMethod === 'klarna'
-                }
-                onChange={() =>
-                  setPaymentMethod('klarna')
-                }
-              />
-
-              <span>
-                Buy Now Pay Later
-              </span>
-
-              <span className={styles.klarna}>
-                Klarna
-              </span>
-            </label>
-
           </section>
 
           {/* CARD DETAILS */}
-          {paymentMethod === 'card' && (
+          {paymentMethod === "card" && (
             <section className={styles.card}>
-
-              <h3>
-                Card Details
-              </h3>
+              <h3>Card Details</h3>
 
               <div className={styles.field}>
-                <label>
-                  Card Number *
-                </label>
+                <label>Card Number *</label>
 
                 <input
                   type="text"
@@ -271,39 +294,26 @@ export default function PaymentStep({
                   placeholder="1234 5678 9012 3456"
                   value={cardNumber}
                   onChange={(event) =>
-                    setCardNumber(
-                      formatCardNumber(
-                        event.target.value
-                      )
-                    )
+                    setCardNumber(formatCardNumber(event.target.value))
                   }
                 />
               </div>
 
               <div className={styles.field}>
-                <label>
-                  Name on Card *
-                </label>
+                <label>Name on Card *</label>
 
                 <input
                   type="text"
                   autoComplete="cc-name"
                   placeholder="Jane Smith"
                   value={nameOnCard}
-                  onChange={(event) =>
-                    setNameOnCard(
-                      event.target.value
-                    )
-                  }
+                  onChange={(event) => setNameOnCard(event.target.value)}
                 />
               </div>
 
               <div className={styles.formRow}>
-
                 <div className={styles.field}>
-                  <label>
-                    Expiry Date *
-                  </label>
+                  <label>Expiry Date *</label>
 
                   <input
                     type="text"
@@ -312,19 +322,13 @@ export default function PaymentStep({
                     placeholder="MM/YY"
                     value={expiry}
                     onChange={(event) =>
-                      setExpiry(
-                        formatExpiry(
-                          event.target.value
-                        )
-                      )
+                      setExpiry(formatExpiry(event.target.value))
                     }
                   />
                 </div>
 
                 <div className={styles.field}>
-                  <label>
-                    CVV *
-                  </label>
+                  <label>CVV *</label>
 
                   <input
                     type="password"
@@ -334,151 +338,150 @@ export default function PaymentStep({
                     maxLength={4}
                     value={cvv}
                     onChange={(event) =>
-                      setCvv(
-                        event.target.value
-                          .replace(/\D/g, '')
-                          .slice(0, 4)
-                      )
+                      setCvv(event.target.value.replace(/\D/g, "").slice(0, 4))
                     }
                   />
                 </div>
-
               </div>
-
             </section>
           )}
 
-          {/* PROMO */}
+          {/* PROMO & GIFT CARDS */}
           <section className={styles.collapsible}>
+            <button type="button" onClick={() => setPromoOpen(!promoOpen)}>
+              <span>Promo & Gift Cards</span>
 
-            <button
-              type="button"
-              onClick={() =>
-                setPromoOpen(
-                  !promoOpen
-                )
-              }
-            >
-              <span>
-                Promo & Gift Cards
-              </span>
-
-              <span>
-                {promoOpen ? '⌃' : '⌄'}
-              </span>
+              <span>{promoOpen ? "⌃" : "⌄"}</span>
             </button>
 
             {promoOpen && (
               <div className={styles.collapseContent}>
-
-                <input
-                  type="text"
-                  placeholder="Enter promo code"
-                />
-
-                <button
-                  type="button"
-                  className={styles.applyBtn}
+                <form
+                  onSubmit={handleApplyCoupon}
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                  }}
                 >
-                  Apply
-                </button>
+                  <input
+                    type="text"
+                    placeholder="Enter promo code"
+                    value={couponCode}
+                    onChange={(event) => setCouponCode(event.target.value)}
+                    disabled={isApplyingCoupon}
+                  />
 
+                  <button
+                    type="submit"
+                    className={styles.applyBtn}
+                    disabled={isApplyingCoupon || !couponCode.trim()}
+                  >
+                    {isApplyingCoupon ? "Applying..." : "Apply"}
+                  </button>
+                </form>
+
+                {cartError && <p className={styles.error}>{cartError}</p>}
+
+                {/* APPLIED COUPONS */}
+                {cart?.appliedCoupons && cart.appliedCoupons.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "12px",
+                    }}
+                  >
+                    {cart.appliedCoupons.map((coupon) => (
+                      <div
+                        key={coupon.code}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <span>{coupon.code}</span>
+
+                        {coupon.discountAmount && (
+                          <span>-{coupon.discountAmount}</span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCoupon(coupon.code)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-
           </section>
 
-          {/* LOYALTY */}
+          {/* LOYALTY POINTS */}
           <section className={styles.collapsible}>
+            <button type="button" onClick={() => setLoyaltyOpen(!loyaltyOpen)}>
+              <span>Loyalty Points</span>
 
-            <button
-              type="button"
-              onClick={() =>
-                setLoyaltyOpen(
-                  !loyaltyOpen
-                )
-              }
-            >
-              <span>
-                Loyalty Points
-              </span>
-
-              <span>
-                {loyaltyOpen ? '⌃' : '⌄'}
-              </span>
+              <span>{loyaltyOpen ? "⌃" : "⌄"}</span>
             </button>
 
             {loyaltyOpen && (
               <div className={styles.collapseContent}>
-                <p>
-                  Available loyalty points
-                  will appear here.
-                </p>
+                <LoyaltyCheckoutRewards />
               </div>
             )}
-
           </section>
 
           {/* ORDER TOTAL */}
           <section className={styles.totalCard}>
-
-            <h3>
-              Order Total
-            </h3>
+            <h3>Order Total</h3>
 
             <div className={styles.totalRow}>
-              <span>
-                Subtotal
-              </span>
+              <span>Subtotal</span>
 
-              <span>
-                ${subtotal.toFixed(2)}
-              </span>
+              <span>{cart?.subtotal}</span>
             </div>
 
             <div className={styles.totalRow}>
-              <span>
-                Shipping
-              </span>
+              <span>Shipping</span>
 
               <span>
-                {shippingPrice === 0
-                  ? 'Free'
-                  : `$${shippingPrice.toFixed(2)}`}
+                {cart?.shippingTotal === "$0.00" ? "Free" : cart?.shippingTotal}
               </span>
             </div>
 
-            <div className={styles.totalRow}>
-              <span>
-                Estimated Tax (8%)
-              </span>
+            {/* DISCOUNT */}
+            {cart?.discountTotal && (
+              <div className={styles.totalRow}>
+                <span>Discount</span>
 
-              <span>
-                $0.00
-              </span>
+                <span>
+                  -
+                  {cart?.discountTotal}
+                </span>
+              </div>
+            )}
+
+            <div className={styles.totalRow}>
+              <span>Estimated Tax (8%)</span>
+
+              <span>$0.00</span>
             </div>
 
             <div className={styles.grandTotal}>
-              <span>
-                Total
-              </span>
+              <span>Total</span>
 
-              <strong>
-                ${total.toFixed(2)}
-              </strong>
+              <strong>{cart?.total}</strong>
             </div>
-
           </section>
 
-          {error && (
-            <div className={styles.error}>
-              {error}
-            </div>
-          )}
+          {error && <div className={styles.error}>{error}</div>}
 
           {/* ACTIONS */}
           <div className={styles.actions}>
-
             <button
               type="button"
               className={styles.backButton}
@@ -491,112 +494,83 @@ export default function PaymentStep({
               type="button"
               className={styles.placeOrder}
               onClick={handleSubmit}
+              disabled={isSubmitting}
             >
-              Place Order - $
-              {total.toFixed(2)}
+              {isSubmitting
+                ? "Processing payment..."
+                : `Place Order - ${cart?.total}`}
             </button>
-
           </div>
 
           <p className={styles.terms}>
-            By placing your order you agree
-            to our Terms of Service and
-            Privacy Policy.
+            By placing your order you agree to our Terms of Service and Privacy
+            Policy.
           </p>
-
         </main>
 
-        {/* RIGHT */}
+        {/* RIGHT - ORDER SUMMARY */}
         <aside className={styles.summary}>
+          <h3>Order Summary</h3>
 
-          <h3>
-            Order Summary
-          </h3>
+          {cart?.items?.map((product) => (
+            <div key={product.key} className={styles.product}>
+              <div className={styles.productImage}>
+                {product?.product.image ? (
+                  <img
+                    src={product?.product.image?.sourceUrl}
+                    alt={product.product.image?.altText}
+                  />
+                ) : (
+                  <div className={styles.placeholder} />
+                )}
 
-          {products.map(
-            (product) => (
-              <div
-                key={product.id}
-                className={styles.product}
-              >
-
-                <div className={styles.productImage}>
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                    />
-                  ) : (
-                    <div
-                      className={
-                        styles.placeholder
-                      }
-                    />
-                  )}
-
-                  <span>
-                    {product.quantity}
-                  </span>
-                </div>
-
-                <div className={styles.productInfo}>
-                  <strong>
-                    {product.name}
-                  </strong>
-                </div>
-
-                <strong>
-                  ${product.total.toFixed(2)}
-                </strong>
-
+                <span>{product.quantity}</span>
               </div>
-            )
+
+              <div className={styles.productInfo}>
+                <strong>{product?.product?.name}</strong>
+              </div>
+
+              <strong>{product.total}</strong>
+            </div>
+          ))}
+
+          <div className={styles.summaryRow}>
+            <span>Subtotal</span>
+
+            <span>{cart?.subtotal}</span>
+          </div>
+
+          <div className={styles.summaryRow}>
+            <span>Shipping</span>
+
+            <span>
+              {cart?.shippingTotal === "$0.00"
+                ? "Free"
+                : `${cart?.shippingTotal}`}
+            </span>
+          </div>
+
+          {cart?.discountTotal !== "$0.00" && (
+            <div className={styles.summaryRow}>
+              <span>Discount</span>
+
+              <span>-{cart?.discountTotal}</span>
+            </div>
           )}
 
           <div className={styles.summaryRow}>
-            <span>
-              Subtotal
-            </span>
+            <span>Tax</span>
 
-            <span>
-              ${subtotal.toFixed(2)}
-            </span>
-          </div>
-
-          <div className={styles.summaryRow}>
-            <span>
-              Shipping
-            </span>
-
-            <span>
-              {shippingPrice === 0
-                ? 'Free'
-                : `$${shippingPrice.toFixed(2)}`}
-            </span>
-          </div>
-
-          <div className={styles.summaryRow}>
-            <span>
-              Tax
-            </span>
-
-            <span>
-              $0.00
-            </span>
+            <span>$0.00</span>
           </div>
 
           <div className={styles.summaryTotal}>
-            <span>
-              Total
-            </span>
+            <span>Total</span>
 
-            <strong>
-              ${total.toFixed(2)}
-            </strong>
+            <strong>{cart?.total}</strong>
           </div>
-
         </aside>
-
       </div>
     </div>
   );
