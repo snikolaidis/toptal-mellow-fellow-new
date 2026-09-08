@@ -8,7 +8,7 @@ import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import type { SingleProductExtras } from '@/templates/single-product';
-import type { Product, ProductNutrition } from '@/types/woocommerce';
+import type { CannabinoidServing, Product, ProductNutrition } from '@/types/woocommerce';
 import { fetchKlaviyoReviews, type KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 
 /**
@@ -36,7 +36,14 @@ export default function ProductRoute(props: Record<string, unknown>) {
 async function fetchProductExtras(
   wpUrl: string,
   slug: string
-): Promise<Omit<SingleProductExtras, 'nutrition' | 'reviewData' | 'fixedBundleItems'> & { databaseId: number | null }> {
+): Promise<
+  Omit<
+    SingleProductExtras,
+    'nutrition' | 'cannabinoids' | 'reviewData' | 'fixedBundleItems'
+  > & {
+    databaseId: number | null;
+  }
+> {
   const empty = {
     collectionName: null,
     collectionSlug: null,
@@ -70,17 +77,29 @@ async function fetchProductExtras(
 const GET_PRODUCT_NUTRITION = gql`
   query GetProductNutrition($slug: ID!) {
     product(id: $slug, idType: SLUG) {
-      ... on SimpleProduct { nutrition { calories sugar } }
-      ... on VariableProduct { nutrition { calories sugar } }
+      ... on SimpleProduct {
+        nutrition { calories sugar }
+        productDetails { cannabinoidMgPerServing { cannabinoid mg } }
+      }
+      ... on VariableProduct {
+        nutrition { calories sugar }
+        productDetails { cannabinoidMgPerServing { cannabinoid mg } }
+      }
     }
   }
 `;
 
 type ProductNutritionResult = {
-  product?: { nutrition?: ProductNutrition | null } | null;
+  product?: {
+    nutrition?: ProductNutrition | null;
+    productDetails?: { cannabinoidMgPerServing?: CannabinoidServing[] | null } | null;
+  } | null;
 };
 
-async function fetchProductNutrition(slug: string): Promise<ProductNutrition | null> {
+async function fetchProductNutrition(
+  slug: string
+): Promise<{ nutrition: ProductNutrition | null; cannabinoids: CannabinoidServing[] }> {
+  const empty = { nutrition: null, cannabinoids: [] };
   try {
     const { data, errors } = await getClient().query<ProductNutritionResult>({
       query: GET_PRODUCT_NUTRITION,
@@ -89,10 +108,13 @@ async function fetchProductNutrition(slug: string): Promise<ProductNutrition | n
       // these types, this query omits it, and normalising throws into the catch below.
       fetchPolicy: 'no-cache',
     });
-    if (errors?.length) return null;
-    return data?.product?.nutrition ?? null;
+    if (errors?.length) return empty;
+    return {
+      nutrition: data?.product?.nutrition ?? null,
+      cannabinoids: data?.product?.productDetails?.cannabinoidMgPerServing ?? [],
+    };
   } catch {
-    return null;
+    return empty;
   }
 }
 
@@ -244,7 +266,13 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   const seedCtx = { ...ctx, params: { wordpressNode: ['products', slug] } };
 
   try {
-    const [menuClient, result, { extras, reviewData }, nutrition, fixedBundleItems] = await Promise.all([
+    const [
+      menuClient,
+      result,
+      { extras, reviewData },
+      nutritionData,
+      fixedBundleItems,
+    ] = await Promise.all([
       prefetchMenus(),
       withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: 60 })),
       fetchExtrasAndReviews(wpUrl, slug),
@@ -259,7 +287,12 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       return result;
     }
 
-    Object.assign(result.props, extras, { nutrition, reviewData, fixedBundleItems });
+    Object.assign(result.props, extras, {
+      nutrition: nutritionData.nutrition,
+      cannabinoids: nutritionData.cannabinoids,
+      reviewData,
+      fixedBundleItems,
+    });
     mergeMenuState(result.props, menuClient);
     return result;
   } catch (error) {

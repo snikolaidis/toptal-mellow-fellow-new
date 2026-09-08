@@ -9,6 +9,37 @@
     }
   }
 
+  @media screen and (max-width: 768px) {
+    .columns.product-layout {
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+
+      > .column {
+        display: contents;
+      }
+
+      .gallery {
+        min-width: 0;
+        order: 1;
+      }
+
+      > .column:last-child > * {
+        order: 2;
+      }
+
+      .purchase-block {
+        margin-bottom: 2rem;
+        order: 3;
+      }
+      
+      > .column:last-child > .product-nutrition,
+      > .column:last-child > .product-nutrition ~ * {
+        order: 4;
+      }
+    }
+  }
+
   .current {
     color: var(--color-text-primary);
     font-weight: 500;
@@ -589,6 +620,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    margin-bottom: 1rem;
   }
 
   .purchase-option {

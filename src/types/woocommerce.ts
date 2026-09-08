@@ -100,6 +100,11 @@ export interface ProductNutrition {
   sugar?: string | null;
 }
 
+export interface CannabinoidServing {
+  cannabinoid?: string | null;
+  mg?: number | null;
+}
+
 export interface ProductACF {
   // Text / textarea / wysiwyg
   coaLink?: string | null;
