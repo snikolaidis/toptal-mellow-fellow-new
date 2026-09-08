@@ -158,6 +158,7 @@
 .collapseContent {
   padding: 0 16px 16px;
   display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -349,9 +350,5 @@
   .formRow,
   .actions {
     grid-template-columns: 1fr;
-  }
-
-  .collapseContent {
-    flex-direction: column;
   }
 }

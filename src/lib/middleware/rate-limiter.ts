@@ -138,11 +138,16 @@ export function withRateLimit(config: Partial<RateLimitConfig> = {}) {
       res: NextApiResponse
     ): Promise<void> {
       try {
+         // Bypass rate limits in development mode so local testing isn't blocked
+        if (process.env.NODE_ENV === 'development') {
+          await handler(req, res);
+          return;
+        }
         const result = await checkRateLimit(req, finalConfig);
 
         // Set rate limit headers on all responses
         setRateLimitHeaders(res, finalConfig, result);
-
+console.log(`[RateLimit] ${req.url} -> Used: ${finalConfig.maxAttempts - result.remaining}/${finalConfig.maxAttempts} (Remaining: ${result.remaining})`);
         if (!result.allowed) {
           res.status(429).json({
             success: false,

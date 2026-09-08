@@ -302,7 +302,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const syncAndMigrateCartOnLogin = useCallback(async () => {
+ const syncAndMigrateCartOnLogin = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     const seq = nextSeq();

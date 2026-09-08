@@ -30,6 +30,16 @@ add_action(
 			)
 		);
 
+		register_rest_route(
+			'mellow-fellow/v1',
+			'/checkout-customer',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => 'mf_update_checkout_customer',
+				'permission_callback' => 'mf_checkout_customer_permission',
+			)
+		);
+
 		/*
 		 * NEW GOOGLE CUSTOMER UPDATE ENDPOINT
 		 */
@@ -212,7 +222,145 @@ function mf_get_checkout_customer( WP_REST_Request $request ) {
 	);
 }
 
+/**
+ * Update checkout customer's billing address.
+ *
+ * POST /wp-json/mellow-fellow/v1/checkout-customer
+ */
+function mf_update_checkout_customer( WP_REST_Request $request ) {
 
+	$user_id = get_current_user_id();
+
+	/*
+	 * For Faust server-to-server requests,
+	 * allow the Next.js API to provide the user ID.
+	 */
+	if ( ! $user_id ) {
+		$user_id = absint(
+			$request->get_param( 'user_id' )
+		);
+	}
+
+	if ( ! $user_id ) {
+		return new WP_Error(
+			'customer_not_found',
+			'Unable to determine customer.',
+			array(
+				'status' => 404,
+			)
+		);
+	}
+
+	$user = get_user_by(
+		'id',
+		$user_id
+	);
+
+	if ( ! $user ) {
+		return new WP_Error(
+			'customer_not_found',
+			'Customer not found.',
+			array(
+				'status' => 404,
+			)
+		);
+	}
+
+	$data = $request->get_json_params();
+
+	if ( ! is_array( $data ) ) {
+		return new WP_Error(
+			'invalid_customer_data',
+			'Invalid customer data.',
+			array(
+				'status' => 400,
+			)
+		);
+	}
+
+	/*
+	 * BILLING
+	 */
+	if (
+		! isset( $data['billing'] ) ||
+		! is_array( $data['billing'] )
+	) {
+		return new WP_Error(
+			'invalid_billing_data',
+			'Billing address is required.',
+			array(
+				'status' => 400,
+			)
+		);
+	}
+
+	$billing = $data['billing'];
+
+	$billing_fields = array(
+		'firstName' => 'billing_first_name',
+		'lastName'  => 'billing_last_name',
+		'email'     => 'billing_email',
+		'phone'     => 'billing_phone',
+		'address1'  => 'billing_address_1',
+		'address2'  => 'billing_address_2',
+		'city'      => 'billing_city',
+		'state'     => 'billing_state',
+		'postcode'  => 'billing_postcode',
+		'country'   => 'billing_country',
+	);
+
+	foreach ( $billing_fields as $input => $meta_key ) {
+
+		if ( ! array_key_exists( $input, $billing ) ) {
+			continue;
+		}
+
+		$value = $billing[ $input ];
+
+		if ( 'email' === $input ) {
+			$value = sanitize_email( $value );
+		} else {
+			$value = sanitize_text_field( $value );
+		}
+
+		update_user_meta(
+			$user_id,
+			$meta_key,
+			$value
+		);
+	}
+
+	/*
+	 * Keep WordPress profile name synchronized.
+	 */
+	if ( array_key_exists( 'firstName', $billing ) ) {
+		update_user_meta(
+			$user_id,
+			'first_name',
+			sanitize_text_field(
+				$billing['firstName']
+			)
+		);
+	}
+
+	if ( array_key_exists( 'lastName', $billing ) ) {
+		update_user_meta(
+			$user_id,
+			'last_name',
+			sanitize_text_field(
+				$billing['lastName']
+			)
+		);
+	}
+
+	return rest_ensure_response(
+		array(
+			'success' => true,
+			'user_id' => $user_id,
+			'message' => 'Billing address updated successfully.',
+		)
+	);
+}
 
 /**
  * Authenticate Google customer update request.

@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useCart, groupCartItems } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { MellowFellowLogo, CloseIcon } from '@/components/icons';
 import type { Product } from '@/types/woocommerce';
 import {
@@ -42,6 +43,7 @@ export default function CartDrawer() {
   } = useCart();
 
   const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
   const [couponCode, setCouponCode] = useState('');
@@ -648,7 +650,7 @@ export default function CartDrawer() {
               Checkout Now
             </Link>*/}
              <Link
-              href="/checkout-login"
+              href={isAuthenticated ? '/checkout' : '/checkout-login'}
               className={styles.checkoutBtn}
               onClick={closeDrawer}
             >

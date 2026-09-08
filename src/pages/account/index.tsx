@@ -109,16 +109,21 @@ function AccountContent() {
   const campaign = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_CAMPAIGN_INSTANCE;
   const vipTiers = process.env.NEXT_PUBLIC_YOTPO_LOYALTY_VIP_TIERS_INSTANCE;
 
-  useEffect(() => {
-    fetch('/api/account/graphql', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    useEffect(() => {
+    fetch("/api/account/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: CUSTOMER_ORDERS_QUERY }),
-      credentials: 'same-origin',
+      credentials: "same-origin",
     })
       .then((r) => r.json())
-      .then((res) => setCustomer(res?.data?.customer || null))
-      .catch(() => {})
+      .then((res) => {
+        console.log("Customer data:", res?.data?.customer);
+        setCustomer(res?.data?.customer || null);
+      })
+      .catch((err) => {
+        console.error("Error fetching customer data:", err);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -129,8 +134,8 @@ function AccountContent() {
   }, [ready, token, myRewards, campaign, vipTiers]);
 
   const handleLogout = useCallback(async () => {
-    await fetch('/api/cart/save-for-user', { method: 'POST' }).catch(() => {});
-    await fetch('/api/cart/clear-session', { method: 'POST' }).catch(() => {});
+  //  await fetch('/api/cart/save-for-user', { method: 'POST' }).catch(() => {});
+  //  await fetch('/api/cart/clear-session', { method: 'POST' }).catch(() => {});
     logout('/');
   }, [logout]);
 

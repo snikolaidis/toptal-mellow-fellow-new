@@ -243,8 +243,7 @@ export default function RealIdStep({
               </div>
 
               <p className={styles.support}>
-                Still have questions?
-                <strong> Contact Support</strong>
+                Still have questions? <strong><a href="#">Contact Support</a></strong>
               </p>
 
             </section>
@@ -353,7 +352,9 @@ export default function RealIdStep({
                       }
                     />
 
-                    Remember me for <strong>30 days</strong>
+                    <span>
+                      Remember me for <strong>30 days</strong>
+                    </span>
                   </label>
 
                   <label>
@@ -369,7 +370,9 @@ export default function RealIdStep({
                       }
                     />
 
-                    Remember me for <strong>60 days</strong>
+                    <span>
+                      Remember me for <strong>60 days</strong>
+                    </span>
                   </label>
 
                   <label>
@@ -385,7 +388,9 @@ export default function RealIdStep({
                       }
                     />
 
-                    Remember me for <strong>90 days</strong>
+                    <span>
+                      Remember me for <strong>90 days</strong>
+                    </span>
                   </label>
 
                 </div>

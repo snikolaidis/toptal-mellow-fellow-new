@@ -176,10 +176,15 @@
   color: #888;
   font-size: 12px;
   margin-bottom: 0;
+  padding: 15px 2px 0;
 }
 
 .support strong {
   color: #222;
+}
+
+.support a {
+  text-decoration: underline;
 }
 
 .backButton {

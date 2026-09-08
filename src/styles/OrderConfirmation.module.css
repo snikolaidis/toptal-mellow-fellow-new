@@ -26,19 +26,20 @@
   align-items: center;
   justify-content: center;
   margin: 0 auto 14px;
-  font-size: 18px;
+  font-size: 20px;
 }
 
-.confirmationCard h1 {
+.confirmationCard h2 {
   margin: 0 0 10px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
+  font-family: var(--bulma-body-family);
 }
 
 .confirmationCard p {
   margin: 0 auto 12px;
   color: #777;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -59,16 +60,42 @@
   color: #d84545;
   font-size: 11px;
   margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.timer span {
+  color: black;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.timer span.countdown {
+  font-size: 36px;
+  color: red;
+  font-weight: bold;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+}
+
+.timerIcon {
+  width: 36px;
+  height: 36px;
+  vertical-align: middle;
 }
 
 .forgotCard h2 {
-  font-size: 17px;
-  margin: 0 0 6px;
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--bulma-body-family);
 }
 
 .forgotCard > p {
   color: #777;
-  font-size: 11px;
+  font-size: 14px;
   margin: 0 0 14px;
 }
 
@@ -157,25 +184,40 @@
   list-style: none;
   cursor: pointer;
   padding: 12px 14px;
-  font-size: 11px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--bulma-body-family);
 }
 
 .accordions summary::-webkit-details-marker {
   display: none;
 }
 
+.accordions summary svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #777;
+  transition: transform 0.2s ease;
+}
+
+.accordions details[open] summary svg {
+  transform: rotate(180deg);
+}
+
 .accordionContent {
   padding: 0 14px 14px;
-  font-size: 10px;
+  font-size: 14px;
   color: #777;
   line-height: 1.5;
 }
 
 .infoGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   margin-bottom: 18px;
 }
@@ -188,23 +230,29 @@
 }
 
 .pointsCard {
-  background: #a994ca;
+  background: linear-gradient(180deg, #7A6BAA 0%, #B8A8CC 100%);
   color: #fff;
 }
 
 .shareCard {
-  background: #b5d6d9;
+  background: linear-gradient(180deg, #2B6475 0%, #C8D8DC 100%);
   color: #fff;
 }
 
 .pointsCard strong,
 .shareCard strong {
-  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--bulma-body-family);
 }
 
 .pointsCard p,
 .shareCard p {
-  font-size: 8px;
+  font-size: 14px;
   line-height: 1.4;
   margin: 6px 0;
 }
@@ -216,8 +264,9 @@
   color: #fff;
   padding: 0;
   text-decoration: underline;
-  font-size: 8px;
+  font-size: 14px;
   cursor: pointer;
+  font-weight: bold;
 }
 
 .alsoLike {
@@ -225,8 +274,10 @@
 }
 
 .alsoLike h2 {
-  font-size: 16px;
   margin: 15px 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--bulma-body-family);
 }
 
 .alsoLike .productSlider {
@@ -244,8 +295,9 @@
 .accountButton {
   border-radius: 8px;
   padding: 11px 10px;
-  font-size: 10px;
+  font-size: 14px;
   cursor: pointer;
+  font-weight: bold;
 }
 
 .continueButton {
@@ -279,5 +331,9 @@
   .productCard {
     min-width: 125px;
     width: 125px;
+  }
+
+  .infoGrid {
+    grid-template-columns: 1fr 1fr;
   }
 }

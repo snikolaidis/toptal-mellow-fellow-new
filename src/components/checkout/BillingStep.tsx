@@ -34,7 +34,7 @@ interface BillingStepProps {
   shippingPrice: number;
 
   onBillingChange: (value: Address) => void;
-  onSaveBilling: () => Promise<void>;
+  onSaveBilling: () => Promise<string>;
   onBack: () => void;
   onContinue: () => void;
 }
@@ -58,6 +58,8 @@ export default function BillingStep({
    * unchecked -> show billing form
    */
   const [sameAsShipping, setSameAsShipping] = useState(true);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   /*
    * Keep the user's manually entered billing address
@@ -132,11 +134,20 @@ export default function BillingStep({
    * while typing, so Save does not need to do anything else.
    */
   const handleSaveBilling = async () => {
+    setSaveMessage(null);
+    setSaveError(null);
+
     try {
-      await onSaveBilling();
+      const message = await onSaveBilling();
+      setSaveMessage(message);
       setSameAsShipping(false);
     } catch (error) {
       console.error("Failed to save billing address:", error);
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "Failed to save billing address.",
+      );
     }
   };
 
@@ -353,6 +364,16 @@ export default function BillingStep({
                     Save
                   </button>
                 </div>
+
+                {(saveMessage || saveError) && (
+                  <p
+                    className={
+                      saveError ? styles.saveErrorNote : styles.saveNote
+                    }
+                  >
+                    {saveError || saveMessage}
+                  </p>
+                )}
               </div>
             )}
           </section>
