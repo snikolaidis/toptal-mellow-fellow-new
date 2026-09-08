@@ -8,7 +8,7 @@ import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import type { SingleProductExtras } from '@/templates/single-product';
-import type { CannabinoidServing, Product, ProductNutrition } from '@/types/woocommerce';
+import type { CannabinoidServing, Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { fetchKlaviyoReviews, type KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 
 /**
@@ -39,12 +39,11 @@ async function fetchProductExtras(
 ): Promise<
   Omit<
     SingleProductExtras,
-    'nutrition' | 'cannabinoids' | 'reviewData' | 'fixedBundleItems'
+    'nutrition' | 'cannabinoids' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
   > & {
     databaseId: number | null;
   }
-> {
-  const empty = {
+> {  const empty = {
     collectionName: null,
     collectionSlug: null,
     availableOptions: [],
@@ -179,6 +178,45 @@ async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<Resol
   }
 }
 
+// Its own document like nutrition above, against a different risk: these four are
+// the only taxonomies whose term type carries an ACF group, so a rename breaks them.
+const GET_PRODUCT_TAXONOMIES = gql`
+  query GetProductTaxonomies($slug: ID!) {
+    product(id: $slug, idType: SLUG) {
+      flavors {
+        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
+      }
+      vibes {
+        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
+      }
+      effects {
+        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
+      }
+      settings {
+        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
+      }
+    }
+  }
+`;
+
+const EMPTY_TAXONOMIES: ProductTaxonomies = {};
+
+async function fetchProductTaxonomies(slug: string): Promise<ProductTaxonomies> {
+  try {
+    const { data, errors } = await getClient().query<{ product?: ProductTaxonomies | null }>({
+      query: GET_PRODUCT_TAXONOMIES,
+      variables: { slug },
+      // Same reason as nutrition above: the cache keys these types on databaseId,
+      // which this query omits, and normalising throws into the catch below.
+      fetchPolicy: 'no-cache',
+    });
+    if (errors?.length) return EMPTY_TAXONOMIES;
+    return data?.product ?? EMPTY_TAXONOMIES;
+  } catch {
+    return EMPTY_TAXONOMIES;
+  }
+}
+
 const EMPTY_REVIEWS: KlaviyoReviewsResult = {
   summary: { average: 0, total: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
   reviews: [],
@@ -272,12 +310,14 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       { extras, reviewData },
       nutritionData,
       fixedBundleItems,
+      taxonomies,
     ] = await Promise.all([
       prefetchMenus(),
       withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: 60 })),
       fetchExtrasAndReviews(wpUrl, slug),
       fetchProductNutrition(slug),
       fetchFixedBundleItems(wpUrl, slug),
+      fetchProductTaxonomies(slug),
     ]);
 
     // The only evidence this route gets that WordPress genuinely has no such
@@ -292,8 +332,8 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       cannabinoids: nutritionData.cannabinoids,
       reviewData,
       fixedBundleItems,
-    });
-    mergeMenuState(result.props, menuClient);
+      taxonomies,
+    });    mergeMenuState(result.props, menuClient);
     return result;
   } catch (error) {
     console.error(`[Product] failed to build "${slug}":`, error);

@@ -21,7 +21,7 @@ import Breadcrumb from '@/components/Breadcrumb';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
-import { CannabinoidServing, Product, ProductNutrition } from '@/types/woocommerce';
+import { CannabinoidServing, Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Thumbs, Pagination, FreeMode, Mousewheel } from 'swiper/modules';
 
@@ -62,6 +62,7 @@ export interface SingleProductExtras {
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
   cannabinoids: CannabinoidServing[];
+  taxonomies: ProductTaxonomies;
   reviewData: KlaviyoReviewsResult;
   // Fixed bundles' admin-picked items (bbFixedItems), pre-resolved into full
   // product records server-side so "What's included" renders immediately
@@ -86,6 +87,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   availableOptionsBase = '',
   nutrition = null,
   cannabinoids = [],
+  taxonomies = {},
   reviewData = null,
   fixedBundleItems: initialFixedBundleItems = [],
 }) => {
@@ -941,8 +943,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 .filter(Boolean)}
             />
 
-            {!isBundle && <FlavorsBox product={product} />}
-
+            {!isBundle && <FlavorsBox product={product} taxonomies={taxonomies} />}
             <ProductTimeline product={product} />
 
             {/* Product Meta */}

@@ -91,6 +91,15 @@ export interface ProductTaxonomyTerm {
   extraTaxonomyFields?: { propIcon?: AcfImageField | null } | null;
 }
 
+// Deliberately not on `Product`: these four are fetched by the PDP alone, so
+// keeping them off the shared type makes a stale reader a compile error.
+export interface ProductTaxonomies {
+  flavors?: { nodes: ProductTaxonomyTerm[] } | null;
+  vibes?: { nodes: ProductTaxonomyTerm[] } | null;
+  effects?: { nodes: ProductTaxonomyTerm[] } | null;
+  settings?: { nodes: ProductTaxonomyTerm[] } | null;
+}
+
 // The `Nutrition` ACF group, attached directly to products (not nested under
 // productDetails). Fields are ACF "text" (not "number"), so GraphQL returns
 // them as strings, not floats. `carbs` also exists on the group but is
@@ -194,10 +203,6 @@ export interface Product {
   // Product attribute taxonomies (migrated from Shopify), surfaced on cards.
   strainTypes?: { nodes: Array<{ name: string }> };
   strainNames?: { nodes: Array<{ name: string }> };
-  flavors?: { nodes: ProductTaxonomyTerm[] };
-  vibes?: { nodes: ProductTaxonomyTerm[] };
-  effects?: { nodes: ProductTaxonomyTerm[] };
-  settings?: { nodes: ProductTaxonomyTerm[] };
   blendTypes?: { nodes: Array<{ name: string }> };
   productLines?: { nodes: Array<{ name: string }> };
   size?: { nodes: Array<{ name: string }> };
