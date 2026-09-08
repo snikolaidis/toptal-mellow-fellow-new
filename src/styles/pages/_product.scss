@@ -9,6 +9,13 @@
     }
   }
 
+  .divider {
+    height: 1px;
+    align-self: stretch;
+    border-top: 1px solid #E8DCC3;
+    margin: 1rem 0;
+  }
+
   @media screen and (max-width: 768px) {
     .columns.product-layout {
       display: flex;
@@ -137,7 +144,8 @@
 
     @include medium-up {
       font-size: 26px;
-      line-height: 137.5%
+      line-height: 137.5%;
+      margin-bottom: 14px;
     }
   }
 
@@ -147,6 +155,10 @@
     font-weight: 600;
     line-height: 59.375%;
     margin-bottom: 1.5rem;
+
+    @include medium-up {
+      line-height: 150%;
+    }
   }
 
   .sale-price {
