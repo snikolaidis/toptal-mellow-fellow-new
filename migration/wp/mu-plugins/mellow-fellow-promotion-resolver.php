@@ -338,6 +338,23 @@ function mf_resolver_build_bogo_rule( $id, $code ) {
 		'custom'        => $custom,
 	);
 
+	// Scope = WebToffee's native product/category restrictions PLUS our custom BOGO
+	// collection restrictions (_mf_bogo_collections). When the engine runs, WebToffee's
+	// BOGO runtime (which used to enforce the collection filter via
+	// wbte_sc_alter_items_to_validate) is disabled, so the engine must enforce it here.
+	$scope_products  = mf_resolver_ids( $m( 'wbte_sc_bogo_product_ids' ) );
+	$exclude_products = mf_resolver_ids( $m( 'wbte_sc_bogo_exclude_product_ids' ) );
+	if ( function_exists( 'mf_get_products_in_collections' ) ) {
+		$inc = $m( '_mf_bogo_collections' );
+		if ( $inc ) {
+			$scope_products = array_merge( $scope_products, mf_get_products_in_collections( array_filter( array_map( 'trim', explode( ',', $inc ) ) ) ) );
+		}
+		$exc = $m( '_mf_bogo_exclude_collections' );
+		if ( $exc ) {
+			$exclude_products = array_merge( $exclude_products, mf_get_products_in_collections( array_filter( array_map( 'trim', explode( ',', $exc ) ) ) ) );
+		}
+	}
+
 	$label = $m( 'wbte_sc_bogo_coupon_name' );
 	return Rule::fromArray( array(
 		'id'          => $code,
@@ -346,9 +363,9 @@ function mf_resolver_build_bogo_rule( $id, $code ) {
 		'priority'    => (int) ( get_post_meta( $id, '_mf_promo_priority', true ) ?: 30 ),
 		'exclusivity' => 'yes' === get_post_meta( $id, '_mf_promo_exclusive', true ) ? Rule::EXCL_EXCLUSIVE : Rule::EXCL_UNIVERSAL,
 		'bogo'        => $bogo,
-		'scope_products'     => mf_resolver_ids( $m( 'wbte_sc_bogo_product_ids' ) ),
+		'scope_products'     => array_values( array_unique( $scope_products ) ),
 		'scope_categories'   => mf_resolver_ids( $m( 'wbte_sc_bogo_product_categories' ) ),
-		'exclude_products'   => mf_resolver_ids( $m( 'wbte_sc_bogo_exclude_product_ids' ) ),
+		'exclude_products'   => array_values( array_unique( $exclude_products ) ),
 		'exclude_categories' => mf_resolver_ids( $m( 'wbte_sc_bogo_exclude_product_categories' ) ),
 	) );
 }
