@@ -60,6 +60,22 @@ function mf_resolver_log( $message ) {
  * 1. Hand automatic-promotion runtime from WebToffee to the resolver
  * ------------------------------------------------------------------ */
 
+// Primary, TIMING-INDEPENDENT kill for auto-apply: force WebToffee's available-auto-coupon
+// list to empty. get_available_auto_coupons() runs this filter, so auto-apply then has nothing
+// to add — no WT auto coupon is applied, and the Store API's validate_cart_coupons has nothing
+// to remove (which is what caused the add/remove war + gift eviction). Our engine still applies
+// the same coupons' discounts via line pricing, read straight from the coupon meta. Registered
+// at file load so it's active however late WebToffee builds its list.
+if ( mf_resolver_enabled() ) {
+	add_filter( 'wt_sc_auto_coupons_list', '__return_empty_array', 9999 );
+}
+
+/**
+ * Remove WebToffee's auto-apply + BOGO runtime hooks. WebToffee registers some of these LATE
+ * (only during the frontend/REST request, after wp_loaded), so removing at wp_loaded alone
+ * missed them — the bug that kept the war alive. We therefore also run this right before every
+ * totals calculation, when the hooks are guaranteed to be registered. Idempotent.
+ */
 function mf_resolver_disable_wt_runtime() {
 	if ( ! mf_resolver_enabled() ) {
 		return; // flag off — WebToffee keeps running exactly as today
@@ -78,6 +94,9 @@ function mf_resolver_disable_wt_runtime() {
 	}
 }
 add_action( 'wp_loaded', 'mf_resolver_disable_wt_runtime', 20 );
+// WebToffee registers auto-apply/BOGO hooks late in the request; re-remove them right before
+// each totals calc (priority 0, before our resolver at 20) so they never fire.
+add_action( 'woocommerce_before_calculate_totals', 'mf_resolver_disable_wt_runtime', 0 );
 
 /* ------------------------------------------------------------------ *
  * 2. Free-gift threshold: evaluate on PRE-discount subtotal
