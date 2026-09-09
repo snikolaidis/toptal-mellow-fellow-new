@@ -82,10 +82,6 @@ export default function CollectionsPage({
     initialTotalPages,
   });
 
-  // totalPages comes from the REST payload, but keep Next reachable if a
-  // response ever under-reports it while still flagging another page.
-  const pageCount = Math.max(totalPages, page + (hasNextPage ? 1 : 0));
-
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
   const descRef = useRef<HTMLDivElement>(null);
@@ -252,7 +248,7 @@ export default function CollectionsPage({
 
             <Pagination
               page={page}
-              totalPages={pageCount}
+              totalPages={totalPages}
               onPageChange={goToPage}
               disabled={loading}
               label="Collection pagination"
