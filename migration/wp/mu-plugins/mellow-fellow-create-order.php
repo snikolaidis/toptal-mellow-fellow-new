@@ -33,12 +33,18 @@ function mf_verify_faust_secret( WP_REST_Request $request ) {
     return hash_equals( $secret, $token );
 }
 
-function mf_create_order( WP_REST_Request $request ) {
-    $body = $request->get_json_params();
-
-    $billing  = $body['billing']  ?? [];
-    $shipping = $body['shipping'] ?? $billing;
-    $items    = $body['items']    ?? [];
+/**
+ * Validates a create-order payload and independently re-confirms Real ID
+ * verification. Shared by mf_create_order() and the Sezzle gateway bridge
+ * (see mellow-fellow-sezzle-gateway-bridge.php), so both entry points into
+ * order creation enforce the same checks.
+ *
+ * @return WP_REST_Response|null WP_REST_Response to return immediately on
+ *                                failure, or null if the payload is valid.
+ */
+function mf_validate_order_payload( $body ) {
+    $billing = $body['billing'] ?? [];
+    $items   = $body['items']   ?? [];
 
     if ( empty( $items ) ) {
         return new WP_REST_Response( [
@@ -55,16 +61,7 @@ function mf_create_order( WP_REST_Request $request ) {
         ], 400 );
     }
 
-    $transaction_id   = sanitize_text_field( $body['transactionId'] ?? '' );
-    $payment_method   = sanitize_text_field( $body['paymentMethod'] ?? 'authorize_net' );
-    $coupon_codes     = $body['couponCodes'] ?? [];
-    $shipping_lines   = $body['shippingLines'] ?? [];
-    $meta_data        = $body['metaData'] ?? [];
-    $customer_id      = absint( $body['customerId'] ?? 0 );
-    $realid_check_id  = sanitize_text_field( $body['realIdCheckId'] ?? '' );
-    $cart_item_totals = $body['cartItemTotals'] ?? [];
-    $cart_coupons     = $body['cartCoupons'] ?? [];
-    $bundle_discount_total = floatval( $body['bundleDiscountTotal'] ?? 0 );
+    $realid_check_id = sanitize_text_field( $body['realIdCheckId'] ?? '' );
 
     /**
      * Real ID (getverdict.com) identity verification is currently enforced only
@@ -84,20 +81,50 @@ function mf_create_order( WP_REST_Request $request ) {
         ], 403 );
     }
 
-    try {
-        $order = wc_create_order( [
-            'customer_id' => $customer_id,
-            'status'      => 'processing',
-        ] );
+    return null;
+}
 
-        if ( is_wp_error( $order ) ) {
-            return new WP_REST_Response( [
-                'success' => false,
-                'message' => $order->get_error_message(),
-            ], 500 );
-        }
+/**
+ * Builds a WC_Order from the same payload shape mf_create_order() accepts —
+ * line items, addresses, shipping, coupons, bundle discount, payment method,
+ * meta, and pre-computed cart totals — but stops short of finalizing payment
+ * (no payment_complete(), no final save of payment status). Callers decide
+ * what "done" means for their flow: mf_create_order() marks it paid
+ * immediately (card/COD, where payment is already resolved by the time this
+ * runs); the Sezzle gateway bridge leaves it pending and hands it to
+ * WC_Gateway_Sezzlepay::process_payment(), which completes it later via its
+ * own callback once the shopper actually approves.
+ *
+ * Throws Exception on failure (order creation error) — callers catch and
+ * build their own response shape.
+ *
+ * @return WC_Order
+ */
+function mf_build_order_from_payload( $body, $status ) {
+    $billing  = $body['billing']  ?? [];
+    $shipping = $body['shipping'] ?? $billing;
+    $items    = $body['items']    ?? [];
 
-        // Build a lookup of cart-computed totals keyed by product ID
+    $transaction_id   = sanitize_text_field( $body['transactionId'] ?? '' );
+    $payment_method   = sanitize_text_field( $body['paymentMethod'] ?? 'authorize_net' );
+    $coupon_codes     = $body['couponCodes'] ?? [];
+    $shipping_lines   = $body['shippingLines'] ?? [];
+    $meta_data        = $body['metaData'] ?? [];
+    $customer_id      = absint( $body['customerId'] ?? 0 );
+    $cart_item_totals = $body['cartItemTotals'] ?? [];
+    $cart_coupons     = $body['cartCoupons'] ?? [];
+    $bundle_discount_total = floatval( $body['bundleDiscountTotal'] ?? 0 );
+
+    $order = wc_create_order( [
+        'customer_id' => $customer_id,
+        'status'      => $status,
+    ] );
+
+    if ( is_wp_error( $order ) ) {
+        throw new Exception( $order->get_error_message() );
+    }
+
+    // Build a lookup of cart-computed totals keyed by product ID
         $cart_totals_map = [];
         foreach ( $cart_item_totals as $ct ) {
             $pid = absint( $ct['productId'] ?? 0 );
@@ -291,6 +318,23 @@ function mf_create_order( WP_REST_Request $request ) {
             $order->calculate_totals();
         }
 
+        $order->save();
+
+        return $order;
+}
+
+function mf_create_order( WP_REST_Request $request ) {
+    $body = $request->get_json_params();
+
+    $invalid = mf_validate_order_payload( $body );
+    if ( $invalid ) {
+        return $invalid;
+    }
+
+    try {
+        $order = mf_build_order_from_payload( $body, 'processing' );
+
+        $transaction_id = sanitize_text_field( $body['transactionId'] ?? '' );
         $order->payment_complete( $transaction_id );
         $order->save();
 

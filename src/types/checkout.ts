@@ -18,6 +18,10 @@ export interface CheckoutFormData {
 }
 
 export interface PaymentData {
+  // Which gateway this submission is for — 'authorize_net' (default) charges
+  // a card via opaqueData/savedCard below; 'cod' carries neither and skips
+  // straight to order creation. See handlePayment in checkout.tsx.
+  method: string;
   opaqueData?: {
     dataDescriptor: string;
     dataValue: string;
@@ -30,6 +34,14 @@ export interface PaymentData {
   // The shopper's Real ID remember-me pick, carried from PaymentForm up to
   // handlePayment so it's only ever applied after a purchase actually succeeds.
   rememberOption?: string;
+}
+
+// A payment method checkout can offer, sourced from GET /api/checkout/payment-methods
+// (the built-in card flow plus whatever's enabled in WooCommerce > Settings > Payments).
+export interface CheckoutPaymentMethod {
+  id: string;
+  title: string;
+  description: string;
 }
 
 export interface SavedCardInfo {

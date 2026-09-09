@@ -42,7 +42,7 @@ import {
 // Types
 // ============================================================================
 
-interface CheckoutRequest {
+export interface CheckoutRequest {
   billing: {
     firstName: string;
     lastName: string;
@@ -65,6 +65,13 @@ interface CheckoutRequest {
     postcode: string;
     country: string;
   };
+  // 'authorize_net' (default, charges paymentNonce/savedCard below) or 'cod' —
+  // any other enabled WooCommerce gateway isn't wired up to complete a
+  // purchase yet, so the frontend never submits one. See payment-methods.ts.
+  paymentMethod?: string;
+  // Gateway's WooCommerce-configured title (e.g. "Cash on Delivery"), recorded
+  // on the order so admin sees whatever the store actually calls it.
+  paymentMethodTitle?: string;
   paymentNonce?: {
     dataDescriptor: string;
     dataValue: string;
@@ -102,7 +109,7 @@ interface CheckoutRequest {
   realIdCheckId?: string;
 }
 
-interface PendingOrder {
+export interface PendingOrder {
   id: string;
   databaseId: number;
   orderNumber: string;
@@ -114,6 +121,10 @@ interface PaymentResult {
   transactionId: string;
   authCode: string;
 }
+
+// Kept in sync with SEZZLE_MIN_ORDER_AMOUNT in checkout.tsx, which just hides
+// Sezzle as an option below this — this is what actually enforces it.
+const SEZZLE_MIN_ORDER_AMOUNT = 100;
 
 // ============================================================================
 // Helper Functions
@@ -135,10 +146,18 @@ function validateCheckoutRequest(body: CheckoutRequest): string | null {
   if (!body.billing.address1 || !body.billing.city || !body.billing.state || !body.billing.postcode) {
     return 'Complete billing address is required';
   }
-  const hasNonce = body.paymentNonce?.dataDescriptor && body.paymentNonce?.dataValue;
-  const hasSavedCard = body.savedCard?.customerProfileId && body.savedCard?.paymentProfileId;
-  if (!hasNonce && !hasSavedCard) {
-    return 'Payment information is required';
+  if (body.paymentMethod === 'cod' || body.paymentMethod === 'sezzle') {
+    if (Array.isArray(body.subscriptionItems) && body.subscriptionItems.length > 0) {
+      return body.paymentMethod === 'cod'
+        ? 'Cash on Delivery is not available for subscription orders'
+        : 'Sezzle is not available for subscription orders';
+    }
+  } else {
+    const hasNonce = body.paymentNonce?.dataDescriptor && body.paymentNonce?.dataValue;
+    const hasSavedCard = body.savedCard?.customerProfileId && body.savedCard?.paymentProfileId;
+    if (!hasNonce && !hasSavedCard) {
+      return 'Payment information is required';
+    }
   }
   if (!body.amount) {
     return 'Order amount is required';
@@ -149,7 +168,7 @@ function validateCheckoutRequest(body: CheckoutRequest): string | null {
 /**
  * Get auth context: JWT for fast identity, Faust exchange only when WPGraphQL token is needed.
  */
-async function getAuthFromRequest(req: NextApiRequest): Promise<{ userId: number; accessToken?: string } | null> {
+export async function getAuthFromRequest(req: NextApiRequest): Promise<{ userId: number; accessToken?: string } | null> {
   const cookies = req.headers.cookie || '';
 
   // Fast path: JWT gives us userId without a network call
@@ -182,7 +201,7 @@ async function getAuthFromRequest(req: NextApiRequest): Promise<{ userId: number
   return null;
 }
 
-function parseMoney(value: string | number | undefined | null): number {
+export function parseMoney(value: string | number | undefined | null): number {
   if (value === undefined || value === null) return NaN;
   return parseFloat(String(value).replace(/[^0-9.]/g, ''));
 }
@@ -212,7 +231,7 @@ async function storeApiFetch(
   return { status: res.status, data };
 }
 
-async function applyCouponsToSession(
+export async function applyCouponsToSession(
   req: NextApiRequest,
   codes: string[],
   _authToken?: string
@@ -253,7 +272,7 @@ interface ServerCartCoupon {
   discount: number;
 }
 
-interface ServerCart {
+export interface ServerCart {
   total: number;
   discountTotal: number;
   shipping: number;
@@ -261,7 +280,7 @@ interface ServerCart {
   coupons: ServerCartCoupon[];
 }
 
-async function getServerCartTotal(
+export async function getServerCartTotal(
   req: NextApiRequest,
   _authToken?: string
 ): Promise<ServerCart | null> {
@@ -520,7 +539,7 @@ async function createSubscriptionOrder(
  * Uses the /mf/v1/create-order endpoint which accepts explicit line items,
  * decoupling order creation from any specific cart session mechanism.
  */
-async function createOrderWithPayment(
+export async function createOrderWithPayment(
   req: NextApiRequest,
   body: CheckoutRequest,
   transactionId: string,
@@ -563,6 +582,25 @@ async function createOrderWithPayment(
   console.log('[Checkout] Creating order via /mf/v1/create-order...', authToken ? '(authenticated)' : '(guest)');
   console.log('[Checkout][RealID] body.realIdCheckId =', JSON.stringify(body.realIdCheckId));
 
+  // Sezzle doesn't come through here at all — see startSezzleCheckout, which
+  // posts straight to mf/v1/create-sezzle-order and lets the installed
+  // WooCommerce Sezzle plugin (gateway id 'sezzlepay') own the order instead.
+  const paymentMethod = body.paymentMethod === 'cod' ? 'cod' : 'authorize_net';
+  const defaultTitles: Record<string, string> = {
+    cod: 'Cash on Delivery',
+    authorize_net: 'Credit Card (Authorize.net)',
+  };
+  const paymentMethodTitle = body.paymentMethodTitle || defaultTitles[paymentMethod];
+  const metaData =
+    paymentMethod === 'cod'
+      ? [{ key: '_payment_method_title', value: paymentMethodTitle }]
+      : [
+          { key: '_transaction_id', value: transactionId },
+          { key: '_authorize_net_transaction_id', value: transactionId },
+          { key: '_payment_method', value: 'authnet' },
+          { key: '_payment_method_title', value: paymentMethodTitle },
+        ];
+
   const orderPayload = {
     billing: body.billing,
     shipping: body.shipping || body.billing,
@@ -575,16 +613,12 @@ async function createOrderWithPayment(
       bundleName: item.bundleName || undefined,
     })),
     transactionId,
-    paymentMethod: 'authorize_net',
+    paymentMethod,
+    paymentMethodTitle,
     couponCodes: body.coupons || [],
     shippingLines,
     customerId,
-    metaData: [
-      { key: '_transaction_id', value: transactionId },
-      { key: '_authorize_net_transaction_id', value: transactionId },
-      { key: '_payment_method', value: 'authnet' },
-      { key: '_payment_method_title', value: 'Credit Card (Authorize.net)' },
-    ],
+    metaData,
     realIdCheckId: body.realIdCheckId,
     cartItemTotals: serverCart?.itemTotals || [],
     cartCoupons: serverCart?.coupons || [],
@@ -627,7 +661,7 @@ async function createOrderWithPayment(
  * Update customer's saved billing and shipping addresses after successful checkout
  * Only runs for authenticated users
  */
-async function updateCustomerAddresses(
+export async function updateCustomerAddresses(
   req: NextApiRequest,
   body: CheckoutRequest,
   authToken: string
@@ -876,6 +910,112 @@ async function processPayment(
 }
 
 // ============================================================================
+// Sezzle (redirect-based BNPL)
+// ============================================================================
+
+/**
+ * Creates a pending WooCommerce order via mf/v1/create-sezzle-order and hands
+ * the frontend the redirect URL that endpoint returns, instead of the
+ * card/COD path's synchronous charge-then-create-order. Unlike the earlier
+ * direct-to-Sezzle-API approach, the order itself (sitting 'pending' in WC)
+ * is now the persistent state the shopper's redirect round-trip resumes from
+ * — the installed Sezzle WooCommerce plugin (gateway id 'sezzlepay') creates
+ * the Sezzle session, verifies approval, captures funds, and marks the order
+ * paid entirely server-side via its own callback (see
+ * mellow-fellow-sezzle-gateway-bridge.php), then redirects the shopper
+ * straight to /order-confirmation — no completion endpoint needed here at all.
+ */
+async function startSezzleCheckout(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  body: CheckoutRequest,
+  customerId: number,
+  authToken: string | undefined,
+  serverCart: ServerCart | null,
+  trackingKey: string | null
+): Promise<void> {
+  const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+  const faustSecret = process.env.FAUST_SECRET_KEY;
+  if (!faustSecret) {
+    throw new CheckoutError('Server configuration error', ErrorCode.ORDER_CREATION_FAILED);
+  }
+
+  // Same shipping-lines-from-Store-API-cart lookup createOrderWithPayment
+  // uses, so the pending order's total (which the gateway/plugin captures
+  // against) matches what the shopper actually saw at checkout.
+  const cookies = req.headers.cookie || '';
+  const cartToken = extractCartToken(cookies);
+  let shippingLines: Array<{ methodTitle: string; methodId: string; total: number }> = [];
+  if (cartToken) {
+    try {
+      const cartRes = await storeApiFetch('cart', cartToken);
+      const shippingRates = cartRes.data?.shipping_rates || [];
+      const minorUnit = cartRes.data?.totals?.currency_minor_unit ?? 2;
+      const divisor = Math.pow(10, minorUnit);
+      for (const pkg of shippingRates) {
+        const selected = (pkg.shipping_rates || []).find((r: any) => r.selected);
+        if (selected) {
+          shippingLines.push({
+            methodTitle: selected.name || 'Shipping',
+            methodId: selected.rate_id || 'flat_rate',
+            total: (parseInt(String(selected.price ?? '0'), 10) || 0) / divisor,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[Checkout] Could not read shipping from Store API:', err);
+    }
+  }
+
+  const orderPayload = {
+    billing: body.billing,
+    shipping: body.shipping || body.billing,
+    items: (body.items || []).map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      variationId: (item as any).variationId || undefined,
+      unitPrice: (item as any).unitPrice || undefined,
+      bundleGroupKey: item.bundleGroupKey || undefined,
+      bundleName: item.bundleName || undefined,
+    })),
+    couponCodes: body.coupons || [],
+    shippingLines,
+    customerId,
+    realIdCheckId: body.realIdCheckId,
+    cartItemTotals: serverCart?.itemTotals || [],
+    cartCoupons: serverCart?.coupons || [],
+    bundleDiscountTotal: body.bundleDiscountTotal || undefined,
+  };
+
+  const response = await fetch(`${wpBaseUrl}/wp-json/mf/v1/create-sezzle-order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${faustSecret}` },
+    body: JSON.stringify(orderPayload),
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!data?.success || !data?.redirectUrl) {
+    throw new CheckoutError(
+      data?.message || `Could not start Sezzle checkout (${response.status})`,
+      ErrorCode.PAYMENT_PROCESSING_ERROR
+    );
+  }
+
+  const successResponse = { success: true, redirectUrl: data.redirectUrl };
+
+  // Completes tracking for THIS request (creating the pending order) — a
+  // retry with an unchanged cart (same idempotency key) replays this same
+  // response, i.e. the same already-created pending order's checkout URL,
+  // rather than creating a second order. That URL does expire after a while;
+  // a long-abandoned retry handing back a stale link is a known gap, same as
+  // it would be for any payment method's idempotency replay.
+  if (trackingKey) {
+    await completeIdempotency(trackingKey, successResponse);
+  }
+  res.status(200).json(successResponse);
+}
+
+// ============================================================================
 // Main Handler
 // ============================================================================
 
@@ -978,22 +1118,42 @@ async function checkoutHandler(
         `(source: ${amountSource}, browser said ${browserAmount})`
     );
 
-    const paymentResult = await processPayment(body, chargeAmount, idempotencyKey);
-    transactionId = paymentResult.transactionId;
+    if (body.paymentMethod === 'sezzle') {
+      // Checked against chargeAmount (server-resolved from the cart), not the
+      // client-supplied body.amount — checkout.tsx already hides Sezzle below
+      // this threshold, this is the actual enforcement.
+      if (chargeAmount < SEZZLE_MIN_ORDER_AMOUNT) {
+        throw new CheckoutError(
+          `Sezzle is only available for orders of $${SEZZLE_MIN_ORDER_AMOUNT} or more`,
+          ErrorCode.VALIDATION_ERROR
+        );
+      }
+      await startSezzleCheckout(req, res, body, authCtx?.userId || 0, authToken, serverCart, trackingKey);
+      return;
+    }
 
-    await storage.createReconciliationEntry({
-      orderId: 'pending',
-      transactionId,
-      amount: chargeAmount.toFixed(2),
-      status: 'payment_success',
-      eventType: 'payment_success',
-    });
+    const isCod = body.paymentMethod === 'cod';
+
+    if (!isCod) {
+      const paymentResult = await processPayment(body, chargeAmount, idempotencyKey);
+      transactionId = paymentResult.transactionId;
+
+      await storage.createReconciliationEntry({
+        orderId: 'pending',
+        transactionId,
+        amount: chargeAmount.toFixed(2),
+        status: 'payment_success',
+        eventType: 'payment_success',
+      });
+    }
 
     let order: PendingOrder;
     if (subscriptionScheme) {
-      order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, subscriptionLines, subscriptionShipping, authToken);
+      // Subscriptions always go through the card path above (COD rejects
+      // subscriptionItems in validateCheckoutRequest), so transactionId is set.
+      order = await createSubscriptionOrder(body, transactionId!, subscriptionScheme, subscriptionLines, subscriptionShipping, authToken);
     } else {
-      order = await createOrderWithPayment(req, body, transactionId, authCtx?.userId || 0, authToken, serverCart);
+      order = await createOrderWithPayment(req, body, transactionId || '', authCtx?.userId || 0, authToken, serverCart);
     }
     orderId = order.databaseId.toString();
     orderNumber = order.orderNumber;
@@ -1004,7 +1164,9 @@ async function checkoutHandler(
         `[Checkout] AMOUNT MISMATCH: charged ${chargeAmount.toFixed(2)} but order ` +
           `${orderNumber} total is ${orderTotal.toFixed(2)}. Voiding transaction ${transactionId}.`
       );
-      const voided = await voidPayment(transactionId);
+      // COD never charged anything, so there's nothing to void — the order
+      // cancellation below is still what matters.
+      const voided = isCod ? true : await voidPayment(transactionId!);
 
       // Cancel the order so it doesn't persist as "processing"
       try {
@@ -1050,11 +1212,12 @@ async function checkoutHandler(
       orderNumber,
       transactionId,
       amount: chargeAmount.toFixed(2),
-      status: 'payment_success',
+      // COD hasn't actually been paid yet — it's collected on delivery.
+      status: isCod ? 'pending' : 'payment_success',
       eventType: 'order_created',
       metadata: JSON.stringify({
         orderStatus: order.status,
-        paymentIncluded: true,
+        paymentIncluded: !isCod,
         orderTotal: orderTotal.toFixed(2),
         discountTotal: serverCart ? serverCart.discountTotal.toFixed(2) : undefined,
       }),

@@ -18,14 +18,16 @@ function originalUnitPrice(item: { product: { price: string; regularPrice?: stri
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
-import { AddressData, PaymentData, SavedCardInfo } from '@/types/checkout';
+// Kept in sync with SEZZLE_MIN_ORDER_AMOUNT in api/checkout.ts, which is the
+// one that actually enforces it — this just keeps it from showing as a
+// choice below the threshold.
+const SEZZLE_MIN_ORDER_AMOUNT = 100;
+import { AddressData, PaymentData, SavedCardInfo, CheckoutPaymentMethod } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
 import { collectWidgetSources } from '@/lib/widgetAttribution';
 import SavedCardSelector from '@/components/checkout/SavedCardSelector';
 import { klaviyoIdentify, klaviyoTrack } from '@/lib/klaviyo';
-import { getApolloAuthClient } from '@faustwp/core';
 import { useAuth } from '@/context/AuthContext';
-import { useQuery, useMutation } from '@apollo/client';
 import { GET_CUSTOMER_BILLING, UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { validateBillingAddress, validateShippingAddress, isValid, ValidationErrors } from '@/lib/validation';
 import Link from 'next/link';
@@ -66,6 +68,18 @@ export default function CheckoutPage() {
   const { cart, clearCart, isLoading: cartLoading, bundleNames } = useCart();
   const { isAuthenticated, isReady: authReady } = useAuth();
   const prevAuthRef = useRef<boolean | null>(null);
+  // CartContext seeds `cart` from localStorage synchronously on the client's
+  // very first render (see readCachedCart in CartContext.tsx), but the server
+  // always renders with cart === null (no localStorage there) and isLoading
+  // starting false either way — so a returning visitor with items already in
+  // cart hits a *different* one of the three branches below on the client's
+  // first paint (the full form) than the server rendered (the empty-cart
+  // message), a structural mismatch, not just different text. Holding every
+  // branch below to the loading/skeleton state until after mount keeps this
+  // render in sync with the server HTML; the real branch takes over immediately
+  // after, as a normal post-hydration update rather than a hydration diff.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [isProcessing, setIsProcessing] = useState(false);
   const [realIdVerified, setRealIdVerified] = useState(!REALID_ENABLED);
   const [realIdCheckId, setRealIdCheckId] = useState<string | null>(null);
@@ -215,19 +229,49 @@ export default function CheckoutPage() {
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [csrfLoading, setCsrfLoading] = useState(true);
 
-  // Fetch customer data for logged-in users
-  const client = isAuthenticated ? getApolloAuthClient() : null;
-  const { data: customerData } = useQuery(GET_CUSTOMER_BILLING, {
-    client: client ?? undefined,
-    skip: !isAuthenticated || !client,
-  });
-  const [updateCustomer] = useMutation(UPDATE_CUSTOMER, { client: client ?? undefined });
+  // Payment methods checkout can offer — card is always available, everything
+  // else (COD, and later Sezzle) comes from whatever's enabled in WooCommerce.
+  const [paymentMethods, setPaymentMethods] = useState<CheckoutPaymentMethod[]>([
+    { id: 'authorize_net', title: 'Credit Card', description: '' },
+  ]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('authorize_net');
+
+  // Fetch customer data for logged-in users via our own JWT-backed session
+  // (isAuthenticated, from AuthContext/api/auth/me) through /api/account/graphql
+  // — a server route that independently exchanges that session for a fresh
+  // WPGraphQL token on every call (see its source). This deliberately avoids
+  // Faust's own client-side GraphQL auth (getApolloAuthClient()), which reads
+  // an access token Faust only ever populates in memory during an actual
+  // /login page visit and which doesn't survive a reload — so a "remembered"
+  // logged-in visitor landing straight on /checkout would have isAuthenticated
+  // true while that token was simply missing, silently returning no customer
+  // data. account/addresses.tsx already fetches the same data this same way.
+  const [customerData, setCustomerData] = useState<{ customer: any } | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    fetch('/api/account/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: GET_CUSTOMER_BILLING.loc?.source?.body }),
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (!cancelled) setCustomerData(res?.data ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   // Persist an edited billing/shipping address back to the customer's saved
-  // profile — best-effort: failures here shouldn't block checkout.
+  // profile — best-effort: failures here shouldn't block checkout. Same
+  // /api/account/graphql route as the fetch above, for the same reason.
   const saveAddressToProfile = useCallback(
     async (type: 'billing' | 'shipping', address: AddressData) => {
-      if (!isAuthenticated || !client) return;
+      if (!isAuthenticated) return;
       const base = {
         firstName: address.firstName,
         lastName: address.lastName,
@@ -243,12 +287,17 @@ export default function CheckoutPage() {
           ? { billing: { ...base, email: address.email || '', phone: address.phone || '' } }
           : { shipping: base };
       try {
-        await updateCustomer({ variables: { input } });
+        await fetch('/api/account/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: UPDATE_CUSTOMER.loc?.source?.body, variables: { input } }),
+          credentials: 'same-origin',
+        });
       } catch {
         // best-effort — don't block checkout on profile save failures
       }
     },
-    [isAuthenticated, client, updateCustomer]
+    [isAuthenticated]
   );
 
   const cartItemIdsKey = (cart?.items || [])
@@ -489,6 +538,20 @@ export default function CheckoutPage() {
     fetchCsrfToken();
   }, [fetchCsrfToken]);
 
+  // Load the currently-enabled payment methods once — falls back to the
+  // default (card-only) state above on any failure, so checkout never blocks
+  // on this being unreachable.
+  useEffect(() => {
+    fetch('/api/checkout/payment-methods')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.methods) && data.methods.length > 0) {
+          setPaymentMethods(data.methods);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -509,6 +572,17 @@ export default function CheckoutPage() {
       void 0;
     }
   }, []);
+
+  // Sezzle's cancel_url (see startSezzleCheckout in api/checkout.ts) lands the
+  // shopper back here — the saved step above already puts them back on the
+  // payment step, this just explains why they're back.
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (router.query.sezzle === 'cancelled') {
+      setError('Sezzle checkout was cancelled. Choose a payment method to try again.');
+      router.replace('/checkout', undefined, { shallow: true });
+    }
+  }, [router.isReady, router.query.sezzle, router]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -607,16 +681,17 @@ export default function CheckoutPage() {
       // state is restored and the Pay button is enabled again. This way the verification
       // is email-specific and prevents a verification from one email address being reused for a different email.
       // This is a temporary solution, until we complete the "remember-me" options
-      if (
-        field === 'email' &&
-        value.trim().toLowerCase() !== verifiedEmail?.trim().toLowerCase()
-      ) {
-        setRealIdVerified(false);
-      } else if (
-        field === 'email' &&
-        value.trim().toLowerCase() === verifiedEmail?.trim().toLowerCase()
-      ) {
-        setRealIdVerified(true);
+      //
+      // Only applies when Real ID is actually turned on — otherwise realIdVerified
+      // starts (and must stay) true with nothing to reset it, since RealIdVerification
+      // never mounts to set it back. Without this guard, typing any email address
+      // permanently flips realIdVerified to false and PaymentForm never renders again.
+      if (REALID_ENABLED && field === 'email') {
+        if (value.trim().toLowerCase() !== verifiedEmail?.trim().toLowerCase()) {
+          setRealIdVerified(false);
+        } else {
+          setRealIdVerified(true);
+        }
       }
 
       return next;
@@ -755,6 +830,8 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           billing,
           shipping: sameAsBilling ? undefined : finalShipping,
+          paymentMethod: paymentData.method,
+          paymentMethodTitle: paymentMethods.find((m) => m.id === paymentData.method)?.title,
           paymentNonce: paymentData.opaqueData || undefined,
           savedCard: paymentData.savedCard || undefined,
           saveCard: paymentData.saveCard || false,
@@ -786,7 +863,14 @@ export default function CheckoutPage() {
           sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
           // Lets the server independently re-confirm Real ID verification before
           // the order is created — see mellow-fellow-realid-order-guard.php.
-          realIdCheckId: REALID_ENABLED ? realIdCheckId || undefined : undefined,
+          // Sent whenever we actually have one, regardless of REALID_ENABLED:
+          // that flag only controls whether the UI requires/blocks on a fresh
+          // verification, not whether a real, already-captured check id (e.g.
+          // a remembered prior verification — see the effect around line 190)
+          // gets submitted. Gating this on REALID_ENABLED discarded a genuine
+          // check id even when the shopper was legitimately verified, and the
+          // server-side guard enforces regardless of this flag either way.
+          realIdCheckId: realIdCheckId || undefined,
         }),
       });
 
@@ -814,6 +898,19 @@ export default function CheckoutPage() {
           );
         }
         throw new Error(result.message || 'Checkout failed. Please try again.');
+      }
+
+      // Sezzle: /api/checkout only created a pending order and got back
+      // Sezzle's hosted checkout URL (see startSezzleCheckout in
+      // api/checkout.ts, which bridges to the installed WooCommerce Sezzle
+      // plugin rather than talking to Sezzle directly). Leaving the SPA here;
+      // the plugin's own callback verifies approval, captures funds, marks
+      // the order paid, and redirects the shopper straight to
+      // /order-confirmation once done — everything below (Real ID, cart
+      // clear, that redirect) happens there instead, not in this app.
+      if (paymentData.method === 'sezzle' && result.redirectUrl) {
+        window.location.href = result.redirectUrl;
+        return;
       }
 
       // The Real ID remember-me choice is only ever applied once the purchase has
@@ -878,7 +975,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (cartLoading && (!cart || cart.items.length === 0)) {
+  if (!mounted || (cartLoading && (!cart || cart.items.length === 0))) {
     return (
       <Layout title="Checkout">
         <div className={styles.splitBg} aria-hidden="true" />
@@ -1088,6 +1185,10 @@ export default function CheckoutPage() {
                     amount={subSummary ? `$${subSummary.total.toFixed(2)}` : cart.total}
                     realIdBlocked={!realIdVerified}
                     isAuthenticated={!!isAuthenticated}
+                    paymentMethods={paymentMethods}
+                    selectedMethod={selectedPaymentMethod}
+                    onSelectMethod={setSelectedPaymentMethod}
+                    hasSubscription={subChecked.length > 0 && !!subChoice}
                     rememberMeState={rememberMeState}
                     onForgetMe={() => {
                       // 'not_exist' (not 'forgotten') is what the remember-me radio
@@ -1129,6 +1230,10 @@ function PaymentForm({
   isAuthenticated = false,
   rememberMeState,
   onForgetMe,
+  paymentMethods,
+  selectedMethod,
+  onSelectMethod,
+  hasSubscription = false,
 }: {
   onSubmit: (data: PaymentData) => void;
   onBack: () => void;
@@ -1139,8 +1244,38 @@ function PaymentForm({
   isAuthenticated?: boolean;
   rememberMeState: RememberMeState;
   onForgetMe?: () => void;
+  paymentMethods: CheckoutPaymentMethod[];
+  selectedMethod: string;
+  onSelectMethod: (id: string) => void;
+  // Subscriptions save a card via Authorize.net CIM to bill future renewals,
+  // so any method that can't do that (COD, Sezzle) isn't a real option here.
+  hasSubscription?: boolean;
 }) {
   const isDisabled = isProcessing || isLoading || realIdBlocked;
+  // Methods this form actually knows how to complete, beyond just displaying
+  // them. Not derived from WooCommerce's "enabled" flag — that only says a
+  // gateway is configured in wp-admin, not that this headless checkout has
+  // completion code for it. COD's flow already exists (see isCod below /
+  // api/checkout.ts) but isn't a live offering right now, so it stays out
+  // until it's actually turned back on as a real option.
+  const IMPLEMENTED_METHODS = new Set(['authorize_net', 'sezzle']);
+  // Sezzle is only offered on orders of $200+ — see the matching server-side
+  // check in api/checkout.ts's startSezzleCheckout, which is the one that
+  // actually enforces this (this is just so it doesn't show as an option to
+  // pick in the first place).
+  const orderTotal = parseFloat(amount.replace(/[^0-9.]/g, '')) || 0;
+  const selectableMethods = (
+    hasSubscription ? paymentMethods.filter((m) => m.id === 'authorize_net') : paymentMethods
+  ).filter((m) => m.id !== 'sezzle' || orderTotal >= SEZZLE_MIN_ORDER_AMOUNT);
+  const effectiveMethod = selectableMethods.some((m) => m.id === selectedMethod)
+    ? selectedMethod
+    : 'authorize_net';
+  const isCod = effectiveMethod === 'cod';
+  // Sezzle is redirect-based BNPL — no card form here either. Unlike COD it
+  // still needs a payment step, just one that happens off-site: submitting
+  // sends the shopper to Sezzle to approve, then back to complete the order.
+  // See handlePayment's 'sezzle' branch above for the actual redirect.
+  const isSezzle = effectiveMethod === 'sezzle';
   // The remember-me radio group only renders when rememberMeState === 'not_exist'
   // (see below) - during an already-active remembered session there's no new
   // choice being made, so this must default to 'active', not 'do_not_remember'.
@@ -1223,9 +1358,24 @@ function PaymentForm({
     e.preventDefault();
     setCardError(null);
 
+    // Cash on Delivery — no card involved at all, straight to order creation.
+    if (isCod) {
+      onSubmit({ method: 'cod', rememberOption: selectedRememberOption });
+      return;
+    }
+
+    // Sezzle — no card here either, but unlike COD this still needs a
+    // payment step; handlePayment redirects the browser to Sezzle instead
+    // of calling /api/checkout directly.
+    if (isSezzle) {
+      onSubmit({ method: 'sezzle', rememberOption: selectedRememberOption });
+      return;
+    }
+
     // Using saved card — no tokenization needed
     if (usingSavedCard && customerProfileId) {
       onSubmit({
+        method: 'authorize_net',
         savedCard: {
           customerProfileId,
           paymentProfileId: selectedSavedCard,
@@ -1259,7 +1409,7 @@ function PaymentForm({
         cvv,
       });
 
-      onSubmit({ opaqueData, saveCard: isAuthenticated && saveCard, rememberOption: selectedRememberOption });
+      onSubmit({ method: 'authorize_net', opaqueData, saveCard: isAuthenticated && saveCard, rememberOption: selectedRememberOption });
     } catch (err) {
       console.error('Tokenization error:', err);
       setCardError(
@@ -1376,13 +1526,54 @@ function PaymentForm({
           )}
 
           <h2>payment information</h2>
-          <p className={styles.paymentNotice}>
-            Your payment is secured by Authorize.net. Your card details are encrypted
-            and never stored on our servers.
-          </p>
+
+          {selectableMethods.length > 1 && (
+            <div className={styles.paymentMethods} role="radiogroup" aria-label="Payment method">
+              {selectableMethods.map((m) => {
+                const isImplemented = IMPLEMENTED_METHODS.has(m.id);
+                return (
+                  <label
+                    key={m.id}
+                    className={`${styles.paymentMethodOption} ${!isImplemented ? styles.paymentMethodOptionDisabled : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value={m.id}
+                      checked={effectiveMethod === m.id}
+                      onChange={() => onSelectMethod(m.id)}
+                      disabled={isDisabled || !isImplemented}
+                    />
+                    <span className={styles.paymentMethodInfo}>
+                      <span className={styles.paymentMethodTitle}>{m.title}</span>
+                      {!isImplemented && (
+                        <span className={styles.paymentMethodComingSoon}>Coming soon</span>
+                      )}
+                      {isImplemented && m.description && (
+                        <span className={styles.paymentMethodDesc}>{m.description}</span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          {hasSubscription && paymentMethods.some((m) => m.id !== 'authorize_net') && (
+            <p className={styles.paymentNotice}>
+              A subscription item needs a saved card for future renewals, so this order will be paid by card.
+            </p>
+          )}
+
+          {!isCod && !isSezzle && (
+            <p className={styles.paymentNotice}>
+              Your payment is secured by Authorize.net. Your card details are encrypted
+              and never stored on our servers.
+            </p>
+          )}
 
           {/* Saved cards selector for authenticated users */}
-          {isAuthenticated && !loadingCards && savedCards.length > 0 && (
+          {!isCod && !isSezzle && isAuthenticated && !loadingCards && savedCards.length > 0 && (
             <SavedCardSelector
               cards={savedCards}
               selectedId={selectedSavedCard}
@@ -1398,8 +1589,20 @@ function PaymentForm({
               </div>
             )}
 
-            {/* New card form — hidden when using saved card */}
-            {!usingSavedCard && (
+            {isCod && (
+              <p className={styles.paymentNotice}>
+                Pay with cash when your order arrives. You'll owe {amount} on delivery.
+              </p>
+            )}
+
+            {isSezzle && (
+              <p className={styles.paymentNotice}>
+                You'll be redirected to Sezzle to approve {amount}, then brought back here to finish your order.
+              </p>
+            )}
+
+            {/* New card form — hidden when using a saved card, COD, or Sezzle */}
+            {!isCod && !isSezzle && !usingSavedCard && (
               <>
                 <div className={styles.formGroup}>
                   <label htmlFor="cardNumber">Card Number</label>
@@ -1503,15 +1706,25 @@ function PaymentForm({
                 className={styles.formActionsPrimary}
                 disabled={isDisabled}
               >
-                {isLoading ? 'Loading...' : isProcessing ? 'Processing...' : `Pay ${amount}`}
+                {isLoading
+                  ? 'Loading...'
+                  : isProcessing
+                    ? 'Processing...'
+                    : isCod
+                      ? 'Place Order'
+                      : isSezzle
+                        ? 'Continue to Sezzle'
+                        : `Pay ${amount}`}
               </button>
             </div>
 
           </form>
 
-          <div className={styles.securityBadges}>
-            <span>Secured by Authorize.net</span>
-          </div>
+          {!isCod && !isSezzle && (
+            <div className={styles.securityBadges}>
+              <span>Secured by Authorize.net</span>
+            </div>
+          )}
 
         </div>
       </div>

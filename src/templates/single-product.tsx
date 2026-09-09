@@ -12,6 +12,7 @@ import ProductDescription from '@/components/pdp/ProductDescription';
 import ProductReviews from '@/components/pdp/ProductReviews';
 import ShippingReturns from '@/components/pdp/ShippingReturns';
 import FreeShippingTracker from '@/components/pdp/FreeShippingTracker';
+import SezzlePriceWidget from '@/components/pdp/SezzlePriceWidget';
 import type { KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
 import Nutrition from '@/components/pdp/Nutrition';
@@ -808,11 +809,17 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 <div className="price">
                   {fixedOriginalPricePerSet > product.bbFixedPrice + 0.005 ? (
                     <>
-                      <span className="sale-price">${(product.bbFixedPrice * quantity).toFixed(2)}</span>
+                      {/* Sezzle's widget reads this element's own text — must
+                          be the real, visible price node (a hidden/clipped
+                          clone gets skipped by the widget's own visibility
+                          check, which is why nothing rendered at all before).
+                          A class, not an id — every documented targetXPath
+                          example uses a class selector, never #id. */}
+                      <span className="sale-price sezzle-price-target">${(product.bbFixedPrice * quantity).toFixed(2)}</span>
                       <span className="regular-price">${(fixedOriginalPricePerSet * quantity).toFixed(2)}</span>
                     </>
                   ) : (
-                    <span>${(product.bbFixedPrice * quantity).toFixed(2)}</span>
+                    <span className="sezzle-price-target">${(product.bbFixedPrice * quantity).toFixed(2)}</span>
                   )}
                 </div>
               )
@@ -826,15 +833,20 @@ const SingleProduct: React.FC<SingleProductProps> & {
               <div className="price">
                 {displaySalePrice ? (
                   <>
-                    <span className="sale-price">{scalePrice(displaySalePrice)}</span>
+                    {/* See the isFixedBundle branch above — same reasoning. */}
+                    <span className="sale-price sezzle-price-target">{scalePrice(displaySalePrice)}</span>
                     <span className="regular-price">{scalePrice(displayRegularPrice)}</span>
                   </>
                 ) : (
-                  <span>{scalePrice(displayPrice)}</span>
+                  <span className="sezzle-price-target">{scalePrice(displayPrice)}</span>
                 )}
               </div>
             )}
-            
+
+            {/* byob bundles have no fixed price to show installment messaging
+                against ("starting from" isn't a real price yet). */}
+            {!isByobBundle && <SezzlePriceWidget targetSelector=".sezzle-price-target" />}
+
             <FreeShippingTracker />
 
             <AvailableOptions
