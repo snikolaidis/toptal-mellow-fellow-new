@@ -96,6 +96,15 @@ function mf_promotion_save_array( array $p, $dry_run = false ) {
 		return array( 'action' => 'error', 'id' => 0 );
 	}
 
+	mf_promotion_write_meta( $id, $p );
+	return array( 'action' => $action, 'id' => $id );
+}
+
+/**
+ * Write the canonical promotion array to post meta. Shared by the importer and the admin
+ * editor's save_post handler (the latter must NOT call wp_insert_post — that would recurse).
+ */
+function mf_promotion_write_meta( $id, array $p ) {
 	update_post_meta( $id, '_mf_source_id', (int) ( $p['source_id'] ?? 0 ) );
 	update_post_meta( $id, '_mf_code', (string) ( $p['code'] ?? '' ) );
 	update_post_meta( $id, '_mf_type', (string) ( $p['type'] ?? '' ) );
@@ -112,6 +121,13 @@ function mf_promotion_save_array( array $p, $dry_run = false ) {
 	update_post_meta( $id, '_mf_scope_categories', array_map( 'intval', $p['scope_categories'] ?? array() ) );
 	update_post_meta( $id, '_mf_exclude_products', array_map( 'intval', $p['exclude_products'] ?? array() ) );
 	update_post_meta( $id, '_mf_exclude_categories', array_map( 'intval', $p['exclude_categories'] ?? array() ) );
+	// Keep the human-facing collection selections for re-editing (resolved to product ids above).
+	if ( isset( $p['scope_collections'] ) ) {
+		update_post_meta( $id, '_mf_scope_collections', array_values( (array) $p['scope_collections'] ) );
+	}
+	if ( isset( $p['exclude_collections'] ) ) {
+		update_post_meta( $id, '_mf_exclude_collections', array_values( (array) $p['exclude_collections'] ) );
+	}
 	if ( null === ( $p['bogo'] ?? null ) ) {
 		delete_post_meta( $id, '_mf_bogo' );
 	} else {
@@ -122,8 +138,6 @@ function mf_promotion_save_array( array $p, $dry_run = false ) {
 	} else {
 		update_post_meta( $id, '_mf_gift', $p['gift'] );
 	}
-
-	return array( 'action' => $action, 'id' => $id );
 }
 
 function mf_promotion_find_by_source( $source_id ) {
