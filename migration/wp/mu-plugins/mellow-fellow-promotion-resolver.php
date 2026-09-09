@@ -103,7 +103,7 @@ function mf_resolve_promotions( $cart ) {
 	foreach ( mf_resolver_get_rules( $cart ) as $rule ) {
 		$saved = 0.0;
 
-		if ( 'percent' === $rule['type'] ) {
+		if ( 'percent' === $rule['type'] || 'fixed_product' === $rule['type'] ) {
 			$coupon = $rule['coupon'];
 			$discounts = new WC_Discounts( $cart );
 			if ( is_wp_error( $discounts->is_coupon_valid( $coupon ) ) ) {
@@ -121,11 +121,41 @@ function mf_resolve_promotions( $cart ) {
 				if ( $base <= 0 ) {
 					continue;
 				}
-				$per_unit_cut = $base * ( $rule['pct'] / 100 );
+				$per_unit_cut = ( 'fixed_product' === $rule['type'] )
+					? min( $base, (float) $rule['amount'] )
+					: $base * ( $rule['pct'] / 100 );
 				$line_disc[ $key ] += $per_unit_cut * (int) $item['quantity'];
 				$saved += $per_unit_cut * (int) $item['quantity'];
 				if ( $rule['exclusive'] ) {
 					$claimed[ $key ] = true;
+				}
+			}
+		} elseif ( 'fixed_cart' === $rule['type'] ) {
+			$coupon = $rule['coupon'];
+			$discounts = new WC_Discounts( $cart );
+			if ( is_wp_error( $discounts->is_coupon_valid( $coupon ) ) ) {
+				continue;
+			}
+			// Distribute a whole-cart fixed amount across eligible lines in proportion to
+			// their remaining value, capped so no line goes below zero.
+			$eligible = array();
+			$pool = 0.0;
+			foreach ( $cart->get_cart() as $key => $item ) {
+				if ( ! empty( $claimed[ $key ] ) || mf_resolver_is_protected_line( $item ) ) {
+					continue;
+				}
+				$remaining = ( $line_base[ $key ] * (int) $item['quantity'] ) - $line_disc[ $key ];
+				if ( $remaining > 0 ) {
+					$eligible[ $key ] = $remaining;
+					$pool += $remaining;
+				}
+			}
+			if ( $pool > 0 ) {
+				$amount = min( (float) $rule['amount'], $pool );
+				foreach ( $eligible as $key => $remaining ) {
+					$share = $amount * ( $remaining / $pool );
+					$line_disc[ $key ] += $share;
+					$saved += $share;
 				}
 			}
 		} elseif ( 'bogo_cheap_exp' === $rule['type'] ) {
@@ -322,15 +352,17 @@ function mf_resolver_get_rules( $cart ) {
 	) );
 	foreach ( $auto_ids as $id ) {
 		$coupon = new WC_Coupon( $id );
-		if ( 'percent' !== $coupon->get_discount_type() ) {
-			continue; // non-percent auto coupons ported later
+		$dtype  = $coupon->get_discount_type();
+		if ( ! in_array( $dtype, array( 'percent', 'fixed_product', 'fixed_cart' ), true ) ) {
+			continue; // BOGO auto coupons handled below; other exotic types skipped
 		}
 		$rules[] = array(
-			'type'      => 'percent',
+			'type'      => $dtype,
 			'code'      => $coupon->get_code(),
 			'label'     => mf_resolver_label( $coupon ),
 			'coupon'    => $coupon,
 			'pct'       => (float) $coupon->get_amount(),
+			'amount'    => (float) $coupon->get_amount(),
 			'priority'  => (int) ( get_post_meta( $id, '_mf_promo_priority', true ) ?: 20 ),
 			'exclusive' => 'yes' === get_post_meta( $id, '_mf_promo_exclusive', true ),
 		);
