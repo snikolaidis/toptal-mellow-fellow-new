@@ -182,13 +182,8 @@ function mf_resolver_build_lines( $cart ) {
 
 /** @return Rule[] */
 function mf_resolver_build_rules( $cart ) {
-	// Source of truth toggle. Default 'webtoffee' (read live WebToffee/coupon config) during
-	// transition; flip to 'mf_promotion' after the migration importer is verified so rules
-	// come from our own store. One option, reversible.
-	if ( 'mf_promotion' === get_option( 'mf_promo_source', 'webtoffee' ) && function_exists( 'mf_promotion_get_active_rules' ) ) {
-		return mf_promotion_get_active_rules( $cart->get_applied_coupons() );
-	}
-
+	// Lean approach: Smart Coupons stays the authoring tool; the engine reads its live config
+	// and only replaces the auto-apply + BOGO runtime that fought the Store API.
 	mf_resolver_version_guard();
 	$rules = array();
 

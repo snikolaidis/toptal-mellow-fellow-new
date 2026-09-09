@@ -1,5 +1,17 @@
 # Mellow Fellow Promotion Engine — Authoritative Spec
 
+> **LEAN PIVOT (2026-09-09).** We deliberately did NOT go to full ownership. Smart Coupons
+> stays installed as the authoring tool and keeps every feature (BOGO/coupon screens, import,
+> bulk generate, URL coupons, banners, **store credit**). The engine's job is narrow: replace
+> only WebToffee's **auto-apply + BOGO runtime** (the two behaviors that fought the Store API),
+> computing them deterministically from WebToffee's **live** config (`source = webtoffee`).
+> The own-authoring pieces below (mf_promotion CPT, unified admin, migration importer,
+> PromotionMapper) were built, validated, then **removed** — they're recoverable from git if we
+> ever choose full ownership. What remains and runs: the pure engine core (`mf-promotions/src`:
+> Line/Rule/Result/PromotionEngine) + the WooCommerce adapter (`mellow-fellow-promotion-resolver.php`).
+> Sections 2, 5 and the migration design below describe the shelved full-ownership path and are
+> retained for reference only.
+
 Status: **Approved architecture (2026-09-09).** Supersedes the resolver POC design doc for
 scope; the resolver becomes the engine's execution core. This is the contract the build,
 the test suite, and marketing all follow.
