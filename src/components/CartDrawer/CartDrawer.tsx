@@ -641,6 +641,22 @@ export default function CartDrawer() {
               </div>
             )}
 
+            {/* Automatic promotions from the promotion engine — locked chips (no remove). */}
+            {cart.promotions && cart.promotions.length > 0 && (
+              <div className={styles.appliedCoupons}>
+                {cart.promotions.map((promo) => (
+                  <span
+                    key={promo.code}
+                    className={styles.appliedCoupon}
+                    title="Automatic promotion"
+                  >
+                    {promo.label}
+                    {promo.amount > 0 && <> &minus;${promo.amount.toFixed(2)}</>}
+                  </span>
+                ))}
+              </div>
+            )}
+
             {(() => {
               // Gross = full price of everything; Net = what each line actually
               // costs after ALL discounts (coupons, BOGO, free gift, bundles).

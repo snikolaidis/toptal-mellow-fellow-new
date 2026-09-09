@@ -335,6 +335,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       isEmpty: true,
       itemsCount: 0,
       appliedCoupons: [],
+      promotions: [],
       availableShippingMethods: [],
       chosenShippingMethods: [],
     };
@@ -447,6 +448,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           isEmpty: false,
           itemsCount: input.quantity,
           appliedCoupons: [],
+          promotions: [],
           availableShippingMethods: [],
           chosenShippingMethods: [],
         };
@@ -828,6 +830,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     isEmpty: true,
     itemsCount: 0,
     appliedCoupons: [],
+    promotions: [],
     availableShippingMethods: [],
     chosenShippingMethods: [],
   };
