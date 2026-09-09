@@ -26,6 +26,11 @@ interface Props {
 
 const GIFT_STORAGE_KEY = 'mf_gift_product_id';
 
+// Bounded backstop: how many times to try attaching the gift coupon for a given
+// cart composition before giving up and removing the orphaned gift item. Keeps a
+// coupon that can't attach from spinning apply-coupon forever.
+const MAX_REAPPLY = 3;
+
 function readStoredGiftId(): number | null {
   if (typeof window === 'undefined') return null;
   try { return parseInt(sessionStorage.getItem(GIFT_STORAGE_KEY) || '', 10) || null; } catch { return null; }
@@ -45,7 +50,9 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   const [addingId, setAddingId] = useState<number | null>(null);
   const [removing, setRemoving] = useState(false);
   const reapplyingRef = useRef(false);
-  const reapplyFailsRef = useRef(0);
+  const attemptSigRef = useRef<string>('');
+  const attemptCountRef = useRef(0);
+  const gaveUpSigRef = useRef<string>('');
   const giftIdRef = useRef<number | null>(readStoredGiftId());
 
   // Compute qualifying subtotal excluding the free gift item — the gift's own
@@ -62,11 +69,6 @@ export default function FreeGiftWidget({ subtotal }: Props) {
   }, [cart, subtotal]);
 
   const unlocked = freeGift.enabled && qualifyingSubtotal >= freeGift.threshold;
-
-  // Reset re-apply failure counter when cart composition changes so we retry
-  // after the user adds/removes items instead of staying permanently stuck.
-  const itemCount = cart?.items.length ?? 0;
-  useEffect(() => { reapplyFailsRef.current = 0; }, [itemCount]);
 
   // Remove the gift item and coupon when cart drops below the threshold.
   // Uses both the coupon code AND the tracked gift ID so orphaned gifts
@@ -146,19 +148,29 @@ export default function FreeGiftWidget({ subtotal }: Props) {
           body: JSON.stringify({ productId: gift.databaseId }),
         });
         const data = await res.json();
+        // No coupon code back (not eligible / error) — don't add a full-price
+        // "gift" the customer would be charged for.
+        if (!data?.code) return;
+
         recordWidgetSource(gift.databaseId, 'free_gift');
         giftIdRef.current = gift.databaseId;
         writeStoredGiftId(gift.databaseId);
         await addToCart({ productId: gift.databaseId, quantity: 1 });
-        if (data?.code) {
-          const couponOk = await applyCoupon(data.code);
-          if (!couponOk) {
-            const freshCart = await fetchCartFromStore();
-            const addedItem = freshCart?.items.find((i) => i.product.databaseId === gift.databaseId);
-            if (addedItem) await removeFromCart(addedItem.key);
-            giftIdRef.current = null;
-            writeStoredGiftId(null);
+        await applyCoupon(data.code);
+
+        // Verify the coupon actually attached — applyCoupon reports success
+        // whenever the request doesn't throw, even if WooCommerce silently
+        // dropped the coupon. Check the real cart state and roll back the item
+        // if the discount isn't there, so we never leave an unpaid-for gift.
+        const freshCart = await fetchCartFromStore();
+        const applied = freshCart?.appliedCoupons?.some((c) => c.code === data.code);
+        if (!applied) {
+          const addedItem = freshCart?.items.find((i) => i.product.databaseId === gift.databaseId);
+          if (addedItem) {
+            try { await removeFromCart(addedItem.key); } catch {}
           }
+          giftIdRef.current = null;
+          writeStoredGiftId(null);
         }
       } finally {
         setAddingId(null);
@@ -167,18 +179,64 @@ export default function FreeGiftWidget({ subtotal }: Props) {
     [addToCart, applyCoupon, removeFromCart]
   );
 
-  // Re-apply the coupon when the cart crosses back above the threshold
-  // and the gift product is already in the cart from a previous add.
+  // Backstop: re-attach the gift coupon when the gift product is in the cart
+  // above threshold but its coupon isn't applied (added in a prior render, or a
+  // later mutation dropped the coupon). Bounded per cart composition:
+  //  - Attempts are counted UP FRONT, not from applyCoupon's return value, which
+  //    reports success whenever the request doesn't throw even if WooCommerce
+  //    silently dropped the coupon — the old source of a 40x apply-coupon storm.
+  //  - Success is detected by observing the coupon actually present on the cart,
+  //    which resets the budget.
+  //  - The budget resets only when the cart composition genuinely changes (a
+  //    stable signature), so refetch churn can't keep clearing it.
+  //  - When the budget is exhausted and the coupon still won't attach, the
+  //    orphaned gift item is removed once so it's never billed at full price.
   useEffect(() => {
     if (!unlocked || !cart || isMutating || removing || reapplyingRef.current) return;
     if (gifts.length === 0) return;
-    if (reapplyFailsRef.current >= 2) return;
     const giftIds = new Set(gifts.map((g) => g.databaseId));
     const giftInCart = cart.items.find((i) => giftIds.has(i.product.databaseId));
     if (!giftInCart) return;
+
     const couponCode = `mf-free-gift-${giftInCart.product.databaseId}`;
     const hasCoupon = cart.appliedCoupons?.some((c) => c.code === couponCode);
-    if (hasCoupon) { reapplyFailsRef.current = 0; return; }
+
+    const sig = cart.items
+      .map((i) => `${i.product.databaseId}:${i.quantity}`)
+      .sort()
+      .join('|');
+
+    if (hasCoupon) {
+      attemptSigRef.current = sig;
+      attemptCountRef.current = 0;
+      return;
+    }
+
+    if (sig !== attemptSigRef.current) {
+      attemptSigRef.current = sig;
+      attemptCountRef.current = 0;
+    }
+
+    if (attemptCountRef.current >= MAX_REAPPLY) {
+      // Give up: remove the orphaned gift item once for this cart composition so
+      // the customer isn't charged full price for a gift that never got its
+      // discount. The server-side reason is captured by the forensics logger.
+      if (gaveUpSigRef.current !== sig) {
+        gaveUpSigRef.current = sig;
+        reapplyingRef.current = true;
+        (async () => {
+          try {
+            await removeFromCart(giftInCart.key);
+            giftIdRef.current = null;
+            writeStoredGiftId(null);
+          } catch {}
+          reapplyingRef.current = false;
+        })();
+      }
+      return;
+    }
+
+    attemptCountRef.current++;
     reapplyingRef.current = true;
     (async () => {
       try {
@@ -189,21 +247,16 @@ export default function FreeGiftWidget({ subtotal }: Props) {
         });
         const data = await res.json();
         if (data?.code) {
-          const ok = await applyCoupon(data.code);
-          if (ok) {
-            reapplyFailsRef.current = 0;
-          } else {
-            reapplyFailsRef.current++;
-          }
+          await applyCoupon(data.code);
+          giftIdRef.current = giftInCart.product.databaseId;
+          writeStoredGiftId(giftInCart.product.databaseId);
         }
-        giftIdRef.current = giftInCart.product.databaseId;
-        writeStoredGiftId(giftInCart.product.databaseId);
       } catch {
-        reapplyFailsRef.current++;
+        // attempt already counted; success is confirmed on the next run via hasCoupon
       }
       reapplyingRef.current = false;
     })();
-  }, [unlocked, cart, isMutating, removing, gifts, applyCoupon]);
+  }, [unlocked, cart, isMutating, removing, gifts, applyCoupon, removeFromCart]);
 
   if (!unlocked || gifts.length === 0) return null;
 
