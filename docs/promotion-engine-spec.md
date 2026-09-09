@@ -109,11 +109,25 @@ tested against real config.
 
 - Custom **Promotions** admin (list + editor) mapping 1:1 to the domain model, with a
   stacking/exclusivity picker and a live "what this does" preview.
-- **Migration:** a one-time importer reads current WebToffee coupon + BOGO records and the
-  `mf-free-gift`/`_mf_*` config into `mf_promotion` records, so nothing is lost and we cut over
-  cleanly.
-- WebToffee's **runtime** is disabled; it may be removed once migration is verified. (Only
-  auto-apply + BOGO were ever used from it.)
+### Migration importer (precise design)
+
+- **Separate storage — no duplication.** Promotions are `mf_promotion` posts, NOT
+  `shop_coupon`. The importer never writes to the coupon table; existing WebToffee coupons and
+  BOGO offers stay untouched. No duplicate/ambiguous coupon codes are ever created.
+- **Idempotent.** Each `mf_promotion` stores `source_coupon_id`. Re-running updates the
+  matching record rather than creating a new one — safe to run repeatedly.
+- **What migrates:** automatic promotions only — auto-apply %/fixed coupons, BOGO offers
+  (from the BOGO screen; stored as `shop_coupon` + `wbte_sc_bogo_*` meta, incl. our
+  `_mf_bogo_collections`), and the free-gift config.
+- **What does NOT migrate:** customer-typed codes (coupons a shopper enters) remain native
+  WooCommerce coupons and keep working under Marketing → Coupons.
+- **Status preserved:** active → active, inactive/draft → inactive `mf_promotion` (engine only
+  applies active). Expired/trashed skipped by default.
+- **Cutover safety:** when Smart Coupons is deactivated, the importer disables the source
+  auto-apply + BOGO coupons it migrated, so nothing applies twice (old native + new engine).
+  Typed codes untouched. Run on the no-users site first; produce a before/after diff for
+  approval; only then cut over. WebToffee runtime is already disabled by the flag; the plugin
+  is deactivated only after the diff is verified.
 
 ---
 
