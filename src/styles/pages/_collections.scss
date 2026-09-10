@@ -1,0 +1,29 @@
+@use "bulma/sass/utilities/mixins";
+
+body.collection {
+
+  .hero {
+    position: relative;
+    left: 50%;
+    width: 100vw;
+    /* max-width: 1440px; */
+    transform: translateX(-50%);
+    margin-top: 0;
+  }
+
+  .collection__title {
+    font-family: var(--font-family-display);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 30px;
+    font-variant: all-small-caps;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    max-width: 1000px;
+
+    @include mixins.desktop {
+      font-size: 96px;
+      line-height: 59px;
+    }
+  }
+}

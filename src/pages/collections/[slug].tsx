@@ -154,43 +154,51 @@ export default function CollectionsPage({
         );
       })()}
 
-      <div className={styles.page}>
-        <nav className={styles.breadcrumb}>
-          <Link href="/">Home</Link>
-          <span className={styles.separator}>/</span>
-          <Link href="/collections">Collections</Link>
-          <span className={styles.separator}>/</span>
-          <span className={styles.current}>{collection.name}</span>
-        </nav>
+      <div className="container">
+        <h1 className="collection__title">
+          {collection.name}
+        </h1>
 
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <h1 className={styles.title}>{collection.name}</h1>
-            {collection.description && (
-              <>
-                <div
-                  ref={descRef}
-                  className={`${styles.description} ${!descExpanded ? styles.descriptionClamped : ''}`}
-                  dangerouslySetInnerHTML={{ __html: collection.description }}
-                />
-                {descTruncatable && (
-                  <button
-                    type="button"
-                    className={styles.descriptionToggle}
-                    onClick={() => setDescExpanded((v) => !v)}
-                  >
-                    {descExpanded ? 'Read less' : 'Read more'}
-                  </button>
-                )}
-              </>
+        {collection.description && (
+          <>
+            <div
+              ref={descRef}
+              className={`${styles.description} ${!descExpanded ? styles.descriptionClamped : ''}`}
+              dangerouslySetInnerHTML={{ __html: collection.description }}
+            />
+            {descTruncatable && (
+              <button
+                type="button"
+                className={styles.descriptionToggle}
+                onClick={() => setDescExpanded((v) => !v)}
+              >
+                {descExpanded ? 'Read less' : 'Read more'}
+              </button>
             )}
-            {collection.collectionFields?.warningMessage && (
-              <p className={styles.warningMessage}>
-                <span aria-hidden="true">⚠️</span> {collection.collectionFields.warningMessage}
-              </p>
-            )}
-          </div>
-        </header>
+          </>
+        )}
+
+        {collection.collectionFields?.warningMessage && (
+          <p className={styles.warningMessage}>
+            <span aria-hidden="true">⚠️</span> {collection.collectionFields.warningMessage}
+          </p>
+        )}
+
+        <nav className="breadcrumb" aria-label="breadcrumbs">
+          <ul>
+            <li>
+              <Link href="/">Home</Link>
+            </li>
+            <li>
+              <Link href="/collections">Collections</Link>
+            </li>
+            <li className="is-active">
+              <a href="" aria-current="page">
+                {collection.name}
+              </a>
+            </li>
+          </ul>
+        </nav>
 
         <div className={styles.layout}>
           <div className={`${styles.sidebarWrapper} ${styles.filterCard}`}>
