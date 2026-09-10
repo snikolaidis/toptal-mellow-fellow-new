@@ -97,9 +97,9 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
   // coupon — the sum of every bundle group's (original - discounted) total.
   const totalBundleDiscount = bundles.reduce((sum, group) => {
     const allItems = group.instances.flatMap((inst) => inst.items);
-    const original = allItems.reduce(
-      (s, i) => s + i.quantity * originalUnitPrice(i), 0
-    );
+    const original = group.fixedOriginalPrice != null
+      ? group.fixedOriginalPrice * group.quantity
+      : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
     const discounted = allItems.reduce(
       (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
     );
@@ -223,9 +223,9 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
             {/* Bundle groups */}
             {bundles.map((group) => {
               const allItems = group.instances.flatMap((inst) => inst.items);
-              const originalTotal = allItems.reduce(
-                (sum, i) => sum + i.quantity * originalUnitPrice(i), 0
-              );
+              const originalTotal = group.fixedOriginalPrice != null
+                ? group.fixedOriginalPrice * group.quantity
+                : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
               const discountedTotal = allItems.reduce(
                 (sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
               );

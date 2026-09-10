@@ -31,7 +31,6 @@ interface FbtItem {
   subtitle?: string;
   current: number;
   original: number | null;
-  isCurrent: boolean;
   isFixedBundle: boolean;
 }
 
@@ -131,7 +130,6 @@ export default function FrequentlyBoughtTogether({
       subtitle: productSubtitle,
       current: currentPrice,
       original: currentRegular > currentPrice ? currentRegular : null,
-      isCurrent: true,
       isFixedBundle: currentIsFixedBundle,
     };
     const recItems: FbtItem[] = recs.map((r) => {
@@ -149,7 +147,6 @@ export default function FrequentlyBoughtTogether({
         subtitle: r.subtitle,
         current,
         original: regular > current ? regular : null,
-        isCurrent: false,
         isFixedBundle,
       };
     });
@@ -195,11 +192,11 @@ export default function FrequentlyBoughtTogether({
     try {
       for (const item of items) {
         if (!checked.has(item.databaseId)) continue;
-        // Non-bundle current product is skipped — it's added via the page's
-        // own Add to Cart button. A fixed bundle has no such duplicate path
-        // here (its own PDP button is a separate click), so it still needs
-        // adding when checked.
-        if (item.isCurrent && !item.isFixedBundle) continue;
+        // The current product is added here too, same as any companion item
+        // — checking it and clicking Add All adds it through this widget on
+        // top of whatever the page's own separate Add to Cart/Add to Bundle
+        // button already added if the shopper also used that, which is
+        // accepted as-is.
         recordWidgetSource(item.databaseId, 'fbt');
         if (item.isFixedBundle) {
           await addFixedBundleToCart(item.databaseId, 1, item.name, item.image ? {

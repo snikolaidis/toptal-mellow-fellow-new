@@ -155,12 +155,36 @@ function mf_create_order( WP_REST_Request $request ) {
             // one — see CartContext's bbGroupKey/bbBundleId and
             // checkout.tsx's items[].bundleGroupKey/bundleName. Items without
             // a bundle name (i.e. every non-bundle product) are left exactly
-            // as before.
+            // as before. 'Bundle' (no underscore) is intentionally a visible
+            // meta key so it also shows on the admin order screen, same as
+            // before; the '_bb_'-prefixed keys are protected/hidden there,
+            // matching the _transaction_id/_payment_method_title convention
+            // above, and exist only for the account order page to reconstruct
+            // bundle groups (see GetAccountOrder's lineItems.metaData).
             $bundle_name = sanitize_text_field( $item['bundleName'] ?? '' );
             if ( $item_id && ! is_wp_error( $item_id ) && $bundle_name ) {
                 $order_item = $order->get_item( $item_id );
                 if ( $order_item ) {
                     $order_item->add_meta_data( 'Bundle', $bundle_name );
+
+                    $bundle_group_key = sanitize_text_field( $item['bundleGroupKey'] ?? '' );
+                    if ( $bundle_group_key ) {
+                        $order_item->add_meta_data( '_bb_group_key', $bundle_group_key );
+                    }
+
+                    // Only present for "fixed" bundles — already the fully-
+                    // resolved original (pre-discount) dollar total for this
+                    // whole instance (checkout.tsx multiplies the curated
+                    // per-set price by however many sets this groupKey
+                    // represents before sending it, so nothing here needs to
+                    // reconstruct that). A "byob" bundle has no such curated
+                    // bundle-level price, so this stays absent and the order
+                    // page falls back to summing components' own subtotals
+                    // for those, same original total the cart itself shows.
+                    if ( isset( $item['bundleGroupOriginalTotal'] ) && is_numeric( $item['bundleGroupOriginalTotal'] ) ) {
+                        $order_item->add_meta_data( '_bb_group_original_total', floatval( $item['bundleGroupOriginalTotal'] ) );
+                    }
+
                     $order_item->save();
                 }
             }

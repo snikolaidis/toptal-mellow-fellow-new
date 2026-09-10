@@ -96,6 +96,16 @@ interface CheckoutRequest {
     // Pre-discount unit price for bundled items — lets the order line show
     // as discounted (subtotal vs. total) instead of a flat charged price.
     regularUnitPrice?: number;
+    // Groups this line item with the rest of its bundle set on the order
+    // (see CartContext's bbGroupKey) — lets the account order page
+    // reconstruct bundle groups instead of just a flat line-item list.
+    bundleGroupKey?: string;
+    // Fully-resolved original (pre-discount) dollar total for this whole
+    // bundle instance — only sent for "fixed" bundles, where the curated
+    // bundle-level price can't be derived by summing components' own regular
+    // prices (see checkout.tsx). Absent for "byob" bundles, where the order
+    // page derives it from each line's own subtotal instead.
+    bundleGroupOriginalTotal?: number;
   }>;
   sources?: Record<string, string>;
   // Forwarded to mf/v1/create-order so the WP-side guard can independently
@@ -575,6 +585,8 @@ async function createOrderWithPayment(
       unitPrice: (item as any).unitPrice || undefined,
       bundleName: item.bundleName || undefined,
       regularUnitPrice: item.regularUnitPrice || undefined,
+      bundleGroupKey: item.bundleGroupKey || undefined,
+      bundleGroupOriginalTotal: item.bundleGroupOriginalTotal || undefined,
     })),
     transactionId,
     paymentMethod: 'authorize_net',

@@ -63,7 +63,7 @@ type RememberMeState = 'not_exist' | 'do_not_remember' | 'remember_30' | 'rememb
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, clearCart, isLoading: cartLoading, bundleNames } = useCart();
+  const { cart, clearCart, isLoading: cartLoading, bundleNames, bundleGroupSetCounts } = useCart();
   const { isAuthenticated, isReady: authReady } = useAuth();
   const prevAuthRef = useRef<boolean | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -785,6 +785,22 @@ export default function CheckoutPage() {
             // show this line as discounted (subtotal vs. total) instead of a
             // flat, seemingly full-price line — see originalUnitPrice() above.
             regularUnitPrice: item.bbGroupKey ? originalUnitPrice(item) : undefined,
+            // Lets the account order page regroup these line items back into
+            // their bundle set, same as the cart/checkout already do client-side.
+            bundleGroupKey: item.bbGroupKey || undefined,
+            // Only set for "fixed" bundles — a fully-resolved dollar total for
+            // this whole instance (bbFixedOriginalPrice is a per-set price;
+            // bundleGroupSetCounts[groupKey] is how many sets this particular
+            // groupKey represents, same multiplication CartContext's
+            // groupCartItems does for the cart/checkout display). Sent
+            // pre-resolved so the order page doesn't need to reconstruct
+            // set-count math it has no data for. Absent for "byob" bundles,
+            // where summing components' own regular prices (order line
+            // subtotal) is already correct with no extra data needed.
+            bundleGroupOriginalTotal:
+              item.bbGroupKey && item.bbFixedOriginalPrice != null
+                ? item.bbFixedOriginalPrice * (bundleGroupSetCounts[item.bbGroupKey] ?? 1)
+                : undefined,
           })),
           sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
           // Lets the server independently re-confirm Real ID verification before

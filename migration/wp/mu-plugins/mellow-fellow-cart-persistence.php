@@ -104,8 +104,15 @@ add_action( 'woocommerce_blocks_loaded', function() {
                 // the bundle was ever priced at. Look it up from the bundle
                 // product itself so the cart's struck-through price matches
                 // what the PDP and recs widget show (bbFixedOriginalPrice).
+                // Check the post type first (same as mellow-fellow-recs-products.php
+                // / mellow-fellow-collection-products.php's $is_bundle gate) so
+                // BB_Helpers is only ever called for an actual bundle post — not
+                // just whenever the plugin happens to be active — and this data
+                // callback (which runs per cart item, on every Store API response)
+                // doesn't pay for get_bundle_mode()/get_fixed_regular_price() otherwise.
                 $fixed_original_price = null;
-                if ( $bundle_id && class_exists( 'BB_Helpers' ) && 'fixed' === BB_Helpers::get_bundle_mode( $bundle_id ) ) {
+                if ( $bundle_id && 'bb_bundle' === get_post_type( $bundle_id ) && class_exists( 'BB_Helpers' )
+                    && 'fixed' === BB_Helpers::get_bundle_mode( $bundle_id ) ) {
                     $regular = BB_Helpers::get_fixed_regular_price( $bundle_id );
                     $fixed_original_price = $regular > 0 ? (float) $regular : null;
                 }

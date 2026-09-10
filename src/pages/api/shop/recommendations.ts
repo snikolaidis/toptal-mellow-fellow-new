@@ -410,6 +410,10 @@ async function handleCart(
   const addResult = (product: any): boolean => {
     if (!product?.databaseId || seenIds.has(product.databaseId) || excludeSet.has(product.databaseId)) return false;
     if (excludeSlugSet.has(product.slug)) return false;
+    // BYOB bundles have no fixed price and can't be added to cart directly
+    // (they route into the bundle-builder picker) — never surface them here,
+    // since this feeds a plain "Add to Cart" button (see handleFbt above).
+    if (product.bbBundleMode === 'byob') return false;
     seenIds.add(product.databaseId);
     results.push(product);
     return true;
