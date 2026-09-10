@@ -39,28 +39,34 @@ add_action( 'woocommerce_blocks_loaded', function () {
 		return;
 	}
 
-	if ( empty( $data['cart-item'] ) || ! is_array( $data['cart-item'] ) ) {
-		return;
-	}
-
-	foreach ( $data['cart-item'] as $ns => $cbs ) {
-		if ( empty( $cbs['data_callback'] ) || ! is_callable( $cbs['data_callback'] ) ) {
+	// Wrap callbacks on BOTH the per-item ('cart-item') and cart-level ('cart')
+	// endpoints. WebToffee's wt_sc_blocks and others register on 'cart' (runs once
+	// per cart response but can scan every coupon), which is where the GET /cart
+	// query cost likely hides. Label each namespace with its endpoint.
+	foreach ( array( 'cart', 'cart-item' ) as $endpoint ) {
+		if ( empty( $data[ $endpoint ] ) || ! is_array( $data[ $endpoint ] ) ) {
 			continue;
 		}
-		$orig = $cbs['data_callback'];
-		$data['cart-item'][ $ns ]['data_callback'] = function ( $item ) use ( $orig, $ns ) {
-			global $wpdb;
-			$q0 = isset( $wpdb ) ? (int) $wpdb->num_queries : 0;
-			$t0 = microtime( true );
-			$res = call_user_func( $orig, $item );
-			if ( ! isset( $GLOBALS['mf_ext_prof'][ $ns ] ) ) {
-				$GLOBALS['mf_ext_prof'][ $ns ] = array( 'ms' => 0.0, 'q' => 0, 'n' => 0 );
+		foreach ( $data[ $endpoint ] as $ns => $cbs ) {
+			if ( empty( $cbs['data_callback'] ) || ! is_callable( $cbs['data_callback'] ) ) {
+				continue;
 			}
-			$GLOBALS['mf_ext_prof'][ $ns ]['ms'] += ( microtime( true ) - $t0 ) * 1000;
-			$GLOBALS['mf_ext_prof'][ $ns ]['q']  += ( isset( $wpdb ) ? (int) $wpdb->num_queries : 0 ) - $q0;
-			$GLOBALS['mf_ext_prof'][ $ns ]['n']++;
-			return $res;
-		};
+			$orig  = $cbs['data_callback'];
+			$label = ( $endpoint === 'cart' ? 'CART:' : 'ITEM:' ) . $ns;
+			$data[ $endpoint ][ $ns ]['data_callback'] = function ( $item ) use ( $orig, $label ) {
+				global $wpdb;
+				$q0  = isset( $wpdb ) ? (int) $wpdb->num_queries : 0;
+				$t0  = microtime( true );
+				$res = call_user_func( $orig, $item );
+				if ( ! isset( $GLOBALS['mf_ext_prof'][ $label ] ) ) {
+					$GLOBALS['mf_ext_prof'][ $label ] = array( 'ms' => 0.0, 'q' => 0, 'n' => 0 );
+				}
+				$GLOBALS['mf_ext_prof'][ $label ]['ms'] += ( microtime( true ) - $t0 ) * 1000;
+				$GLOBALS['mf_ext_prof'][ $label ]['q']  += ( isset( $wpdb ) ? (int) $wpdb->num_queries : 0 ) - $q0;
+				$GLOBALS['mf_ext_prof'][ $label ]['n']++;
+				return $res;
+			};
+		}
 	}
 
 	try {
