@@ -163,8 +163,16 @@ function mf_resolve_promotions( $cart ) {
 		$item['data']->set_price( round( $new, function_exists( 'wc_get_price_decimals' ) ? wc_get_price_decimals() : 2 ) );
 	}
 
+	// Build the chip list, but do NOT double-represent a promotion that the customer applied as
+	// a typed code (e.g. a manual BOGO): WooCommerce already shows that as a removable coupon
+	// chip, so adding an engine chip for the same code would duplicate it. Only truly automatic
+	// promotions (not in the applied-coupon set) get an engine chip.
+	$applied_codes = array_map( 'strtolower', (array) $cart->get_applied_coupons() );
 	$active = array();
 	foreach ( $result->applied as $p ) {
+		if ( in_array( strtolower( (string) $p['id'] ), $applied_codes, true ) ) {
+			continue; // already shown as a coupon chip
+		}
 		$active[] = array(
 			'code'      => $p['id'],
 			'label'     => $p['label'],

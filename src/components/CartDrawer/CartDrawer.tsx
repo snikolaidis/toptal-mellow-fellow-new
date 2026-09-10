@@ -651,7 +651,6 @@ export default function CartDrawer() {
                     title="Automatic promotion"
                   >
                     {promo.label}
-                    {promo.amount > 0 && <> &minus;${promo.amount.toFixed(2)}</>}
                   </span>
                 ))}
               </div>
