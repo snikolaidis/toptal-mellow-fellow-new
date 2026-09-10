@@ -165,13 +165,23 @@ add_filter( 'rest_post_dispatch', function ( $response, $server, $request ) {
     $status      = is_object( $response ) && method_exists( $response, 'get_status' ) ? $response->get_status() : '?';
     $route       = $perf['route'] . ( $perf['action'] ? ' (' . $perf['action'] . ')' : '' );
 
+    // Session token (short) tells apart ONE browser looping (same token repeating
+    // in a burst -> a frontend refetch storm to fix client-side) from MANY sessions
+    // (different tokens -> real concurrent traffic -> a server-throughput problem).
+    $session = '';
+    if ( function_exists( 'WC' ) && WC()->session && method_exists( WC()->session, 'get_customer_id' ) ) {
+        $session = substr( (string) WC()->session->get_customer_id(), 0, 14 );
+    }
+    // Cart item count — confirms the strong correlation between cart size and time.
+    $items = ( function_exists( 'WC' ) && WC()->cart ) ? (int) WC()->cart->get_cart_contents_count() : 0;
+
     if ( function_exists( 'wc_get_logger' ) ) {
         $tag = $duration_ms > 1000 ? 'PERF-SLOW' : 'PERF';
         wc_get_logger()->info(
             sprintf(
-                '%s: %s -> %s | total=%dms | pre_calc=%dms | calc=%dms (x%d) | http=%dms (x%d) | queries=%d | mem=%sMB',
+                '%s: %s -> %s | total=%dms | pre_calc=%dms | calc=%dms (x%d) | http=%dms (x%d) | queries=%d | items=%d | mem=%sMB | sess=%s',
                 $tag, $route, $status, $duration_ms, $pre_calc_ms, $calc_ms, $perf['calc_totals'],
-                $http_ms, $perf['http_count'], $queries, $memory_mb
+                $http_ms, $perf['http_count'], $queries, $items, $memory_mb, $session
             ),
             array( 'source' => 'mf-cart-forensics' )
         );

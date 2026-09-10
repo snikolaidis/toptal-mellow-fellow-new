@@ -356,31 +356,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // -------------------------------------------------------------------------
   // Fetch cart via WooCommerce Store API (no spinlock)
+  //
+  // In-flight dedup: a full cart load is comparatively expensive server-side
+  // (per-item Store API serialization scales with cart size). Multiple triggers
+  // can ask for a fresh cart at nearly the same moment — the mount effect, an
+  // auth change, and the error-recovery paths in the mutation handlers all call
+  // fetchCart()/fetchCartFromStore(). Left unchecked, a slow response makes those
+  // pile up into a burst of concurrent GET /cart calls that saturates WPE's PHP
+  // workers, which is exactly what produces the "store is taking too long" /
+  // "failed to load your cart" errors. Collapsing concurrent loads into a single
+  // shared request removes that amplification without changing behavior.
   // -------------------------------------------------------------------------
+  const inFlightFetchRef = useRef<Promise<void> | null>(null);
   const fetchCart = useCallback(async () => {
+    if (inFlightFetchRef.current) return inFlightFetchRef.current;
+
     setIsLoading(true);
     setError(null);
     const seq = nextSeq();
 
-    try {
-      const storeCart = await fetchCartFromStore();
-      if (isStaleSeq(seq)) return;
-      hasFetchedRef.current = true;
-      if (storeCart) {
-        const enriched = enrichCartItems(storeCart, bundleItemMapRef.current);
-        setCart(enriched);
-        writeCachedCart(enriched);
+    const run = (async () => {
+      try {
+        const storeCart = await fetchCartFromStore();
+        if (isStaleSeq(seq)) return;
+        hasFetchedRef.current = true;
+        if (storeCart) {
+          const enriched = enrichCartItems(storeCart, bundleItemMapRef.current);
+          setCart(enriched);
+          writeCachedCart(enriched);
+        }
+        setCartReady(true);
+      } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); setCartReady(true); return; }
+        logError('CartContext.fetchCart', err);
+        const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
+        setError(getUserMessage(cartError));
+        setCartReady(true);
+      } finally {
+        setIsLoading(false);
+        inFlightFetchRef.current = null;
       }
-      setCartReady(true);
-    } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); setCartReady(true); return; }
-      logError('CartContext.fetchCart', err);
-      const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
-      setError(getUserMessage(cartError));
-      setCartReady(true);
-    } finally {
-      setIsLoading(false);
-    }
+    })();
+
+    inFlightFetchRef.current = run;
+    return run;
   }, []);
 
   const refreshCart = useCallback(async () => {
