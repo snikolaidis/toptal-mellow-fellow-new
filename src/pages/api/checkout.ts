@@ -106,6 +106,18 @@ interface CheckoutRequest {
     // prices (see checkout.tsx). Absent for "byob" bundles, where the order
     // page derives it from each line's own subtotal instead.
     bundleGroupOriginalTotal?: number;
+    // How many bundle "sets" this line item's quantity represents (see
+    // CartContext's bundleGroupSetCounts) — lets the account order page show
+    // the bundle's own quantity (e.g. 1) instead of summing every component
+    // line's quantity, which overcounts as soon as a bundle has more than
+    // one distinct component.
+    bundleGroupSetCount?: number;
+    // The bundle product's own image, so the account order page can show it
+    // on the bundle's header row instead of no image at all — order line
+    // items are keyed to their component products, which have no relation
+    // to the bundle product itself.
+    bundleImageUrl?: string;
+    bundleImageAlt?: string;
   }>;
   sources?: Record<string, string>;
   // Forwarded to mf/v1/create-order so the WP-side guard can independently
@@ -587,6 +599,9 @@ async function createOrderWithPayment(
       regularUnitPrice: item.regularUnitPrice || undefined,
       bundleGroupKey: item.bundleGroupKey || undefined,
       bundleGroupOriginalTotal: item.bundleGroupOriginalTotal || undefined,
+      bundleGroupSetCount: item.bundleGroupSetCount || undefined,
+      bundleImageUrl: item.bundleImageUrl || undefined,
+      bundleImageAlt: item.bundleImageAlt || undefined,
     })),
     transactionId,
     paymentMethod: 'authorize_net',
