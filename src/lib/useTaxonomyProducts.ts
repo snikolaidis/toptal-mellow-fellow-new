@@ -78,14 +78,20 @@ export function useTaxonomyProducts({
         const data = await res.json();
 
         if (data.success) {
+          // Without totalPages the grid cannot be paged at all, and defaulting
+          // it to 1 hides the pagination silently. Refuse the response instead.
+          if (typeof data.totalPages !== 'number') {
+            throw new Error('/api/shop/products returned no totalPages');
+          }
           setProducts(data.products || []);
           setHasNextPage(data.hasNextPage || false);
-          setCurrentTotalPages(data.totalPages || 1);
+          setCurrentTotalPages(data.totalPages);
           setFilteredTotal(typeof data.total === 'number' ? data.total : null);
           usingInitialData.current = false;
         }
-      } catch {
-        // keep current products on network error
+      } catch (err) {
+        // Keep the current products rather than blanking the grid.
+        console.error('[useTaxonomyProducts] page fetch failed', err);
       } finally {
         setLoading(false);
       }
