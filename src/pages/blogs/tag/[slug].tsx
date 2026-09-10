@@ -1,4 +1,5 @@
 import { GetStaticPaths, GetStaticProps } from 'next';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { gql } from '@apollo/client';
 import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
@@ -73,9 +74,25 @@ async function fetchTagPosts(
       query: GET_TAG_POSTS_PAGE,
       variables: { slug, after },
     });
+
+    // errorPolicy 'all' resolves a rejected document instead of throwing, and reading
+    // that as "no posts" 404s a real tag. `errors` not `error`: the singular is never set.
+    if (result.errors?.length) {
+      throw new Error(
+        `GET_TAG_POSTS_PAGE returned errors for "${slug}": ${result.errors
+          .map((e: { message: string }) => e.message)
+          .join('; ')}`
+      );
+    }
+
     const page = result.data?.posts;
-    posts.push(...(page?.nodes || []));
-    if (!page?.pageInfo?.hasNextPage) break;
+
+    if (!page) {
+      throw new Error(`GET_TAG_POSTS_PAGE returned no posts connection for "${slug}"`);
+    }
+
+    posts.push(...(page.nodes || []));
+    if (!page.pageInfo?.hasNextPage) break;
     after = page.pageInfo.endCursor;
   }
 
@@ -116,12 +133,22 @@ export default function BlogTagPage({ tag, posts, allTags }: BlogTagPageProps) {
   );
 }
 
+// Set before Next forks the workers that prerender pages, and never set in the
+// server runtime. Next branches on the same variable itself.
+const isBuildPhase = () => process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
+
+const BUILD_FALLTHROUGH_REVALIDATE = 10;
+
+// Without an expiry a notFound stands until the next deploy, and a tag can gain
+// its first post later.
+const NOT_FOUND_REVALIDATE = 600;
+
 export const getStaticPaths: GetStaticPaths = async () => {
   return { paths: [], fallback: 'blocking' };
 };
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
-  const slug = params?.slug as string;
+  const slug = typeof params?.slug === 'string' ? params.slug : '';
 
   try {
     const client = getClient();
@@ -133,12 +160,38 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       prefetchMenus(),
     ]);
 
-    if (!tagResult.data?.tag || !posts.length) {
-      return { notFound: true };
+    // Checked apart from the post count: a rejected document resolves with `data`
+    // undefined, and the old merged condition read that as a missing tag.
+    if (tagResult.errors?.length) {
+      throw new Error(
+        `GET_TAG_META returned errors for "${slug}": ${tagResult.errors
+          .map((e) => e.message)
+          .join('; ')}`
+      );
+    }
+
+    if (!tagResult.data) {
+      throw new Error(`GET_TAG_META returned no data for "${slug}"`);
+    }
+
+    const tag = tagResult.data.tag;
+
+    if (tag === null) {
+      return { notFound: true, revalidate: NOT_FOUND_REVALIDATE };
+    }
+
+    if (!tag) {
+      throw new Error(`GET_TAG_META returned neither a tag nor an error for "${slug}"`);
+    }
+
+    // A real tag with no posts still 404s. Nothing links to one, since the tag
+    // cloud filters on count, and there is no empty state designed.
+    if (!posts.length) {
+      return { notFound: true, revalidate: NOT_FOUND_REVALIDATE };
     }
 
     const props: Record<string, any> = {
-      tag: tagResult.data.tag,
+      tag,
       posts,
       allTags,
     };
@@ -146,7 +199,16 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
     return { props, revalidate: 60 };
   } catch (error) {
-    console.error('Error fetching tag posts:', error);
-    return { notFound: true };
+    console.error(`[BlogTag] failed to build "${slug}":`, error);
+
+    // A throw at build time would fail the whole deploy, so the build path leaves
+    // it to `fallback: 'blocking'` instead.
+    if (isBuildPhase()) {
+      return { notFound: true, revalidate: BUILD_FALLTHROUGH_REVALIDATE };
+    }
+
+    // Deliberately not `notFound`: ISR then keeps serving the last good copy
+    // instead of pinning "this tag does not exist" on top of a real one.
+    throw error;
   }
 };
