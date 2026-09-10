@@ -18,10 +18,6 @@ function originalUnitPrice(item: { product: { price: string; regularPrice?: stri
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
-// Kept in sync with SEZZLE_MIN_ORDER_AMOUNT in api/checkout.ts, which is the
-// one that actually enforces it — this just keeps it from showing as a
-// choice below the threshold.
-const SEZZLE_MIN_ORDER_AMOUNT = 100;
 import { AddressData, PaymentData, SavedCardInfo, CheckoutPaymentMethod } from '@/types/checkout';
 import { processPayment } from '@/lib/authorize-net';
 import { collectWidgetSources } from '@/lib/widgetAttribution';
@@ -230,7 +226,7 @@ export default function CheckoutPage() {
   const [csrfLoading, setCsrfLoading] = useState(true);
 
   // Payment methods checkout can offer — card is always available, everything
-  // else (COD, and later Sezzle) comes from whatever's enabled in WooCommerce.
+  // else (Sezzle) comes from whatever's enabled in WooCommerce.
   const [paymentMethods, setPaymentMethods] = useState<CheckoutPaymentMethod[]>([
     { id: 'authorize_net', title: 'Credit Card', description: '' },
   ]);
@@ -1251,33 +1247,31 @@ function PaymentForm({
   selectedMethod: string;
   onSelectMethod: (id: string) => void;
   // Subscriptions save a card via Authorize.net CIM to bill future renewals,
-  // so any method that can't do that (COD, Sezzle) isn't a real option here.
+  // so any method that can't do that (Sezzle) isn't a real option here.
   hasSubscription?: boolean;
 }) {
   const isDisabled = isProcessing || isLoading || realIdBlocked;
   // Methods this form actually knows how to complete, beyond just displaying
   // them. Not derived from WooCommerce's "enabled" flag — that only says a
   // gateway is configured in wp-admin, not that this headless checkout has
-  // completion code for it. COD's flow already exists (see isCod below /
-  // api/checkout.ts) but isn't a live offering right now, so it stays out
-  // until it's actually turned back on as a real option.
+  // completion code for it.
   const IMPLEMENTED_METHODS = new Set(['authorize_net', 'sezzle']);
-  // Sezzle is only offered on orders of $200+ — see the matching server-side
-  // check in api/checkout.ts's startSezzleCheckout, which is the one that
-  // actually enforces this (this is just so it doesn't show as an option to
-  // pick in the first place).
+  // Sezzle's minimum order amount comes from its own WooCommerce gateway
+  // setting (see payment-methods.ts), not a hardcoded value here — this is
+  // just so it doesn't show as an option to pick below that amount; the
+  // matching server-side check in api/checkout.ts's startSezzleCheckout is
+  // what actually enforces it.
   const orderTotal = parseFloat(amount.replace(/[^0-9.]/g, '')) || 0;
+  const sezzleMinAmount = paymentMethods.find((m) => m.id === 'sezzle')?.minAmount || 0;
   const selectableMethods = (
     hasSubscription ? paymentMethods.filter((m) => m.id === 'authorize_net') : paymentMethods
-  ).filter((m) => m.id !== 'sezzle' || orderTotal >= SEZZLE_MIN_ORDER_AMOUNT);
+  ).filter((m) => m.id !== 'sezzle' || orderTotal >= sezzleMinAmount);
   const effectiveMethod = selectableMethods.some((m) => m.id === selectedMethod)
     ? selectedMethod
     : 'authorize_net';
-  const isCod = effectiveMethod === 'cod';
-  // Sezzle is redirect-based BNPL — no card form here either. Unlike COD it
-  // still needs a payment step, just one that happens off-site: submitting
-  // sends the shopper to Sezzle to approve, then back to complete the order.
-  // See handlePayment's 'sezzle' branch above for the actual redirect.
+  // Sezzle is redirect-based BNPL — no card form here. Submitting sends the
+  // shopper to Sezzle to approve, then back to complete the order. See
+  // handlePayment's 'sezzle' branch above for the actual redirect.
   const isSezzle = effectiveMethod === 'sezzle';
   // The remember-me radio group only renders when rememberMeState === 'not_exist'
   // (see below) - during an already-active remembered session there's no new
@@ -1361,15 +1355,8 @@ function PaymentForm({
     e.preventDefault();
     setCardError(null);
 
-    // Cash on Delivery — no card involved at all, straight to order creation.
-    if (isCod) {
-      onSubmit({ method: 'cod', rememberOption: selectedRememberOption });
-      return;
-    }
-
-    // Sezzle — no card here either, but unlike COD this still needs a
-    // payment step; handlePayment redirects the browser to Sezzle instead
-    // of calling /api/checkout directly.
+    // Sezzle — no card here; handlePayment redirects the browser to Sezzle
+    // instead of calling /api/checkout directly.
     if (isSezzle) {
       onSubmit({ method: 'sezzle', rememberOption: selectedRememberOption });
       return;
@@ -1568,7 +1555,7 @@ function PaymentForm({
             </p>
           )}
 
-          {!isCod && !isSezzle && (
+          {!isSezzle && (
             <p className={styles.paymentNotice}>
               Your payment is secured by Authorize.net. Your card details are encrypted
               and never stored on our servers.
@@ -1576,7 +1563,7 @@ function PaymentForm({
           )}
 
           {/* Saved cards selector for authenticated users */}
-          {!isCod && !isSezzle && isAuthenticated && !loadingCards && savedCards.length > 0 && (
+          {!isSezzle && isAuthenticated && !loadingCards && savedCards.length > 0 && (
             <SavedCardSelector
               cards={savedCards}
               selectedId={selectedSavedCard}
@@ -1592,20 +1579,14 @@ function PaymentForm({
               </div>
             )}
 
-            {isCod && (
-              <p className={styles.paymentNotice}>
-                Pay with cash when your order arrives. You'll owe {amount} on delivery.
-              </p>
-            )}
-
             {isSezzle && (
               <p className={styles.paymentNotice}>
                 You'll be redirected to Sezzle to approve {amount}, then brought back here to finish your order.
               </p>
             )}
 
-            {/* New card form — hidden when using a saved card, COD, or Sezzle */}
-            {!isCod && !isSezzle && !usingSavedCard && (
+            {/* New card form — hidden when using a saved card or Sezzle */}
+            {!isSezzle && !usingSavedCard && (
               <>
                 <div className={styles.formGroup}>
                   <label htmlFor="cardNumber">Card Number</label>
@@ -1713,17 +1694,15 @@ function PaymentForm({
                   ? 'Loading...'
                   : isProcessing
                     ? 'Processing...'
-                    : isCod
-                      ? 'Place Order'
-                      : isSezzle
-                        ? 'Continue to Sezzle'
-                        : `Pay ${amount}`}
+                    : isSezzle
+                      ? 'Continue to Sezzle'
+                      : `Pay ${amount}`}
               </button>
             </div>
 
           </form>
 
-          {!isCod && !isSezzle && (
+          {!isSezzle && (
             <div className={styles.securityBadges}>
               <span>Secured by Authorize.net</span>
             </div>

@@ -90,7 +90,7 @@ function mf_validate_order_payload( $body ) {
  * meta, and pre-computed cart totals — but stops short of finalizing payment
  * (no payment_complete(), no final save of payment status). Callers decide
  * what "done" means for their flow: mf_create_order() marks it paid
- * immediately (card/COD, where payment is already resolved by the time this
+ * immediately (card, where payment is already resolved by the time this
  * runs); the Sezzle gateway bridge leaves it pending and hands it to
  * WC_Gateway_Sezzlepay::process_payment(), which completes it later via its
  * own callback once the shopper actually approves.
@@ -107,6 +107,7 @@ function mf_build_order_from_payload( $body, $status ) {
 
     $transaction_id   = sanitize_text_field( $body['transactionId'] ?? '' );
     $payment_method   = sanitize_text_field( $body['paymentMethod'] ?? 'authorize_net' );
+    $payment_method_title = sanitize_text_field( $body['paymentMethodTitle'] ?? 'Credit Card (Authorize.net)' );
     $coupon_codes     = $body['couponCodes'] ?? [];
     $shipping_lines   = $body['shippingLines'] ?? [];
     $meta_data        = $body['metaData'] ?? [];
@@ -272,7 +273,7 @@ function mf_build_order_from_payload( $body, $status ) {
 
         // Payment details
         $order->set_payment_method( $payment_method );
-        $order->set_payment_method_title( 'Credit Card (Authorize.net)' );
+        $order->set_payment_method_title( $payment_method_title );
         if ( $transaction_id ) {
             $order->set_transaction_id( $transaction_id );
         }

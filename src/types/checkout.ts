@@ -19,8 +19,8 @@ export interface CheckoutFormData {
 
 export interface PaymentData {
   // Which gateway this submission is for — 'authorize_net' (default) charges
-  // a card via opaqueData/savedCard below; 'cod' carries neither and skips
-  // straight to order creation. See handlePayment in checkout.tsx.
+  // a card via opaqueData/savedCard below; 'sezzle' carries neither and
+  // redirects off-site instead. See handlePayment in checkout.tsx.
   method: string;
   opaqueData?: {
     dataDescriptor: string;
@@ -42,6 +42,10 @@ export interface CheckoutPaymentMethod {
   id: string;
   title: string;
   description: string;
+  // Gateway-configured minimum order amount (e.g. Sezzle's own "Minimum
+  // Checkout Amount" setting) below which this method shouldn't be offered.
+  // Absent/0 means no minimum.
+  minAmount?: number;
 }
 
 export interface SavedCardInfo {
