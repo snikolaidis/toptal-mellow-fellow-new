@@ -9,6 +9,7 @@ import ProductCard from '@/components/ProductCard';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
+import Pagination from '@/components/ui/Pagination';
 import Link from 'next/link';
 import { Product } from '@/types/woocommerce';
 import {
@@ -319,21 +320,12 @@ export default function ShopPage({ allProducts, taxMap, bestSellerIds }: ShopPag
                 )}
               </div>
 
-              {totalPages > 1 && (
-                <div className={styles.pagination}>
-                  {hasPrev ? (
-                    <button onClick={() => goToPage(page - 1)} className={styles.pageBtn}>
-                      &larr; Previous
-                    </button>
-                  ) : <span />}
-                  <span className={styles.pageNum}>Page {page} of {totalPages}</span>
-                  {hasMore ? (
-                    <button onClick={() => goToPage(page + 1)} className={styles.pageBtn}>
-                      Next &rarr;
-                    </button>
-                  ) : <span />}
-                </div>
-              )}
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={goToPage}
+                label="Shop pagination"
+              />
             </main>
           </div>
         </div>

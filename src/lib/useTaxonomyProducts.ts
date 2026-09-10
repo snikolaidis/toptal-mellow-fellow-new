@@ -78,14 +78,20 @@ export function useTaxonomyProducts({
         const data = await res.json();
 
         if (data.success) {
+          // Without totalPages the grid cannot be paged at all, and defaulting
+          // it to 1 hides the pagination silently. Refuse the response instead.
+          if (typeof data.totalPages !== 'number') {
+            throw new Error('/api/shop/products returned no totalPages');
+          }
           setProducts(data.products || []);
           setHasNextPage(data.hasNextPage || false);
-          setCurrentTotalPages(data.totalPages || 1);
+          setCurrentTotalPages(data.totalPages);
           setFilteredTotal(typeof data.total === 'number' ? data.total : null);
           usingInitialData.current = false;
         }
-      } catch {
-        // keep current products on network error
+      } catch (err) {
+        // Keep the current products rather than blanking the grid.
+        console.error('[useTaxonomyProducts] page fetch failed', err);
       } finally {
         setLoading(false);
       }
@@ -215,33 +221,44 @@ export function useTaxonomyProducts({
     [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
   );
 
-  const goToNextPage = useCallback(() => {
-    if (!hasNextPage || loading) return;
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchPage(activeFilters, selectedSort, nextPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page, hasNextPage, loading, activeFilters, selectedSort, fetchPage]);
+  // Numbered pagination jumps to arbitrary pages, so this takes the target
+  // directly rather than stepping from the current page.
+  const goToPage = useCallback(
+    (target: number) => {
+      if (loading || target === page || target < 1) return;
 
-  const goToPrevPage = useCallback(() => {
-    if (page <= 1 || loading) return;
-    const prevPage = page - 1;
+      // Page one unfiltered is the payload getStaticProps already delivered, so
+      // returning to it costs nothing. Refetching it was always wasted.
+      if (
+        target === 1 &&
+        Object.keys(activeFilters).length === 0 &&
+        selectedSort === 'default'
+      ) {
+        setPage(1);
+        setProducts(initialProducts);
+        setHasNextPage(initialHasNextPage);
+        setCurrentTotalPages(initialTotalPages);
+        setFilteredTotal(null);
+        usingInitialData.current = true;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
 
-    if (prevPage === 1 && Object.keys(activeFilters).length === 0 && selectedSort === 'default') {
-      setPage(1);
-      setProducts(initialProducts);
-      setHasNextPage(initialHasNextPage);
-      setCurrentTotalPages(initialTotalPages);
-      setFilteredTotal(null);
-      usingInitialData.current = true;
+      setPage(target);
+      fetchPage(activeFilters, selectedSort, target);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    setPage(prevPage);
-    fetchPage(activeFilters, selectedSort, prevPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, initialHasNextPage, initialTotalPages]);
+    },
+    [
+      page,
+      loading,
+      activeFilters,
+      selectedSort,
+      fetchPage,
+      initialProducts,
+      initialHasNextPage,
+      initialTotalPages,
+    ]
+  );
 
   const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
   const currentSort = SORT_OPTIONS.find((o) => o.value === selectedSort) || SORT_OPTIONS[0];
@@ -260,7 +277,6 @@ export function useTaxonomyProducts({
     isFiltered,
     handleFilterChange,
     handleSortChange,
-    goToNextPage,
-    goToPrevPage,
+    goToPage,
   };
 }

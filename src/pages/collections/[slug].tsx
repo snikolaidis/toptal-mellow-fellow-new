@@ -19,6 +19,7 @@ import BlogPostsCarousel from '@/components/BlogPostsCarousel';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
+import Pagination from '@/components/ui/Pagination';
 import { Collection, Product } from '@/types/woocommerce';
 import { BlogPostCard } from '@/types/blog';
 import {
@@ -70,8 +71,7 @@ export default function CollectionsPage({
     isFiltered,
     handleFilterChange,
     handleSortChange,
-    goToNextPage,
-    goToPrevPage,
+    goToPage,
   } = useTaxonomyProducts({
     slug: collectionSlug,
     taxonomy: 'collection',
@@ -246,23 +246,13 @@ export default function CollectionsPage({
               )}
             </div>
 
-            {(page > 1 || hasNextPage) && (
-              <div className={styles.pagination}>
-                {page > 1 ? (
-                  <button onClick={goToPrevPage} className={styles.pageBtn} disabled={loading}>
-                    &larr; Previous
-                  </button>
-                ) : <span />}
-                <span className={styles.pageNum}>
-                  Page {page}{totalPages > 1 ? ` of ${totalPages}` : ''}
-                </span>
-                {hasNextPage ? (
-                  <button onClick={goToNextPage} className={styles.pageBtn} disabled={loading}>
-                    Next &rarr;
-                  </button>
-                ) : <span />}
-              </div>
-            )}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={goToPage}
+              disabled={loading}
+              label="Collection pagination"
+            />
 
             {totalProducts === 0 && (
               <div className={styles.empty}>

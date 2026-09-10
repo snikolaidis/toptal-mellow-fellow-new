@@ -161,24 +161,33 @@ function mf_build_order_from_payload( $body, $status ) {
                 $add_args['total']    = $unit_total;
             }
 
+            // Bundle Builder discounts by overwriting the product's own price,
+            // not via a coupon, so the Store API's line_subtotal already equals
+            // line_total above — the order line would render as if it were
+            // full price. regularUnitPrice (the product's true pre-discount
+            // price, from the frontend's product.regularPrice) restores the
+            // subtotal/total gap so the admin order screen shows the strike-
+            // through discount and the order's discount total is correct.
+            $regular_unit_price = isset( $item['regularUnitPrice'] ) ? floatval( $item['regularUnitPrice'] ) : 0;
+            if ( $regular_unit_price > 0 && isset( $add_args['total'] ) ) {
+                $regular_line_total = $regular_unit_price * $quantity;
+                if ( $regular_line_total > $add_args['total'] ) {
+                    $add_args['subtotal'] = $regular_line_total;
+                }
+            }
+
             $item_id = $order->add_product( $product, $quantity, $add_args );
 
             // Tag this line item as part of a bundle, when the frontend sent
             // one — see CartContext's bbGroupKey/bbBundleId and
             // checkout.tsx's items[].bundleGroupKey/bundleName. Items without
-            // these fields (i.e. every non-bundle product) are left exactly
+            // a bundle name (i.e. every non-bundle product) are left exactly
             // as before.
-            $bundle_group_key = sanitize_text_field( $item['bundleGroupKey'] ?? '' );
-            $bundle_name       = sanitize_text_field( $item['bundleName'] ?? '' );
-            if ( $item_id && ! is_wp_error( $item_id ) && ( $bundle_group_key || $bundle_name ) ) {
+            $bundle_name = sanitize_text_field( $item['bundleName'] ?? '' );
+            if ( $item_id && ! is_wp_error( $item_id ) && $bundle_name ) {
                 $order_item = $order->get_item( $item_id );
                 if ( $order_item ) {
-                    if ( $bundle_name ) {
-                        $order_item->add_meta_data( 'Bundle', $bundle_name );
-                    }
-                    if ( $bundle_group_key ) {
-                        $order_item->add_meta_data( '_bundle_group_key', $bundle_group_key );
-                    }
+                    $order_item->add_meta_data( 'Bundle', $bundle_name );
                     $order_item->save();
                 }
             }

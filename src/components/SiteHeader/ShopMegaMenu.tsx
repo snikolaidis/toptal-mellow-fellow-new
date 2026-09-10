@@ -66,14 +66,12 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
 
     const [activeUri, setActiveUri] = useState<string | null>(null);
 
-    // Resolving the default at render rather than seeding state in an effect
-    // keeps the panel populated on its very first paint, before any hover.
-    const currentUri =
-      activeUri ?? products.find((p) => p.hasChildren)?.key ?? null;
+    // No fallback on purpose: the sub panel stays empty until a product type is
+    // hovered, so nothing is shown or announced as current before then.
+    const currentUri = activeUri;
     const active = products.find((p) => p.key === currentUri);
 
-    // Items with no sub items leave the panel showing whatever was there, so it
-    // is never empty.
+    // Items with no sub items keep whatever is showing rather than blanking it.
     const activate = (product: MegaMenuProduct) => {
       if (product.hasChildren) setActiveUri(product.key);
     };

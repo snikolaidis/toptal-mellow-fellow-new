@@ -29,6 +29,16 @@ export interface CartItem {
   };
 }
 
+// Automatic promotions applied by the promotion engine (resolver), surfaced via the
+// Store API cart extension so the cart can render locked chips. Empty when the engine
+// is off, so this is safe to read unconditionally.
+export interface CartPromotion {
+  code: string;
+  label: string;
+  amount: number;      // dollars saved
+  removable: boolean;  // automatic promotions render as a locked chip (no remove)
+}
+
 export interface Cart {
   items: CartItem[];
   subtotal: string;
@@ -38,6 +48,7 @@ export interface Cart {
   isEmpty: boolean;
   itemsCount: number;
   appliedCoupons: AppliedCoupon[];
+  promotions: CartPromotion[];
   availableShippingMethods: ShippingPackage[];
   chosenShippingMethods: string[];
 }
@@ -161,6 +172,15 @@ export function transformStoreApiCart(data: any): Cart | null {
     discountTax: minorToFormatted(c.totals?.total_discount_tax, c.totals?.currency_minor_unit ?? totalsDecimals),
   }));
 
+  const promotions: CartPromotion[] = (
+    data.extensions?.['mellow-fellow-promotions']?.promotions || []
+  ).map((p: any) => ({
+    code: String(p.code ?? ''),
+    label: String(p.label ?? p.code ?? ''),
+    amount: Number(p.amount ?? 0),
+    removable: Boolean(p.removable),
+  }));
+
   return {
     items,
     subtotal: minorToFormatted(data.totals?.total_items, totalsDecimals),
@@ -170,6 +190,7 @@ export function transformStoreApiCart(data: any): Cart | null {
     isEmpty: items.length === 0,
     itemsCount: data.items_count ?? items.length,
     appliedCoupons: coupons,
+    promotions,
     availableShippingMethods: shippingMethods,
     chosenShippingMethods: chosenMethods,
   };

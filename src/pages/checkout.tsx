@@ -857,8 +857,11 @@ export default function CheckoutPage() {
             // order (see mellow-fellow-create-order.php) — undefined for any
             // item that isn't part of a bundle group, so non-bundle orders
             // are unaffected.
-            bundleGroupKey: item.bbGroupKey || undefined,
             bundleName: item.bbBundleId != null ? bundleNames[item.bbBundleId] : undefined,
+            // The true pre-discount unit price, so the admin order screen can
+            // show this line as discounted (subtotal vs. total) instead of a
+            // flat, seemingly full-price line — see originalUnitPrice() above.
+            regularUnitPrice: item.bbGroupKey ? originalUnitPrice(item) : undefined,
           })),
           sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
           // Lets the server independently re-confirm Real ID verification before

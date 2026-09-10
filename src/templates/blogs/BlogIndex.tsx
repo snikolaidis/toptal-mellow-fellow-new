@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { BlogPostCard, BlogTag } from '@/types/blog';
 import styles from '@/styles/pages/blogs.module.css';
+import Pagination from '@/components/ui/Pagination';
 
 interface BlogIndexProps {
   posts: BlogPostCard[];
@@ -14,30 +15,6 @@ interface BlogIndexProps {
 }
 
 const PAGE_SIZE = 30;
-
-// Always shows first/last page plus the current page's neighborhood,
-// collapsing the rest into '...' — e.g. [1,2,3,4,'...',61] or
-// [1,'...',29,30,31,'...',61].
-function getPaginationRange(current: number, total: number): (number | '...')[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-
-  const range: (number | '...')[] = [1];
-
-  if (current <= 4) {
-    for (let i = 2; i <= 4; i++) range.push(i);
-    range.push('...');
-  } else if (current >= total - 3) {
-    range.push('...');
-    for (let i = total - 3; i <= total - 1; i++) range.push(i);
-  } else {
-    range.push('...', current - 1, current, current + 1, '...');
-  }
-
-  range.push(total);
-  return range;
-}
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -116,7 +93,6 @@ export default function BlogIndex({ posts, allTags, title, description, activeTa
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * PAGE_SIZE;
   const gridPosts = restPosts.slice(pageStart, pageStart + PAGE_SIZE);
-  const paginationRange = getPaginationRange(currentPage, totalPages);
 
   return (
     <div className={styles.indexPage}>
@@ -192,49 +168,12 @@ export default function BlogIndex({ posts, allTags, title, description, activeTa
         )}
       </div>
 
-      {totalPages > 1 && (
-        <nav className={styles.pagination} aria-label="Blog pagination">
-          <button
-            type="button"
-            className={styles.pageArrow}
-            onClick={() => goToPage(currentPage - 1)}
-            disabled={currentPage <= 1}
-            aria-label="Previous page"
-          >
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="none">
-              <path d="M9 1L2 8l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-
-          {paginationRange.map((entry, i) =>
-            entry === '...' ? (
-              <span key={`ellipsis-${i}`} className={styles.pageEllipsis}>…</span>
-            ) : (
-              <button
-                key={entry}
-                type="button"
-                className={`${styles.pageNumber} ${entry === currentPage ? styles.pageNumberActive : ''}`}
-                onClick={() => goToPage(entry)}
-                aria-current={entry === currentPage ? 'page' : undefined}
-              >
-                {entry}
-              </button>
-            )
-          )}
-
-          <button
-            type="button"
-            className={styles.pageArrow}
-            onClick={() => goToPage(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-            aria-label="Next page"
-          >
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="none">
-              <path d="M1 1l7 7-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </nav>
-      )}
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        onPageChange={goToPage}
+        label="Blog pagination"
+      />
     </div>
   );
 }
