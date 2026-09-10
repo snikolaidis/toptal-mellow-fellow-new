@@ -784,7 +784,11 @@ export default function CheckoutPage() {
             // The true pre-discount unit price, so the admin order screen can
             // show this line as discounted (subtotal vs. total) instead of a
             // flat, seemingly full-price line — see originalUnitPrice() above.
-            regularUnitPrice: item.bbGroupKey ? originalUnitPrice(item) : undefined,
+            // Free-gift lines are $0 but carry their catalog regular price the
+            // same way, so the gift reaches Acumatica as a line discount via the
+            // create-order regularUnitPrice gap (no coupon involved).
+            regularUnitPrice:
+              item.bbGroupKey || item.isFreeGift ? originalUnitPrice(item) : undefined,
             // Lets the account order page regroup these line items back into
             // their bundle set, same as the cart/checkout already do client-side.
             bundleGroupKey: item.bbGroupKey || undefined,

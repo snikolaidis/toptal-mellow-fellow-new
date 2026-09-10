@@ -5,31 +5,220 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Only one free-gift coupon may ever be active. When a gift coupon is applied,
-// remove any other mf-free-gift-* coupons — prevents double gift discounts when
-// a stale session's coupon survives alongside a newly picked gift.
-add_action('woocommerce_applied_coupon', function ($code) {
-    if (strpos($code, 'mf-free-gift-') !== 0 || !function_exists('WC') || !WC()->cart) {
+/**
+ * The free gift is NOT a coupon. It is a normal cart line tagged with the
+ * 'mf_free_gift' cart-item flag, priced to $0 server-side while the cart
+ * qualifies, and removed automatically when it stops qualifying.
+ *
+ * Keeping the gift out of the coupon system is deliberate. As a 100%-off coupon
+ * (the previous mf-free-gift-<id> design) it fought WebToffee auto-apply coupons
+ * (e.g. foreverfall) inside the Store API's validate_cart_coupons: the gift made
+ * its target product a $0 line, which knocked that product out of the other
+ * coupon's applicable set, so the other coupon threw "not applicable" (err 109),
+ * got stripped, re-fired, and churned for seconds per request — the source of the
+ * add-to-cart timeouts and the gift getting evicted. A plain priced line has none
+ * of that coupling with the coupon engine.
+ *
+ * The gift still reaches Acumatica as a discount: checkout.tsx sends the gift
+ * line's regularUnitPrice (its catalog price) exactly like a bundle line, so
+ * create-order records the line at subtotal=regular / total=$0, and
+ * acumatica-orders maps that gap as a line-level discount. See checkout.tsx and
+ * mellow-fellow-create-order.php.
+ */
+
+/* -------------------------------------------------------------------------
+ * Eligibility helpers — shared with the cart-ops add_free_gift action in
+ * mellow-fellow-cart-persistence.php. (mu-plugins load alphabetically, so
+ * that file is loaded before this one; these are only ever CALLED at request
+ * time, by which point every mu-plugin is loaded, so definition order is moot.)
+ * ---------------------------------------------------------------------------*/
+
+function mf_free_gift_offers() {
+    $offers = function_exists('mf_cart_offers_get') ? mf_cart_offers_get() : array();
+    return array(
+        'threshold'   => (float) ($offers['free_gift_threshold'] ?? 100),
+        'max_price'   => (float) ($offers['free_gift_max_price'] ?? 10),
+        'collections' => (string) ($offers['free_gift_collections'] ?? ''),
+    );
+}
+
+/**
+ * Pre-discount subtotal of all NON-gift lines (regular price x qty). The gift's
+ * own price never counts toward the threshold that keeps it unlocked, and we use
+ * the regular (pre-discount) price so "$100 to unlock" means $100 of catalog
+ * value — matching the frontend widget's qualifying-subtotal calculation.
+ */
+function mf_free_gift_qualifying_subtotal() {
+    if (!function_exists('WC') || !WC()->cart) {
+        return 0.0;
+    }
+    $sum = 0.0;
+    foreach (WC()->cart->get_cart() as $values) {
+        if (!empty($values['mf_free_gift'])) {
+            continue;
+        }
+        $product = isset($values['data']) ? $values['data'] : null;
+        if (!$product) {
+            continue;
+        }
+        $regular = (float) $product->get_regular_price();
+        if ($regular <= 0) {
+            $regular = (float) $product->get_price();
+        }
+        $sum += $regular * (int) ($values['quantity'] ?? 1);
+    }
+    return $sum;
+}
+
+function mf_free_gift_cart_qualifies() {
+    $offers = mf_free_gift_offers();
+    return mf_free_gift_qualifying_subtotal() >= $offers['threshold'];
+}
+
+/** Is this product allowed to be a free gift (price cap + optional collection)? */
+function mf_free_gift_product_eligible($product_id) {
+    if (!function_exists('wc_get_product')) {
+        return false;
+    }
+    $product = wc_get_product($product_id);
+    if (!$product) {
+        return false;
+    }
+    $offers = mf_free_gift_offers();
+    $price  = (float) $product->get_price();
+    if ($price <= 0 || $price > $offers['max_price']) {
+        return false;
+    }
+    $slugs = array_filter(array_map('trim', explode(',', $offers['collections'])));
+    if (!empty($slugs) && function_exists('mf_get_products_in_collections')) {
+        $allowed = mf_get_products_in_collections($slugs);
+        if (!in_array($product_id, $allowed)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/** Cart key of the current gift line, or '' if none is present. */
+function mf_free_gift_current_key() {
+    if (!function_exists('WC') || !WC()->cart) {
+        return '';
+    }
+    foreach (WC()->cart->get_cart() as $key => $values) {
+        if (!empty($values['mf_free_gift'])) {
+            return $key;
+        }
+    }
+    return '';
+}
+
+/* -------------------------------------------------------------------------
+ * Enforcement
+ * ---------------------------------------------------------------------------*/
+
+/**
+ * Price the gift line to $0 while the cart qualifies. Idempotent, and hooked
+ * after bundle pricing (which runs at priority 10) so the qualifying subtotal
+ * reflects the final non-gift line prices.
+ */
+add_action('woocommerce_before_calculate_totals', function ($cart) {
+    if (!$cart || !is_a($cart, 'WC_Cart')) {
         return;
     }
-    foreach (WC()->cart->get_applied_coupons() as $applied) {
-        if ($applied !== $code && strpos($applied, 'mf-free-gift-') === 0) {
-            WC()->cart->remove_coupon($applied);
+    if (!mf_free_gift_cart_qualifies()) {
+        return;
+    }
+    foreach ($cart->get_cart() as $values) {
+        if (empty($values['mf_free_gift'])) {
+            continue;
         }
+        $product = isset($values['data']) ? $values['data'] : null;
+        if ($product) {
+            $product->set_price(0);
+        }
+    }
+}, 20, 1);
+
+/**
+ * Remove the gift line as soon as the cart stops qualifying. This runs once per
+ * request right after the cart is loaded from the session and BEFORE totals are
+ * calculated — the sanctioned place to mutate cart contents (removing inside
+ * before_calculate_totals would mutate the cart mid-calculation). Server-side
+ * enforcement means the gift can never be billed at a non-$0 price: it is either
+ * free (qualifying) or absent.
+ */
+add_action('woocommerce_cart_loaded_from_session', function ($cart) {
+    if (!$cart || !is_a($cart, 'WC_Cart')) {
+        return;
+    }
+    if (mf_free_gift_cart_qualifies()) {
+        return;
+    }
+    $key = mf_free_gift_current_key();
+    if ($key) {
+        $cart->remove_cart_item($key);
     }
 });
 
-add_action('rest_api_init', function () {
-    register_rest_route('mellow-fellow/v1', '/free-gift', array(
-        'methods' => 'POST',
-        'permission_callback' => '__return_true',
-        'callback' => 'mellow_fellow_free_gift',
+/**
+ * Surface the gift as a locked cart "chip" so the UI still shows a "Free gift"
+ * pill like the old coupon did. We reuse the mellow-fellow-promotions cart
+ * extension (registered by the resolver, read from $GLOBALS['mf_active_promotions']),
+ * appending the gift entry regardless of whether the resolver itself is enabled.
+ * Runs at priority 999 — after the gift line has been priced to $0 (priority 20) —
+ * so the chip's "amount saved" is the gift's full regular price. The line item
+ * also renders its own struck-through regular price -> Free automatically.
+ */
+add_action('woocommerce_before_calculate_totals', function ($cart) {
+    if (!$cart || !is_a($cart, 'WC_Cart')) {
+        return;
+    }
+    if (!isset($GLOBALS['mf_active_promotions']) || !is_array($GLOBALS['mf_active_promotions'])) {
+        $GLOBALS['mf_active_promotions'] = array();
+    }
+    // Drop any stale gift chip from a prior calculate pass before re-deriving it.
+    $GLOBALS['mf_active_promotions'] = array_values(array_filter(
+        $GLOBALS['mf_active_promotions'],
+        function ($p) {
+            return !(isset($p['code']) && $p['code'] === 'mf-free-gift');
+        }
     ));
 
+    if (!mf_free_gift_cart_qualifies()) {
+        return;
+    }
+    $key = mf_free_gift_current_key();
+    if (!$key) {
+        return;
+    }
+    $item    = $cart->get_cart()[$key] ?? null;
+    $product = $item && isset($item['data']) ? $item['data'] : null;
+    if (!$product) {
+        return;
+    }
+    $regular = (float) $product->get_regular_price();
+    if ($regular <= 0) {
+        $regular = (float) $product->get_price();
+    }
+    $GLOBALS['mf_active_promotions'][] = array(
+        'code'      => 'mf-free-gift',
+        'label'     => 'Free gift: ' . $product->get_name(),
+        'amount'    => $regular,
+        'removable' => false,
+    );
+}, 999, 1);
+
+/* -------------------------------------------------------------------------
+ * REST: gift product IDs for a set of collections (used by the frontend widget
+ * to restrict which products can be offered as a gift). The old POST /free-gift
+ * coupon-minting route is gone — the gift is added via the add_free_gift cart-op.
+ * ---------------------------------------------------------------------------*/
+
+add_action('rest_api_init', function () {
     register_rest_route('mellow-fellow/v1', '/gift-product-ids', array(
-        'methods' => 'GET',
+        'methods'             => 'GET',
         'permission_callback' => '__return_true',
-        'callback' => function ($request) {
+        'callback'            => function ($request) {
             $slugs_param = $request->get_param('collections');
             // is_string: this route declares no args, so collections[]=x would fatal.
             if (empty($slugs_param) || !is_string($slugs_param)) {
@@ -44,60 +233,3 @@ add_action('rest_api_init', function () {
         },
     ));
 });
-
-function mellow_fellow_free_gift($request) {
-    $product_id = (int) $request->get_param('product_id');
-    if (!$product_id) {
-        return new WP_REST_Response(array('error' => 'missing_product_id'), 400);
-    }
-
-    if (!function_exists('wc_get_coupon_id_by_code') || !class_exists('WC_Coupon') || !function_exists('wc_get_product')) {
-        return new WP_REST_Response(array('error' => 'woo_unavailable'), 500);
-    }
-
-    $product = wc_get_product($product_id);
-    if (!$product) {
-        return new WP_REST_Response(array('error' => 'product_not_found'), 404);
-    }
-
-    $offers = function_exists('mf_cart_offers_get') ? mf_cart_offers_get() : array('free_gift_threshold' => 100, 'free_gift_max_price' => 10);
-    $min = (float) ($offers['free_gift_threshold'] ?? 100);
-    $max_price = (float) ($offers['free_gift_max_price'] ?? 10);
-
-    $price = (float) $product->get_price();
-    if ($price <= 0 || $price > $max_price) {
-        return new WP_REST_Response(array('error' => 'not_eligible'), 400);
-    }
-
-    $collections_raw = $offers['free_gift_collections'] ?? '';
-    $collection_slugs = !empty($collections_raw) ? array_filter(array_map('trim', explode(',', $collections_raw))) : [];
-    if (!empty($collection_slugs) && function_exists('mf_get_products_in_collections')) {
-        $allowed_ids = mf_get_products_in_collections($collection_slugs);
-        if (!in_array($product_id, $allowed_ids)) {
-            return new WP_REST_Response(array('error' => 'not_in_collection'), 400);
-        }
-    }
-
-    $code = 'mf-free-gift-' . $product_id;
-    $existing = wc_get_coupon_id_by_code($code);
-    if ($existing) {
-        return new WP_REST_Response(array('code' => $code, 'id' => $existing), 200);
-    }
-
-    $coupon = new WC_Coupon();
-    $coupon->set_code($code);
-    $coupon->set_discount_type('percent');
-    $coupon->set_amount(100);
-    $coupon->set_product_ids(array($product_id));
-    $coupon->set_minimum_amount($min);
-    $coupon->set_limit_usage_to_x_items(1);
-    $coupon->set_individual_use(false);
-    $coupon->update_meta_data('_mf_free_gift', 1);
-    $id = $coupon->save();
-
-    if (!$id) {
-        return new WP_REST_Response(array('error' => 'create_failed'), 500);
-    }
-
-    return new WP_REST_Response(array('code' => $code, 'id' => $id), 200);
-}

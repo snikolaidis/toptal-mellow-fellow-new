@@ -14,6 +14,7 @@ export interface CartItem {
   bbLocked?: boolean;
   bbUnitPrice?: number;
   bbFixedOriginalPrice?: number;
+  isFreeGift?: boolean;
   product: {
     databaseId: number;
     name: string;
@@ -116,6 +117,7 @@ export function transformStoreApiCart(data: any): Cart | null {
     const bb = item.extensions?.['mellow-fellow'] || {};
     const bbGroupKey = typeof bb.bb_group_key === 'string' && bb.bb_group_key ? bb.bb_group_key : undefined;
     const bbBundleId = bb.bb_bundle_id ? Number(bb.bb_bundle_id) : undefined;
+    const isFreeGift = bb.mf_free_gift === true || undefined;
 
     return {
       key: item.key,
@@ -127,6 +129,7 @@ export function transformStoreApiCart(data: any): Cart | null {
       bbLocked: bb.bb_locked === true || undefined,
       bbUnitPrice: typeof bb.bb_unit_price === 'number' ? bb.bb_unit_price : undefined,
       bbFixedOriginalPrice: typeof bb.bb_fixed_original_price === 'number' ? bb.bb_fixed_original_price : undefined,
+      isFreeGift,
       product: {
         databaseId: item.id,
         name: decodeHtmlEntities(item.name || ''),
@@ -380,6 +383,28 @@ export async function removeBundleGroupsFromStore(groupKeys: string[]): Promise<
     body: {
       namespace: 'mellow-fellow/cart-ops',
       data: { action: 'remove_bundle_group', group_keys: groupKeys },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
+export async function addFreeGiftToStore(productId: number): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'add_free_gift', product_id: productId },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
+export async function removeFreeGiftFromStore(): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'remove_free_gift' },
     },
   });
   return transformStoreApiCart(data);

@@ -22,6 +22,8 @@ import {
   addBundleToStore,
   addFixedBundleToStore,
   removeBundleGroupsFromStore,
+  addFreeGiftToStore,
+  removeFreeGiftFromStore,
   updateItemInStore,
   removeItemFromStore,
   clearStoreCart,
@@ -197,6 +199,8 @@ interface CartContextType {
   updateQuantity: (key: string, quantity: number) => Promise<void>;
   removeFromCart: (key: string) => Promise<void>;
   removeBundleGroup: (groupKeys: string[]) => Promise<void>;
+  addFreeGift: (productId: number) => Promise<void>;
+  removeFreeGift: () => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
   applyCoupon: (code: string) => Promise<boolean>;
@@ -705,6 +709,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   // -------------------------------------------------------------------------
+  // Free gift — added as a server-priced $0 cart line (NOT a coupon), so it
+  // can't war with WebToffee auto-apply coupons the way the old mf-free-gift-*
+  // coupon did. The server (mellow-fellow-free-gift.php) enforces eligibility:
+  // it prices the line to $0 while the cart qualifies and removes it otherwise.
+  // -------------------------------------------------------------------------
+  const addFreeGift = useCallback(
+    async (productId: number) => {
+      setError(null);
+      const seq = nextSeq();
+      startMutation();
+      try {
+        const storeCart = await enqueueMutation(() => addFreeGiftToStore(productId));
+        if (isStaleSeq(seq)) return;
+        if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
+      } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+        logError('CartContext.addFreeGift', err, { productId });
+        const message = extractCartErrorMessage(err, 'Could not add the free gift.');
+        setError(message);
+        throw err;
+      } finally {
+        endMutation();
+      }
+    },
+    [enqueueMutation, startMutation, endMutation]
+  );
+
+  const removeFreeGift = useCallback(async () => {
+    setError(null);
+    const seq = nextSeq();
+    startMutation();
+    try {
+      const storeCart = await enqueueMutation(() => removeFreeGiftFromStore());
+      if (isStaleSeq(seq)) return;
+      if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
+    } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      logError('CartContext.removeFreeGift', err);
+    } finally {
+      endMutation();
+    }
+  }, [enqueueMutation, startMutation, endMutation]);
+
+  // -------------------------------------------------------------------------
   // Update quantity via Store API — optimistic
   // -------------------------------------------------------------------------
   const updateQuantity = useCallback(async (key: string, quantity: number) => {
@@ -1087,6 +1135,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateQuantity,
         removeFromCart,
         removeBundleGroup,
+        addFreeGift,
+        removeFreeGift,
         clearCart,
         refreshCart,
         applyCoupon,
