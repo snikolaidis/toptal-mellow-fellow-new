@@ -4,7 +4,7 @@ import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import {
   GET_POST_BY_SLUG,
   GET_ALL_POST_SLUGS,
-  GET_LATEST_POSTS,
+  GET_LATEST_POSTS_LITE,
   fetchAllTags,
 } from '@/graphql/queries/posts';
 import { GET_PRODUCTS_BY_IDS } from '@/graphql/queries/products';
@@ -103,7 +103,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
     const [postResult, latestResult, allTags, menuClient] = await Promise.all([
       client.query({ query: GET_POST_BY_SLUG, variables: { slug: params?.slug } }),
-      client.query({ query: GET_LATEST_POSTS, variables: { first: 4 } }),
+      // Lite, not GET_LATEST_POSTS: that one also selects `content`, which the
+      // sidebar never renders and which cost 169KB of every blog post page's HTML.
+      client.query({ query: GET_LATEST_POSTS_LITE, variables: { first: 4 } }),
       fetchAllTags(client),
       prefetchMenus(),
     ]);
