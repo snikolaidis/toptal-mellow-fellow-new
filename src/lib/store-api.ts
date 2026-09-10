@@ -13,6 +13,7 @@ export interface CartItem {
   bbGroupKey?: string;
   bbLocked?: boolean;
   bbUnitPrice?: number;
+  bbFixedOriginalPrice?: number;
   product: {
     databaseId: number;
     name: string;
@@ -125,6 +126,7 @@ export function transformStoreApiCart(data: any): Cart | null {
       bbBundleId,
       bbLocked: bb.bb_locked === true || undefined,
       bbUnitPrice: typeof bb.bb_unit_price === 'number' ? bb.bb_unit_price : undefined,
+      bbFixedOriginalPrice: typeof bb.bb_fixed_original_price === 'number' ? bb.bb_fixed_original_price : undefined,
       product: {
         databaseId: item.id,
         name: decodeHtmlEntities(item.name || ''),

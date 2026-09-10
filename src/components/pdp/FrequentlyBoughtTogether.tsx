@@ -17,6 +17,9 @@ interface RecProduct {
   stockStatus?: string;
   typeLabel?: string;
   subtitle?: string;
+  bbBundleMode?: 'byob' | 'fixed' | null;
+  bbFixedPrice?: number | null;
+  bbFixedOriginalPrice?: number | null;
 }
 
 interface FbtItem {
@@ -29,6 +32,7 @@ interface FbtItem {
   current: number;
   original: number | null;
   isCurrent: boolean;
+  isFixedBundle: boolean;
 }
 
 interface Props {
@@ -41,6 +45,9 @@ interface Props {
   productTypeLabel?: string;
   productSubtitle?: string;
   typeSlugs: string[];
+  productBundleMode?: 'byob' | 'fixed' | null;
+  productFixedPrice?: number | null;
+  productFixedOriginalPrice?: number | null;
 }
 
 function parsePrice(price: string | undefined): number {
@@ -62,11 +69,15 @@ export default function FrequentlyBoughtTogether({
   productTypeLabel,
   productSubtitle,
   typeSlugs,
+  productBundleMode,
+  productFixedPrice,
+  productFixedOriginalPrice,
 }: Props) {
-  const { addToCart } = useCart();
+  const { addToCart, addFixedBundleToCart } = useCart();
   const [recs, setRecs] = useState<RecProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingAll, setAddingAll] = useState(false);
+  const [addAllError, setAddAllError] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<number>>(new Set());
 
   const typeKey = typeSlugs.join(',');
@@ -104,8 +115,13 @@ export default function FrequentlyBoughtTogether({
   }, [productId, productSlug, productPrice, typeKey]);
 
   const items = useMemo<FbtItem[]>(() => {
-    const currentPrice = parsePrice(productPrice);
-    const currentRegular = parsePrice(productRegularPrice);
+    const currentIsFixedBundle = productBundleMode === 'fixed';
+    const currentPrice = currentIsFixedBundle
+      ? productFixedPrice ?? 0
+      : parsePrice(productPrice);
+    const currentRegular = currentIsFixedBundle
+      ? productFixedOriginalPrice ?? 0
+      : parsePrice(productRegularPrice);
     const currentItem: FbtItem = {
       databaseId: productId,
       slug: productSlug,
@@ -116,10 +132,14 @@ export default function FrequentlyBoughtTogether({
       current: currentPrice,
       original: currentRegular > currentPrice ? currentRegular : null,
       isCurrent: true,
+      isFixedBundle: currentIsFixedBundle,
     };
     const recItems: FbtItem[] = recs.map((r) => {
-      const current = parsePrice(r.salePrice) || parsePrice(r.price);
-      const regular = parsePrice(r.regularPrice);
+      const isFixedBundle = r.bbBundleMode === 'fixed';
+      const current = isFixedBundle
+        ? r.bbFixedPrice ?? 0
+        : parsePrice(r.salePrice) || parsePrice(r.price);
+      const regular = isFixedBundle ? r.bbFixedOriginalPrice ?? 0 : parsePrice(r.regularPrice);
       return {
         databaseId: r.databaseId,
         slug: r.slug,
@@ -130,6 +150,7 @@ export default function FrequentlyBoughtTogether({
         current,
         original: regular > current ? regular : null,
         isCurrent: false,
+        isFixedBundle,
       };
     });
     return [currentItem, ...recItems];
@@ -142,6 +163,9 @@ export default function FrequentlyBoughtTogether({
     productImage,
     productTypeLabel,
     productSubtitle,
+    productBundleMode,
+    productFixedPrice,
+    productFixedOriginalPrice,
     recs,
   ]);
 
@@ -167,16 +191,31 @@ export default function FrequentlyBoughtTogether({
 
   const addAll = useCallback(async () => {
     setAddingAll(true);
+    setAddAllError(null);
     try {
       for (const item of items) {
-        if (item.isCurrent || !checked.has(item.databaseId)) continue;
+        if (!checked.has(item.databaseId)) continue;
+        // Non-bundle current product is skipped — it's added via the page's
+        // own Add to Cart button. A fixed bundle has no such duplicate path
+        // here (its own PDP button is a separate click), so it still needs
+        // adding when checked.
+        if (item.isCurrent && !item.isFixedBundle) continue;
         recordWidgetSource(item.databaseId, 'fbt');
-        await addToCart({ productId: item.databaseId, quantity: 1 });
+        if (item.isFixedBundle) {
+          await addFixedBundleToCart(item.databaseId, 1, item.name, item.image ? {
+            sourceUrl: item.image.sourceUrl,
+            altText: item.image.altText || item.name,
+          } : null);
+        } else {
+          await addToCart({ productId: item.databaseId, quantity: 1 });
+        }
       }
+    } catch (err) {
+      setAddAllError(err instanceof Error ? err.message : 'Could not add these items to your cart.');
     } finally {
       setAddingAll(false);
     }
-  }, [items, checked, addToCart]);
+  }, [items, checked, addToCart, addFixedBundleToCart]);
 
   if (!loading && recs.length === 0) return null;
 
@@ -256,6 +295,11 @@ export default function FrequentlyBoughtTogether({
           >
             {addingAll ? 'Adding...' : 'Add All Items'}
           </button>
+          {addAllError && (
+            <p className={styles.error} role="alert">
+              {addAllError}
+            </p>
+          )}
         </>
       )}
     </section>

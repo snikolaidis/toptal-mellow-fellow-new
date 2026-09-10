@@ -111,6 +111,10 @@ export interface BundleGroup {
   quantity: number;
   representativeItems: CartItem[];
   instances: BundleGroupInstance[];
+  // Per-set original (pre-discount) price for a "fixed" bundle, as authored
+  // on the bundle product itself — undefined for "byob" groups, where the
+  // original total is genuinely the sum of the chosen items' regular prices.
+  fixedOriginalPrice?: number;
 }
 
 export function groupCartItems(
@@ -158,6 +162,7 @@ export function groupCartItems(
         quantity: 0,
         representativeItems: groupItems,
         instances: [],
+        fixedOriginalPrice: groupItems.find((i) => i.bbFixedOriginalPrice != null)?.bbFixedOriginalPrice,
       };
     }
     byProductSet[mergeKey].instances.push({ groupKey, items: groupItems });
