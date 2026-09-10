@@ -662,7 +662,11 @@ export default function CartDrawer() {
               // One consolidated "You saved" = gross − net, so the numbers
               // always reconcile and never shift per-coupon.
               const grossSubtotal = cart.items.reduce(
-                (s, i) => s + i.quantity * parsePrice(i.product.price),
+                // The free gift is server-priced to $0 (product.price === 0), so
+                // its value would vanish from "You saved" if we used product.price
+                // like every other line. Use its pre-discount regular price so the
+                // gift counts as a saving, matching the old free-gift coupon.
+                (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parsePrice(i.product.price)),
                 0
               );
               const netTotal = cart.items.reduce((s, i) => s + parsePrice(i.total), 0);
