@@ -30,6 +30,7 @@ interface BundleGroupDisplay {
   discountedTotal: number;
   originalTotal: number;
   items: LineItem[];
+  image?: { sourceUrl?: string; altText?: string };
 }
 
 function getMeta(item: LineItem, key: string): string | undefined {
@@ -78,13 +79,27 @@ function groupOrderLineItems(items: LineItem[]): { bundleGroups: BundleGroupDisp
     const originalTotal = fixedOriginalTotal != null
       ? toAmount(fixedOriginalTotal)
       : groupItems.reduce((sum, i) => sum + toAmount(i.subtotal ?? i.total), 0);
+    // The bundle's own quantity (e.g. 1 bundle, not the 3 or 5 units its
+    // components add up to) is recorded once per group as _bb_group_set_count
+    // (see checkout.tsx). Orders placed before that meta existed fall back to
+    // summing component quantities, which overcounts for multi-component
+    // bundles but is the best guess available for that older data.
+    const setCount = groupItems
+      .map((i) => getMeta(i, '_bb_group_set_count'))
+      .find((v) => v != null);
+    const quantity = setCount != null
+      ? toAmount(setCount)
+      : groupItems.reduce((sum, i) => sum + i.quantity, 0);
+    const imageUrl = groupItems.map((i) => getMeta(i, '_bb_group_image_url')).find((v) => v != null);
+    const imageAlt = groupItems.map((i) => getMeta(i, '_bb_group_image_alt')).find((v) => v != null);
     return {
       key,
       name,
-      quantity: groupItems.reduce((sum, i) => sum + i.quantity, 0),
+      quantity,
       discountedTotal,
       originalTotal,
       items: groupItems,
+      image: imageUrl ? { sourceUrl: imageUrl, altText: imageAlt || name } : undefined,
     };
   });
 
@@ -373,7 +388,28 @@ function OrderContent() {
               <Fragment key={group.key}>
                 <tr className="account__bundle-header">
                   <td>
-                    <span className="account__bundle-name">{group.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {group.image?.sourceUrl ? (
+                        <Image
+                          src={group.image.sourceUrl}
+                          alt={group.image.altText || group.name}
+                          width={48}
+                          height={48}
+                          style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 6,
+                            backgroundColor: '#f0f0f0',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <span className="account__bundle-name">{group.name}</span>
+                    </div>
                   </td>
                   <td>{group.quantity}</td>
                   <td>

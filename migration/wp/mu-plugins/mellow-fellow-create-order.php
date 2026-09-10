@@ -185,6 +185,24 @@ function mf_create_order( WP_REST_Request $request ) {
                         $order_item->add_meta_data( '_bb_group_original_total', floatval( $item['bundleGroupOriginalTotal'] ) );
                     }
 
+                    // How many bundle sets this line's quantity represents —
+                    // lets the account order page show the bundle's own
+                    // quantity instead of summing every component line's
+                    // quantity, which overcounts for multi-component bundles.
+                    if ( isset( $item['bundleGroupSetCount'] ) && is_numeric( $item['bundleGroupSetCount'] ) ) {
+                        $order_item->add_meta_data( '_bb_group_set_count', intval( $item['bundleGroupSetCount'] ) );
+                    }
+
+                    // The bundle product's own image, stored directly as meta
+                    // (rather than a product reference) since order line
+                    // items are keyed to their component products, which have
+                    // no relation to the bundle product itself.
+                    $bundle_image_url = esc_url_raw( $item['bundleImageUrl'] ?? '' );
+                    if ( $bundle_image_url ) {
+                        $order_item->add_meta_data( '_bb_group_image_url', $bundle_image_url );
+                        $order_item->add_meta_data( '_bb_group_image_alt', sanitize_text_field( $item['bundleImageAlt'] ?? '' ) );
+                    }
+
                     $order_item->save();
                 }
             }
