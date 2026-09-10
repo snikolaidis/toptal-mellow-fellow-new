@@ -1,4 +1,5 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { getClient } from '@/lib/apollo-client';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import {
@@ -90,6 +91,16 @@ export default function BlogPostPage({ post, latestPosts, allTags, relatedProduc
   );
 }
 
+// Set before Next forks the workers that prerender pages, and never set in the
+// server runtime. Next branches on the same variable itself.
+const isBuildPhase = () => process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
+
+const BUILD_FALLTHROUGH_REVALIDATE = 10;
+
+// Without an expiry a notFound stands until the next deploy, and a missing post
+// can be published later.
+const NOT_FOUND_REVALIDATE = 600;
+
 export const getStaticPaths: GetStaticPaths = async () => {
   // Don't pre-render blog posts at build time — hundreds of posts overwhelm
   // WordPress with concurrent requests, causing 120s build timeouts.
@@ -98,6 +109,8 @@ export const getStaticPaths: GetStaticPaths = async () => {
 };
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
+  const slug = typeof params?.slug === 'string' ? params.slug : '';
+
   try {
     const client = getClient();
 
@@ -110,11 +123,30 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       prefetchMenus(),
     ]);
 
-    if (!postResult.data?.post) {
-      return { notFound: true };
+    // Genuinely missing is: resolved, no errors, `post` null. errorPolicy 'all' makes
+    // a rejected document look identical to `!data?.post`. `errors` not `error`: never set.
+    if (postResult.errors?.length) {
+      throw new Error(
+        `GET_POST_BY_SLUG returned errors for "${slug}": ${postResult.errors
+          .map((e) => e.message)
+          .join('; ')}`
+      );
+    }
+
+    if (!postResult.data) {
+      throw new Error(`GET_POST_BY_SLUG returned no data for "${slug}"`);
     }
 
     const post = postResult.data.post;
+
+    if (post === null) {
+      return { notFound: true, revalidate: NOT_FOUND_REVALIDATE };
+    }
+
+    if (!post) {
+      throw new Error(`GET_POST_BY_SLUG returned neither a post nor an error for "${slug}"`);
+    }
+
     const relatedIds = (post.smartRelatedProducts || []).map(
       (p: { databaseId: number }) => p.databaseId
     );
@@ -147,7 +179,16 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 
     return { props, revalidate: 60 };
   } catch (error) {
-    console.error('Error fetching post:', error);
-    return { notFound: true };
+    console.error(`[Blog] failed to build "${slug}":`, error);
+
+    // A throw at build time would fail the whole deploy, which is worse than one
+    // article arriving late, so the build path leaves it to `fallback: 'blocking'`.
+    if (isBuildPhase()) {
+      return { notFound: true, revalidate: BUILD_FALLTHROUGH_REVALIDATE };
+    }
+
+    // Deliberately not `notFound`: ISR then keeps serving the last good copy
+    // instead of pinning "this article does not exist" on top of a real one.
+    throw error;
   }
 };
