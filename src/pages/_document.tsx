@@ -17,8 +17,6 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
     <Html lang="en" translate="no">
       <Head>
         <meta name="google" content="notranslate" />
-        <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
-        <link rel="stylesheet" href="https://use.typekit.net/kud0qbd.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
