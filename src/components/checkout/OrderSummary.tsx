@@ -11,6 +11,7 @@ interface CartItem {
   total: string;
   bbBundleId?: number;
   bbGroupKey?: string;
+  isFreeGift?: boolean;
   product: {
     name: string;
     price: string;
@@ -38,6 +39,13 @@ interface AppliedCoupon {
   discountAmount: string;
 }
 
+interface CartPromotion {
+  code: string;
+  label: string;
+  amount: number;
+  removable: boolean;
+}
+
 interface Cart {
   items: CartItem[];
   subtotal: string;
@@ -45,6 +53,7 @@ interface Cart {
   discountTotal: string;
   shippingTotal: string;
   appliedCoupons?: AppliedCoupon[];
+  promotions?: CartPromotion[];
   chosenShippingMethods?: string[];
 }
 
@@ -442,37 +451,54 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
             ))}
           </div>
         )}
+
+        {/* Automatic promotions (e.g. free gift) — locked chips, no remove. */}
+        {cart.promotions && cart.promotions.length > 0 && (
+          <div className={styles.appliedCoupons}>
+            {cart.promotions.map((promo) => (
+              <div key={promo.code} className={styles.appliedCoupon} title="Automatic promotion">
+                <span className={styles.couponCode}>{promo.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {subscriptionSlot}
 
       {/* Totals */}
       {(() => {
-        // Gross = full price of everything; net = after ALL discounts
-        // (coupons, BOGO, free gift, bundles). One consolidated "You saved"
-        // line, matching the cart drawer — no shifting per-coupon amounts.
-        const grossSubtotal = cart.items.reduce(
-          (s, i) => s + i.quantity * parseFloat(i.product.price.replace(/[^0-9.]/g, '') || '0'), 0
+        // Bundle groups: regular (pre-discount) value vs discounted total, per
+        // group (fixed bundles use their curated price; byob sum component
+        // regulars). Bundle lines discount via set_price, so they MUST use their
+        // regular value in the gross — otherwise the bundle discount is missing
+        // from Subtotal while still shown on its own line (subtracted twice).
+        let bundleOriginal = 0;
+        let bundleDiscounted = 0;
+        bundles.forEach((group) => {
+          const allItems = group.instances.flatMap((inst) => inst.items);
+          bundleOriginal += group.fixedOriginalPrice != null
+            ? group.fixedOriginalPrice * group.quantity
+            : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
+          bundleDiscounted += allItems.reduce(
+            (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
+          );
+        });
+        const totalBundleDiscount = Math.max(0, bundleOriginal - bundleDiscounted);
+
+        // Gross = full regular price of everything. Standalone lines discount on
+        // the line total (product.price stays regular), except the free gift,
+        // which is $0 and counts at its regular price so its value shows as a
+        // saving. Bundle lines contribute their regular value.
+        const grossStandalone = standalone.reduce(
+          (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parseFloat(i.product.price.replace(/[^0-9.]/g, '') || '0')),
+          0
         );
+        const grossSubtotal = grossStandalone + bundleOriginal;
         const netMerch = cart.items.reduce(
           (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
         );
         const saved = Math.max(0, grossSubtotal - netMerch);
-
-        // Bundle discount broken out on its own line — the rest (coupons,
-        // BOGO, free gift, subscriptions) collapses into "You saved" below
-        // it, so the two lines add up to `saved` instead of double-counting
-        // the bundle portion in both.
-        const totalBundleDiscount = bundles.reduce((sum, group) => {
-          const allItems = group.instances.flatMap((inst) => inst.items);
-          const original = group.fixedOriginalPrice != null
-            ? group.fixedOriginalPrice * group.quantity
-            : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
-          const discounted = allItems.reduce(
-            (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
-          );
-          return sum + Math.max(0, original - discounted);
-        }, 0);
         const otherSaved = Math.max(0, saved - totalBundleDiscount);
 
         return (

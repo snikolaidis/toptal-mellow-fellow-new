@@ -401,36 +401,66 @@ export default function CartPage() {
               </div>
             )}
 
-            <div className={styles.summaryRow}>
-              <span>Subtotal</span>
-              <span>{cart.subtotal}</span>
-            </div>
-            {totalBundleDiscount > 0 && (
-              <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
-                <span>Bundle Discount</span>
-                <span>-${totalBundleDiscount.toFixed(2)}</span>
+            {/* Automatic promotions (e.g. free gift) — locked chips, no remove. */}
+            {cart.promotions && cart.promotions.length > 0 && (
+              <div className={styles.appliedCoupons}>
+                {cart.promotions.map((promo) => (
+                  <span key={promo.code} className={styles.appliedCoupon} title="Automatic promotion">
+                    {promo.label}
+                  </span>
+                ))}
               </div>
             )}
-            {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
-              const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');
-              if (amt <= 0) return null;
-              return (
-                <div key={coupon.code} className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
-                  <span>{coupon.code.toUpperCase()}</span>
-                  <span>-{coupon.discountAmount}</span>
-                </div>
+
+            {/* Totals — consolidated model matching the cart drawer and checkout:
+                gross Subtotal (bundle lines at regular value, gift at regular),
+                Bundle Discount broken out, everything else in "You saved". */}
+            {(() => {
+              const bundleOriginal = bundles.reduce((sum, group) => {
+                const allItems = group.instances.flatMap((inst) => inst.items);
+                return sum + (group.fixedOriginalPrice != null
+                  ? group.fixedOriginalPrice * group.quantity
+                  : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0));
+              }, 0);
+              const grossStandalone = standalone.reduce(
+                (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parsePrice(i.product.price)),
+                0
               );
-            })}
-            {cart.shippingTotal && (
-              <div className={styles.summaryRow}>
-                <span>Shipping</span>
-                <span>{parseFloat(cart.shippingTotal.replace(/[^0-9.]/g, '') || '0') === 0 ? 'Free' : cart.shippingTotal}</span>
-              </div>
-            )}
-            <div className={`${styles.summaryRow} ${styles.summaryRowTotal}`}>
-              <span>Total</span>
-              <span>{cart.total}</span>
-            </div>
+              const grossSubtotal = grossStandalone + bundleOriginal;
+              const netMerch = cart.items.reduce((s, i) => s + parsePrice(i.total), 0);
+              const saved = Math.max(0, grossSubtotal - netMerch);
+              const otherSaved = Math.max(0, saved - totalBundleDiscount);
+              return (
+                <>
+                  <div className={styles.summaryRow}>
+                    <span>Subtotal</span>
+                    <span>${grossSubtotal.toFixed(2)}</span>
+                  </div>
+                  {totalBundleDiscount > 0 && (
+                    <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
+                      <span>Bundle Discount</span>
+                      <span>-${totalBundleDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {otherSaved > 0 && (
+                    <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
+                      <span>You saved</span>
+                      <span>-${otherSaved.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {cart.shippingTotal && (
+                    <div className={styles.summaryRow}>
+                      <span>Shipping</span>
+                      <span>{parseFloat(cart.shippingTotal.replace(/[^0-9.]/g, '') || '0') === 0 ? 'Free' : cart.shippingTotal}</span>
+                    </div>
+                  )}
+                  <div className={`${styles.summaryRow} ${styles.summaryRowTotal}`}>
+                    <span>Total</span>
+                    <span>{cart.total}</span>
+                  </div>
+                </>
+              );
+            })()}
 
             <div className={styles.actions}>
               <Link href="/checkout" className={`btn-primary ${styles.checkoutBtn}`}>

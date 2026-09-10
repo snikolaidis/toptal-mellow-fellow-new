@@ -202,7 +202,7 @@ add_action('woocommerce_before_calculate_totals', function ($cart) {
     }
     $GLOBALS['mf_active_promotions'][] = array(
         'code'      => 'mf-free-gift',
-        'label'     => 'Free gift: ' . $product->get_name(),
+        'label'     => 'Free gift',
         'amount'    => $regular,
         'removable' => false,
     );
