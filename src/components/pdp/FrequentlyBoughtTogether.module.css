@@ -195,3 +195,11 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.error {
+  margin: 0.6rem auto 0;
+  max-width: 28rem;
+  color: var(--color-state-error);
+  font-size: 0.85rem;
+  text-align: center;
+}

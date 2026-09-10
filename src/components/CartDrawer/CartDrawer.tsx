@@ -264,9 +264,9 @@ export default function CartDrawer() {
                 {/* Bundle groups */}
                 {bundles.map((group) => {
                   const allItems = group.instances.flatMap((inst) => inst.items);
-                  const originalTotal = allItems.reduce(
-                    (sum, i) => sum + i.quantity * originalUnitPrice(i), 0
-                  );
+                  const originalTotal = group.fixedOriginalPrice != null
+                    ? group.fixedOriginalPrice * group.quantity
+                    : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
                   const discountedTotal = allItems.reduce(
                     (sum, i) => sum + parsePrice(i.total), 0
                   );
@@ -680,7 +680,9 @@ export default function CartDrawer() {
               // instead of double-counting the bundle portion in both.
               const totalBundleDiscount = bundles.reduce((sum, group) => {
                 const allItems = group.instances.flatMap((inst) => inst.items);
-                const original = allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
+                const original = group.fixedOriginalPrice != null
+                  ? group.fixedOriginalPrice * group.quantity
+                  : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
                 const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
                 return sum + Math.max(0, original - discounted);
               }, 0);

@@ -96,11 +96,33 @@ add_action( 'woocommerce_blocks_loaded', function() {
             'endpoint'        => Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema::IDENTIFIER,
             'namespace'       => 'mellow-fellow',
             'data_callback'   => function ( $cart_item ) {
+                $bundle_id = isset( $cart_item['bb_bundle_id'] ) ? intval( $cart_item['bb_bundle_id'] ) : 0;
+
+                // A "fixed" bundle's original (pre-discount) price is a
+                // curated bundle-level value, not the sum of its components'
+                // own catalog regular prices — those can add up to more than
+                // the bundle was ever priced at. Look it up from the bundle
+                // product itself so the cart's struck-through price matches
+                // what the PDP and recs widget show (bbFixedOriginalPrice).
+                // Check the post type first (same as mellow-fellow-recs-products.php
+                // / mellow-fellow-collection-products.php's $is_bundle gate) so
+                // BB_Helpers is only ever called for an actual bundle post — not
+                // just whenever the plugin happens to be active — and this data
+                // callback (which runs per cart item, on every Store API response)
+                // doesn't pay for get_bundle_mode()/get_fixed_regular_price() otherwise.
+                $fixed_original_price = null;
+                if ( $bundle_id && 'bb_bundle' === get_post_type( $bundle_id ) && class_exists( 'BB_Helpers' )
+                    && 'fixed' === BB_Helpers::get_bundle_mode( $bundle_id ) ) {
+                    $regular = BB_Helpers::get_fixed_regular_price( $bundle_id );
+                    $fixed_original_price = $regular > 0 ? (float) $regular : null;
+                }
+
                 return [
                     'bb_group_key'  => isset( $cart_item['bb_group_key'] ) ? (string) $cart_item['bb_group_key'] : '',
-                    'bb_bundle_id'  => isset( $cart_item['bb_bundle_id'] ) ? intval( $cart_item['bb_bundle_id'] ) : 0,
+                    'bb_bundle_id'  => $bundle_id,
                     'bb_locked'     => ! empty( $cart_item['bb_locked'] ),
                     'bb_unit_price' => isset( $cart_item['bb_unit_price'] ) ? floatval( $cart_item['bb_unit_price'] ) : null,
+                    'bb_fixed_original_price' => $fixed_original_price,
                 ];
             },
             'schema_callback' => function () {
@@ -109,6 +131,7 @@ add_action( 'woocommerce_blocks_loaded', function() {
                     'bb_bundle_id'  => [ 'type' => 'integer' ],
                     'bb_locked'     => [ 'type' => 'boolean' ],
                     'bb_unit_price' => [ 'type' => [ 'number', 'null' ] ],
+                    'bb_fixed_original_price' => [ 'type' => [ 'number', 'null' ] ],
                 ];
             },
             'schema_type'     => ARRAY_A,
