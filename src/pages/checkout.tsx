@@ -63,7 +63,7 @@ type RememberMeState = 'not_exist' | 'do_not_remember' | 'remember_30' | 'rememb
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, clearCart, isLoading: cartLoading, bundleNames, bundleGroupSetCounts } = useCart();
+  const { cart, clearCart, isLoading: cartLoading, bundleNames, bundleImages, bundleGroupSetCounts } = useCart();
   const { isAuthenticated, isReady: authReady } = useAuth();
   const prevAuthRef = useRef<boolean | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -810,6 +810,17 @@ export default function CheckoutPage() {
               item.bbGroupKey && item.bbFixedOriginalPrice != null
                 ? item.bbFixedOriginalPrice * (bundleGroupSetCounts[item.bbGroupKey] ?? 1)
                 : undefined,
+            // How many bundle sets this line's quantity represents — lets the
+            // order page show the bundle's own quantity instead of summing
+            // every component line's quantity (see checkout/[databaseId].tsx).
+            bundleGroupSetCount: item.bbGroupKey
+              ? bundleGroupSetCounts[item.bbGroupKey] ?? 1
+              : undefined,
+            // The bundle product's own image, so the order page can show it
+            // on the bundle's header row (component products have no
+            // relation to the bundle product's own image).
+            bundleImageUrl: item.bbBundleId != null ? bundleImages[item.bbBundleId]?.sourceUrl : undefined,
+            bundleImageAlt: item.bbBundleId != null ? bundleImages[item.bbBundleId]?.altText : undefined,
           })),
           sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
           // Lets the server independently re-confirm Real ID verification before

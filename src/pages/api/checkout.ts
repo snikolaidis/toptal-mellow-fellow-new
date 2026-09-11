@@ -110,6 +110,18 @@ interface CheckoutRequest {
     // the order-confirmation/detail page mask a mystery bundle's contents,
     // same as the cart. Absent for "byob"/non-bundle items.
     bundleMode?: 'fixed' | 'mystery';
+    // How many bundle "sets" this line item's quantity represents (see
+    // CartContext's bundleGroupSetCounts) — lets the account order page show
+    // the bundle's own quantity (e.g. 1) instead of summing every component
+    // line's quantity, which overcounts as soon as a bundle has more than
+    // one distinct component.
+    bundleGroupSetCount?: number;
+    // The bundle product's own image, so the account order page can show it
+    // on the bundle's header row instead of no image at all — order line
+    // items are keyed to their component products, which have no relation
+    // to the bundle product itself.
+    bundleImageUrl?: string;
+    bundleImageAlt?: string;
   }>;
   sources?: Record<string, string>;
   // Forwarded to mf/v1/create-order so the WP-side guard can independently
@@ -592,6 +604,9 @@ async function createOrderWithPayment(
       bundleGroupKey: item.bundleGroupKey || undefined,
       bundleGroupOriginalTotal: item.bundleGroupOriginalTotal || undefined,
       bundleMode: item.bundleMode || undefined,
+      bundleGroupSetCount: item.bundleGroupSetCount || undefined,
+      bundleImageUrl: item.bundleImageUrl || undefined,
+      bundleImageAlt: item.bundleImageAlt || undefined,
     })),
     transactionId,
     paymentMethod: 'authorize_net',
