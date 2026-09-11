@@ -67,6 +67,7 @@ interface StoredRealIdRemember {
 interface RememberedRealIdData {
   checkId: string;
   rememberOption: RememberMeOption;
+  expiresAt: number;
 }
 
 const REAL_ID_REMEMBER_KEY_PREFIX = "realIdRemember:";
@@ -166,6 +167,7 @@ function getRememberedRealIdData(
     return {
       checkId: stored.checkId,
       rememberOption: stored.rememberOption || "remember_30",
+      expiresAt: stored.expiresAt,
     };
   } catch (error) {
     console.warn("Unable to read remembered Real ID verification:", error);
@@ -1050,8 +1052,22 @@ export default function CheckoutNewPage() {
           }}
           initialCheckId={rememberedData?.checkId || realIdCheckId}
           initialRememberOption={rememberedData?.rememberOption}
+          initialRememberExpiresAt={rememberedData?.expiresAt ?? null}
           onBack={() => {
             setCheckoutStep("billing");
+          }}
+          onForgetMe={() => {
+            const key = getRealIdRememberKey(customerId, billing.email);
+
+            if (key) {
+              window.localStorage.removeItem(key);
+            }
+
+            clearRealIdVerificationState();
+
+            setRealIdVerified(false);
+
+            setRealIdCheckId(null);
           }}
           onContinue={(checkId, rememberOption) => {
             /*

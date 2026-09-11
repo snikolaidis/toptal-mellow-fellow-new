@@ -17,6 +17,7 @@ interface RealIdStepProps {
   };
   initialCheckId?: string | null;
   initialRememberOption?: RememberMeOption;
+  initialRememberExpiresAt?: number | null;
 
   onBack: () => void;
 
@@ -24,14 +25,18 @@ interface RealIdStepProps {
     checkId: string,
     rememberOption: RememberMeOption
   ) => void;
+
+  onForgetMe?: () => void;
 }
 
 export default function RealIdStep({
   customer,
   initialCheckId,
   initialRememberOption,
+  initialRememberExpiresAt,
   onBack,
   onContinue,
+  onForgetMe,
 }: RealIdStepProps) {
   const [started, setStarted] = useState(() => !!initialCheckId);
   const [verified, setVerified] = useState(() => !!initialCheckId);
@@ -39,10 +44,31 @@ export default function RealIdStep({
     () => initialCheckId || null
   );
 
+  // Whether this instance started out already covered by an existing
+  // Remember Me record (as opposed to having just verified in this
+  // session) - controls whether we show the remember-me day picker or
+  // the "we already remember you" message further down.
+  const [isRemembered, setIsRemembered] = useState(() => !!initialCheckId);
+
   // Remember Me selection
   const [rememberOption, setRememberOption] = useState<RememberMeOption>(
     () => initialRememberOption || 'do_not_remember'
   );
+
+  const [rememberDaysLeft] = useState<number | null>(() => {
+    if (!initialRememberExpiresAt) return null;
+    return Math.ceil(
+      (initialRememberExpiresAt - Date.now()) / (1000 * 60 * 60 * 24)
+    );
+  });
+
+  const handleForgetMe = () => {
+    onForgetMe?.();
+    setIsRemembered(false);
+    setVerified(false);
+    setVerifiedCheckId(null);
+    setRememberOption('do_not_remember');
+  };
 
   return (
     <div className={styles.page}>
@@ -292,6 +318,7 @@ export default function RealIdStep({
                     // Every new verification starts with
                     // "Do not remember me" selected.
                     setRememberOption('do_not_remember');
+                    setIsRemembered(false);
                   }
                 }}
               />
@@ -317,9 +344,31 @@ export default function RealIdStep({
             )}
 
             {/* ================================
-                REMEMBER ME
+                REMEMBER ME (ALREADY REMEMBERED)
                 ================================ */}
-            {verified && verifiedCheckId && (
+            {verified && verifiedCheckId && isRemembered && (
+              <div className={styles.rememberMeBox}>
+
+                <p className={styles.rememberMeTitle}>
+                  {rememberDaysLeft !== null
+                    ? `We'll remember your identity verification for ${rememberDaysLeft} more day${rememberDaysLeft === 1 ? '' : 's'}.`
+                    : "We're remembering your identity verification on this device."}
+                </p>
+
+                <button
+                  type="button"
+                  className={styles.forgetMeButton}
+                  onClick={handleForgetMe}
+                >
+                  Forget me
+                </button>
+              </div>
+            )}
+
+            {/* ================================
+                REMEMBER ME (NEW VERIFICATION)
+                ================================ */}
+            {verified && verifiedCheckId && !isRemembered && (
               <div className={styles.rememberMeBox}>
 
                 <p className={styles.rememberMeTitle}>
