@@ -17,6 +17,20 @@ add_action( 'rest_api_init', function() {
     ] );
 } );
 
+// Bundle Builder's own class-bb-cart.php already hides its _bb_bundle_id/
+// _bb_group_key/_bb_mode/etc via this same filter — these are the meta keys
+// this file writes on top of those, only ever read programmatically by the
+// order-confirmation page. The "Part of bundle" admin note (also from
+// class-bb-cart.php) already covers what an admin needs to see.
+add_filter( 'woocommerce_hidden_order_itemmeta', function ( $hidden_keys ) {
+    $hidden_keys[] = 'Bundle';
+    $hidden_keys[] = '_bb_group_original_total';
+    $hidden_keys[] = '_bb_group_set_count';
+    $hidden_keys[] = '_bb_group_image_url';
+    $hidden_keys[] = '_bb_group_image_alt';
+    return $hidden_keys;
+} );
+
 function mf_verify_faust_secret( WP_REST_Request $request ) {
     if ( defined( 'FAUSTWP_SECRET_KEY' ) ) {
         $secret = FAUSTWP_SECRET_KEY;
@@ -147,7 +161,8 @@ function mf_create_order( WP_REST_Request $request ) {
 
             $item_id = $order->add_product( $product, $quantity, $add_args );
 
-            // 'Bundle' is a visible admin meta key; '_bb_'-prefixed ones are hidden.
+            // Tags this line as part of a bundle — 'Bundle' and the '_bb_'
+            // keys below are all hidden from the admin order screen (filter above).
             $bundle_name = sanitize_text_field( $item['bundleName'] ?? '' );
             if ( $item_id && ! is_wp_error( $item_id ) && $bundle_name ) {
                 $order_item = $order->get_item( $item_id );
