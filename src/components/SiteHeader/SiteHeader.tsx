@@ -213,7 +213,6 @@ export default function SiteHeader() {
               <span className="site-header__account-text">
                 {!isReady ? (
                   <>
-                    <span className="site-header__account-line">&nbsp;</span>
                     <span className="site-header__account-line">Account</span>
                   </>
                 ) : isAuthenticated ? (
@@ -224,7 +223,6 @@ export default function SiteHeader() {
                 ) : (
                   <>
                     <span className="site-header__account-line">Sign In</span>
-                    <span className="site-header__account-line">Account</span>
                   </>
                 )}
               </span>
