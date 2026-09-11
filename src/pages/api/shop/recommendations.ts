@@ -289,6 +289,11 @@ function transformProduct(p: any) {
     image: p.image || undefined,
     typeLabel: p.typeLabel || p.mfproductTypes?.nodes?.[0]?.name || '',
     subtitle: p.subtitle || '',
+    bbBundleMode: p.bbBundleMode ?? undefined,
+    bbShowPrice: p.bbShowPrice ?? undefined,
+    bbFromPrice: p.bbFromPrice ?? undefined,
+    bbFixedPrice: p.bbFixedPrice ?? undefined,
+    bbFixedOriginalPrice: p.bbFixedOriginalPrice ?? undefined,
   };
 }
 
@@ -321,6 +326,10 @@ async function handleFbt(
   const addResult = (product: any): boolean => {
     if (!product?.databaseId || seenIds.has(product.databaseId)) return false;
     if (seenSlugs.has(product.slug)) return false;
+    // BYOB bundles have no fixed price and can't be added to cart directly
+    // (they route into the bundle-builder picker) — never surface them as an
+    // FBT companion. Fixed bundles are fine; they add like a normal product.
+    if (product.bbBundleMode === 'byob') return false;
     seenIds.add(product.databaseId);
     seenSlugs.add(product.slug);
     results.push(product);
@@ -401,6 +410,10 @@ async function handleCart(
   const addResult = (product: any): boolean => {
     if (!product?.databaseId || seenIds.has(product.databaseId) || excludeSet.has(product.databaseId)) return false;
     if (excludeSlugSet.has(product.slug)) return false;
+    // BYOB bundles have no fixed price and can't be added to cart directly
+    // (they route into the bundle-builder picker) — never surface them here,
+    // since this feeds a plain "Add to Cart" button (see handleFbt above).
+    if (product.bbBundleMode === 'byob') return false;
     seenIds.add(product.databaseId);
     results.push(product);
     return true;

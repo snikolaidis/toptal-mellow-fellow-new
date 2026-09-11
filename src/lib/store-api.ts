@@ -13,11 +13,16 @@ export interface CartItem {
   bbGroupKey?: string;
   bbLocked?: boolean;
   bbUnitPrice?: number;
+  bbFixedOriginalPrice?: number;
+  // "fixed" | "mystery" — when "mystery", mask this line's own product name/image.
+  bbMode?: 'fixed' | 'mystery';
+  isFreeGift?: boolean;
   product: {
     databaseId: number;
     name: string;
     slug: string;
     price: string;
+    regularPrice?: string;
     image?: { sourceUrl: string; altText: string };
     productTypes?: Array<{ name: string; slug: string }>;
   };
@@ -26,6 +31,16 @@ export interface CartItem {
     name: string;
     price: string;
   };
+}
+
+// Automatic promotions applied by the promotion engine (resolver), surfaced via the
+// Store API cart extension so the cart can render locked chips. Empty when the engine
+// is off, so this is safe to read unconditionally.
+export interface CartPromotion {
+  code: string;
+  label: string;
+  amount: number;      // dollars saved
+  removable: boolean;  // automatic promotions render as a locked chip (no remove)
 }
 
 export interface Cart {
@@ -37,6 +52,7 @@ export interface Cart {
   isEmpty: boolean;
   itemsCount: number;
   appliedCoupons: AppliedCoupon[];
+  promotions: CartPromotion[];
   availableShippingMethods: ShippingPackage[];
   chosenShippingMethods: string[];
 }
@@ -82,6 +98,13 @@ export function transformStoreApiCart(data: any): Cart | null {
   const items: CartItem[] = (data.items || []).map((item: any) => {
     const decimals = item.prices?.currency_minor_unit ?? 2;
     const price = minorToFormatted(item.prices?.price, decimals);
+    // The Bundle Builder plugin (and any product-level sale price) discounts
+    // via `prices.price`, not a coupon — so `totals.line_subtotal` already
+    // reflects the discounted price too. `prices.regular_price` is the only
+    // field that still carries the true pre-discount unit price.
+    const regularPrice = item.prices?.regular_price
+      ? minorToFormatted(item.prices.regular_price, decimals)
+      : undefined;
     const totalsDecimals = item.totals?.currency_minor_unit ?? decimals;
     const lineTotal = minorToFormatted(item.totals?.line_total, totalsDecimals);
     const lineSubtotal = minorToFormatted(item.totals?.line_subtotal, totalsDecimals);
@@ -91,11 +114,15 @@ export function transformStoreApiCart(data: any): Cart | null {
     const variationAttrs: Array<{ attribute: string; value: string }> = item.variation || [];
     const hasVariation = variationAttrs.length > 0;
 
-    // Bundle-builder identity exposed server-side via Store API extensions —
-    // the session's cart item data is the source of truth for bundle grouping.
-    const bb = item.extensions?.['mellow-fellow'] || {};
-    const bbGroupKey = typeof bb.bb_group_key === 'string' && bb.bb_group_key ? bb.bb_group_key : undefined;
-    const bbBundleId = bb.bb_bundle_id ? Number(bb.bb_bundle_id) : undefined;
+    // "bundle" = Bundle Builder plugin's own Store API extension
+    // (bundle_id/group_key/locked/unit_price/mode). "mellow-fellow" = ours
+    // (bb_fixed_original_price, mf_free_gift only).
+    const bundleExt = item.extensions?.['bundle'] || {};
+    const mf = item.extensions?.['mellow-fellow'] || {};
+    const bbGroupKey = typeof bundleExt.group_key === 'string' && bundleExt.group_key ? bundleExt.group_key : undefined;
+    const bbBundleId = bundleExt.bundle_id ? Number(bundleExt.bundle_id) : undefined;
+    const bbMode = bundleExt.mode === 'fixed' || bundleExt.mode === 'mystery' ? bundleExt.mode : undefined;
+    const isFreeGift = mf.mf_free_gift === true || undefined;
 
     return {
       key: item.key,
@@ -104,13 +131,17 @@ export function transformStoreApiCart(data: any): Cart | null {
       subtotal: lineSubtotal,
       bbGroupKey,
       bbBundleId,
-      bbLocked: bb.bb_locked === true || undefined,
-      bbUnitPrice: typeof bb.bb_unit_price === 'number' ? bb.bb_unit_price : undefined,
+      bbLocked: bundleExt.locked === true || undefined,
+      bbUnitPrice: typeof bundleExt.unit_price === 'number' ? bundleExt.unit_price : undefined,
+      bbFixedOriginalPrice: typeof mf.bb_fixed_original_price === 'number' ? mf.bb_fixed_original_price : undefined,
+      bbMode,
+      isFreeGift,
       product: {
         databaseId: item.id,
         name: decodeHtmlEntities(item.name || ''),
         slug: extractSlugFromPermalink(item.permalink || ''),
         price,
+        regularPrice,
         image: image
           ? { sourceUrl: image.src || image.thumbnail, altText: image.alt || '' }
           : undefined,
@@ -152,6 +183,15 @@ export function transformStoreApiCart(data: any): Cart | null {
     discountTax: minorToFormatted(c.totals?.total_discount_tax, c.totals?.currency_minor_unit ?? totalsDecimals),
   }));
 
+  const promotions: CartPromotion[] = (
+    data.extensions?.['mellow-fellow-promotions']?.promotions || []
+  ).map((p: any) => ({
+    code: String(p.code ?? ''),
+    label: String(p.label ?? p.code ?? ''),
+    amount: Number(p.amount ?? 0),
+    removable: Boolean(p.removable),
+  }));
+
   return {
     items,
     subtotal: minorToFormatted(data.totals?.total_items, totalsDecimals),
@@ -161,6 +201,7 @@ export function transformStoreApiCart(data: any): Cart | null {
     isEmpty: items.length === 0,
     itemsCount: data.items_count ?? items.length,
     appliedCoupons: coupons,
+    promotions,
     availableShippingMethods: shippingMethods,
     chosenShippingMethods: chosenMethods,
   };
@@ -328,12 +369,48 @@ export async function addBundleToStore(
   return transformStoreApiCart(data);
 }
 
+export async function addFixedBundleToStore(
+  productId: number,
+  quantity: number
+): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'add_fixed_bundle', product_id: productId, quantity },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
 export async function removeBundleGroupsFromStore(groupKeys: string[]): Promise<Cart | null> {
   const data = await storeApiFetch('cart/extensions', {
     method: 'POST',
     body: {
       namespace: 'mellow-fellow/cart-ops',
       data: { action: 'remove_bundle_group', group_keys: groupKeys },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
+export async function addFreeGiftToStore(productId: number): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'add_free_gift', product_id: productId },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
+export async function removeFreeGiftFromStore(): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'remove_free_gift' },
     },
   });
   return transformStoreApiCart(data);

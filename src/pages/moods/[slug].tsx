@@ -20,6 +20,7 @@ import YouMayAlsoLike from '@/components/pdp/YouMayAlsoLike';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
+import Pagination from '@/components/ui/Pagination';
 import { Product } from '@/types/woocommerce';
 import { Mood, MoodPill } from '@/types/mood';
 import {
@@ -175,8 +176,7 @@ export default function MoodPage({
     isFiltered,
     handleFilterChange,
     handleSortChange,
-    goToNextPage,
-    goToPrevPage,
+    goToPage,
   } = useTaxonomyProducts({
     slug: moodSlug,
     taxonomy: 'mood',
@@ -472,21 +472,13 @@ export default function MoodPage({
               </div>
 
               {(page > 1 || hasNextPage) && (
-                <div className={styles.pagination}>
-                  {page > 1 ? (
-                    <button onClick={goToPrevPage} className={styles.pageBtn} disabled={loading}>
-                      &larr; Previous
-                    </button>
-                  ) : <span />}
-                  <span className={styles.pageNum}>
-                    Page {page}{totalPages > 1 ? ` of ${totalPages}` : ''}
-                  </span>
-                  {hasNextPage ? (
-                    <button onClick={goToNextPage} className={styles.pageBtn} disabled={loading}>
-                      Next &rarr;
-                    </button>
-                  ) : <span />}
-                </div>
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  onPageChange={goToPage}
+                  disabled={loading}
+                  label="Mood pagination"
+                />
               )}
             </main>
           </div>

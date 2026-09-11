@@ -2,13 +2,13 @@ import '../../../faust.config';
 import { WordPressTemplate, getWordPressProps } from '@faustwp/core';
 import { ApolloError, gql } from '@apollo/client';
 import { GetStaticPaths, GetStaticProps } from 'next';
-import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
+import { isBuildPhase, warmWordPress } from '@/lib/buildPhase';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import type { SingleProductExtras } from '@/templates/single-product';
-import type { ProductNutrition } from '@/types/woocommerce';
+import type { CannabinoidServing, Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { fetchKlaviyoReviews, type KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 
 /**
@@ -36,8 +36,14 @@ export default function ProductRoute(props: Record<string, unknown>) {
 async function fetchProductExtras(
   wpUrl: string,
   slug: string
-): Promise<Omit<SingleProductExtras, 'nutrition' | 'reviewData'> & { databaseId: number | null }> {
-  const empty = {
+): Promise<
+  Omit<
+    SingleProductExtras,
+    'nutrition' | 'cannabinoids' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
+  > & {
+    databaseId: number | null;
+  }
+> {  const empty = {
     collectionName: null,
     collectionSlug: null,
     availableOptions: [],
@@ -70,17 +76,29 @@ async function fetchProductExtras(
 const GET_PRODUCT_NUTRITION = gql`
   query GetProductNutrition($slug: ID!) {
     product(id: $slug, idType: SLUG) {
-      ... on SimpleProduct { nutrition { calories sugar } }
-      ... on VariableProduct { nutrition { calories sugar } }
+      ... on SimpleProduct {
+        nutrition { calories sugar }
+        productDetails { cannabinoidMgPerServing { cannabinoid mg } }
+      }
+      ... on VariableProduct {
+        nutrition { calories sugar }
+        productDetails { cannabinoidMgPerServing { cannabinoid mg } }
+      }
     }
   }
 `;
 
 type ProductNutritionResult = {
-  product?: { nutrition?: ProductNutrition | null } | null;
+  product?: {
+    nutrition?: ProductNutrition | null;
+    productDetails?: { cannabinoidMgPerServing?: CannabinoidServing[] | null } | null;
+  } | null;
 };
 
-async function fetchProductNutrition(slug: string): Promise<ProductNutrition | null> {
+async function fetchProductNutrition(
+  slug: string
+): Promise<{ nutrition: ProductNutrition | null; cannabinoids: CannabinoidServing[] }> {
+  const empty = { nutrition: null, cannabinoids: [] };
   try {
     const { data, errors } = await getClient().query<ProductNutritionResult>({
       query: GET_PRODUCT_NUTRITION,
@@ -89,10 +107,113 @@ async function fetchProductNutrition(slug: string): Promise<ProductNutrition | n
       // these types, this query omits it, and normalising throws into the catch below.
       fetchPolicy: 'no-cache',
     });
-    if (errors?.length) return null;
-    return data?.product?.nutrition ?? null;
+    if (errors?.length) return empty;
+    return {
+      nutrition: data?.product?.nutrition ?? null,
+      cannabinoids: data?.product?.productDetails?.cannabinoidMgPerServing ?? [],
+    };
   } catch {
-    return null;
+    return empty;
+  }
+}
+
+export interface ResolvedFixedBundleItem {
+  productId: number;
+  quantity: number;
+  product?: Product;
+}
+
+/**
+ * Fixed bundles have no picker — the admin-picked line items (bbFixedItems:
+ * just productId + quantity) need resolving into full product records for
+ * the "What's included" list. Doing that here at build/ISR time (instead of
+ * a client-side fetch after hydration, as this used to work) means visitors
+ * see the section immediately instead of watching it pop in.
+ */
+async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<ResolvedFixedBundleItem[]> {
+  const modeQuery = `
+    query GetFixedBundleMode($slug: ID!) {
+      product(id: $slug, idType: SLUG) {
+        ... on SimpleProduct { bbBundleMode bbFixedItems { productId quantity } }
+        ... on VariableProduct { bbBundleMode bbFixedItems { productId quantity } }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(`${wpUrl}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: modeQuery, variables: { slug } }),
+    });
+    const json = await res.json();
+    const p = json?.data?.product;
+    const items: Array<{ productId: number; quantity: number }> =
+      p?.bbBundleMode === 'fixed' ? p.bbFixedItems || [] : [];
+    if (items.length === 0) return [];
+
+    const ids = items.map((i) => i.productId);
+    const itemsQuery = `
+      query GetFixedBundleItemProducts($ids: [Int]!) {
+        products(first: 100, where: { include: $ids }) {
+          nodes {
+            __typename
+            ... on SimpleProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
+            ... on VariableProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
+          }
+        }
+      }
+    `;
+    const res2 = await fetch(`${wpUrl}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: itemsQuery, variables: { ids } }),
+    });
+    const json2 = await res2.json();
+    const nodes: Product[] = json2?.data?.products?.nodes || [];
+    const byId = new Map(nodes.map((n) => [n.databaseId, n]));
+    return items.map((item) => ({ ...item, product: byId.get(item.productId) }));
+  } catch {
+    return [];
+  }
+}
+
+// Its own document like nutrition above, against a different risk: these four are
+// the only taxonomies whose term type carries an ACF group, so a rename breaks them.
+const GET_PRODUCT_TAXONOMIES = gql`
+  query GetProductTaxonomies($slug: ID!) {
+    product(id: $slug, idType: SLUG) {
+      flavors {
+        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
+      }
+      vibes {
+        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
+      }
+      effects {
+        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
+      }
+      settings {
+        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
+      }
+    }
+  }
+`;
+
+const EMPTY_TAXONOMIES: ProductTaxonomies = {};
+
+async function fetchProductTaxonomies(slug: string): Promise<ProductTaxonomies> {
+  try {
+    const { data, errors } = await getClient().query<{ product?: ProductTaxonomies | null }>({
+      query: GET_PRODUCT_TAXONOMIES,
+      variables: { slug },
+      // Same reason as nutrition above: the cache keys these types on databaseId,
+      // which this query omits, and normalising throws into the catch below.
+      fetchPolicy: 'no-cache',
+    });
+    if (errors?.length) return EMPTY_TAXONOMIES;
+    return data?.product ?? EMPTY_TAXONOMIES;
+  } catch {
+    return EMPTY_TAXONOMIES;
   }
 }
 
@@ -107,17 +228,20 @@ async function fetchExtrasAndReviews(wpUrl: string, slug: string) {
   return { extras, reviewData };
 }
 
-// Not a heuristic: Next assigns this before forking the workers that prerender
-// pages, never assigns it in the server runtime, and branches on it itself.
-const isBuildPhase = () => process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
-
 const BUILD_FALLTHROUGH_REVALIDATE = 10;
 
-// Two attempts rather than collections' three: a PDP render measures 4 to 11s
-// against production, so a third would push a recoverable blip past the 30s
-// Atlas ceiling and turn it into a hard timeout.
-const RENDER_ATTEMPTS = 2;
-const RENDER_DEADLINE_MS = 20_000;
+// Runtime is bounded by the 30s Atlas ceiling: a PDP render measures 4 to 11s
+// against production, so a third attempt would push a recoverable blip past
+// it and turn it into a hard timeout.
+const RUNTIME_RENDER_ATTEMPTS = 2;
+const RUNTIME_RENDER_DEADLINE_MS = 20_000;
+
+// The build issues no Atlas request, so the 30s ceiling does not apply: the
+// only limit is Next's own staticPageGenerationTimeout, 120s in
+// next.config.js. Spending the runtime budget here is what let a cold
+// backend bake a 404 into the build output for the first pages prerendered.
+const BUILD_RENDER_ATTEMPTS = 4;
+const BUILD_RENDER_DEADLINE_MS = 90_000;
 const RETRY_BASE_MS = 250;
 const RETRY_CAP_MS = 2_000;
 
@@ -140,10 +264,13 @@ function isDeterministic(error: unknown): boolean {
 }
 
 async function withRenderRetry<T>(slug: string, run: () => Promise<T>): Promise<T> {
+  const buildPhase = isBuildPhase();
+  const maxAttempts = buildPhase ? BUILD_RENDER_ATTEMPTS : RUNTIME_RENDER_ATTEMPTS;
+  const deadlineMs = buildPhase ? BUILD_RENDER_DEADLINE_MS : RUNTIME_RENDER_DEADLINE_MS;
   const startedAt = Date.now();
   let lastError: Error = new Error('render never attempted');
 
-  for (let attempt = 1; attempt <= RENDER_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const attemptStartedAt = Date.now();
 
     try {
@@ -153,19 +280,19 @@ async function withRenderRetry<T>(slug: string, run: () => Promise<T>): Promise<
       if (isDeterministic(error)) throw lastError;
     }
 
-    if (attempt === RENDER_ATTEMPTS) break;
+    if (attempt === maxAttempts) break;
 
     const waitMs = backoffWithFullJitter(attempt);
     // The next attempt costs roughly what the last one did, which is the only
     // estimate available, so a render that already ran long does not get one.
     const projectedMs = Date.now() - startedAt + waitMs + (Date.now() - attemptStartedAt);
 
-    if (projectedMs >= RENDER_DEADLINE_MS) {
+    if (projectedMs >= deadlineMs) {
       throw new Error(`${lastError.message} (deadline reached after ${attempt} attempt(s))`);
     }
 
     console.warn(
-      `[Product] "${slug}": attempt ${attempt} of ${RENDER_ATTEMPTS} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
+      `[Product] "${slug}": attempt ${attempt} of ${maxAttempts} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
     );
     await sleep(waitMs);
   }
@@ -183,11 +310,20 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   const seedCtx = { ...ctx, params: { wordpressNode: ['products', slug] } };
 
   try {
-    const [menuClient, result, { extras, reviewData }, nutrition] = await Promise.all([
+    const [
+      menuClient,
+      result,
+      { extras, reviewData },
+      nutritionData,
+      fixedBundleItems,
+      taxonomies,
+    ] = await Promise.all([
       prefetchMenus(),
       withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: 60 })),
       fetchExtrasAndReviews(wpUrl, slug),
       fetchProductNutrition(slug),
+      fetchFixedBundleItems(wpUrl, slug),
+      fetchProductTaxonomies(slug),
     ]);
 
     // The only evidence this route gets that WordPress genuinely has no such
@@ -197,14 +333,21 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       return result;
     }
 
-    Object.assign(result.props, extras, { nutrition, reviewData });
-    mergeMenuState(result.props, menuClient);
+    Object.assign(result.props, extras, {
+      nutrition: nutritionData.nutrition,
+      cannabinoids: nutritionData.cannabinoids,
+      reviewData,
+      fixedBundleItems,
+      taxonomies,
+    });    mergeMenuState(result.props, menuClient);
     return result;
   } catch (error) {
     console.error(`[Product] failed to build "${slug}":`, error);
 
-    // A throw at build time would fail the whole deploy, which is worse than one
-    // product arriving late, so the build path leaves it to `fallback: 'blocking'`.
+    // A throw here would fail the whole deploy, so the build phase records a
+    // notFound. That does not defer to `fallback: 'blocking'`: the path is in
+    // the prerender manifest, so the 404 is baked in, served until a
+    // revalidation succeeds, and re-armed by every failed one.
     if (isBuildPhase()) {
       return { notFound: true, revalidate: BUILD_FALLTHROUGH_REVALIDATE };
     }
@@ -217,6 +360,9 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
 };
 
 export const getStaticPaths: GetStaticPaths = async () => {
+  // Before the slug query, not after: that query has no retry of its own.
+  await warmWordPress();
+
   try {
     const client = getClient();
     const { data } = await client.query({ query: GET_ALL_PRODUCT_SLUGS });

@@ -47,7 +47,13 @@ function wpRequest(
     headers['Cart-Token'] = cartToken;
   }
 
+  const startedAt = Date.now();
   return new Promise((resolve, reject) => {
+    // Track whether any response byte arrived before an error. A connection error
+    // BEFORE the response started means WordPress never processed the request, so
+    // it's safe to retry (even a POST). After bytes arrive, a retry could double-
+    // apply a mutation, so we never retry those.
+    let responseStarted = false;
     const proxyReq = lib.request(
       {
         hostname: url.hostname,
@@ -59,6 +65,7 @@ function wpRequest(
         timeout: 15000,
       },
       (proxyRes) => {
+        responseStarted = true;
         let data = '';
         proxyRes.on('data', (chunk) => { data += chunk; });
         proxyRes.on('end', () => {
@@ -72,14 +79,71 @@ function wpRequest(
     );
     proxyReq.on('timeout', () => {
       proxyReq.destroy();
-      reject(new Error('WordPress request timed out'));
+      const err = new Error('WordPress request timed out') as NodeJS.ErrnoException & { elapsed?: number; responseStarted?: boolean };
+      err.code = 'ETIMEDOUT';
+      err.elapsed = Date.now() - startedAt;
+      err.responseStarted = responseStarted;
+      reject(err);
     });
-    proxyReq.on('error', reject);
+    proxyReq.on('error', (err) => {
+      const e = err as NodeJS.ErrnoException & { elapsed?: number; responseStarted?: boolean };
+      e.elapsed = Date.now() - startedAt;
+      e.responseStarted = responseStarted;
+      reject(e);
+    });
     if (bodyStr) {
       proxyReq.write(bodyStr);
     }
     proxyReq.end();
   });
+}
+
+// Transient connection failures (as opposed to a genuine 15s timeout). A stale
+// keep-alive socket that WordPress already closed surfaces as ECONNRESET / "socket
+// hang up" on the very next request — intermittent, not slowness, and the request
+// usually never reached PHP. These are safe to retry.
+function isTransientConnError(err: NodeJS.ErrnoException): boolean {
+  const code = err?.code || '';
+  if (['ECONNRESET', 'ECONNREFUSED', 'EPIPE', 'EAI_AGAIN', 'ENOTFOUND', 'ECONNABORTED'].includes(code)) {
+    return true;
+  }
+  return /socket hang up/i.test(err?.message || '');
+}
+
+// Resilient wrapper: retry transient connection errors with a short backoff.
+// GET is always safe to retry. A non-GET (cart mutation) is retried ONLY when the
+// connection failed before any response byte (WordPress hadn't processed it) — never
+// on a timeout, where WordPress may still be applying the change.
+async function wpRequestResilient(
+  wordpressUrl: string,
+  path: string,
+  method: string,
+  cartToken: string | null,
+  bodyStr: string
+): Promise<ProxyResponse> {
+  const maxAttempts = 3;
+  let lastErr: NodeJS.ErrnoException & { elapsed?: number; responseStarted?: boolean } = new Error('unknown');
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await wpRequest(wordpressUrl, path, method, cartToken, bodyStr);
+    } catch (err) {
+      lastErr = err as NodeJS.ErrnoException & { elapsed?: number; responseStarted?: boolean };
+      const transient = isTransientConnError(lastErr) && lastErr.code !== 'ETIMEDOUT';
+      const safeToRetry = transient && (method === 'GET' || !lastErr.responseStarted);
+      // Structured log so the real cause of "taking too long" is visible in Atlas
+      // logs: timeout vs connection reset, elapsed ms, and whether a reply started.
+      console.error(
+        `[store-proxy] ${method} ${path} attempt ${attempt}/${maxAttempts} ` +
+        `code=${lastErr.code || '?'} started=${lastErr.responseStarted ? 1 : 0} ` +
+        `elapsed=${lastErr.elapsed ?? '?'}ms msg=${lastErr.message}`
+      );
+      if (!safeToRetry || attempt === maxAttempts) {
+        throw lastErr;
+      }
+      await new Promise((r) => setTimeout(r, 200 * attempt));
+    }
+  }
+  throw lastErr;
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -104,7 +168,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // first so the mutation lands in a real cart instead of erroring.
     if (!cartToken && req.method !== 'GET') {
       try {
-        const mint = await wpRequest(wordpressUrl, 'cart', 'GET', null, '');
+        const mint = await wpRequestResilient(wordpressUrl, 'cart', 'GET', null, '');
         const minted = mint.headers['cart-token'] as string | undefined;
         if (minted) {
           cartToken = minted;
@@ -115,7 +179,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    const response = await wpRequest(
+    const response = await wpRequestResilient(
       wordpressUrl,
       storePath,
       req.method || 'GET',
@@ -152,12 +216,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     return res.status(response.status).json(response.data);
   } catch (error) {
-    console.error('Store API proxy error:', error);
+    const e = error as NodeJS.ErrnoException & { elapsed?: number; responseStarted?: boolean };
+    const isTimeout = e?.code === 'ETIMEDOUT';
+    console.error(
+      `[store-proxy] FAILED ${req.method} ${storePath} ` +
+      `code=${e?.code || '?'} timeout=${isTimeout ? 1 : 0} ` +
+      `started=${e?.responseStarted ? 1 : 0} elapsed=${e?.elapsed ?? '?'}ms msg=${e?.message}`
+    );
     if (cookiesToSet.length > 0) {
       res.setHeader('Set-Cookie', cookiesToSet);
     }
-    return res.status(500).json({
-      code: 'store_api_proxy_error',
+    // 504 for a genuine timeout (WordPress too slow), 502 for a connection failure
+    // — distinct so the browser/monitoring can tell "slow" from "dropped".
+    return res.status(isTimeout ? 504 : 502).json({
+      code: isTimeout ? 'store_api_timeout' : 'store_api_proxy_error',
       message: 'The store is taking longer than usual to respond. Please try again.',
     });
   }

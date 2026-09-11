@@ -8,6 +8,13 @@ import OrderSummary from '@/components/checkout/OrderSummary';
 import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
 import RealIdVerification, { STRONGLY_VERIFIED_STEPS } from '@/components/RealIdVerification';
 
+// Bundle/sale discounts apply via the product's own sale price, not a coupon,
+// so `product.price` is already the discounted unit price — `regularPrice`
+// (when present) is the only source for the true original price.
+function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
+  return parseFloat((item.product.regularPrice || item.product.price).replace(/[^0-9.]/g, '')) || 0;
+}
+
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
 const CHECKOUT_IDEMPOTENCY_KEY = 'mf-checkout-idempotency';
@@ -56,7 +63,7 @@ type RememberMeState = 'not_exist' | 'do_not_remember' | 'remember_30' | 'rememb
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, clearCart, isLoading: cartLoading } = useCart();
+  const { cart, clearCart, isLoading: cartLoading, bundleNames, bundleImages, bundleGroupSetCounts } = useCart();
   const { isAuthenticated, isReady: authReady } = useAuth();
   const prevAuthRef = useRef<boolean | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -770,6 +777,16 @@ export default function CheckoutPage() {
       );
     }
 
+    // Sum of every bundled line's (original - discounted) — passed through so
+    // the order carries a "Bundle Discount" line the same way a coupon does
+    // (see mellow-fellow-create-order.php).
+    const bundleDiscountTotal = (cart?.items ?? []).reduce((sum, item) => {
+      if (!item.bbGroupKey) return sum;
+      const lineOriginal = item.quantity * originalUnitPrice(item);
+      const lineTotal = parseFloat((item.total || '').replace(/[^0-9.]/g, '')) || 0;
+      return sum + Math.max(0, lineOriginal - lineTotal);
+    }, 0);
+
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
@@ -795,6 +812,7 @@ export default function CheckoutPage() {
               : undefined,
           amount: cart?.total,
           coupons: cart?.appliedCoupons?.map((c) => c.code) ?? [],
+          bundleDiscountTotal: bundleDiscountTotal > 0 ? bundleDiscountTotal : undefined,
           items: cart?.items.map((item) => ({
             productId: item.product.databaseId,
             name: item.product.name,
@@ -802,6 +820,31 @@ export default function CheckoutPage() {
             price: item.bbLocked && typeof item.bbUnitPrice === 'number'
               ? `$${item.bbUnitPrice.toFixed(2)}`
               : item.product.price,
+            // Bundle fields below are undefined for non-bundle items, so
+            // non-bundle orders are unaffected (see mellow-fellow-create-order.php).
+            bundleName: item.bbBundleId != null ? bundleNames[item.bbBundleId] : undefined,
+            // True pre-discount unit price, for a discounted order line
+            // (subtotal vs. total). Free-gift lines carry it too, $0 line.
+            regularUnitPrice:
+              item.bbGroupKey || item.isFreeGift ? originalUnitPrice(item) : undefined,
+            bundleGroupKey: item.bbGroupKey || undefined,
+            // Resolves the "Part of bundle" note on the admin order screen.
+            bundleId: item.bbGroupKey ? item.bbBundleId : undefined,
+            // Masks a mystery bundle's contents on the order-confirmation page.
+            bundleMode: item.bbGroupKey ? item.bbMode : undefined,
+            // Curated per-set original price × set count — only for "fixed"
+            // bundles; "byob" derives its original total from line subtotals instead.
+            bundleGroupOriginalTotal:
+              item.bbGroupKey && item.bbFixedOriginalPrice != null
+                ? item.bbFixedOriginalPrice * (bundleGroupSetCounts[item.bbGroupKey] ?? 1)
+                : undefined,
+            // Bundle's own quantity, not the summed component quantity.
+            bundleGroupSetCount: item.bbGroupKey
+              ? bundleGroupSetCounts[item.bbGroupKey] ?? 1
+              : undefined,
+            // Bundle product's own image, for the order page's header row.
+            bundleImageUrl: item.bbBundleId != null ? bundleImages[item.bbBundleId]?.sourceUrl : undefined,
+            bundleImageAlt: item.bbBundleId != null ? bundleImages[item.bbBundleId]?.altText : undefined,
           })),
           sources: collectWidgetSources((cart?.items || []).map((i) => i.product.databaseId)),
           // Lets the server independently re-confirm Real ID verification before

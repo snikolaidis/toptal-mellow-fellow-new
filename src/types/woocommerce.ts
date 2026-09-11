@@ -91,13 +91,24 @@ export interface ProductTaxonomyTerm {
   extraTaxonomyFields?: { propIcon?: AcfImageField | null } | null;
 }
 
-// The `Nutrition` ACF group, attached directly to products (not nested under
-// productDetails). Fields are ACF "text" (not "number"), so GraphQL returns
-// them as strings, not floats. `carbs` also exists on the group but is
-// unused so far.
+// Not on `Product` — fetched by the PDP alone.
+export interface ProductTaxonomies {
+  flavors?: { nodes: ProductTaxonomyTerm[] } | null;
+  vibes?: { nodes: ProductTaxonomyTerm[] } | null;
+  effects?: { nodes: ProductTaxonomyTerm[] } | null;
+  settings?: { nodes: ProductTaxonomyTerm[] } | null;
+}
+
+// `Nutrition` ACF group (not nested under productDetails). Fields are ACF
+// "text", so GraphQL returns strings, not floats.
 export interface ProductNutrition {
   calories?: string | null;
   sugar?: string | null;
+}
+
+export interface CannabinoidServing {
+  cannabinoid?: string | null;
+  mg?: number | null;
 }
 
 export interface ProductACF {
@@ -120,8 +131,7 @@ export interface ProductACF {
   newNoidBlendDescriptionsReference?: { node?: { id?: string; title?: string } | null } | null;
   // Relationship (multi-select posts)
   badges?: { nodes?: Array<{ id?: string; title?: string }> } | null;
-  // Mellow Meter fields — meterType is an ACF checkbox field (GraphQL
-  // returns [String]), meterValue is a plain number field.
+  // Mellow Meter fields — meterType returns [String] (ACF checkbox).
   meterType?: string[] | null;
   meterValue?: number | null;
 }
@@ -141,13 +151,25 @@ export interface Product {
   price?: string;
   regularPrice?: string;
   salePrice?: string;
-  // Bundle Builder plugin fields — set only on products that are actually a
-  // "build your own bundle" entry point. bbLinkedBundleId points at the
-  // BundleBuilder post (fetch via bundleBuilder(id, idType: DATABASE_ID));
-  // bbFromPrice is the bundle's starting-from price since a bundle has no
-  // single fixed price.
-  bbLinkedBundleId?: number | null;
+  // Bundle Builder plugin fields, config lives on the product itself.
+  // "byob": shopper picks from bbBundleProducts (bbMinItems/Max,
+  // bbDiscountRules, bbFromPrice). "fixed"/"mystery": admin-picked set
+  // (bbFixedItems/Price/QtyMin/Max) — "mystery" hides bbFixedItems from customers.
+  bbBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
+  bbDescription?: string | null;
+  // Admin toggle for whether the "From $X" teaser (bbFromPrice) renders.
+  bbShowPrice?: boolean | null;
   bbFromPrice?: number | null;
+  bbMinItems?: number | null;
+  bbMaxItems?: number | null;
+  bbDiscountRules?: Array<{ minQty: number; percent: number }> | null;
+  bbBundleProducts?: Product[] | null;
+  bbFixedItems?: Array<{ productId: number; quantity: number }> | null;
+  bbFixedPrice?: number | null;
+  // Undiscounted total for one set — struck through next to bbFixedPrice.
+  bbFixedOriginalPrice?: number | null;
+  bbFixedQtyMin?: number | null;
+  bbFixedQtyMax?: number | null;
   stockStatus?: 'IN_STOCK' | 'OUT_OF_STOCK' | 'ON_BACKORDER';
   stockQuantity?: number;
   externalUrl?: string;
@@ -169,10 +191,6 @@ export interface Product {
   // Product attribute taxonomies (migrated from Shopify), surfaced on cards.
   strainTypes?: { nodes: Array<{ name: string }> };
   strainNames?: { nodes: Array<{ name: string }> };
-  flavors?: { nodes: ProductTaxonomyTerm[] };
-  vibes?: { nodes: ProductTaxonomyTerm[] };
-  effects?: { nodes: ProductTaxonomyTerm[] };
-  settings?: { nodes: ProductTaxonomyTerm[] };
   blendTypes?: { nodes: Array<{ name: string }> };
   productLines?: { nodes: Array<{ name: string }> };
   size?: { nodes: Array<{ name: string }> };

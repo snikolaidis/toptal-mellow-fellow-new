@@ -43,12 +43,17 @@ export default function ProductCard({ product, badge, priority = false, source }
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
 
   const imageUrl = product.image?.sourceUrl || '/placeholder-product.png';
+  const name = decodeEntities(product.name) || '';
   const productType = product.__typename || product.type;
   const isSimpleProduct = productType === 'SimpleProduct' || product.type === 'SIMPLE';
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
-  // Bundle Builder entry-point product — can't be added to cart directly,
-  // has no fixed price, and needs its own bundle-picker page.
-  const isBundle = product.bbLinkedBundleId != null;
+  // Bundle Builder entry-point product. "byob" can't be added to cart
+  // directly — it has no fixed price and needs its own bundle-picker page.
+  // "fixed" is a normal add-to-cart with a flat bundle price (see
+  // addFixedBundleToCart). "mystery" renders identically to "fixed".
+  const isByobBundle = product.bbBundleMode === 'byob';
+  const isFixedBundle = product.bbBundleMode === 'fixed' || product.bbBundleMode === 'mystery';
+  const isBundle = isByobBundle || isFixedBundle;
 
   const hasSale = !!product.salePrice;
   const displayBadge = badge || (hasSale ? 'sale' : undefined);
@@ -174,7 +179,7 @@ export default function ProductCard({ product, badge, priority = false, source }
             <div className="image is-square">
               <Image
                 src={imageUrl}
-                alt={product.image?.altText || product.name}
+                alt={product.image?.altText || name}
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
                 className="object-contain object-center transition-transform duration-700 group-hover:scale-105"
@@ -203,11 +208,11 @@ export default function ProductCard({ product, badge, priority = false, source }
               </p>
             )}
 
-            {!lineCollection && !blendType && !strainName && (() => {
+            {!lineCollection && !blendType && !strainName && name && (() => {
               // No taxonomy data available (e.g. lean recommendation feeds) — fall back to
               // splitting the raw title on its last dash, mirroring the blend-type/strain-name
               // split used for regular products so the card reads the same way.
-              const parts = product.name.split(/\s[-–—]\s/);
+              const parts = name.split(/\s[-–—]\s/);
               const main = parts[0];
               const variant = parts.slice(1).join(' - ');
               return (
@@ -248,8 +253,20 @@ export default function ProductCard({ product, badge, priority = false, source }
             </div>
 
             <div className="product__price">
-              {isBundle ? (
-                product.bbFromPrice != null && (
+              {isFixedBundle ? (
+                product.bbFixedPrice != null && (
+                  product.bbFixedOriginalPrice != null &&
+                  product.bbFixedOriginalPrice > product.bbFixedPrice + 0.005 ? (
+                    <>
+                      <span className="product__price--sale">${product.bbFixedPrice.toFixed(2)}</span>
+                      <span className="product__price--regular">${product.bbFixedOriginalPrice.toFixed(2)}</span>
+                    </>
+                  ) : (
+                    <span>${product.bbFixedPrice.toFixed(2)}</span>
+                  )
+                )
+              ) : isByobBundle ? (
+                product.bbShowPrice && product.bbFromPrice != null && (
                   <span>From ${product.bbFromPrice.toFixed(2)}</span>
                 )
               ) : product.salePrice ? (
@@ -271,21 +288,23 @@ export default function ProductCard({ product, badge, priority = false, source }
             <button
               onClick={handleQuickView}
               className="button is-small is-fullwidth"
-              aria-label={`Quick view ${product.name}`}
+              aria-label={`Quick view ${name}`}
             >
               Quick view
             </button>*/}
 
-            {/* Bundle products can't be added to cart directly — send to the PDP,
-                which routes into the actual bundle builder. */}
+            {/* Neither bundle type can be added to cart directly from the
+                card. byob goes straight to its picker (same slug, /bundle/
+                route); fixed has no picker, so it goes to the PDP to review
+                what's included first. */}
             {isBundle && (
               <Link
-                href={`/products/${product.slug}`}
+                href={isByobBundle ? `/bundle/${product.slug}` : `/products/${product.slug}`}
                 prefetch={false}
                 className="button is-small add-to-cart is-fullwidth"
-                aria-label={`Create a bundle from ${product.name}`}
+                aria-label={isFixedBundle ? `View ${name} bundle` : `Create a bundle from ${name}`}
               >
-                Create Bundle
+                {isFixedBundle ? 'View Bundle' : 'Create Bundle'}
               </Link>
             )}
 
@@ -295,7 +314,7 @@ export default function ProductCard({ product, badge, priority = false, source }
                 onClick={handleQuickAdd}
                 disabled={isAdding}
                 className={`button is-small add-to-cart is-fullwidth ${isAdding ? 'is-loading' : ''}`}
-                aria-label={`Add ${product.name} to cart`}
+                aria-label={`Add ${name} to cart`}
               >
                 Add to cart
               </button>

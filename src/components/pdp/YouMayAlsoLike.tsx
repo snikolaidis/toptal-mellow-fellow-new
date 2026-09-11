@@ -17,6 +17,11 @@ interface RecProduct {
   image?: { sourceUrl: string; altText?: string };
   stockStatus?: string;
   typeLabel?: string;
+  bbBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
+  bbShowPrice?: boolean | null;
+  bbFromPrice?: number | null;
+  bbFixedPrice?: number | null;
+  bbFixedOriginalPrice?: number | null;
 }
 
 export type ProductRowSource =
@@ -60,6 +65,11 @@ function toProduct(r: RecProduct): Product {
     image: r.image ? { sourceUrl: r.image.sourceUrl, altText: r.image.altText || r.name } : undefined,
     __typename: 'SimpleProduct',
     mfproductTypes: r.typeLabel ? { nodes: [{ name: r.typeLabel }] } : undefined,
+    bbBundleMode: r.bbBundleMode,
+    bbShowPrice: r.bbShowPrice,
+    bbFromPrice: r.bbFromPrice,
+    bbFixedPrice: r.bbFixedPrice,
+    bbFixedOriginalPrice: r.bbFixedOriginalPrice,
   } as Product;
 }
 

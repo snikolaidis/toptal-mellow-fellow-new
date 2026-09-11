@@ -53,6 +53,60 @@ add_action( 'woocommerce_blocks_loaded', function() {
                     return;
                 }
 
+                if ( $action === 'add_fixed_bundle' ) {
+                    if ( ! class_exists( 'BB_Cart' ) ) {
+                        mf_cart_ops_error( 'Bundle builder is not available.' );
+                    }
+                    $product_id = intval( $data['product_id'] ?? 0 );
+                    $quantity   = intval( $data['quantity'] ?? 1 );
+                    $result     = BB_Cart::get_instance()->add_fixed_bundle_to_cart( $product_id, $quantity );
+                    if ( empty( $result['success'] ) ) {
+                        mf_cart_ops_error( $result['message'] ?? 'Could not add bundle to cart.' );
+                    }
+                    return;
+                }
+
+                if ( $action === 'add_free_gift' ) {
+                    if ( ! WC()->cart ) {
+                        mf_cart_ops_error( 'Cart is not available.' );
+                    }
+                    $product_id = intval( $data['product_id'] ?? 0 );
+                    if ( ! $product_id ) {
+                        mf_cart_ops_error( 'Missing gift product.' );
+                    }
+                    if ( ! function_exists( 'mf_free_gift_product_eligible' ) || ! mf_free_gift_product_eligible( $product_id ) ) {
+                        mf_cart_ops_error( 'This item is not available as a free gift.' );
+                    }
+                    if ( ! function_exists( 'mf_free_gift_cart_qualifies' ) || ! mf_free_gift_cart_qualifies() ) {
+                        mf_cart_ops_error( 'Add more to your cart to unlock a free gift.' );
+                    }
+                    // Only one gift line may ever exist — swap out any prior gift.
+                    $existing = mf_free_gift_current_key();
+                    if ( $existing ) {
+                        WC()->cart->remove_cart_item( $existing );
+                    }
+                    // The mf_free_gift cart-item flag makes this a distinct line from
+                    // the same product added normally, and is what the pricing/removal
+                    // hooks and the Store API extension key off. See
+                    // mellow-fellow-free-gift.php.
+                    $added = WC()->cart->add_to_cart( $product_id, 1, 0, array(), array( 'mf_free_gift' => true ) );
+                    if ( ! $added ) {
+                        mf_cart_ops_error( 'Could not add the free gift to your cart.' );
+                    }
+                    return;
+                }
+
+                if ( $action === 'remove_free_gift' ) {
+                    if ( ! WC()->cart || ! function_exists( 'mf_free_gift_current_key' ) ) {
+                        return;
+                    }
+                    $key = mf_free_gift_current_key();
+                    if ( $key ) {
+                        WC()->cart->remove_cart_item( $key );
+                    }
+                    return;
+                }
+
                 if ( $action === 'remove_bundle_group' ) {
                     if ( ! class_exists( 'BB_Cart' ) ) {
                         mf_cart_ops_error( 'Bundle builder is not available.' );
@@ -74,28 +128,37 @@ add_action( 'woocommerce_blocks_loaded', function() {
         ] );
     }
 
-    // Expose bundle-builder identity on every Store API cart item
-    // (item.extensions['mellow-fellow']) so the frontend reads bundle
-    // grouping from the server instead of a client-side sessionStorage map.
+    // item.extensions['mellow-fellow'] on every Store API cart item — only
+    // bb_fixed_original_price and mf_free_gift; bundle identity itself
+    // (bundle_id/group_key/locked/unit_price/mode) comes from the Bundle
+    // Builder plugin's own extension, item.extensions.bundle.
     if ( function_exists( 'woocommerce_store_api_register_endpoint_data' )
         && class_exists( 'Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema' ) ) {
         woocommerce_store_api_register_endpoint_data( [
             'endpoint'        => Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema::IDENTIFIER,
             'namespace'       => 'mellow-fellow',
             'data_callback'   => function ( $cart_item ) {
+                $bundle_id = isset( $cart_item['bb_bundle_id'] ) ? intval( $cart_item['bb_bundle_id'] ) : 0;
+
+                // Curated original price for a "fixed"/"mystery" bundle set,
+                // not the sum of component catalog prices. Post-type-gated
+                // so BB_Helpers only runs for an actual bundle post.
+                $fixed_original_price = null;
+                if ( $bundle_id && 'bb_bundle' === get_post_type( $bundle_id ) && class_exists( 'BB_Helpers' )
+                    && in_array( BB_Helpers::get_bundle_mode( $bundle_id ), [ 'fixed', 'mystery' ], true ) ) {
+                    $regular = BB_Helpers::get_fixed_regular_price( $bundle_id );
+                    $fixed_original_price = $regular > 0 ? (float) $regular : null;
+                }
+
                 return [
-                    'bb_group_key'  => isset( $cart_item['bb_group_key'] ) ? (string) $cart_item['bb_group_key'] : '',
-                    'bb_bundle_id'  => isset( $cart_item['bb_bundle_id'] ) ? intval( $cart_item['bb_bundle_id'] ) : 0,
-                    'bb_locked'     => ! empty( $cart_item['bb_locked'] ),
-                    'bb_unit_price' => isset( $cart_item['bb_unit_price'] ) ? floatval( $cart_item['bb_unit_price'] ) : null,
+                    'bb_fixed_original_price' => $fixed_original_price,
+                    'mf_free_gift'            => ! empty( $cart_item['mf_free_gift'] ),
                 ];
             },
             'schema_callback' => function () {
                 return [
-                    'bb_group_key'  => [ 'type' => 'string' ],
-                    'bb_bundle_id'  => [ 'type' => 'integer' ],
-                    'bb_locked'     => [ 'type' => 'boolean' ],
-                    'bb_unit_price' => [ 'type' => [ 'number', 'null' ] ],
+                    'bb_fixed_original_price' => [ 'type' => [ 'number', 'null' ] ],
+                    'mf_free_gift'            => [ 'type' => 'boolean' ],
                 ];
             },
             'schema_type'     => ARRAY_A,

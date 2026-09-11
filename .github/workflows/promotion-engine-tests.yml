@@ -1,0 +1,35 @@
+name: Promotion Engine Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'migration/wp/mu-plugins/mf-promotions/**'
+      - '.github/workflows/promotion-engine-tests.yml'
+  pull_request:
+    paths:
+      - 'migration/wp/mu-plugins/mf-promotions/**'
+      - '.github/workflows/promotion-engine-tests.yml'
+
+jobs:
+  phpunit:
+    name: PHPUnit (pure engine core)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: migration/wp/mu-plugins/mf-promotions
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run test suite
+        run: vendor/bin/phpunit

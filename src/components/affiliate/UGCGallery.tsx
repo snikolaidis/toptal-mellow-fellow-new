@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import VideoQuickView from './VideoQuickView';
@@ -28,8 +26,10 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
   // Triple-clone for infinite loop illusion
   const cloned = useMemo(() => [...items, ...items, ...items], [items]);
 
+  // The item open in quick view is itself tagged, so Next needs more than one.
+  const taggedCount = useMemo(() => items.filter((item) => item.product).length, [items]);
+
   const [displayIndex, setDisplayIndex] = useState(N);
-  const actualIndex = displayIndex % N;
 
   const [muted, setMuted] = useState(true);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
@@ -93,11 +93,12 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Play/pause sync
+  // Exact index, not `i % N`: the modulo matched all three clones of the active
+  // item, so three players ran and unmuting gave the same audio three times.
   useEffect(() => {
     videoRefs.current.forEach((vid, i) => {
       if (!vid) return;
-      if (i % N === actualIndex) {
+      if (i === displayIndex) {
         vid.muted = muted;
         vid.play().catch(() => {});
       } else {
@@ -105,24 +106,32 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
         vid.muted = true;
       }
     });
-  }, [actualIndex, muted, N]);
+  }, [displayIndex, muted]);
 
-  const goTo = useCallback((delta: 1 | -1) => {
-    if (isTransitioning.current) return;
-    isTransitioning.current = true;
+  const goTo = useCallback(
+    (target: number) => {
+      if (isTransitioning.current) return;
 
-    if (wrapPollRef.current) { clearInterval(wrapPollRef.current); wrapPollRef.current = null; }
-    if (wrapGuard.current) { clearTimeout(wrapGuard.current); wrapGuard.current = null; }
+      const clamped = Math.max(0, Math.min(cloned.length - 1, target));
+      if (clamped === displayIndex) return;
 
-    setDisplayIndex((prev) => {
-      const next = prev + delta;
-      const clamped = Math.max(0, Math.min(cloned.length - 1, next));
+      isTransitioning.current = true;
+
+      if (wrapPollRef.current) { clearInterval(wrapPollRef.current); wrapPollRef.current = null; }
+      if (wrapGuard.current) { clearTimeout(wrapGuard.current); wrapGuard.current = null; }
+
       const corrected = (clamped % N) + N;
 
       smoothScrollTo(clamped, () => {
         if (clamped !== corrected) {
           const track = trackRef.current;
           if (track) {
+            // Only one clone plays now, so the one we teleport onto sits at a stale
+            // time. Carry it across or the video jumps backwards on every wrap.
+            const from = videoRefs.current[clamped];
+            const to = videoRefs.current[corrected];
+            if (from && to) to.currentTime = from.currentTime;
+
             const cards = Array.from(track.children) as HTMLElement[];
             cards.forEach(c => { c.style.transition = 'none'; });
             setScrollCenter(corrected);
@@ -141,9 +150,10 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
         }
       });
 
-      return clamped;
-    });
-  }, [cloned.length, N, smoothScrollTo, setScrollCenter]);
+      setDisplayIndex(clamped);
+    },
+    [displayIndex, cloned.length, N, smoothScrollTo, setScrollCenter]
+  );
 
   // Non-passive wheel listener — only handle horizontal
   useEffect(() => {
@@ -155,13 +165,13 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
       if (!isHorizontal) return; // let vertical page scroll pass through
       e.preventDefault();
       if (wheelDebounce.current) return;
-      goTo(e.deltaX > 0 ? 1 : -1);
+      goTo(displayIndex + (e.deltaX > 0 ? 1 : -1));
       wheelDebounce.current = setTimeout(() => { wheelDebounce.current = null; }, 350);
     };
 
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
-  }, [goTo]);
+  }, [goTo, displayIndex]);
 
   // Touch swipe — horizontal only
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -172,7 +182,7 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
     const diffX = touchStartX.current - e.changedTouches[0].clientX;
     const diffY = touchStartY.current - e.changedTouches[0].clientY;
     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > SWIPE_THRESHOLD) {
-      goTo(diffX > 0 ? 1 : -1);
+      goTo(displayIndex + (diffX > 0 ? 1 : -1));
     }
   };
 
@@ -211,7 +221,7 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
               key={`${item.id}-${clonedIdx}`}
               className={`${styles.card} ${isActive ? styles.cardActive : styles.cardInactive}`}
               onClick={() => {
-                if (!isActive) goTo(clonedIdx > displayIndex ? 1 : -1);
+                if (!isActive) goTo(clonedIdx);
               }}
             >
               <div className={styles.videoWrap}>
@@ -281,12 +291,12 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
       </div>
 
       <div className={styles.navRow}>
-        <button className={styles.navBtn} onClick={() => goTo(-1)} aria-label="Previous">
+        <button className={styles.navBtn} onClick={() => goTo(displayIndex - 1)} aria-label="Previous">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <button className={styles.navBtn} onClick={() => goTo(1)} aria-label="Next">
+        <button className={styles.navBtn} onClick={() => goTo(displayIndex + 1)} aria-label="Next">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M9 18l6-6-6-6" />
           </svg>
@@ -299,7 +309,7 @@ export default function UGCGallery({ items, size = 'default' }: UGCGalleryProps)
           isOpen={true}
           onClose={closeQuickView}
           onNext={goToNextProduct}
-          hasNext={true}
+          hasNext={taggedCount > 1}
         />
       )}
     </div>

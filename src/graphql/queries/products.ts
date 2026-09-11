@@ -80,66 +80,8 @@ export const PRODUCT_FIELDS = gql`
         slug
       }
     }
-    flavors {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    vibes {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    effects {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
-    settings {
-      nodes {
-        id
-        name
-        slug
-        extraTaxonomyFields {
-          propIcon {
-            node {
-              sourceUrl
-              altText
-            }
-          }
-        }
-      }
-    }
+    # flavors, vibes, effects and settings now come from the PDP's own
+    # GET_PRODUCT_TAXONOMIES, so a rename cannot fail all ten documents at once.
     blendTypes {
       nodes {
         name
@@ -188,8 +130,15 @@ export const PRODUCT_FIELDS = gql`
         slug
       }
     }
-    bbLinkedBundleId
     bbFromPrice
+    bbShowPrice
+    bbBundleMode
+    bbMinItems
+    bbMaxItems
+    bbFixedPrice
+    bbFixedOriginalPrice
+    bbFixedQtyMin
+    bbFixedQtyMax
     uniqueSellingProps {
       nodes {
         id
@@ -336,6 +285,10 @@ export const GET_PRODUCT_BY_SLUG = gql`
         }
       }
       ...ProductFields
+      bbFixedItems {
+        productId
+        quantity
+      }
     }
   }
 `;
@@ -364,6 +317,10 @@ export const GET_PRODUCT_BY_DATABASE_ID = gql`
         }
       }
       ...ProductFields
+      bbFixedItems {
+        productId
+        quantity
+      }
     }
   }
 `;
@@ -422,8 +379,15 @@ export const GET_COLLECTION_PRODUCTS = gql`
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
-          bbLinkedBundleId
           bbFromPrice
+          bbShowPrice
+          bbBundleMode
+          bbMinItems
+          bbMaxItems
+          bbFixedPrice
+          bbFixedOriginalPrice
+          bbFixedQtyMin
+          bbFixedQtyMax
         }
         ... on VariableProduct {
           id
@@ -446,8 +410,15 @@ export const GET_COLLECTION_PRODUCTS = gql`
           singleCannabinoid { nodes { name slug } }
           mG { nodes { name slug } }
           pieces { nodes { name slug } }
-          bbLinkedBundleId
           bbFromPrice
+          bbShowPrice
+          bbBundleMode
+          bbMinItems
+          bbMaxItems
+          bbFixedPrice
+          bbFixedOriginalPrice
+          bbFixedQtyMin
+          bbFixedQtyMax
         }
       }
     }

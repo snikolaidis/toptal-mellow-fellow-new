@@ -22,6 +22,31 @@ if (!defined('ABSPATH')) {
 // decides which items to discount.
 
 add_filter('wbte_sc_alter_items_to_validate', function ($items, $coupon_id) {
+    // Guardrail: BOGO must never give away a bundle item or a free-gift item.
+    // Bundle items are a self-contained, pre-priced offer; free-gift items are
+    // already free via their own mf-free-gift-{productId} coupon. Strip both
+    // from the eligibility set for EVERY BOGO coupon, BEFORE the collection
+    // logic / early return below — so they're excluded even when they'd
+    // otherwise fall inside the BOGO's own collection. The bundle keeps its own
+    // line pricing untouched; the gift stays owned by its gift coupon.
+    $gift_product_ids = array();
+    if (function_exists('WC') && WC()->cart) {
+        foreach (WC()->cart->get_applied_coupons() as $applied_code) {
+            if (strpos($applied_code, 'mf-free-gift-') === 0) {
+                $gift_product_ids[] = (int) str_replace('mf-free-gift-', '', $applied_code);
+            }
+        }
+    }
+    $items = array_filter($items, function ($item) use ($gift_product_ids) {
+        if (!empty($item['bb_group_key'])) {
+            return false; // bundle item — pre-priced, never a BOGO giveaway
+        }
+        if ($gift_product_ids && in_array((int) $item['product_id'], $gift_product_ids, true)) {
+            return false; // free-gift item — already free via its own coupon
+        }
+        return true;
+    });
+
     $include_raw = get_post_meta($coupon_id, '_mf_bogo_collections', true);
     $exclude_raw = get_post_meta($coupon_id, '_mf_bogo_exclude_collections', true);
 
@@ -330,6 +355,13 @@ add_action('woocommerce_coupon_options_save', function ($post_id) {
 
 add_filter('woocommerce_coupon_is_valid_for_product', function ($valid, $product, $coupon, $values) {
     if (!$valid) {
+        return false;
+    }
+
+    // Guardrail: bundle items are pre-priced by the bundle and must not be
+    // discounted by any per-product coupon (percent/fixed_product). $values is
+    // the cart item, which carries bb_group_key for locked bundle lines.
+    if (is_array($values) && !empty($values['bb_group_key'])) {
         return false;
     }
 

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { fragments } from './BlogPosts.fragments';
 import Image from 'next/image';
 import { getClient, getBrowserClient } from '@/lib/apollo-client';
-import { GET_LATEST_POSTS } from '@/graphql/queries/posts';
+import { GET_LATEST_POSTS_LITE } from '@/graphql/queries/posts';
 
 interface PostNode {
   id: string;
@@ -41,7 +41,9 @@ export default function BlogPosts(props: BlogPostsProps) {
   const buttonUrl = data?.buttonLink?.url || '/blogs';
 
   const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
-  const { data: postsData } = useQuery(GET_LATEST_POSTS, {
+  // Lite, not GET_LATEST_POSTS: that one also selects `content`, which this block
+  // never renders and which was 154KB of the 160KB it fetched in the browser.
+  const { data: postsData } = useQuery(GET_LATEST_POSTS_LITE, {
     client,
     variables: { first: count },
   });
