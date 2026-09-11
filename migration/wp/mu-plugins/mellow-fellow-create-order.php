@@ -186,8 +186,16 @@ function mf_create_order( WP_REST_Request $request ) {
                     }
 
                     // Bundle's own quantity, not the summed component quantity.
+                    // Also saved as _bb_fixed_bundle_qty — the key
+                    // reduce_fixed_bundle_stock()/restore_fixed_bundle_stock()
+                    // (class-bb-cart.php) read to decrement/restore the
+                    // wrapper product's own stock for fixed/mystery bundles.
+                    // Without it those never fire (intval of a missing meta
+                    // is 0), so bundle-level stock limits never take effect.
                     if ( isset( $item['bundleGroupSetCount'] ) && is_numeric( $item['bundleGroupSetCount'] ) ) {
-                        $order_item->add_meta_data( '_bb_group_set_count', intval( $item['bundleGroupSetCount'] ) );
+                        $set_count = intval( $item['bundleGroupSetCount'] );
+                        $order_item->add_meta_data( '_bb_group_set_count', $set_count );
+                        $order_item->add_meta_data( '_bb_fixed_bundle_qty', $set_count );
                     }
 
                     // Bundle product's own image — component lines have no
