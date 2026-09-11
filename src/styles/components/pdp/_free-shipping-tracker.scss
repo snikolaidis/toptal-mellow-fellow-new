@@ -1,0 +1,32 @@
+// Free-shipping progress line on the PDP. The cart drawer's TieredProgressBar
+// is the full-fat version with a track and every reward tier; this is one row.
+.free-shipping-tracker {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 1.25rem 0;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  background: var(--color-gold-cream-20);
+
+  &__icon {
+    flex: 0 0 auto;
+    color: #e8622a;
+  }
+
+  &__text {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.35;
+    color: var(--color-teal-85);
+  }
+  
+  &__amount {
+    font-weight: 700;
+    color: #e8615a;
+  }
+
+  &[data-unlocked] &__icon {
+    color: var(--color-sage);
+  }
+}

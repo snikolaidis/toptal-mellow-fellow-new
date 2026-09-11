@@ -1,7 +1,7 @@
 .panel {
   /* Whoever gutters the panel's rows sets this to 0. Hardcoding 16px on the
      rows instead double-insets them wherever the container already pads. */
-  --panel-inset: 16px; /* TODO(figma) */
+  --panel-inset: 16px;
   width: 100%;
   font-family: var(--font-family-body);
 }
@@ -12,7 +12,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0 var(--panel-inset);
-  margin-bottom: 12px; /* TODO(figma) */
+  margin-bottom: 12px;
 }
 
 /* font-family, because globals.scss:118 sets the display face on every h1-h6
@@ -38,17 +38,17 @@
 }
 
 .clearAll:disabled {
-  opacity: 0.4; /* TODO(figma) */
+  opacity: 0.4;
   cursor: default;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px; /* TODO(figma) */
-  padding: 12px var(--panel-inset) 0; /* TODO(figma) */
-  border-top: 1px solid #e0e0e0; /* TODO(figma) */
-  margin-bottom: 16px; /* TODO(figma) */
+  gap: 8px;
+  padding: 12px var(--panel-inset) 0;
+  border-top: 1px solid #e0e0e0;
+  margin-bottom: 16px;
 }
 
 .chip {
@@ -76,7 +76,7 @@
 }
 
 .group {
-  border-top: 1px solid #e0e0e0; /* TODO(figma) */
+  border-top: 1px solid #e0e0e0;
 }
 
 .groupHeader {
@@ -85,7 +85,7 @@
   justify-content: space-between;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.875rem var(--panel-inset); /* TODO(figma) */
+  padding: 0.875rem var(--panel-inset);
   background: none;
   border: none;
   font-family: inherit;
@@ -96,7 +96,7 @@
 .groupLabel {
   display: flex;
   align-items: center;
-  gap: 0.5rem; /* TODO(figma) */
+  gap: 0.5rem;
   font-size: 14px;
   font-weight: 700;
   line-height: 21px;
@@ -131,15 +131,15 @@
 .terms {
   display: flex;
   flex-direction: column;
-  gap: 10px; /* TODO(figma) */
-  padding: 0 var(--panel-inset) 0.875rem; /* TODO(figma) */
+  gap: 10px;
+  padding: 0 var(--panel-inset) 0.875rem;
 }
 
 .term {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px; /* TODO(figma) */
+  gap: 10px;
   cursor: pointer;
 }
 
@@ -234,7 +234,7 @@
 .sheetRoot {
   display: block;
   margin-top: 33px;
-  margin-bottom: 1rem; /* TODO(figma) */
+  margin-bottom: 1rem;
 }
 
 @media (min-width: 1024px) {
@@ -254,8 +254,8 @@
   border-radius: 27px;
   background: var(--color-surface-primary);
   font-family: var(--font-family-body);
-  font-size: 14px; /* TODO(figma) */
-  font-weight: 700; /* TODO(figma) */
+  font-size: 14px;
+  font-weight: 700;
   color: #24241f;
   cursor: pointer;
 }
@@ -296,9 +296,9 @@
 .sheetBarHeading {
   margin: 0;
   font-family: var(--font-family-body);
-  font-size: 17px; /* TODO(figma) */
-  font-weight: 700; /* TODO(figma) */
-  line-height: 25.5px; /* TODO(figma) */
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 25.5px;
   color: #24241f;
 }
 
@@ -378,8 +378,8 @@
 
 .sheetFooter {
   flex-shrink: 0;
-  padding: 16px 16px max(16px, env(safe-area-inset-bottom)); /* TODO(figma) */
-  border-top: 1px solid #e0e0e0; /* TODO(figma) */
+  padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+  border-top: 1px solid #e0e0e0;
   background: var(--color-surface-primary);
 }
 

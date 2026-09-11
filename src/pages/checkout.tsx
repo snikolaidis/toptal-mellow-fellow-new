@@ -549,6 +549,16 @@ export default function CheckoutNewPage() {
   const handleShippingMethodChange = async (methodId: string) => {
     setSelectedShipping(methodId);
 
+    // Sum of every bundled line's (original - discounted) — passed through so
+    // the order carries a "Bundle Discount" line the same way a coupon does
+    // (see mellow-fellow-create-order.php).
+    // const bundleDiscountTotal = (cart?.items ?? []).reduce((sum, item) => {
+    //   if (!item.bbGroupKey) return sum;
+    //   const lineOriginal = item.quantity * originalUnitPrice(item);
+    //   const lineTotal = parseFloat((item.total || '').replace(/[^0-9.]/g, '')) || 0;
+    //   return sum + Math.max(0, lineOriginal - lineTotal);
+    // }, 0);
+
     try {
       await updateShippingMethod(methodId);
     } catch (error) {

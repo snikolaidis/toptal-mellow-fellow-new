@@ -74,6 +74,12 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
 
     // Items with no sub items leave the panel showing whatever was there, so it
     // is never empty.
+    // No fallback on purpose: the sub panel stays empty until a product type is
+    // hovered, so nothing is shown or announced as current before then.
+    // const currentUri = activeUri;
+    // const active = products.find((p) => p.key === currentUri);
+
+    // Items with no sub items keep whatever is showing rather than blanking it.
     const activate = (product: MegaMenuProduct) => {
       if (product.hasChildren) setActiveUri(product.key);
     };
@@ -228,9 +234,8 @@ const ShopMegaMenu = forwardRef<HTMLDivElement, ShopMegaMenuProps>(
                   <li key={url}>
                     <Link
                       href={url}
-                      className={`site-header__mega-text-link site-header__mega-feature${
-                        isDeal ? ' site-header__mega-feature--deal' : ''
-                      }`}
+                      className={`site-header__mega-text-link site-header__mega-feature${isDeal ? ' site-header__mega-feature--deal' : ''
+                        }`}
                       target={target}
                       rel={target === '_blank' ? 'noreferrer' : undefined}
                     >

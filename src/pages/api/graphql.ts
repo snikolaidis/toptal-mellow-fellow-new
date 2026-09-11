@@ -88,6 +88,13 @@ function isAbusivePayload(body: unknown): boolean {
  *
  * Proxies GraphQL requests to WordPress to avoid CORS issues.
  * Rate limited to 60 requests per minute per IP.
+ *
+ * This proxy is a PURE DATA channel: it carries no WooCommerce session
+ * identity. All cart operations — including bundles — run through the Store
+ * API proxy (/api/store) on the single Cart-Token session. The old dual-token
+ * bridging (wc_session_token + Cart-Token) lived here and was the root cause
+ * of the "zombie cart" bugs: a GraphQL response could silently re-point the
+ * cart cookie at a stale session. Do not reintroduce session handling here.
  */
 
 async function handler(

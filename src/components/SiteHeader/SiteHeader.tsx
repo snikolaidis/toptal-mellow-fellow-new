@@ -1,10 +1,10 @@
-import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@apollo/client";
-import { useCart } from "@/context/CartContext";
-import { useAuth } from "@/context/AuthContext";
-import { MellowFellowLogo, UserIcon, CartIcon } from "@/components/icons";
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@apollo/client';
+import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
+import { MellowFellowLogo, UserIcon, CartIcon } from '@/components/icons';
 import {
   GET_NAV,
   GET_SHOP_MEGA_MENU,
@@ -12,16 +12,16 @@ import {
   MegaMenuFeaturedLink,
   NavMenuItem,
   PromotionalSlide,
-} from "@/graphql/queries/menus";
-import { GET_ALL_MOODS } from "@/graphql/queries/moods";
-import { MoodPill } from "@/types/mood";
-import AnnouncementBar from "./AnnouncementBar";
-import SearchTrigger from "./SearchTrigger";
-import PrimaryNav from "./PrimaryNav";
-import MobileMegaMenu from "./MobileMegaMenu";
-import ShopMegaMenu from "./ShopMegaMenu";
-import { useShopMegaMenu } from "./useShopMegaMenu";
-import { buildMegaMenuModel } from "./megaMenuModel";
+} from '@/graphql/queries/menus';
+import { GET_ALL_MOODS } from '@/graphql/queries/moods';
+import { MoodPill } from '@/types/mood';
+import AnnouncementBar from './AnnouncementBar';
+import SearchTrigger from './SearchTrigger';
+import PrimaryNav from './PrimaryNav';
+import MobileMegaMenu from './MobileMegaMenu';
+import ShopMegaMenu from './ShopMegaMenu';
+import { useShopMegaMenu } from './useShopMegaMenu';
+import { buildMegaMenuModel } from './megaMenuModel';
 
 const SearchModal = dynamic(() => import("@/components/SearchModal"), {
   ssr: false,
@@ -29,8 +29,8 @@ const SearchModal = dynamic(() => import("@/components/SearchModal"), {
 
 const CONDENSE_AT = 150;
 const DIRECTION_DELTA = 8;
-const MEGA_MENU_ID = "shop-mega-menu";
-const MOBILE_MENU_ID = "site-header-mobile-menu";
+const MEGA_MENU_ID = 'shop-mega-menu';
+const MOBILE_MENU_ID = 'site-header-mobile-menu';
 
 const useIsomorphicLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -42,8 +42,9 @@ export default function SiteHeader() {
   const { data: megaData } = useQuery(GET_SHOP_MEGA_MENU);
   const { data: moodData } = useQuery(GET_ALL_MOODS);
   const { data: featuredData } = useQuery(GET_MEGA_MENU_FEATURED);
-  const { cart, cartReady, toggleDrawer } = useCart();
+  const { cart, cartReady, cartItemCount, toggleDrawer } = useCart();
   const { isAuthenticated, isReady, logout } = useAuth();
+
   const [isOpen, setIsOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [isCondensed, setIsCondensed] = useState(false);
@@ -66,7 +67,7 @@ export default function SiteHeader() {
         featuredLinks: megaFeatured,
         promotionalSlides: megaSlides,
       }),
-    [megaMenuItems, menuItems, megaMoods, megaFeatured, megaSlides],
+    [megaMenuItems, menuItems, megaMoods, megaFeatured, megaSlides]
   );
 
   const {
@@ -76,6 +77,8 @@ export default function SiteHeader() {
     panelRef: megaMenuPanelRef,
     toggle: toggleMegaMenu,
     close: closeMegaMenu,
+    handlePointerEnter: megaMenuPointerEnter,
+    handlePointerLeave: megaMenuPointerLeave,
   } = useShopMegaMenu({ isCondensed });
 
   const burgerRef = useRef<HTMLButtonElement>(null);
@@ -150,7 +153,7 @@ export default function SiteHeader() {
   // 1024px is Bulma's desktop breakpoint. Without this the drawer stays open
   // across the boundary and the burger that would close it is hidden.
   useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 1024px)");
+    const desktop = window.matchMedia('(min-width: 1024px)');
     const closeOnBreakpoint = (e: MediaQueryListEvent) => {
       if (e.matches) {
         setIsOpen(false);
@@ -158,8 +161,8 @@ export default function SiteHeader() {
         closeMegaMenu();
       }
     };
-    desktop.addEventListener("change", closeOnBreakpoint);
-    return () => desktop.removeEventListener("change", closeOnBreakpoint);
+    desktop.addEventListener('change', closeOnBreakpoint);
+    return () => desktop.removeEventListener('change', closeOnBreakpoint);
   }, [closeMegaMenu]);
 
   // CartContext seeds its state from localStorage in a lazy useState initialiser,
@@ -167,8 +170,15 @@ export default function SiteHeader() {
   // the server had none. Both values stay empty until after mount so the first
   // client render matches the server. Without this the mismatch only appears for
   // visitors who already have items, never for a developer with an empty cart.
-  const itemsCount = hydrated ? (cart?.itemsCount ?? 0) : 0;
-  const cartSubtotal = hydrated && cartReady ? (cart?.subtotal ?? "") : "";
+  const itemsCount = hydrated ? cartItemCount : 0;
+  // Show the net merchandise total (after all discounts) — what the customer
+  // will actually pay for the items — matching the drawer/checkout "Total".
+  const cartSubtotal =
+    hydrated && cartReady && cart?.items?.length
+      ? `$${cart.items
+          .reduce((s, i) => s + (parseFloat((i.total || '').replace(/[^0-9.-]/g, '')) || 0), 0)
+          .toFixed(2)}`
+      : '';
 
   return (
     <>
@@ -203,6 +213,7 @@ export default function SiteHeader() {
               <span className="site-header__account-text">
                 {!isReady ? (
                   <>
+                    <span className="site-header__account-line">&nbsp;</span>
                     <span className="site-header__account-line">Account</span>
                   </>
                 ) : isAuthenticated ? (
@@ -213,6 +224,7 @@ export default function SiteHeader() {
                 ) : (
                   <>
                     <span className="site-header__account-line">Sign In</span>
+                    <span className="site-header__account-line">Account</span>
                   </>
                 )}
               </span>
@@ -255,6 +267,8 @@ export default function SiteHeader() {
           megaMenuId={MEGA_MENU_ID}
           megaMenuTriggerRef={megaMenuTriggerRef}
           onMegaMenuToggle={toggleMegaMenu}
+          onMegaMenuPointerEnter={megaMenuPointerEnter}
+          onMegaMenuPointerLeave={megaMenuPointerLeave}
           onSiblingActivate={closeMegaMenu}
           megaMenuPanel={
             megaMenuOpen ? (

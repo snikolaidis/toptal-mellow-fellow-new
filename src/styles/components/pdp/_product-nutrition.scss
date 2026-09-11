@@ -5,7 +5,11 @@
 
   background-color: var(--color-gold-cream-20);
   border-radius: var(--border-radius);
-  padding: 20px;
+  // Bottom-only: the heading bar is meant to run edge to edge, and the badge
+  // and tile rows carry their own horizontal insets (`__badges` has
+  // `margin: 0 20px`). A uniform `padding` would inset the heading too and
+  // double up on those rows.
+  padding-bottom: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -77,6 +81,18 @@
     @include mixins.tablet {
       grid-template-columns: repeat(2, 1fr);
     }
+
+    margin: 0 20px;
+    padding: 0;
+  }
+
+  &__tiles {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 8px;
+    list-style: none;
+    margin: 0 20px;
+    padding: 0;
   }
 
   &__tile {
@@ -99,11 +115,47 @@
     font-weight: 700;
     color: var(--color-text-primary);
     line-height: 1;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 12px;
+    background-color: var(--tile-accent, var(--color-gold-cream-20));
+
+    &--social {
+      --tile-accent: #D8D8EA;
+    }
+
+    &--cans {
+      --tile-accent: #C4D6D7;
+    }
+
+    &--onset {
+      --tile-accent: #FCECCA;
+    }
+
+    &--calories {
+      --tile-accent: #FDE1DC;
+    }
+  }
+
+  &__tile-icon {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background-color: #fff;
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
   }
 
   &__tile-label {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--color-text-primary);
+    line-height: 1.1;
   }
 }

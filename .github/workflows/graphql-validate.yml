@@ -1,0 +1,139 @@
+name: GraphQL validation
+
+# Two jobs on purpose. Merging them either makes pull requests depend on
+# WordPress being up, or stops a wp-admin schema change being caught at all.
+
+on:
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Ahead of the 09:00 reindex so the two are not querying WordPress together.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: graphql-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  documents:
+    name: Documents match the schema snapshot
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Restore node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node20-${{ hashFiles('package-lock.json', 'package.json') }}
+
+      - name: Install dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      # Reads ./schema.graphql. Passing SCHEMA_SOURCE here would make a slow
+      # WP Engine able to fail a pull request.
+      - name: Validate documents
+        run: npm run graphql:validate
+
+  live:
+    name: Documents match the live schema
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check the WordPress URL is configured
+        env:
+          WP_URL: ${{ vars.NEXT_PUBLIC_WORDPRESS_URL }}
+        run: |
+          if [ -z "${WP_URL}" ]; then
+            echo "::error::Repository variable NEXT_PUBLIC_WORDPRESS_URL is not set."
+            exit 1
+          fi
+          echo "Validating against ${WP_URL}"
+
+      # Must stay ahead of the refresh below. Refreshing first would commit a
+      # schema our own documents fail against, turning one nightly alert into
+      # every open PR going red.
+      - name: Validate documents against live
+        env:
+          WP_URL: ${{ vars.NEXT_PUBLIC_WORDPRESS_URL }}
+        run: SCHEMA_SOURCE="${WP_URL%/}/graphql" npm run graphql:validate
+
+      - name: Refresh the snapshot from live
+        env:
+          NEXT_PUBLIC_WORDPRESS_URL: ${{ vars.NEXT_PUBLIC_WORDPRESS_URL }}
+        run: npm run graphql:schema
+
+      - name: Open a refresh PR if the snapshot drifted
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- schema.graphql; then
+            echo "Snapshot matches live. Nothing to do."
+            exit 0
+          fi
+
+          BRANCH=chore/graphql-schema-refresh
+          echo "Snapshot drifted from live. Pushing ${BRANCH}."
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "${BRANCH}"
+          git add schema.graphql
+          git commit -m 'Refresh the GraphQL schema snapshot'
+          git push --force origin "${BRANCH}"
+
+          existing=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number // empty')
+          if [ -n "${existing}" ]; then
+            echo "PR #${existing} already open; force-pushed onto it."
+            exit 0
+          fi
+
+          gh pr create --base main --head "${BRANCH}" \
+            --title 'Refresh the GraphQL schema snapshot' \
+            --body 'The WPGraphQL schema changed and `schema.graphql` is behind it.
+
+          Every document in `src/` was validated against the live schema before this
+          branch was pushed, so nothing is broken. This only catches the snapshot up
+          so pull request runs keep checking against what WordPress actually serves.
+
+          Opened by the nightly `GraphQL validation` workflow.'
+
+  notify:
+    needs: live
+    # Push only, as in typecheck.yml: a PR failure already shows in its checks.
+    if: failure() && github.event_name != 'pull_request'
+    permissions:
+      actions: read
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit

@@ -1,0 +1,150 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  margin-top: 3rem;
+}
+
+.step {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #c1b5a5;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #232323;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.prev {
+  padding: 12px 22px 12px 18px;
+}
+
+.next {
+  padding: 12px 18px 12px 22px;
+}
+
+.step:hover:not(:disabled) {
+  border-color: #354654;
+  background: #f7f3ea;
+}
+
+.step:focus-visible,
+.pageNumber:focus-visible {
+  border-color: #354654;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(53, 70, 84, 0.16);
+  outline: none;
+}
+
+.step:disabled {
+  border-color: #e7e1d8;
+  color: #a9a6a3;
+  cursor: not-allowed;
+}
+
+.step:disabled .chevron {
+  stroke: #a9a6a3;
+}
+
+.chevron {
+  display: block;
+  flex: 0 0 auto;
+  stroke: #354654;
+}
+
+.pageNumber {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #c1b5a5;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #232323;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.pageNumber:hover:not(:disabled):not(.pageNumberCurrent) {
+  border-color: #354654;
+  background: #f7f3ea;
+}
+
+.pageNumber:disabled {
+  cursor: not-allowed;
+}
+
+.pageNumberCurrent {
+  border-color: #354654;
+  background: #354654;
+  color: #ffffff;
+  cursor: default;
+}
+
+.ellipsis {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  height: 40px;
+  color: #8a8683;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Emma's design is desktop only. Below this the labelled buttons plus seven
+   40px circles cannot fit one row, so the words go and the scale tightens. */
+@media (max-width: 640px) {
+  .pagination {
+    gap: 4px;
+    justify-content: safe center;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pagination::-webkit-scrollbar {
+    display: none;
+  }
+
+  .step {
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    gap: 0;
+  }
+
+  .stepLabel {
+    display: none;
+  }
+
+  .pageNumber {
+    width: 32px;
+    height: 32px;
+  }
+
+  .ellipsis {
+    height: 32px;
+  }
+}

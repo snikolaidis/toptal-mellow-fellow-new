@@ -128,6 +128,19 @@ function AccountContent() {
   }, []);
 
   useEffect(() => {
+    fetch('/api/account/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: CUSTOMER_ORDERS_QUERY }),
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((res) => setCustomer(res?.data?.customer || null))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
     if (ready && (myRewards || campaign || vipTiers)) {
       initYotpoLoyaltyWidgets(process.env.NEXT_PUBLIC_YOTPO_LOYALTY_LOADER);
     }

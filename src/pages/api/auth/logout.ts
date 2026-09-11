@@ -20,7 +20,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
-  res.setHeader("Set-Cookie", clearAllAuthCookieHeaders());
+  res.setHeader('Set-Cookie', clearAllAuthCookieHeaders());
   return res.status(200).json({ success: true });
 }
 

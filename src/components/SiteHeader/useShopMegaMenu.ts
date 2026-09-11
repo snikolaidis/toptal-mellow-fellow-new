@@ -5,23 +5,76 @@ interface UseShopMegaMenuOptions {
   isCondensed: boolean;
 }
 
+// The panel hangs off the header's bottom edge, not the button's, so 14px of
+// chrome sits between them. Closing on mouseleave alone fires mid-traverse.
+const HOVER_CLOSE_DELAY_MS = 150;
+
+// Not a viewport width: the desktop nav starts at 1024px, which includes large
+// touchscreens, and tapping there synthesises mouseenter before the click.
+const FINE_POINTER = '(hover: hover) and (pointer: fine)';
+
 export function useShopMegaMenu({ isCondensed }: UseShopMegaMenuOptions) {
   const [isOpen, setIsOpen] = useState(false);
   const [shouldFocusPanel, setShouldFocusPanel] = useState(false);
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const canHoverRef = useRef(false);
   const router = useRouter();
 
-  const close = useCallback(() => {
-    setIsOpen(false);
-    setShouldFocusPanel(false);
+  useEffect(() => {
+    const query = window.matchMedia(FINE_POINTER);
+    const sync = () => {
+      canHoverRef.current = query.matches;
+    };
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
   }, []);
 
-  const toggle = useCallback((viaKeyboard: boolean) => {
-    setIsOpen((prev) => !prev);
-    setShouldFocusPanel(viaKeyboard);
+  const cancelScheduledClose = useCallback(() => {
+    if (closeTimerRef.current === null) return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
   }, []);
+
+  useEffect(() => cancelScheduledClose, [cancelScheduledClose]);
+
+  // Every close path clears the timer, so a pending hover close can never land
+  // on a panel that Escape closed and the trigger reopened in the meantime.
+  const close = useCallback(() => {
+    cancelScheduledClose();
+    setIsOpen(false);
+    setShouldFocusPanel(false);
+  }, [cancelScheduledClose]);
+
+  const toggle = useCallback(
+    (viaKeyboard: boolean) => {
+      cancelScheduledClose();
+      setIsOpen((prev) => !prev);
+      setShouldFocusPanel(viaKeyboard);
+    },
+    [cancelScheduledClose]
+  );
+
+  const handlePointerEnter = useCallback(() => {
+    if (!canHoverRef.current) return;
+    cancelScheduledClose();
+    setIsOpen(true);
+    // Hover must never move focus; only Enter and Space do that.
+    setShouldFocusPanel(false);
+  }, [cancelScheduledClose]);
+
+  const handlePointerLeave = useCallback(() => {
+    if (!canHoverRef.current) return;
+    cancelScheduledClose();
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      setIsOpen(false);
+      setShouldFocusPanel(false);
+    }, HOVER_CLOSE_DELAY_MS);
+  }, [cancelScheduledClose]);
 
   const closeAndRefocus = useCallback(() => {
     close();
@@ -85,5 +138,7 @@ export function useShopMegaMenu({ isCondensed }: UseShopMegaMenuOptions) {
     panelRef,
     toggle,
     close,
+    handlePointerEnter,
+    handlePointerLeave,
   };
 }

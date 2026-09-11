@@ -1,21 +1,78 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Layout from '@/components/Layout';
 import { useCart, groupCartItems } from '@/context/CartContext';
+import { ChevronDownIcon } from '@/components/icons';
+import { useCartSubscriptions, everyLabel } from '@/lib/useCartSubscriptions';
 import styles from '@/styles/pages/cart.module.css';
 
+function parsePrice(price: string): number {
+  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
+}
+
+// Bundle/sale discounts apply via the product's own sale price, not a coupon,
+// so `product.price` is already the discounted unit price — `regularPrice`
+// (when present) is the only source for the true original price.
+function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
+  return parsePrice(item.product.regularPrice || item.product.price);
+}
+
 export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, isLoading, cartReady, bundleNames, bundleDiscounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
+  const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, addFixedBundleToCart, isLoading, cartReady, bundleNames, bundleImages, bundleModes, bundleGroupSetCounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
+  // Bundle groups collapse to a single "name - price" row by default; this
+  // tracks which ones the shopper has expanded to see the bundled products.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroupExpanded = useCallback((mergeKey: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(mergeKey)) {
+        next.delete(mergeKey);
+      } else {
+        next.add(mergeKey);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!cart && !isLoading) {
       refreshCart();
     }
   }, []);
-  const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames);
+  const { bundles, standalone } = groupCartItems(cart?.items ?? [], bundleNames, bundleImages, bundleModes, bundleGroupSetCounts);
+
+  const handleAddAnotherBundle = useCallback(async (group: (typeof bundles)[number]) => {
+    try {
+      if (group.bundleMode === 'fixed') {
+        await addFixedBundleToCart(group.bundleId, 1, group.bundleName, group.image);
+      } else {
+        await addBundleToCart(
+          group.bundleId,
+          group.representativeItems.flatMap((i) => Array(i.quantity).fill(i.product.databaseId)),
+          group.bundleName,
+          undefined,
+          group.image
+        );
+      }
+    } catch {
+      // Failure reason is already surfaced via the shared cartError banner —
+      // this just stops it from becoming an unhandled promise rejection.
+    }
+  }, [addBundleToCart, addFixedBundleToCart]);
+
+  const subChoices = useCartSubscriptions(standalone.map((i) => i.product.databaseId));
+
+  // Shown as its own coupon-style row in the summary, same as an applied
+  // coupon — the sum of every bundle group's (original - discounted) total.
+  const totalBundleDiscount = bundles.reduce((sum, group) => {
+    const allItems = group.instances.flatMap((inst) => inst.items);
+    const original = allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
+    const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
+    return sum + Math.max(0, original - discounted);
+  }, 0);
 
   if (isLoading || !cartReady) {
     return (
@@ -64,16 +121,63 @@ export default function CartPage() {
               <tbody>
                 {/* Bundle groups */}
                 {bundles.map((group) => {
-                  const discount = bundleDiscounts[group.bundleId] ?? 0;
-                  const originalTotal = group.instances
-                    .flatMap((inst) => inst.items)
-                    .reduce((sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0);
-                  const discountedTotal = discount > 0 ? originalTotal * (1 - discount / 100) : originalTotal;
+                  const allItems = group.instances.flatMap((inst) => inst.items);
+                  const originalTotal = allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
+                  const discountedTotal = allItems.reduce((sum, i) => sum + parsePrice(i.total), 0);
+                  const hasDiscount = discountedTotal < originalTotal - 0.005;
                   const bundleTotal = discountedTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+                  const isExpanded = expandedGroups.has(group.mergeKey);
+                  const panelId = `bundle-panel-${group.mergeKey}`;
+                  // Aggregate by product across every instance in the group (not just
+                  // the first instance's representativeItems), so a bundle added more
+                  // than once shows its real combined per-product quantities.
+                  const bundleItemRows = allItems.reduce<{ item: typeof allItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
+                    (acc, item) => {
+                      const existing = acc.find((r) => r.item.product.databaseId === item.product.databaseId);
+                      const lineOriginal = item.quantity * originalUnitPrice(item);
+                      const lineTotal = parsePrice(item.total);
+                      if (existing) {
+                        existing.qty += item.quantity;
+                        existing.originalAmount += lineOriginal;
+                        existing.totalAmount += lineTotal;
+                      } else {
+                        acc.push({ item, qty: item.quantity, originalAmount: lineOriginal, totalAmount: lineTotal });
+                      }
+                      return acc;
+                    },
+                    []
+                  );
                   return (
-                    <React.Fragment key={group.bundleId}>
+                    <React.Fragment key={group.mergeKey}>
                       <tr className={styles.bundleHeaderRow}>
-                        <td className={styles.bundleHeaderCell}>{group.bundleName}</td>
+                        <td className={styles.bundleHeaderCell}>
+                          <div className={styles.productCell}>
+                            {group.image && (
+                              <Image
+                                src={group.image.sourceUrl}
+                                alt={group.image.altText || group.bundleName}
+                                width={60}
+                                height={60}
+                                style={{ objectFit: 'contain' }}
+                              />
+                            )}
+                            <div className={styles.productInfo}>
+                              <span>{group.bundleName}</span>
+                              <button
+                                type="button"
+                                className={styles.bundleToggleBtn}
+                                onClick={() => toggleGroupExpanded(group.mergeKey)}
+                                aria-expanded={isExpanded}
+                                aria-controls={bundleItemRows.map((r) => `${panelId}-${r.item.product.databaseId}`).join(' ')}
+                              >
+                                <span className={`${styles.bundleChevron} ${isExpanded ? styles.bundleChevronExpanded : ''}`}>
+                                  <ChevronDownIcon />
+                                </span>
+                                {isExpanded ? 'Hide items' : 'Show items'}
+                              </button>
+                            </div>
+                          </div>
+                        </td>
                         <td></td>
                         <td>
                           <div className={styles.quantitySelector}>
@@ -97,15 +201,7 @@ export default function CartPage() {
                             />
                             <button
                               className={styles.quantityBtn}
-                              onClick={() =>
-                                addBundleToCart(
-                                  group.bundleId,
-                                  group.representativeItems.flatMap((i) =>
-                                    Array(i.quantity).fill(i.product.databaseId)
-                                  ),
-                                  group.bundleName
-                                )
-                              }
+                              onClick={() => handleAddAnotherBundle(group)}
                               aria-label={`Add another ${group.bundleName}`}
                             >
                               +
@@ -113,7 +209,7 @@ export default function CartPage() {
                           </div>
                         </td>
                         <td>
-                          {discount > 0 && (
+                          {hasDiscount && (
                             <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
                               {originalTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                             </span>
@@ -122,8 +218,8 @@ export default function CartPage() {
                         </td>
                         <td></td>
                       </tr>
-                      {group.representativeItems.map((item) => (
-                        <tr key={item.key} className={styles.bundleItemRow}>
+                      {isExpanded && bundleItemRows.map(({ item, qty, totalAmount }) => (
+                        <tr key={item.product.databaseId} id={`${panelId}-${item.product.databaseId}`} className={styles.bundleItemRow}>
                           <td>
                             <div className={styles.productCell}>
                               {item.product.image && (
@@ -142,9 +238,16 @@ export default function CartPage() {
                               </div>
                             </div>
                           </td>
-                          <td>{item.product.price}</td>
-                          <td style={{ color: '#8A8683', fontSize: '0.875rem' }}>×{item.quantity}</td>
-                          <td>{item.total}</td>
+                          <td>
+                            {originalUnitPrice(item) > parsePrice(item.product.price) + 0.005 && (
+                              <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
+                                ${originalUnitPrice(item).toFixed(2)}
+                              </span>
+                            )}
+                            {item.product.price}
+                          </td>
+                          <td style={{ color: '#8A8683', fontSize: '0.875rem' }}>×{qty}</td>
+                          <td>${totalAmount.toFixed(2)}</td>
                           <td></td>
                         </tr>
                       ))}
@@ -153,74 +256,90 @@ export default function CartPage() {
                 })}
 
                 {/* Standalone items */}
-                {standalone.map((item) => (
-                  <tr key={item.key}>
-                    <td>
-                      <div className={styles.productCell}>
-                        {item.product.image && (
-                          <Image
-                            src={item.product.image.sourceUrl}
-                            alt={item.product.image.altText || item.product.name}
-                            width={80}
-                            height={80}
-                            style={{ objectFit: 'cover' }}
-                          />
-                        )}
-                        <div className={styles.productInfo}>
-                          <Link href={`/products/${item.product.slug}`}>
-                            {item.product.name}
-                          </Link>
-                          {item.variation && (
-                            <p className={styles.variationInfo}>{item.variation.name}</p>
+                {standalone.map((item) => {
+                  const sub = subChoices[item.product.databaseId];
+                  return (
+                    <tr key={item.key}>
+                      <td>
+                        <div className={styles.productCell}>
+                          {item.product.image && (
+                            <Image
+                              src={item.product.image.sourceUrl}
+                              alt={item.product.image.altText || item.product.name}
+                              width={80}
+                              height={80}
+                              style={{ objectFit: 'cover' }}
+                            />
                           )}
+                          <div className={styles.productInfo}>
+                            <Link href={`/products/${item.product.slug}`}>
+                              {item.product.name}
+                            </Link>
+                            {item.variation && (
+                              <p className={styles.variationInfo}>{item.variation.name}</p>
+                            )}
+                            {sub && (
+                              <p className={styles.subscriptionInfo}>
+                                Subscribe &amp; save: ${(sub.unitPrice * item.quantity).toFixed(2)} / {everyLabel(sub.period, sub.interval)}
+                                {sub.discount > 0 ? ` (save ${sub.discount}%)` : ''}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>{item.product.price}</td>
-                    <td>
-                      <div className={styles.quantitySelector}>
+                      </td>
+                      <td>
+                        {originalUnitPrice(item) > parsePrice(item.product.price) + 0.005 && (
+                          <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
+                            ${originalUnitPrice(item).toFixed(2)}
+                          </span>
+                        )}
+                        {item.product.price}
+                      </td>
+                      <td>
+                        <div className={styles.quantitySelector}>
+                          <button
+                            className={styles.quantityBtn}
+                            onClick={() => updateQuantity(item.key, item.quantity - 1)}
+                            aria-label={item.quantity <= 1 ? 'Remove item' : 'Decrease quantity'}
+                          >
+                            −
+                          </button>
+                          <input
+                            className={styles.quantityInput}
+                            type="text"
+                            value={item.quantity}
+                            readOnly
+                            aria-label="Quantity"
+                          />
+                          <button
+                            className={styles.quantityBtn}
+                            onClick={() => updateQuantity(item.key, item.quantity + 1)}
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        {item.quantity * originalUnitPrice(item) > parsePrice(item.total) + 0.005 && (
+                          <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
+                            ${(item.quantity * originalUnitPrice(item)).toFixed(2)}
+                          </span>
+                        )}
+                        {item.total}
+                      </td>
+                      <td>
                         <button
-                          className={styles.quantityBtn}
-                          onClick={() => updateQuantity(item.key, item.quantity - 1)}
-                          aria-label={item.quantity <= 1 ? 'Remove item' : 'Decrease quantity'}
+                          className={styles.removeBtn}
+                          onClick={() => removeFromCart(item.key)}
+                          aria-label="Remove item"
                         >
-                          −
+                          &times;
                         </button>
-                        <input
-                          className={styles.quantityInput}
-                          type="text"
-                          value={item.quantity}
-                          readOnly
-                          aria-label="Quantity"
-                        />
-                        <button
-                          className={styles.quantityBtn}
-                          onClick={() => updateQuantity(item.key, item.quantity + 1)}
-                          aria-label="Increase quantity"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </td>
-                    <td>
-                      {item.subtotal && parseFloat(item.subtotal.replace(/[^0-9.]/g, '')) > parseFloat(item.total.replace(/[^0-9.]/g, '')) + 0.005 && (
-                        <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
-                          {item.subtotal}
-                        </span>
-                      )}
-                      {item.total}
-                    </td>
-                    <td>
-                      <button
-                        className={styles.removeBtn}
-                        onClick={() => removeFromCart(item.key)}
-                        aria-label="Remove item"
-                      >
-                        &times;
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -282,6 +401,14 @@ export default function CartPage() {
               <span>Subtotal</span>
               <span>{cart.subtotal}</span>
             </div>
+
+            {totalBundleDiscount > 0 && (
+              <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
+                <span>Bundle Discount</span>
+                <span>-${totalBundleDiscount.toFixed(2)}</span>
+              </div>
+            )}
+
             {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
               const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');
               if (amt <= 0) return null;

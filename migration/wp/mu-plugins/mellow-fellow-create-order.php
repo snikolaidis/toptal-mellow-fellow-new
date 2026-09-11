@@ -55,13 +55,16 @@ function mf_create_order( WP_REST_Request $request ) {
         ], 400 );
     }
 
-    $transaction_id = sanitize_text_field( $body['transactionId'] ?? '' );
-    $payment_method = sanitize_text_field( $body['paymentMethod'] ?? 'authorize_net' );
-    $coupon_codes   = $body['couponCodes'] ?? [];
-    $shipping_lines = $body['shippingLines'] ?? [];
-    $meta_data      = $body['metaData'] ?? [];
-    $customer_id    = absint( $body['customerId'] ?? 0 );
-    $realid_check_id = sanitize_text_field( $body['realIdCheckId'] ?? '' );
+    $transaction_id   = sanitize_text_field( $body['transactionId'] ?? '' );
+    $payment_method   = sanitize_text_field( $body['paymentMethod'] ?? 'authorize_net' );
+    $coupon_codes     = $body['couponCodes'] ?? [];
+    $shipping_lines   = $body['shippingLines'] ?? [];
+    $meta_data        = $body['metaData'] ?? [];
+    $customer_id      = absint( $body['customerId'] ?? 0 );
+    $realid_check_id  = sanitize_text_field( $body['realIdCheckId'] ?? '' );
+    $cart_item_totals = $body['cartItemTotals'] ?? [];
+    $cart_coupons     = $body['cartCoupons'] ?? [];
+    $bundle_discount_total = floatval( $body['bundleDiscountTotal'] ?? 0 );
 
     /**
      * Real ID (getverdict.com) identity verification is currently enforced only
@@ -94,6 +97,16 @@ function mf_create_order( WP_REST_Request $request ) {
             ], 500 );
         }
 
+        // Build a lookup of cart-computed totals keyed by product ID
+        $cart_totals_map = [];
+        foreach ( $cart_item_totals as $ct ) {
+            $pid = absint( $ct['productId'] ?? 0 );
+            if ( $pid ) {
+                $cart_totals_map[ $pid ] = $ct;
+            }
+        }
+        $has_cart_totals = ! empty( $cart_totals_map );
+
         // Add line items
         foreach ( $items as $item ) {
             $product_id   = absint( $item['productId'] ?? 0 );
@@ -106,12 +119,50 @@ function mf_create_order( WP_REST_Request $request ) {
 
             if ( ! $product ) continue;
 
-            $item_id = $order->add_product( $product, $quantity );
+            $add_args = array();
 
-            // Override price if provided (e.g. bundle discount pricing)
-            if ( isset( $item['unitPrice'] ) && is_numeric( $item['unitPrice'] ) ) {
-                wc_update_order_item_meta( $item_id, '_line_subtotal', floatval( $item['unitPrice'] ) * $quantity );
-                wc_update_order_item_meta( $item_id, '_line_total', floatval( $item['unitPrice'] ) * $quantity );
+            $ct = $cart_totals_map[ $product_id ] ?? null;
+            if ( ! $ct && $variation_id ) {
+                $ct = $cart_totals_map[ $variation_id ] ?? null;
+            }
+            if ( $ct && isset( $ct['lineSubtotal'] ) && isset( $ct['lineTotal'] ) ) {
+                $add_args['subtotal'] = floatval( $ct['lineSubtotal'] );
+                $add_args['total']    = floatval( $ct['lineTotal'] );
+            } elseif ( isset( $item['unitPrice'] ) && is_numeric( $item['unitPrice'] ) ) {
+                $unit_total = floatval( $item['unitPrice'] ) * $quantity;
+                $add_args['subtotal'] = $unit_total;
+                $add_args['total']    = $unit_total;
+            }
+
+            // Bundle Builder discounts by overwriting the product's own price,
+            // not via a coupon, so the Store API's line_subtotal already equals
+            // line_total above — the order line would render as if it were
+            // full price. regularUnitPrice (the product's true pre-discount
+            // price, from the frontend's product.regularPrice) restores the
+            // subtotal/total gap so the admin order screen shows the strike-
+            // through discount and the order's discount total is correct.
+            $regular_unit_price = isset( $item['regularUnitPrice'] ) ? floatval( $item['regularUnitPrice'] ) : 0;
+            if ( $regular_unit_price > 0 && isset( $add_args['total'] ) ) {
+                $regular_line_total = $regular_unit_price * $quantity;
+                if ( $regular_line_total > $add_args['total'] ) {
+                    $add_args['subtotal'] = $regular_line_total;
+                }
+            }
+
+            $item_id = $order->add_product( $product, $quantity, $add_args );
+
+            // Tag this line item as part of a bundle, when the frontend sent
+            // one — see CartContext's bbGroupKey/bbBundleId and
+            // checkout.tsx's items[].bundleGroupKey/bundleName. Items without
+            // a bundle name (i.e. every non-bundle product) are left exactly
+            // as before.
+            $bundle_name = sanitize_text_field( $item['bundleName'] ?? '' );
+            if ( $item_id && ! is_wp_error( $item_id ) && $bundle_name ) {
+                $order_item = $order->get_item( $item_id );
+                if ( $order_item ) {
+                    $order_item->add_meta_data( 'Bundle', $bundle_name );
+                    $order_item->save();
+                }
             }
         }
 
@@ -150,12 +201,46 @@ function mf_create_order( WP_REST_Request $request ) {
             $order->add_item( $shipping_item );
         }
 
-        // Coupons
+        // Coupons — when cart-computed totals are available, add coupons manually
+        // with their pre-calculated discount amounts. This avoids re-running coupon
+        // logic that depends on cart-session hooks (BOGO, free gifts, etc.).
+        $cart_coupons_map = [];
+        foreach ( $cart_coupons as $cc ) {
+            $cc_code = sanitize_text_field( $cc['code'] ?? '' );
+            if ( $cc_code ) {
+                $cart_coupons_map[ $cc_code ] = floatval( $cc['discount'] ?? 0 );
+            }
+        }
+
         foreach ( $coupon_codes as $code ) {
             $code = sanitize_text_field( $code );
-            if ( $code ) {
+            if ( ! $code ) continue;
+
+            if ( $has_cart_totals && isset( $cart_coupons_map[ $code ] ) ) {
+                $coupon_item = new WC_Order_Item_Coupon();
+                $coupon_item->set_code( $code );
+                $coupon_item->set_discount( $cart_coupons_map[ $code ] );
+                $coupon_item->set_discount_tax( 0 );
+                $order->add_item( $coupon_item );
+            } else {
                 $order->apply_coupon( $code );
             }
+        }
+
+        // Bundle discount — already baked into the bundled line items' totals
+        // (see bb_unit_price / cartItemTotals above), so this doesn't touch
+        // $order->set_total()/set_discount_total() below, which are derived
+        // straight from item totals either way. It's purely a visible "Coupon(s)
+        // used" line in the admin order view, the same shape a real coupon gets,
+        // and it also lets the "unattributed" gap-absorption below correctly
+        // attribute the bundle's share instead of misattributing it to a real
+        // zero-discount coupon on the same order.
+        if ( $bundle_discount_total > 0.01 ) {
+            $bundle_discount_item = new WC_Order_Item_Coupon();
+            $bundle_discount_item->set_code( 'Bundle Discount' );
+            $bundle_discount_item->set_discount( $bundle_discount_total );
+            $bundle_discount_item->set_discount_tax( 0 );
+            $order->add_item( $bundle_discount_item );
         }
 
         // Payment details
@@ -174,7 +259,47 @@ function mf_create_order( WP_REST_Request $request ) {
             }
         }
 
-        $order->calculate_totals();
+        if ( $has_cart_totals ) {
+            // When we have pre-computed cart totals, skip calculate_totals() because
+            // it runs calculate_coupons() which re-applies coupon logic without cart
+            // session context — BOGO/free-gift discounts get zeroed out and line
+            // totals are overwritten back to pre-discount values.
+            $items_total    = 0;
+            $discount_total = 0;
+            foreach ( $order->get_items() as $item ) {
+                $items_total    += floatval( $item->get_total() );
+                $discount_total += floatval( $item->get_subtotal() ) - floatval( $item->get_total() );
+            }
+
+            // BOGO/smart-coupon discounts may be embedded in line totals but report
+            // 0 on the coupon object. Attribute any gap to zero-discount coupons so
+            // the admin order view shows the correct discount value per coupon.
+            $coupon_discount_sum = 0;
+            foreach ( $order->get_items( 'coupon' ) as $ci ) {
+                $coupon_discount_sum += floatval( $ci->get_discount() );
+            }
+            $unattributed = round( $discount_total - $coupon_discount_sum, 2 );
+            if ( $unattributed > 0.01 ) {
+                foreach ( $order->get_items( 'coupon' ) as $ci ) {
+                    if ( floatval( $ci->get_discount() ) < 0.01 ) {
+                        $ci->set_discount( $unattributed );
+                        $ci->save();
+                        break;
+                    }
+                }
+            }
+
+            $shipping_total = 0;
+            foreach ( $order->get_items( 'shipping' ) as $ship ) {
+                $shipping_total += floatval( $ship->get_total() );
+            }
+            $order->set_discount_total( max( 0, $discount_total ) );
+            $order->set_shipping_total( $shipping_total );
+            $order->set_total( $items_total + $shipping_total );
+        } else {
+            $order->calculate_totals();
+        }
+
         $order->payment_complete( $transaction_id );
         $order->save();
 

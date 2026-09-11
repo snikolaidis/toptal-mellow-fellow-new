@@ -10,6 +10,8 @@ interface PrimaryNavProps {
   megaMenuTriggerRef: RefObject<HTMLButtonElement>;
   megaMenuPanel: ReactNode;
   onMegaMenuToggle: (viaKeyboard: boolean) => void;
+  onMegaMenuPointerEnter: () => void;
+  onMegaMenuPointerLeave: () => void;
   onSiblingActivate: () => void;
 }
 
@@ -20,12 +22,20 @@ export default function PrimaryNav({
   megaMenuTriggerRef,
   megaMenuPanel,
   onMegaMenuToggle,
+  onMegaMenuPointerEnter,
+  onMegaMenuPointerLeave,
   onSiblingActivate,
 }: PrimaryNavProps) {
   return (
     <div className="site-header__nav">
       <div className="site-header__nav-scroll">
-        <div className="site-header__shop">
+        {/* The panel is a child of this wrapper, so one enter/leave pair covers
+            both and moving between them needs no bridging element. */}
+        <div
+          className="site-header__shop"
+          onMouseEnter={onMegaMenuPointerEnter}
+          onMouseLeave={onMegaMenuPointerLeave}
+        >
           <button
             type="button"
             id="nav-shop"

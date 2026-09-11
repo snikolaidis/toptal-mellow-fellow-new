@@ -1,4 +1,5 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
@@ -18,6 +19,7 @@ import BlogPostsCarousel from '@/components/BlogPostsCarousel';
 import FilterPanel from '@/components/shop/filters/FilterPanel';
 import FilterSheet from '@/components/shop/filters/FilterSheet';
 import Select, { SelectOption } from '@/components/ui/Select';
+import Pagination from '@/components/ui/Pagination';
 import { Collection, Product } from '@/types/woocommerce';
 import { BlogPostCard } from '@/types/blog';
 import {
@@ -69,8 +71,7 @@ export default function CollectionsPage({
     isFiltered,
     handleFilterChange,
     handleSortChange,
-    goToNextPage,
-    goToPrevPage,
+    goToPage,
   } = useTaxonomyProducts({
     slug: collectionSlug,
     taxonomy: 'collection',
@@ -80,6 +81,10 @@ export default function CollectionsPage({
     initialHasNextPage,
     initialTotalPages,
   });
+
+  // totalPages comes from the REST payload, but keep Next reachable if a
+  // response ever under-reports it while still flagging another page.
+  const pageCount = Math.max(totalPages, page + (hasNextPage ? 1 : 0));
 
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
@@ -245,23 +250,13 @@ export default function CollectionsPage({
               )}
             </div>
 
-            {(page > 1 || hasNextPage) && (
-              <div className={styles.pagination}>
-                {page > 1 ? (
-                  <button onClick={goToPrevPage} className={styles.pageBtn} disabled={loading}>
-                    &larr; Previous
-                  </button>
-                ) : <span />}
-                <span className={styles.pageNum}>
-                  Page {page}{totalPages > 1 ? ` of ${totalPages}` : ''}
-                </span>
-                {hasNextPage ? (
-                  <button onClick={goToNextPage} className={styles.pageBtn} disabled={loading}>
-                    Next &rarr;
-                  </button>
-                ) : <span />}
-              </div>
-            )}
+            <Pagination
+              page={page}
+              totalPages={pageCount}
+              onPageChange={goToPage}
+              disabled={loading}
+              label="Collection pagination"
+            />
 
             {totalProducts === 0 && (
               <div className={styles.empty}>
@@ -335,13 +330,52 @@ export default function CollectionsPage({
   );
 }
 
+// WPGraphQL silently clamps an oversized `first` to its connection cap, so the
+// slug list is paged rather than fetched in one request.
+const SLUG_PAGE_SIZE = 100;
+const SLUG_MAX_PAGES = 20;
+
+type CollectionSlugPage = {
+  collections?: {
+    nodes?: { slug: string; count: number | null }[];
+    pageInfo?: { hasNextPage: boolean; endCursor: string | null };
+  };
+};
+
 export const getStaticPaths: GetStaticPaths = async () => {
   try {
     const client = getClient();
-    const { data } = await client.query({ query: GET_ALL_COLLECTION_SLUGS });
-    const paths = data?.collections?.nodes?.map((c: { slug: string }) => ({
-      params: { slug: c.slug },
-    })) || [];
+    const paths: { params: { slug: string } }[] = [];
+    let after: string | null = null;
+    let page = 0;
+
+    for (; page < SLUG_MAX_PAGES; page++) {
+      const variables: { first: number; after: string | null } = {
+        first: SLUG_PAGE_SIZE,
+        after,
+      };
+      const { data } = await client.query<CollectionSlugPage>({
+        query: GET_ALL_COLLECTION_SLUGS,
+        variables,
+      });
+
+      const connection: CollectionSlugPage['collections'] = data?.collections;
+      const nodes = connection?.nodes ?? [];
+
+      for (const node of nodes) {
+        if ((node.count ?? 0) > 0) paths.push({ params: { slug: node.slug } });
+      }
+
+      if (!connection?.pageInfo?.hasNextPage) break;
+      after = connection.pageInfo.endCursor;
+    }
+
+    if (page === SLUG_MAX_PAGES) {
+      console.warn(
+        `Collection slugs: stopped at the ${SLUG_MAX_PAGES} page cap, remaining collections render on demand.`
+      );
+    }
+
     return { paths, fallback: 'blocking' };
   } catch (err) {
     console.error('Failed to fetch collection slugs:', err);
@@ -349,30 +383,149 @@ export const getStaticPaths: GetStaticPaths = async () => {
   }
 };
 
+type RestResponse = { status: number; body: any };
+
+// A healthy call is well under a second. Three attempts plus backoff stay inside
+// the 25s deadline, which sits inside the 30s Atlas ceiling on a render.
+const REQUEST_TIMEOUT_MS = 8_000;
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_MS = 250;
+const RETRY_CAP_MS = 2_000;
+const FETCH_DEADLINE_MS = 25_000;
+
+class NonRetryableError extends Error {}
+
+// Every other 4xx is deterministic: retrying a rejected parameter only burns the
+// deadline and buries the message that says what is actually wrong.
+function isRetryableStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
+
+function parseRetryAfter(header: string | null): number | null {
+  if (!header) return null;
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1_000);
+  }
+
+  const at = Date.parse(header);
+  return Number.isNaN(at) ? null : Math.max(0, at - Date.now());
+}
+
+// Full jitter, so retries from concurrently rendering pages do not line up.
+function backoffWithFullJitter(attempt: number): number {
+  const ceiling = Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** (attempt - 1));
+  return Math.random() * ceiling;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// The only failure collection-meta returns (mellow-fellow-collection-meta.php:67).
+// facets and products answer 200/`success: true` even for an unknown slug.
+const isGenuineNotFound = (res: RestResponse) =>
+  res.status === 404 && res.body?.success === false;
+
+/**
+ * A PHP fatal returns an empty 200, so an unparseable body is retried whatever
+ * its status. A genuine 404 is returned instead: that answer will not change.
+ */
+async function fetchRest(label: string, url: string): Promise<RestResponse> {
+  const deadlineAt = Date.now() + FETCH_DEADLINE_MS;
+  let lastError: Error = new Error('request never attempted');
+
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    let retryAfterMs: number | null = null;
+
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      const body = await res.json().catch(() => null);
+      const parsed: RestResponse = { status: res.status, body };
+
+      if (res.status === 200 && body?.success === true) return parsed;
+      if (isGenuineNotFound(parsed)) return parsed;
+
+      if (!isRetryableStatus(res.status) && body !== null) {
+        throw new NonRetryableError(`${label} responded ${res.status}`);
+      }
+
+      retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
+      lastError = new Error(
+        body === null
+          ? `${label} returned an unparseable body (status ${res.status})`
+          : `${label} responded ${res.status}`
+      );
+    } catch (error) {
+      if (error instanceof NonRetryableError) throw error;
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+
+    if (attempt === RETRY_ATTEMPTS) break;
+
+    const waitMs = retryAfterMs ?? backoffWithFullJitter(attempt);
+
+    if (Date.now() + waitMs >= deadlineAt) {
+      throw new Error(`${lastError.message} (deadline reached after ${attempt} attempt(s))`);
+    }
+
+    console.warn(
+      `  ${label}: attempt ${attempt} of ${RETRY_ATTEMPTS} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
+    );
+    await sleep(waitMs);
+  }
+
+  throw new Error(`${lastError.message} (after ${RETRY_ATTEMPTS} attempts)`);
+}
+
+// Set before Next forks the workers that prerender pages, and never set in the
+// server runtime. Next branches on the same variable itself.
+const isBuildPhase = () => process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
+
+const BUILD_FALLTHROUGH_REVALIDATE = 10;
+
+function requireUsable(name: string, res: RestResponse, slug: string): void {
+  if (res.status === 200 && res.body?.success === true) return;
+  const body = res.body === null ? 'unparseable' : JSON.stringify(res.body).slice(0, 200);
+  throw new Error(
+    `mf/v1/${name} unusable for collection "${slug}": status ${res.status}, body ${body}`
+  );
+}
+
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   const slug = typeof params?.slug === 'string' ? params.slug : '';
 
   try {
     const wpUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
 
+    const qs = `slug=${encodeURIComponent(slug)}`;
+
     const [menuClient, metaRes, facetsRes, productsRes] = await Promise.all([
       prefetchMenus(),
-      fetch(`${wpUrl}/wp-json/mf/v1/collection-meta?slug=${encodeURIComponent(slug)}`)
-        .then((r) => r.json())
-        .catch(() => null),
-      fetch(`${wpUrl}/wp-json/mf/v1/collection-facets?slug=${encodeURIComponent(slug)}`)
-        .then((r) => r.json())
-        .catch(() => null),
-      fetch(`${wpUrl}/wp-json/mf/v1/collection-products?slug=${encodeURIComponent(slug)}&per_page=${COLLECTION_PAGE_SIZE}`)
-        .then((r) => r.json())
-        .catch(() => null),
+      fetchRest('collection-meta', `${wpUrl}/wp-json/mf/v1/collection-meta?${qs}`),
+      fetchRest('collection-facets', `${wpUrl}/wp-json/mf/v1/collection-facets?${qs}`),
+      fetchRest(
+        'collection-products',
+        `${wpUrl}/wp-json/mf/v1/collection-products?${qs}&per_page=${COLLECTION_PAGE_SIZE}`
+      ),
     ]);
 
-    if (!metaRes?.success || !metaRes?.collection) {
-      return { notFound: true };
+    if (isGenuineNotFound(metaRes)) {
+      return { notFound: true, revalidate: 600 };
     }
 
-    const raw = metaRes.collection;
+    // Throwing rather than 404ing is deliberate: ISR then keeps serving the last
+    // good copy instead of recording a 404 that outlives the outage.
+    requireUsable('collection-meta', metaRes, slug);
+    requireUsable('collection-facets', facetsRes, slug);
+    requireUsable('collection-products', productsRes, slug);
+
+    if (!metaRes.body.collection) {
+      throw new Error(`mf/v1/collection-meta returned no collection for "${slug}"`);
+    }
+
+    const raw = metaRes.body.collection;
 
     // `description` must not be added here: it is real HTML rendered with
     // dangerouslySetInnerHTML, so decoding it turns escaped markup into live
@@ -413,8 +566,8 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     };
 
     // Facets from REST endpoint (single SQL query, ~10ms)
-    const facetTerms = facetsRes?.success ? facetsRes.terms : {};
-    const totalProducts = facetsRes?.success ? facetsRes.totalProducts : 0;
+    const facetTerms = facetsRes.body.terms ?? {};
+    const totalProducts = facetsRes.body.totalProducts ?? 0;
     const filterGroupsData: FilterGroup[] = FILTER_GROUPS.map((fg) => {
       const terms = facetTerms[fg.key] || [];
       return {
@@ -424,9 +577,9 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       };
     });
 
-    const initialProducts = productsRes?.products || [];
-    const initialHasNextPage = productsRes?.hasNextPage || false;
-    const initialTotalPages = productsRes?.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / COLLECTION_PAGE_SIZE) : 0);
+    const initialProducts = productsRes.body.products ?? [];
+    const initialHasNextPage = productsRes.body.hasNextPage ?? false;
+    const initialTotalPages = productsRes.body.totalPages || (totalProducts > 0 ? Math.ceil(totalProducts / COLLECTION_PAGE_SIZE) : 0);
 
     // Related posts are matched server-side via the mu-plugin (mellow-fellow-related-posts.php)
     // and returned on the endpoint payload, not on the Collection type, so this
@@ -449,7 +602,14 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     mergeMenuState(result.props, menuClient);
     return result;
   } catch (err) {
-    console.error('Failed to fetch collection:', err);
-    return { notFound: true };
+    console.error(`Failed to build collection "${slug}":`, err);
+
+    // A throw here would fail the whole deploy, so at build time the page is
+    // left for `fallback: 'blocking'` to generate on demand instead.
+    if (isBuildPhase()) {
+      return { notFound: true, revalidate: BUILD_FALLTHROUGH_REVALIDATE };
+    }
+
+    throw err;
   }
 };

@@ -1,0 +1,3 @@
+# codegen writes LF. Without this a Windows checkout rewrites all 141k lines to
+# CRLF and the nightly drift check reports a diff that is not one.
+schema.graphql text eol=lf

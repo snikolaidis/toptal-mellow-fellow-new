@@ -242,6 +242,45 @@ export function useTaxonomyProducts({
     fetchPage(activeFilters, selectedSort, prevPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [page, loading, activeFilters, selectedSort, fetchPage, initialProducts, initialHasNextPage, initialTotalPages]);
+  
+  // Numbered pagination jumps to arbitrary pages, so this takes the target
+  // directly rather than stepping from the current page.
+  const goToPage = useCallback(
+    (target: number) => {
+      if (loading || target === page || target < 1) return;
+
+      // Page one unfiltered is the payload getStaticProps already delivered, so
+      // returning to it costs nothing. Refetching it was always wasted.
+      if (
+        target === 1 &&
+        Object.keys(activeFilters).length === 0 &&
+        selectedSort === 'default'
+      ) {
+        setPage(1);
+        setProducts(initialProducts);
+        setHasNextPage(initialHasNextPage);
+        setCurrentTotalPages(initialTotalPages);
+        setFilteredTotal(null);
+        usingInitialData.current = true;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      setPage(target);
+      fetchPage(activeFilters, selectedSort, target);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    [
+      page,
+      loading,
+      activeFilters,
+      selectedSort,
+      fetchPage,
+      initialProducts,
+      initialHasNextPage,
+      initialTotalPages,
+    ]
+  );
 
   const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
   const currentSort = SORT_OPTIONS.find((o) => o.value === selectedSort) || SORT_OPTIONS[0];
@@ -262,5 +301,6 @@ export function useTaxonomyProducts({
     handleSortChange,
     goToNextPage,
     goToPrevPage,
+    goToPage,
   };
 }

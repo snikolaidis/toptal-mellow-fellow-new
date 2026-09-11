@@ -1,7 +1,8 @@
-import { Product, ProductTaxonomyTerm } from '@/types/woocommerce';
+import { Product, ProductTaxonomies, ProductTaxonomyTerm } from '@/types/woocommerce';
 
 interface Props {
   product: Product;
+  taxonomies?: ProductTaxonomies | null;
 }
 
 interface IconItem {
@@ -20,18 +21,18 @@ function toIconItems(nodes: ProductTaxonomyTerm[] | undefined): IconItem[] {
     .filter((term): term is IconItem => !!term.iconUrl);
 }
 
-type BestForTaxonomy = 'vibe' | 'feeling' | 'setting';
+type BestForTaxonomy = 'vibe' | 'effect' | 'setting';
 
-export default function FlavorsBox({ product }: Props) {
+export default function FlavorsBox({ product, taxonomies }: Props) {
 
   const strainName = product?.strainNames?.nodes?.[0]?.name;
 
-  const flavorIcons = toIconItems(product?.flavors?.nodes);
+  const flavorIcons = toIconItems(taxonomies?.flavors?.nodes);
 
   const bestForItems: Array<IconItem & { taxonomy: BestForTaxonomy }> = [
-    ...toIconItems(product?.vibes?.nodes).map((item) => ({ ...item, taxonomy: 'vibe' as const })),
-    ...toIconItems(product?.feelings?.nodes).map((item) => ({ ...item, taxonomy: 'feeling' as const })),
-    ...toIconItems(product?.settings?.nodes).map((item) => ({ ...item, taxonomy: 'setting' as const })),
+    ...toIconItems(taxonomies?.vibes?.nodes).map((item) => ({ ...item, taxonomy: 'vibe' as const })),
+    ...toIconItems(taxonomies?.effects?.nodes).map((item) => ({ ...item, taxonomy: 'effect' as const })),
+    ...toIconItems(taxonomies?.settings?.nodes).map((item) => ({ ...item, taxonomy: 'setting' as const })),
   ];
 
   return (

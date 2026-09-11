@@ -113,7 +113,6 @@ export async function validateSession(sessionId: string): Promise<boolean> {
   if (!sessionId) return true; // Legacy JWTs without sid — honor during transition
   const storage = await getStorage();
   const session = await storage.getAuthSessionById(sessionId);
-  console.log("Validating session:", sessionId, session);
   if (!session) return false;
   return !session.revoked && session.expiresAt > Date.now();
 }

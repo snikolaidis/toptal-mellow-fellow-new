@@ -38,6 +38,10 @@ function mf_acu_password()      { return mf_acu_config( 'PASSWORD' ); }
 function mf_acu_company()       { return mf_acu_config( 'COMPANY' ); }
 function mf_acu_branch()        { return mf_acu_config( 'BRANCH', 'MF' ); }
 function mf_acu_order_type()    { return mf_acu_config( 'ORDER_TYPE', 'MF' ); }
+// Contract-based REST endpoint base. Custom "MellowFellow" endpoint (extended
+// from Default/24.200.001) exposes SalesOrder FreightPrice/OverrideFreightPrice,
+// which Default does not — required for shipping to land on the order total.
+function mf_acu_endpoint()      { return '/entity/' . mf_acu_config( 'ENDPOINT', 'MellowFellow/24.200.001' ); }
 function mf_acu_sync_secret()   { return mf_acu_config( 'SYNC_SECRET' ); }
 
 /* ── environment guard ───────────────────────────────────────────── */
@@ -290,7 +294,14 @@ function mf_acu_rest_request( $method, $endpoint, $session, $body = null ) {
 
     if ( $code >= 400 ) {
         $json = json_decode( $raw, true );
-        $msg  = isset( $json['exceptionMessage'] ) ? $json['exceptionMessage'] : substr( $raw, 0, 300 );
+        $msg  = isset( $json['exceptionMessage'] ) ? $json['exceptionMessage'] : '';
+
+        if ( ! $msg && isset( $json['error'] ) ) {
+            $msg = $json['error'];
+        }
+        if ( ! $msg ) {
+            $msg = substr( $raw, 0, 300 );
+        }
 
         $inner = '';
         if ( isset( $json['innerException']['exceptionMessage'] ) ) {
@@ -300,10 +311,43 @@ function mf_acu_rest_request( $method, $endpoint, $session, $body = null ) {
             $inner .= ' → ' . $json['innerException']['innerException']['exceptionMessage'];
         }
 
+        $field_errors = array();
+        if ( is_array( $json ) ) {
+            foreach ( $json as $field => $val ) {
+                if ( is_array( $val ) && isset( $val['error'] ) ) {
+                    $field_errors[] = $field . ': ' . $val['error'];
+                }
+            }
+        }
+
+        // Line-level errors: Acumatica attaches errors to individual Details
+        // rows (e.g. "UOM: Unit conversion is missing" on one line). Surface
+        // them with the line's InventoryID so failures name the product
+        // instead of only the top-level summary.
+        if ( isset( $json['Details'] ) && is_array( $json['Details'] ) ) {
+            foreach ( $json['Details'] as $idx => $line ) {
+                if ( ! is_array( $line ) ) continue;
+                $line_errs = array();
+                if ( ! empty( $line['error'] ) && is_string( $line['error'] ) ) {
+                    $line_errs[] = $line['error'];
+                }
+                foreach ( $line as $f => $v ) {
+                    if ( is_array( $v ) && isset( $v['error'] ) ) {
+                        $line_errs[] = $f . ': ' . $v['error'];
+                    }
+                }
+                if ( $line_errs ) {
+                    $inv = isset( $line['InventoryID']['value'] ) ? $line['InventoryID']['value'] : 'row ' . ( $idx + 1 );
+                    $field_errors[] = 'Line ' . $inv . ' — ' . implode( '; ', array_unique( $line_errs ) );
+                }
+            }
+        }
+
         $full_msg = 'HTTP ' . $code . ': ' . $msg;
         if ( $inner ) $full_msg .= ' [Inner: ' . $inner . ']';
+        if ( $field_errors ) $full_msg .= ' [Fields: ' . implode( '; ', $field_errors ) . ']';
 
-        mf_acu_log( $full_msg . ' | Endpoint: ' . $endpoint . ' | Response: ' . substr( $raw, 0, 1000 ), 'api' );
+        mf_acu_log( $full_msg . ' | Endpoint: ' . $endpoint . ' | Response: ' . substr( $raw, 0, 2000 ), 'api' );
 
         return new WP_Error( 'mf_acu_api_error', $full_msg, array( 'status' => $code, 'body' => $raw ) );
     }
@@ -381,7 +425,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $order_type = mf_acu_order_type();
     $ot_check = mf_acu_rest_get(
-        '/entity/Default/24.200.001/SalesOrder?' . http_build_query( array( '$filter' => "OrderType eq '$order_type'", '$top' => 1, '$select' => 'OrderType,OrderNbr' ) ),
+        mf_acu_endpoint() . '/SalesOrder?' . http_build_query( array( '$filter' => "OrderType eq '$order_type'", '$top' => 1, '$select' => 'OrderType,OrderNbr' ) ),
         $session
     );
     if ( is_wp_error( $ot_check ) ) {
@@ -392,7 +436,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $branch = mf_acu_branch();
     $br_check = mf_acu_rest_get(
-        '/entity/Default/24.200.001/SalesOrder?' . http_build_query( array( '$filter' => "Branch eq '$branch'", '$top' => 1, '$select' => 'Branch' ) ),
+        mf_acu_endpoint() . '/SalesOrder?' . http_build_query( array( '$filter' => "Branch eq '$branch'", '$top' => 1, '$select' => 'Branch' ) ),
         $session
     );
     if ( is_wp_error( $br_check ) ) {
@@ -405,7 +449,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
 
     $cc = mf_acu_config( 'CUSTOMER_CLASS', 'MFF' );
     $cc_check = mf_acu_rest_get(
-        '/entity/Default/24.200.001/Customer?' . http_build_query( array( '$filter' => "CustomerClass eq '$cc'", '$top' => 1, '$select' => 'CustomerClass' ) ),
+        mf_acu_endpoint() . '/Customer?' . http_build_query( array( '$filter' => "CustomerClass eq '$cc'", '$top' => 1, '$select' => 'CustomerClass' ) ),
         $session
     );
     if ( is_wp_error( $cc_check ) ) {
@@ -433,7 +477,7 @@ add_action( 'admin_post_mf_acu_run_diagnostics', function() {
             foreach ( $skus as $sku ) {
                 $escaped = str_replace( "'", "''", $sku );
                 $inv = mf_acu_rest_get(
-                    '/entity/Default/24.200.001/StockItem?' . http_build_query( array( '$filter' => "InventoryID eq '$escaped'", '$top' => 1, '$select' => 'InventoryID' ) ),
+                    mf_acu_endpoint() . '/StockItem?' . http_build_query( array( '$filter' => "InventoryID eq '$escaped'", '$top' => 1, '$select' => 'InventoryID' ) ),
                     $session
                 );
                 if ( is_wp_error( $inv ) || ( is_array( $inv ) && empty( $inv ) ) ) {
@@ -582,9 +626,9 @@ function mf_acu_render_admin_page() {
                     'BRANCH'         => array( 'label' => 'Branch',         'placeholder' => 'MF' ),
                     'ORDER_TYPE'     => array( 'label' => 'Order Type',     'placeholder' => 'MF' ),
                     'CUSTOMER_CLASS' => array( 'label' => 'Customer Class',  'placeholder' => 'MFF' ),
-                    'PAYMENT_METHOD' => array( 'label' => 'Payment Method', 'placeholder' => 'CREDITCARD' ),
-                    'CASH_ACCOUNT'   => array( 'label' => 'Cash Account',   'placeholder' => '1092' ),
-                    'SYNC_SECRET'    => array( 'label' => 'Sync Secret',    'placeholder' => 'Random 32+ char string', 'type' => 'password' ),
+                    'PAYMENT_METHOD' => array( 'label' => 'Payment Method', 'placeholder' => 'CCECOMM' ),
+                    'CASH_ACCOUNT'       => array( 'label' => 'Cash Account',       'placeholder' => '1097' ),
+                    'SYNC_SECRET'       => array( 'label' => 'Sync Secret',       'placeholder' => 'Random 32+ char string', 'type' => 'password' ),
                 );
 
                 foreach ( $fields as $key => $meta ) :
@@ -654,11 +698,11 @@ function mf_acu_render_admin_page() {
                 </tr>
                 <tr>
                     <th>Payment Method</th>
-                    <td><?php echo esc_html( mf_acu_config( 'PAYMENT_METHOD', 'CREDITCARD' ) ); ?></td>
+                    <td><?php echo esc_html( mf_acu_config( 'PAYMENT_METHOD', 'CCECOMM' ) ); ?></td>
                 </tr>
                 <tr>
                     <th>Cash Account</th>
-                    <td><?php echo esc_html( mf_acu_config( 'CASH_ACCOUNT', '1092' ) ); ?></td>
+                    <td><?php echo esc_html( mf_acu_config( 'CASH_ACCOUNT', '1097' ) ); ?></td>
                 </tr>
                 <tr>
                     <th>Sync Secret</th>

@@ -7,8 +7,12 @@ import React, { useState, useEffect } from 'react';
 import { GET_PRODUCT_BY_DATABASE_ID } from '@/graphql/queries/products';
 import Layout from '@/components/Layout';
 import FrequentlyBoughtTogether from '@/components/pdp/FrequentlyBoughtTogether';
-import ProductFaqs from '@/components/pdp/ProductFaqs';
 import ProductDescription from '@/components/pdp/ProductDescription';
+import ProductReviews from '@/components/pdp/ProductReviews';
+import ShippingReturns from '@/components/pdp/ShippingReturns';
+import FreeShippingTracker from '@/components/pdp/FreeShippingTracker';
+import ProductRating from '@/components/pdp/ProductRating';
+import type { KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
 import Nutrition from '@/components/pdp/Nutrition';
 import FlavorsBox from '@/components/pdp/FlavorsBox';
@@ -17,7 +21,7 @@ import Breadcrumb from '@/components/Breadcrumb';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
-import { Product, ProductNutrition } from '@/types/woocommerce';
+import { CannabinoidServing, Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Thumbs, Pagination, FreeMode, Mousewheel } from 'swiper/modules';
 
@@ -28,7 +32,6 @@ import 'swiper/css/free-mode';
 import 'swiper/css/thumbs';
 
 const YouMayAlsoLike = dynamic(() => import('@/components/pdp/YouMayAlsoLike'), { ssr: false });
-const RecentlyViewed = dynamic(() => import('@/components/pdp/RecentlyViewed'), { ssr: false });
 
 const RAW_SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
 const SITE_URL = RAW_SITE_URL && !/^https?:\/\//i.test(RAW_SITE_URL) ? `https://${RAW_SITE_URL}` : RAW_SITE_URL;
@@ -36,6 +39,12 @@ const SITE_URL = RAW_SITE_URL && !/^https?:\/\//i.test(RAW_SITE_URL) ? `https://
 /** Core product data, resolved from WPGraphQL via `SingleProduct.query`. */
 interface SingleProductData {
   product: Product | null;
+}
+
+export interface FixedBundleItemEntry {
+  productId: number;
+  quantity: number;
+  product?: Product;
 }
 
 /**
@@ -51,6 +60,13 @@ export interface SingleProductExtras {
   availableOptionsBase: string;
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
+  cannabinoids: CannabinoidServing[];
+  taxonomies: ProductTaxonomies;
+  reviewData: KlaviyoReviewsResult;
+  // Fixed bundles' admin-picked items (bbFixedItems), pre-resolved into full
+  // product records server-side so "What's included" renders immediately
+  // instead of waiting on a client-side follow-up fetch.
+  fixedBundleItems: FixedBundleItemEntry[];
 }
 
 type SingleProductProps = FaustTemplateProps<SingleProductData, SingleProductExtras>;
@@ -68,14 +84,18 @@ const SingleProduct: React.FC<SingleProductProps> & {
   collectionSlug = null,
   availableOptions = [],
   availableOptionsBase = '',
-  bundleSlug = null,
   nutrition = null,
+  cannabinoids = [],
+  taxonomies = {},
+  reviewData = null,
+  fixedBundleItems: initialFixedBundleItems = [],
 }) => {
   const product = data?.product as Product | undefined;
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [bundleAddError, setBundleAddError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [subSchemes, setSubSchemes] = useState<
     Array<{ period: string; interval: number; price: string; discount: number }>
@@ -83,7 +103,8 @@ const SingleProduct: React.FC<SingleProductProps> & {
   const [subscribe, setSubscribe] = useState(false);
   const [subChoice, setSubChoice] = useState<{ period: string; interval: number } | null>(null);
   const [showSubInfo, setShowSubInfo] = useState(false);
-  const { addToCart } = useCart();
+  const { addToCart, addFixedBundleToCart } = useCart();
+  const [fixedBundleItems, setFixedBundleItems] = useState<FixedBundleItemEntry[]>(initialFixedBundleItems);
 
    // Store the thumbs swiper instance to connect it to the main slider
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
@@ -101,6 +122,11 @@ const SingleProduct: React.FC<SingleProductProps> & {
         ? { sourceUrl: product.image.sourceUrl, altText: product.image.altText || product.name }
         : undefined,
       typeLabel: product.mfproductTypes?.nodes?.[0]?.name,
+      bbBundleMode: product.bbBundleMode,
+      bbFixedPrice: product.bbFixedPrice,
+      bbFixedOriginalPrice: product.bbFixedOriginalPrice,
+      bbFromPrice: product.bbFromPrice,
+      bbShowPrice: product.bbShowPrice,
     });
   }, [product?.slug]);
 
@@ -144,9 +170,62 @@ const SingleProduct: React.FC<SingleProductProps> & {
     };
   }, [product?.databaseId]);
 
+  // Fixed bundles have no picker — resolve the admin-picked bbFixedItems
+  // (productId + quantity only) into full product records for display.
+  // `initialFixedBundleItems` (server-resolved in getStaticProps) already
+  // covers the common case — skip the client round trip whenever it already
+  // matches this product's items, so "What's included" doesn't pop in late.
+  useEffect(() => {
+    const items = product?.bbFixedItems;
+    if (product?.bbBundleMode !== 'fixed' || !items || items.length === 0) {
+      setFixedBundleItems([]);
+      return;
+    }
+    const hasServerData =
+      initialFixedBundleItems.length === items.length &&
+      initialFixedBundleItems.every((entry) => items.some((i) => i.productId === entry.productId));
+    if (hasServerData) {
+      setFixedBundleItems(initialFixedBundleItems);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const ids = items.map((i) => i.productId);
+        const res = await fetch('/api/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            query: `query GetFixedBundleItems($ids: [Int]!) {
+              products(first: 100, where: { include: $ids }) {
+                nodes {
+                  __typename
+                  ... on SimpleProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
+                  ... on VariableProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
+                }
+              }
+            }`,
+            variables: { ids },
+          }),
+        });
+        const json = await res.json();
+        const nodes: Product[] = json?.data?.products?.nodes || [];
+        if (cancelled) return;
+        const byId = new Map(nodes.map((p) => [p.databaseId, p]));
+        setFixedBundleItems(items.map((item) => ({ ...item, product: byId.get(item.productId) })));
+      } catch {
+        if (!cancelled) setFixedBundleItems(items.map((item) => ({ ...item })));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.databaseId, product?.bbBundleMode, initialFixedBundleItems]);
+
   // Reset state when product changes
   useEffect(() => {
-    setQuantity(1);
+    setQuantity(product?.bbBundleMode === 'fixed' ? product?.bbFixedQtyMin || 1 : 1);
     setSelectedVariation(null);
     setAddedToCart(false);
   }, [product?.id]);
@@ -220,6 +299,28 @@ const SingleProduct: React.FC<SingleProductProps> & {
     }
   };
 
+  const handleFixedBundleAddToCart = async () => {
+    setIsAdding(true);
+    setBundleAddError(null);
+    try {
+      await addFixedBundleToCart(product.databaseId, quantity, product.name, product.image);
+      klaviyoTrack('Added to Cart', {
+        ProductName: product.name,
+        ProductID: product.databaseId,
+        SKU: product.sku,
+        Quantity: quantity,
+        Price: product.bbFixedPrice,
+        Categories: product.productCategories?.nodes?.map((c) => c.name) ?? [],
+      });
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 2500);
+    } catch (err) {
+      setBundleAddError(err instanceof Error ? err.message : 'Could not add this bundle to your cart.');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const primaryImage = product.image?.sourceUrl || '/placeholder-product.png';
   const galleryImages = product.galleryImages?.nodes || [];
   const allImages = [
@@ -229,10 +330,26 @@ const SingleProduct: React.FC<SingleProductProps> & {
 
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
   const hasVariations = product.variations?.nodes && product.variations.nodes.length > 0;
-  // Bundle Builder entry-point product — no fixed price, can't be added to
-  // cart directly; "Create Bundle" routes into the actual bundle picker.
-  const isBundle = product.bbLinkedBundleId != null;
+  // Bundle Builder entry-point product. "byob" has no fixed price and can't
+  // be added to cart directly — "Create Bundle" routes into the picker page.
+  // "fixed" is a normal add-to-cart with a flat price and a read-only,
+  // admin-picked set of items (fixedBundleItems, resolved above).
+  const isByobBundle = product.bbBundleMode === 'byob';
+  const isFixedBundle = product.bbBundleMode === 'fixed';
+  const isBundle = isByobBundle || isFixedBundle;
   const categories = product.productCategories?.nodes || [];
+
+  // Original (undiscounted) price for one fixed-bundle set — prefer the
+  // server-computed bbFixedOriginalPrice; fall back to summing the resolved
+  // items' own regular prices if that field isn't populated. Shown struck
+  // through next to bbFixedPrice whenever it's actually a discount off that.
+  const fixedItemsOriginalSum = fixedBundleItems.reduce((sum, item) => {
+    const unit = parseFloat(
+      (item.product?.regularPrice || item.product?.price || '0').replace(/[^0-9.]/g, '')
+    ) || 0;
+    return sum + unit * item.quantity;
+  }, 0);
+  const fixedOriginalPricePerSet = product.bbFixedOriginalPrice ?? fixedItemsOriginalSum;
 
   // Get selected variation details
   const selectedVariationData = selectedVariation
@@ -291,7 +408,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
       <div className="container">
         <Breadcrumb product={product} />
 
-        <div className="columns is-8-desktop">
+        <div className="columns is-8-desktop product-layout">
           <div className="column">
             <div className="gallery">
               <Swiper
@@ -341,6 +458,331 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 </Swiper>
               </div>
             </div>
+            
+            <div className="purchase-block">
+              {isInStock && subSchemes.length > 0 && (() => {
+                const sel =
+                  (subChoice &&
+                    subSchemes.find(
+                      (s) => s.period === subChoice.period && s.interval === subChoice.interval
+                    )) ||
+                  subSchemes[0];
+                const discount = Math.round(sel.discount);
+                return (
+                  <>
+                  <div className="purchase-options">
+                    <button
+                      type="button"
+                      className={`purchase-option ${subscribe ? 'purchase-option-active' : ''}`}
+                      onClick={() => setSubscribe(true)}
+                      aria-pressed={subscribe}
+                    >
+                      <span className="purchase-top">
+                        <span className="purchase-radio" data-checked={subscribe} aria-hidden="true" />
+                        <span className="purchase-name">Subscribe &amp; save</span>
+                        <button
+                          type="button"
+                          className="purchase-info"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSubInfo(true);
+                          }}
+                          aria-label="Why subscribe?"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" />
+                            <path strokeLinecap="round" d="M12 11.5v4.5" />
+                            <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+                          </svg>
+                        </button>
+                        {discount > 0 && (
+                          <span className="purchase-badge">Save up to {discount}%</span>
+                        )}
+                        <span className="purchase-pricing">
+                          <span className="purchase-was">{product.price}</span>
+                          <span className="purchase-now">${sel.price}</span>
+                        </span>
+                      </span>
+                      {subscribe && (
+                        <span className="purchase-detail">
+                          <span className="purchase-benefits">
+                            {discount > 0 && (
+                              <span className="purchase-benefit">
+                                <svg className="purchase-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                  <circle cx="12" cy="12" r="9" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
+                                </svg>
+                                Save {discount}%
+                              </span>
+                            )}
+                            <span className="purchase-benefit">
+                              <svg className="purchase-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
+                              </svg>
+                              No commitment. Cancel anytime
+                            </span>
+                          </span>
+                          <span className="purchase-deliver">
+                            <span className="purchase-deliver-label">Deliver every:</span>
+                            <span className="purchase-freqs">
+                              {subSchemes.map((s) => {
+                                const active = sel.period === s.period && sel.interval === s.interval;
+                                return (
+                                  <button
+                                    key={`${s.period}:${s.interval}`}
+                                    type="button"
+                                    className={`purchase-freq ${active ? 'purchase-freq-active' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSubChoice({ period: s.period, interval: s.interval });
+                                    }}
+                                    aria-pressed={active}
+                                  >
+                                    <span className="purchase-freq-label">{formatEvery(s.period, s.interval)}</span>
+                                    {s.discount > 0 && (
+                                      <span className="purchase-freq-save">save {Math.round(s.discount)}%</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </span>
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className={`purchase-option ${!subscribe ? 'purchase-option-active' : ''}`}
+                      onClick={() => setSubscribe(false)}
+                      aria-pressed={!subscribe}
+                    >
+                      <span className="purchase-top">
+                        <span className="purchase-radio" data-checked={!subscribe} aria-hidden="true" />
+                        <span className="purchase-name">One-time</span>
+                        <span className="purchase-pricing">
+                          <span className="purchase-now">{product.price}</span>
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                  {showSubInfo && (
+                    <div
+                      className="sub-info-overlay"
+                      role="dialog"
+                      aria-modal="true"
+                      onClick={() => setShowSubInfo(false)}
+                    >
+                      <div className="sub-info-modal" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="sub-info-close"
+                          onClick={() => setShowSubInfo(false)}
+                          aria-label="Close"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                          </svg>
+                        </button>
+                        <h3 className="sub-info-title">Great reasons to subscribe</h3>
+                        <ul className="sub-info-list">
+                          <li className="sub-info-item">
+                            <span className="sub-info-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                                <rect x="4" y="5" width="16" height="16" rx="2" />
+                                <path strokeLinecap="round" d="M4 9.5h16M8.5 3v4M15.5 3v4" />
+                              </svg>
+                            </span>
+                            <span className="sub-info-text">
+                              <strong>Flexible frequency</strong>
+                              {' Not sure how much of something you need, or how often? Adjust quantities and frequencies any time.'}
+                            </span>
+                          </li>
+                          <li className="sub-info-item">
+                            <span className="sub-info-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M18 8.5a6 6 0 10-12 0c0 6.5-2.5 8.5-2.5 8.5h17S18 15 18 8.5" />
+                                <path strokeLinecap="round" d="M13.6 20.5a1.9 1.9 0 01-3.2 0" />
+                              </svg>
+                            </span>
+                            <span className="sub-info-text">
+                              <strong>Order reminders</strong>
+                              {" We'll let you know before each shipment. Delay, reschedule or cancel if you need to, we'll only bill you when your order ships."}
+                            </span>
+                          </li>
+                          <li className="sub-info-item">
+                            <span className="sub-info-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.5h9" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2 2 0 012.9 2.9L7.5 18.7 3.5 20l1.3-4z" />
+                              </svg>
+                            </span>
+                            <span className="sub-info-text">
+                              <strong>You&apos;re in control</strong>
+                              {' Add or remove subscriptions, cancel orders, and edit frequencies and quantities through our user-friendly customer portal.'}
+                            </span>
+                          </li>
+                        </ul>
+                        <button
+                          type="button"
+                          className="sub-info-btn"
+                          onClick={() => setShowSubInfo(false)}
+                        >
+                          Got it
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  </>
+                );
+              })()}
+
+              {/* Add to Cart Section */}
+              {isInStock ? (
+                isByobBundle ? (
+                  <div className="add-to-cart-section">
+                    {/* byob bundles are priced/added via the bundle builder,
+                        not a direct add-to-cart — this routes into that flow.
+                        Same slug as this product, just under /bundle/. */}
+                    <Link
+                      href={`/bundle/${product.slug}`}
+                      className="button is-black is-fullwidth"
+                    >
+                      Create Bundle
+                    </Link>
+                  </div>
+                ) : isFixedBundle ? (
+                  <>
+                  <div className="add-to-cart-section">
+                    {/* Fixed bundle: the item set is already decided, so this
+                        is just a normal add-to-cart with a bounded quantity
+                        (number of bundle sets, not individual items). */}
+                    <div className="quantity-selector">
+                      <label>Quantity</label>
+                      <button
+                        onClick={() => {
+                          setBundleAddError(null);
+                          setQuantity(Math.max(product.bbFixedQtyMin || 1, quantity - 1));
+                        }}
+                        className="quantity-btn decrease"
+                        aria-label="Decrease quantity"
+                        disabled={quantity <= (product.bbFixedQtyMin || 1)}
+                      >
+                        −
+                      </button>
+                      <span className="quantity-value">{quantity}</span>
+                      <button
+                        onClick={() => {
+                          setBundleAddError(null);
+                          setQuantity(
+                            product.bbFixedQtyMax != null
+                              ? Math.min(product.bbFixedQtyMax, quantity + 1)
+                              : quantity + 1
+                          );
+                        }}
+                        className="quantity-btn increase"
+                        aria-label="Increase quantity"
+                        disabled={product.bbFixedQtyMax != null && quantity >= product.bbFixedQtyMax}
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <button
+                      className={`add-to-cart button is-fullwidth ${isAdding ? 'loading' : ''}`}
+                      onClick={handleFixedBundleAddToCart}
+                      disabled={isAdding}
+                    >
+                      {isAdding ? (
+                        <span className="btn-content">
+                          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Adding...
+                        </span>
+                      ) : addedToCart ? (
+                        <span className="btn-content">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Added to Cart!
+                        </span>
+                      ) : (
+                        'Add to Cart'
+                      )}
+                    </button>
+                  </div>
+                  {bundleAddError && (
+                    <div className="bundle-add-error" role="alert">
+                      {bundleAddError}
+                    </div>
+                  )}
+                  </>
+                ) : (
+                <div className="add-to-cart-section">
+                  {/* Quantity Selector */}
+                  <div className="quantity-selector">
+                    <label>
+                      Quantity
+                    </label>
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="quantity-btn decrease"
+                      aria-label="Decrease quantity"
+                      disabled={quantity <= 1}
+                    >
+                      −
+                    </button>
+                    <span className="quantity-value">{quantity}</span>
+                    <button
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="quantity-btn increase"
+                      aria-label="Increase quantity"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {/* Add to Cart Button */}
+                  <button
+                    className={`add-to-cart button is-fullwidth ${isAdding ? 'loading' : ''}`}
+                    onClick={handleAddToCart}
+                    disabled={isAdding || (hasVariations && !selectedVariation)}
+                  >
+                    {isAdding ? (
+                      <span className="btn-content">
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Adding...
+                      </span>
+                    ) : addedToCart ? (
+                      <span className="btn-content">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Added to Cart!
+                      </span>
+                    ) : (
+                      'Add to Cart'
+                    )}
+                  </button>
+                </div>
+                )
+              ) : (
+                <div className="sold-out">
+                  <span>Currently Unavailable</span>
+                  <p>This item is out of stock. Check back soon!</p>
+                </div>
+              )}
+
+              <p className="shipping-note">
+                <a href="/shipping-policy">Shipping</a> calculated at checkout.
+              </p>
+
+              <ShippingReturns />
+            </div>
           </div>
 
           <div className="column">
@@ -348,18 +790,32 @@ const SingleProduct: React.FC<SingleProductProps> & {
               {product.name}
             </h1>
 
-            {mounted && product.shopifyId && (
-              <div
-                className="klaviyo-star-rating-widget"
-                data-id={product.shopifyId}
-                data-product-title={product.name}
-              />
-            )}
+            <ProductRating
+              average={reviewData?.summary?.average ?? 0}
+              total={reviewData?.summary?.total ?? 0}
+            />
 
-            {/* Price — bundles have no fixed price, they're priced by selection,
-                so show a "starting from" price instead */}
-            {isBundle ? (
-              product.bbFromPrice != null && (
+            <div className="divider is-hidden is-block-tablet"></div>
+
+            {/* Price — byob bundles have no fixed price (they're priced by
+                selection) so show a "starting from" price; fixed bundles
+                have one flat price for the whole set, scaled by quantity
+                like a normal product. */}
+            {isFixedBundle ? (
+              product.bbFixedPrice != null && (
+                <div className="price">
+                  {fixedOriginalPricePerSet > product.bbFixedPrice + 0.005 ? (
+                    <>
+                      <span className="sale-price">${(product.bbFixedPrice * quantity).toFixed(2)}</span>
+                      <span className="regular-price">${(fixedOriginalPricePerSet * quantity).toFixed(2)}</span>
+                    </>
+                  ) : (
+                    <span>${(product.bbFixedPrice * quantity).toFixed(2)}</span>
+                  )}
+                </div>
+              )
+            ) : isByobBundle ? (
+              product.bbShowPrice && product.bbFromPrice != null && (
                 <div className="price">
                   <span>From ${product.bbFromPrice.toFixed(2)}</span>
                 </div>
@@ -376,6 +832,10 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 )}
               </div>
             )}
+            
+            <FreeShippingTracker />
+
+            <div className="divider is-hidden is-block-tablet"></div>
 
             <AvailableOptions
               options={availableOptions}
@@ -383,11 +843,39 @@ const SingleProduct: React.FC<SingleProductProps> & {
               baseName={availableOptionsBase}
             />
 
+            <div className="divider is-hidden is-block-tablet"></div>
+
+            {/* Fixed bundle contents — read-only, the admin already picked
+                these; there's nothing for the shopper to select. */}
+            {isFixedBundle && fixedBundleItems.length > 0 && (
+              <div className="fixed-bundle-items">
+                <span className="fixed-bundle-items-label">What&apos;s included</span>
+                <ul className="fixed-bundle-items-list">
+                  {fixedBundleItems.map(({ productId, quantity: itemQty, product: itemProduct }) => (
+                    <li key={productId} className="fixed-bundle-item">
+                      <div className="fixed-bundle-item-image">
+                        {itemProduct?.image?.sourceUrl && (
+                          <img
+                            src={itemProduct.image.sourceUrl}
+                            alt={itemProduct.image.altText || itemProduct.name}
+                          />
+                        )}
+                      </div>
+                      <span className="fixed-bundle-item-name">
+                        {itemProduct?.name || `Product #${productId}`}
+                      </span>
+                      <span className="fixed-bundle-item-qty">×{itemQty}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Stock Status */}
-            <div className={`stock ${isInStock ? 'in-stock' : 'out-of-stock'}`}>
+            {/* <div className={`stock ${isInStock ? 'in-stock' : 'out-of-stock'}`}>
               <span className="stock-dot" />
               {isInStock ? 'In Stock' : 'Out of Stock'}
-            </div>
+            </div> */}
 
             {/* Short Description */}
             {product.shortDescription && (
@@ -425,260 +913,14 @@ const SingleProduct: React.FC<SingleProductProps> & {
               </div>
             )}
 
-            {/* Add to Cart Section */}
-            {isInStock ? (
-              isBundle ? (
-                <div className="add-to-cart-section">
-                  {/* Bundles are priced/added via the bundle builder, not a
-                      direct add-to-cart — this routes into that flow. */}
-                  <Link
-                    href={bundleSlug ? `/bundle/${bundleSlug}` : '#'}
-                    className="button is-black is-fullwidth"
-                  >
-                    Create Bundle
-                  </Link>
-                </div>
-              ) : (
-              <div className="add-to-cart-section">
-                {/* Quantity Selector */}
-                <div className="quantity-selector">
-                  <label>
-                    Quantity
-                  </label>
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="quantity-btn decrease"
-                    aria-label="Decrease quantity"
-                    disabled={quantity <= 1}
-                  >
-                    −
-                  </button>
-                  <span className="quantity-value">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="quantity-btn increase"
-                    aria-label="Increase quantity"
-                  >
-                    +
-                  </button>
-                </div>
 
-                {/* Add to Cart Button */}
-                <button
-                  className={`add-to-cart button is-fullwidth ${isAdding ? 'loading' : ''}`}
-                  onClick={handleAddToCart}
-                  disabled={isAdding || (hasVariations && !selectedVariation)}
-                >
-                  {isAdding ? (
-                    <span className="btn-content">
-                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Adding...
-                    </span>
-                  ) : addedToCart ? (
-                    <span className="btn-content">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Added to Cart!
-                    </span>
-                  ) : (
-                    'Add to Cart'
-                  )}
-                </button>
-              </div>
-              )
-            ) : (
-              <div className="sold-out">
-                <span>Currently Unavailable</span>
-                <p>This item is out of stock. Check back soon!</p>
-              </div>
-            )}
-
-            <p className="shipping-note">
-              <a href="/shipping-policy">Shipping</a> calculated at checkout.
-            </p>
-
-            {isInStock && subSchemes.length > 0 && (() => {
-              const sel =
-                (subChoice &&
-                  subSchemes.find(
-                    (s) => s.period === subChoice.period && s.interval === subChoice.interval
-                  )) ||
-                subSchemes[0];
-              const discount = Math.round(sel.discount);
-              return (
-                <>
-                <div className="purchase-options">
-                  <button
-                    type="button"
-                    className={`purchase-option ${subscribe ? 'purchase-option-active' : ''}`}
-                    onClick={() => setSubscribe(true)}
-                    aria-pressed={subscribe}
-                  >
-                    <span className="purchase-top">
-                      <span className="purchase-radio" data-checked={subscribe} aria-hidden="true" />
-                      <span className="purchase-name">Subscribe &amp; save</span>
-                      <button
-                        type="button"
-                        className="purchase-info"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowSubInfo(true);
-                        }}
-                        aria-label="Why subscribe?"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                          <circle cx="12" cy="12" r="9" />
-                          <path strokeLinecap="round" d="M12 11.5v4.5" />
-                          <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
-                        </svg>
-                      </button>
-                      {discount > 0 && (
-                        <span className="purchase-badge">Save up to {discount}%</span>
-                      )}
-                      <span className="purchase-pricing">
-                        <span className="purchase-was">{product.price}</span>
-                        <span className="purchase-now">${sel.price}</span>
-                      </span>
-                    </span>
-                    {subscribe && (
-                      <span className="purchase-detail">
-                        <span className="purchase-benefits">
-                          {discount > 0 && (
-                            <span className="purchase-benefit">
-                              <svg className="purchase-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                                <circle cx="12" cy="12" r="9" />
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
-                              </svg>
-                              Save {discount}%
-                            </span>
-                          )}
-                          <span className="purchase-benefit">
-                            <svg className="purchase-benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                              <circle cx="12" cy="12" r="9" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.4 2.4 4.6-5" />
-                            </svg>
-                            No commitment. Cancel anytime
-                          </span>
-                        </span>
-                        <span className="purchase-deliver">
-                          <span className="purchase-deliver-label">Deliver every:</span>
-                          <span className="purchase-freqs">
-                            {subSchemes.map((s) => {
-                              const active = sel.period === s.period && sel.interval === s.interval;
-                              return (
-                                <button
-                                  key={`${s.period}:${s.interval}`}
-                                  type="button"
-                                  className={`purchase-freq ${active ? 'purchase-freq-active' : ''}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSubChoice({ period: s.period, interval: s.interval });
-                                  }}
-                                  aria-pressed={active}
-                                >
-                                  <span className="purchase-freq-label">{formatEvery(s.period, s.interval)}</span>
-                                  {s.discount > 0 && (
-                                    <span className="purchase-freq-save">save {Math.round(s.discount)}%</span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </span>
-                        </span>
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className={`purchase-option ${!subscribe ? 'purchase-option-active' : ''}`}
-                    onClick={() => setSubscribe(false)}
-                    aria-pressed={!subscribe}
-                  >
-                    <span className="purchase-top">
-                      <span className="purchase-radio" data-checked={!subscribe} aria-hidden="true" />
-                      <span className="purchase-name">One-time</span>
-                      <span className="purchase-pricing">
-                        <span className="purchase-now">{product.price}</span>
-                      </span>
-                    </span>
-                  </button>
-                </div>
-                {showSubInfo && (
-                  <div
-                    className="sub-info-overlay"
-                    role="dialog"
-                    aria-modal="true"
-                    onClick={() => setShowSubInfo(false)}
-                  >
-                    <div className="sub-info-modal" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className="sub-info-close"
-                        onClick={() => setShowSubInfo(false)}
-                        aria-label="Close"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-                        </svg>
-                      </button>
-                      <h3 className="sub-info-title">Great reasons to subscribe</h3>
-                      <ul className="sub-info-list">
-                        <li className="sub-info-item">
-                          <span className="sub-info-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                              <rect x="4" y="5" width="16" height="16" rx="2" />
-                              <path strokeLinecap="round" d="M4 9.5h16M8.5 3v4M15.5 3v4" />
-                            </svg>
-                          </span>
-                          <span className="sub-info-text">
-                            <strong>Flexible frequency</strong>
-                            {' Not sure how much of something you need, or how often? Adjust quantities and frequencies any time.'}
-                          </span>
-                        </li>
-                        <li className="sub-info-item">
-                          <span className="sub-info-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 8.5a6 6 0 10-12 0c0 6.5-2.5 8.5-2.5 8.5h17S18 15 18 8.5" />
-                              <path strokeLinecap="round" d="M13.6 20.5a1.9 1.9 0 01-3.2 0" />
-                            </svg>
-                          </span>
-                          <span className="sub-info-text">
-                            <strong>Order reminders</strong>
-                            {" We'll let you know before each shipment. Delay, reschedule or cancel if you need to, we'll only bill you when your order ships."}
-                          </span>
-                        </li>
-                        <li className="sub-info-item">
-                          <span className="sub-info-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.5h9" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2 2 0 012.9 2.9L7.5 18.7 3.5 20l1.3-4z" />
-                            </svg>
-                          </span>
-                          <span className="sub-info-text">
-                            <strong>You&apos;re in control</strong>
-                            {' Add or remove subscriptions, cancel orders, and edit frequencies and quantities through our user-friendly customer portal.'}
-                          </span>
-                        </li>
-                      </ul>
-                      <button
-                        type="button"
-                        className="sub-info-btn"
-                        onClick={() => setShowSubInfo(false)}
-                      >
-                        Got it
-                      </button>
-                    </div>
-                  </div>
-                )}
-                </>
-              );
-            })()}
-
-            <Nutrition nutrition={nutrition} />
+            <Nutrition
+              nutrition={nutrition}
+              mG={product.mG}
+              pieces={product.pieces}
+              cannabinoids={cannabinoids}
+              productTypes={product.mfproductTypes}
+            />
 
             <FrequentlyBoughtTogether
               productId={product.databaseId}
@@ -703,40 +945,14 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 .filter(Boolean)}
             />
 
-            <FlavorsBox product={product} />
-
+            {!isBundle && <FlavorsBox product={product} taxonomies={taxonomies} />}
             <ProductTimeline product={product} />
-
-            {/* Product Meta */}
-            <div className="meta">
-              {categories.length > 0 && (
-                <div className="meta-item">
-                  <span className="meta-label">Category</span>
-                  <div className="meta-links">
-                    {categories.map((cat, index) => (
-                      <span key={cat.id}>
-                        <Link href={`/shop?category=${cat.slug}`}>{cat.name}</Link>
-                        {index < categories.length - 1 && ', '}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {collectionName && collectionSlug && (
-                <div className="meta-item">
-                  <span className="meta-label">Collection</span>
-                  <Link href={`/collections/${collectionSlug}`} className="meta-link">
-                    {collectionName}
-                  </Link>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
         <ProductDescription product={product} />
 
-        <ProductFaqs details={product.productDetails} noidName={product.blendTypes?.nodes?.[0]?.name} />
+        <ProductReviews summary={reviewData?.summary} reviews={reviewData?.reviews || []} />
 
         {mounted && product.shopifyId && (
           <div className="description-section reviews-section">
@@ -756,8 +972,6 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 .filter(Boolean),
             }}
           />
-
-          <RecentlyViewed currentSlug={product.slug} />
         </div>
       </div>
     </Layout>

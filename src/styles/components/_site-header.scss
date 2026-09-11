@@ -15,12 +15,10 @@
   --sh-cream-gradient-1: #fef9c3;
   --sh-cream-gradient-2: #ffedd5;
   --sh-cream-gradient-3: #fef3c7;
-  --sh-cream-gradient: linear-gradient(
-    180deg,
-    var(--sh-cream-gradient-1) 0%,
-    var(--sh-cream-gradient-2) 50%,
-    var(--sh-cream-gradient-3) 100%
-  );
+  --sh-cream-gradient: linear-gradient(180deg,
+      var(--sh-cream-gradient-1) 0%,
+      var(--sh-cream-gradient-2) 50%,
+      var(--sh-cream-gradient-3) 100%);
 
   --sh-announce-h: 30px;
   --sh-announce-bg: var(--sh-cream-gradient);
@@ -125,22 +123,15 @@
   --sh-mega-sub-content: 198.6px;
   --sh-mega-sub-pad-min: 20px;
   --sh-mega-sub-pad-max: 32px;
-  --sh-mega-sub-w: clamp(
-    calc(var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-min) * 2),
-    calc(
-      var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-min) * 2 +
-        (100vw - 1024px) * 0.0577
-    ),
-    calc(var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-max) * 2)
-  );
+  --sh-mega-sub-w: clamp(calc(var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-min) * 2),
+      calc(var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-min) * 2 + (100vw - 1024px) * 0.0577),
+      calc(var(--sh-mega-sub-content) + var(--sh-mega-sub-pad-max) * 2));
   // Clear space between the last column's edge and the divider.
   --sh-mega-sub-clear: 43.4px;
   --sh-mega-sub-pad-top: 25px;
   --sh-mega-sub-pad-bottom: 28px;
   // Absorbs the flex, which is what keeps the content box at 198.6.
-  --sh-mega-sub-pad-inline: calc(
-    (var(--sh-mega-sub-w) - var(--sh-mega-sub-content)) / 2
-  );
+  --sh-mega-sub-pad-inline: calc((var(--sh-mega-sub-w) - var(--sh-mega-sub-content)) / 2);
   --sh-mega-sub-gap: 24px;
   // Was rgba(243, 244, 240, 0.5), opaque now because the carousel bleeds under
   // this panel and read straight through it. Sampled from a screenshot, not
@@ -177,11 +168,9 @@
   --sh-promo-caption-line: 1rem;
   --sh-promo-caption-pad-block: 0.375rem;
   --sh-promo-caption-pad-inline: 0.5rem;
-  --sh-promo-scrim: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.65),
-    rgba(0, 0, 0, 0)
-  );
+  --sh-promo-scrim: linear-gradient(to top,
+      rgba(0, 0, 0, 0.65),
+      rgba(0, 0, 0, 0));
 
   --sh-mobile-w: 293px;
   --sh-mobile-radius: 20px;
@@ -338,6 +327,7 @@
 }
 
 @include mixins.touch {
+
   // The mask belongs here and not on the bar: the bar paints the cream
   // gradient, so masking it fades the background to white at both ends
   // instead of fading the text.
@@ -345,13 +335,11 @@
     display: block;
     height: 100%;
     overflow: hidden;
-    mask-image: linear-gradient(
-      90deg,
-      transparent 0,
-      #000 var(--sh-ticker-fade),
-      #000 calc(100% - var(--sh-ticker-fade)),
-      transparent 100%
-    );
+    mask-image: linear-gradient(90deg,
+        transparent 0,
+        #000 var(--sh-ticker-fade),
+        #000 calc(100% - var(--sh-ticker-fade)),
+        transparent 100%);
   }
 
   .site-header__announce-track {
@@ -739,8 +727,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--sh-mega-col-gap);
-  padding: var(--sh-mega-pad-top) var(--sh-mega-gutter)
-    var(--sh-mega-pad-bottom) var(--sh-mega-pad-start);
+  padding: var(--sh-mega-pad-top) var(--sh-mega-gutter) var(--sh-mega-pad-bottom) var(--sh-mega-pad-start);
   border: var(--sh-mega-border-w) solid var(--sh-mega-border);
   border-radius: var(--sh-mega-radius);
   background-color: var(--sh-mega-bg);
@@ -766,8 +753,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--sh-mega-sub-gap);
-  padding: var(--sh-mega-sub-pad-top) var(--sh-mega-sub-pad-inline)
-    var(--sh-mega-sub-pad-bottom);
+  padding: var(--sh-mega-sub-pad-top) var(--sh-mega-sub-pad-inline) var(--sh-mega-sub-pad-bottom);
   border-inline-start: 1px solid var(--sh-mega-rule);
   border-start-end-radius: var(--sh-mega-radius);
   border-end-end-radius: var(--sh-mega-radius);
@@ -1053,8 +1039,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--sh-mobile-gap);
-  padding: var(--sh-mobile-pad-block) var(--sh-mobile-pad-end)
-    var(--sh-mobile-pad-block) var(--sh-mobile-pad-start);
+  padding: var(--sh-mobile-pad-block) var(--sh-mobile-pad-end) var(--sh-mobile-pad-block) var(--sh-mobile-pad-start);
   animation: site-header-mobile-view-in var(--sh-mobile-duration) ease;
 
   // Webkit pseudo-elements only: setting scrollbar-width or scrollbar-color
@@ -1102,10 +1087,8 @@
 .site-header__mobile-close {
   position: absolute;
   inset-block-start: var(--sh-mobile-close-top);
-  inset-inline-start: min(
-    calc(var(--sh-mobile-w) + var(--sh-mobile-close-gap)),
-    calc(100% - var(--sh-mobile-close-w) - var(--sh-mobile-close-gap))
-  );
+  inset-inline-start: min(calc(var(--sh-mobile-w) + var(--sh-mobile-close-gap)),
+      calc(100% - var(--sh-mobile-close-w) - var(--sh-mobile-close-gap)));
   z-index: calc(var(--sh-mobile-z) + 1);
   display: inline-flex;
   align-items: center;
@@ -1234,19 +1217,14 @@
   display: block;
   width: var(--sh-mobile-divider-w);
   height: 1px;
-  margin-inline-start: calc(
-    (
-        var(--sh-mobile-w) - var(--sh-mega-border-w) * 2 -
-          var(--sh-mobile-divider-w)
-      ) / 2 - var(--sh-mobile-pad-start)
-  );
+  margin-inline-start: calc((var(--sh-mobile-w) - var(--sh-mega-border-w) * 2 - var(--sh-mobile-divider-w)) / 2 - var(--sh-mobile-pad-start));
   background-color: var(--sh-mobile-divider-color);
 }
 
 // A divider directly in a section separates sections, where one inside a list
 // separates rows. It is the section's first child, so the view's gap already
 // sits above it; this gives it the same below instead of the list's 4px.
-.site-header__mobile-section > .site-header__mobile-divider {
+.site-header__mobile-section>.site-header__mobile-divider {
   margin-bottom: var(--sh-mobile-gap);
 }
 
@@ -1263,6 +1241,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .site-header__mobile,
   .site-header__mobile-view {
     animation: none;
@@ -1289,6 +1268,7 @@
 }
 
 .site-header__nav-scroll {
+
   .navbar-item,
   .navbar-link {
     color: var(--sh-nav-color);
