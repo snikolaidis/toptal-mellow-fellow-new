@@ -24,7 +24,7 @@
 @import 'swiper/css/pagination';
 @import 'swiper/css/navigation';
 
-// DM Sans, Merriweather and Georgia Pro load from link tags in _document.
+// DM Sans and Georgia Pro load from link tags in _document.
 // A CSS @import here is discarded without error: it only counts before any
 // style rule, and the @use rules above emit tens of thousands first.
 
@@ -109,7 +109,7 @@ img {
       TYPOGRAPHY - Mellow Fellow Fonts
       =================== */
   --font-family-display: MrEavesXLSanNarOT, sans-serif;
-  --font-family-display-wide: "mr-eaves-sans", MrEavesXLSanNarOT, sans-serif;
+  --font-family-display-wide: MrEavesSanOT, MrEavesXLSanNarOT, sans-serif;
   --font-family-body: "DM Sans", sans-serif;
   --font-family-loyalty: "Georgia Pro", Georgia, "Times New Roman", serif;
   --color-loyalty-dark: #2c2c2c;
