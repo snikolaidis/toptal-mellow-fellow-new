@@ -33,20 +33,38 @@ export default function AddressAutocomplete({
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapRef = useRef<HTMLDivElement>(null);
   const justSelected = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const cacheRef = useRef<Map<string, AddressSuggestion[]>>(new Map());
 
   const fetchSuggestions = useCallback(async (q: string) => {
-    if (q.trim().length < 3) {
+    const query = q.trim();
+    if (query.length < 3) {
       setSuggestions([]);
       setOpen(false);
       return;
     }
+    const cached = cacheRef.current.get(query.toLowerCase());
+    if (cached) {
+      setSuggestions(cached);
+      setOpen(cached.length > 0);
+      setActiveIndex(-1);
+      return;
+    }
+    // Cancel the previous in-flight request so only the latest keystroke resolves.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
-      const res = await fetch(`/api/address-autocomplete?q=${encodeURIComponent(q)}`).then((r) => r.json());
+      const res = await fetch(`/api/address-autocomplete?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
+      }).then((r) => r.json());
       const list: AddressSuggestion[] = res.success ? res.suggestions : [];
+      cacheRef.current.set(query.toLowerCase(), list);
       setSuggestions(list);
       setOpen(list.length > 0);
       setActiveIndex(-1);
-    } catch {
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return;
       setSuggestions([]);
       setOpen(false);
     }
@@ -57,7 +75,7 @@ export default function AddressAutocomplete({
       justSelected.current = false;
       return;
     }
-    const timer = setTimeout(() => fetchSuggestions(value), 300);
+    const timer = setTimeout(() => fetchSuggestions(value), 180);
     return () => clearTimeout(timer);
   }, [value, fetchSuggestions]);
 
@@ -71,13 +89,27 @@ export default function AddressAutocomplete({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
-  const select = (s: AddressSuggestion) => {
+  const select = async (s: AddressSuggestion) => {
     justSelected.current = true;
-    onChange(s.line1);
-    onSelectAddress(s);
     setOpen(false);
-    setSuggestions([]);
     setActiveIndex(-1);
+    let chosen = s;
+    // Google predictions arrive without a structured address; resolve it on select.
+    if (!s.line1 && s.id) {
+      try {
+        const res = await fetch(
+          `/api/address-autocomplete?placeId=${encodeURIComponent(s.id)}`
+        ).then((r) => r.json());
+        if (res.success && res.suggestion) {
+          chosen = res.suggestion;
+        }
+      } catch {
+        // keep the typed value if details lookup fails
+      }
+    }
+    onChange(chosen.line1 || value);
+    onSelectAddress(chosen);
+    setSuggestions([]);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
