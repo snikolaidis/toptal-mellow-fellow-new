@@ -106,12 +106,35 @@ add_filter( 'rest_pre_dispatch', function ( $result, $server, $request ) {
 }, 1, 3 );
 
 // Time each calculate_totals pass (before -> after), accumulating total calc ms.
+// Also capture WHO triggered each pass beyond the first — redundant recalc passes
+// (a plugin calling calculate_totals() again after a change) multiply the whole
+// per-item pricing cost, so the caller of extra passes is the fix target.
 add_action( 'woocommerce_before_calculate_totals', function () {
     if ( mf_forensics_perf_active() ) {
         $now = microtime( true );
         $GLOBALS['mf_forensics_perf']['calc_open'] = $now;
         if ( empty( $GLOBALS['mf_forensics_perf']['first_calc'] ) ) {
             $GLOBALS['mf_forensics_perf']['first_calc'] = $now;
+        } else {
+            // 2nd+ pass this request — record the plugin/function that called it.
+            $trace = array();
+            foreach ( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, 18 ) as $frame ) {
+                if ( empty( $frame['file'] ) ) continue;
+                $file = $frame['file'];
+                if ( strpos( $file, 'mellow-fellow-cart-forensics' ) !== false ) continue;
+                if ( strpos( $file, '/wp-includes/' ) !== false ) continue;
+                if ( strpos( $file, 'class-wc-cart.php' ) !== false && ( $frame['function'] ?? '' ) === 'calculate_totals' ) {
+                    // keep walking to the caller ABOVE calculate_totals
+                    continue;
+                }
+                $short = preg_replace( '#^.*/(plugins|mu-plugins|themes)/#', '$1/', $file );
+                $trace[] = $short . ':' . ( $frame['line'] ?? '?' ) . ' ' . ( $frame['function'] ?? '' );
+                if ( count( $trace ) >= 5 ) break;
+            }
+            if ( ! isset( $GLOBALS['mf_forensics_perf']['calc_callers'] ) ) {
+                $GLOBALS['mf_forensics_perf']['calc_callers'] = array();
+            }
+            $GLOBALS['mf_forensics_perf']['calc_callers'][] = implode( ' <- ', $trace );
         }
     }
 }, -9999 );
@@ -190,6 +213,15 @@ add_filter( 'rest_post_dispatch', function ( $response, $server, $request ) {
         if ( $duration_ms > 1000 && ! empty( $perf['http_calls'] ) ) {
             wc_get_logger()->info(
                 'HTTP-DETAIL: ' . $route . ' | ' . implode( ' ; ', $perf['http_calls'] ),
+                array( 'source' => 'mf-cart-forensics' )
+            );
+        }
+        // When totals recalculated more than once, log who triggered the extra
+        // passes — each extra pass re-runs the whole per-item pricing engine.
+        if ( ! empty( $perf['calc_callers'] ) ) {
+            wc_get_logger()->info(
+                'CALC-CASCADE (' . count( $perf['calc_callers'] ) . ' extra): ' . $route
+                    . "\n  " . implode( "\n  ", $perf['calc_callers'] ),
                 array( 'source' => 'mf-cart-forensics' )
             );
         }
