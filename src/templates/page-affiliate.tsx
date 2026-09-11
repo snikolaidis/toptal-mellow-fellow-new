@@ -332,9 +332,13 @@ const AffiliatePage: FaustTemplate<AffiliateData> = (props) => {
                   )}
                 </div>
                 <div className={styles.bestsellerInfo}>
-                  <h4>{product.name.split(' - ')[0]}</h4>
-                  {product.name.includes(' - ') && (
-                    <div className={styles.subtitle}>{product.name.split(' - ').slice(1).join(' - ')}</div>
+                  {product.name && (
+                    <>
+                      <h4>{product.name.split(' - ')[0]}</h4>
+                      {product.name.includes(' - ') && (
+                        <div className={styles.subtitle}>{product.name.split(' - ').slice(1).join(' - ')}</div>
+                      )}
+                    </>
                   )}
                   <div className={styles.bestsellerBar} />
                   {product.shortDescription && (
