@@ -14,10 +14,7 @@ export interface CartItem {
   bbLocked?: boolean;
   bbUnitPrice?: number;
   bbFixedOriginalPrice?: number;
-  // "fixed" | "mystery" | undefined (byob / non-bundle items) — mirrors
-  // CartItem.bbMode in the plugin's GraphQL schema. When "mystery", this
-  // line's own product name/image must not be rendered (they resolve to the
-  // real component product) — show the bundle's own name/image instead.
+  // "fixed" | "mystery" — when "mystery", mask this line's own product name/image.
   bbMode?: 'fixed' | 'mystery';
   isFreeGift?: boolean;
   product: {
@@ -117,15 +114,9 @@ export function transformStoreApiCart(data: any): Cart | null {
     const variationAttrs: Array<{ attribute: string; value: string }> = item.variation || [];
     const hasVariation = variationAttrs.length > 0;
 
-    // Bundle-builder identity exposed server-side via two Store API
-    // extension namespaces on the same cart item, both frozen at
-    // add-to-cart time from the same raw cart item data:
-    //  - "bundle" is the Bundle Builder plugin's own extension
-    //    (class-bb-store-api.php) — the authoritative source for
-    //    bundle_id/group_key/locked/unit_price/mode.
-    //  - "mellow-fellow" is ours, carrying only what the plugin doesn't
-    //    expose: bb_fixed_original_price (a curated bundle-level price) and
-    //    mf_free_gift (our own free-gift feature).
+    // "bundle" = Bundle Builder plugin's own Store API extension
+    // (bundle_id/group_key/locked/unit_price/mode). "mellow-fellow" = ours
+    // (bb_fixed_original_price, mf_free_gift only).
     const bundleExt = item.extensions?.['bundle'] || {};
     const mf = item.extensions?.['mellow-fellow'] || {};
     const bbGroupKey = typeof bundleExt.group_key === 'string' && bundleExt.group_key ? bundleExt.group_key : undefined;

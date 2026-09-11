@@ -84,42 +84,29 @@ interface CheckoutRequest {
   // Sum of every bundled line's (original - discounted) total — recorded on
   // the order as a "Bundle Discount" line, the same way a coupon is.
   bundleDiscountTotal?: number;
+  // Bundle fields below are all forwarded to mf/v1/create-order as order-item
+  // meta (see mellow-fellow-create-order.php) and populated in checkout.tsx
+  // from the corresponding CartItem.bb* fields — undefined for non-bundle
+  // items throughout.
   items: Array<{
     productId: number;
     name: string;
     quantity: number;
     price: string;
-    // Present only when this line item was added as part of a bundle group
-    // (see CartContext bbGroupKey/bbBundleId) — forwarded to mf/v1/create-order
-    // so it can be recorded as order item meta.
     bundleName?: string;
-    // Pre-discount unit price for bundled items — lets the order line show
-    // as discounted (subtotal vs. total) instead of a flat charged price.
+    // Pre-discount unit price, for a discounted subtotal/total on the line.
     regularUnitPrice?: number;
-    // Groups this line item with the rest of its bundle set on the order
-    // (see CartContext's bbGroupKey) — lets the account order page
-    // reconstruct bundle groups instead of just a flat line-item list.
+    // Shared key linking this line to the rest of its bundle set.
     bundleGroupKey?: string;
-    // Fully-resolved original (pre-discount) dollar total for this whole
-    // bundle instance — only sent for "fixed" bundles, where the curated
-    // bundle-level price can't be derived by summing components' own regular
-    // prices (see checkout.tsx). Absent for "byob" bundles, where the order
-    // page derives it from each line's own subtotal instead.
+    // Database ID of the Bundle Builder product this line belongs to.
+    bundleId?: number;
+    // Curated original total for one "fixed"/"mystery" instance; absent for "byob".
     bundleGroupOriginalTotal?: number;
-    // "fixed" | "mystery" — forwarded so the order line's _bb_mode meta lets
-    // the order-confirmation/detail page mask a mystery bundle's contents,
-    // same as the cart. Absent for "byob"/non-bundle items.
+    // "fixed" | "mystery" — masks this line's contents on the order-confirmation page.
     bundleMode?: 'fixed' | 'mystery';
-    // How many bundle "sets" this line item's quantity represents (see
-    // CartContext's bundleGroupSetCounts) — lets the account order page show
-    // the bundle's own quantity (e.g. 1) instead of summing every component
-    // line's quantity, which overcounts as soon as a bundle has more than
-    // one distinct component.
+    // How many bundle sets this line's quantity represents.
     bundleGroupSetCount?: number;
-    // The bundle product's own image, so the account order page can show it
-    // on the bundle's header row instead of no image at all — order line
-    // items are keyed to their component products, which have no relation
-    // to the bundle product itself.
+    // The bundle product's own image, for the order page's bundle header row.
     bundleImageUrl?: string;
     bundleImageAlt?: string;
   }>;
@@ -602,6 +589,7 @@ async function createOrderWithPayment(
       bundleName: item.bundleName || undefined,
       regularUnitPrice: item.regularUnitPrice || undefined,
       bundleGroupKey: item.bundleGroupKey || undefined,
+      bundleId: item.bundleId || undefined,
       bundleGroupOriginalTotal: item.bundleGroupOriginalTotal || undefined,
       bundleMode: item.bundleMode || undefined,
       bundleGroupSetCount: item.bundleGroupSetCount || undefined,

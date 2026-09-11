@@ -128,16 +128,10 @@ add_action( 'woocommerce_blocks_loaded', function() {
         ] );
     }
 
-    // Expose the bundle-level data the Bundle Builder plugin's own Store API
-    // extension (class-bb-store-api.php, item.extensions.bundle) doesn't
-    // provide, on every Store API cart item (item.extensions['mellow-fellow']).
-    // Bundle identity itself — bundle_id/group_key/locked/unit_price/mode —
-    // already comes from that extension (frozen at add-to-cart time, from
-    // the same raw cart item); duplicating it here would just be a second,
-    // divergence-prone copy of the same values, so this namespace carries
-    // only what's genuinely ours: bb_fixed_original_price (a curated
-    // bundle-level price the plugin doesn't compute) and mf_free_gift (our
-    // own free-gift feature, unrelated to Bundle Builder).
+    // item.extensions['mellow-fellow'] on every Store API cart item — only
+    // bb_fixed_original_price and mf_free_gift; bundle identity itself
+    // (bundle_id/group_key/locked/unit_price/mode) comes from the Bundle
+    // Builder plugin's own extension, item.extensions.bundle.
     if ( function_exists( 'woocommerce_store_api_register_endpoint_data' )
         && class_exists( 'Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema' ) ) {
         woocommerce_store_api_register_endpoint_data( [
@@ -146,19 +140,9 @@ add_action( 'woocommerce_blocks_loaded', function() {
             'data_callback'   => function ( $cart_item ) {
                 $bundle_id = isset( $cart_item['bb_bundle_id'] ) ? intval( $cart_item['bb_bundle_id'] ) : 0;
 
-                // A "fixed"/"mystery" bundle's original (pre-discount) price
-                // is a curated bundle-level value, not the sum of its
-                // components' own catalog regular prices — those can add up
-                // to more than the bundle was ever priced at. Look it up
-                // from the bundle product itself so the cart's struck-
-                // through price matches what the PDP and recs widget show
-                // (bbFixedOriginalPrice). Check the post type first (same as
-                // mellow-fellow-recs-products.php / mellow-fellow-collection-products.php's
-                // $is_bundle gate) so BB_Helpers is only ever called for an
-                // actual bundle post — not just whenever the plugin happens
-                // to be active — and this data callback (which runs per
-                // cart item, on every Store API response) doesn't pay for
-                // get_bundle_mode()/get_fixed_regular_price() otherwise.
+                // Curated original price for a "fixed"/"mystery" bundle set,
+                // not the sum of component catalog prices. Post-type-gated
+                // so BB_Helpers only runs for an actual bundle post.
                 $fixed_original_price = null;
                 if ( $bundle_id && 'bb_bundle' === get_post_type( $bundle_id ) && class_exists( 'BB_Helpers' )
                     && in_array( BB_Helpers::get_bundle_mode( $bundle_id ), [ 'fixed', 'mystery' ], true ) ) {

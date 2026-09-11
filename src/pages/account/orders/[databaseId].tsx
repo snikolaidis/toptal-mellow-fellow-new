@@ -14,10 +14,8 @@ interface LineItem {
   total: string;
   subtotal?: string;
   metaData?: LineItemMeta[];
-  // "fixed" | "mystery" | null — used by groupOrderLineItems() below to
-  // suppress a mystery bundle's per-component rows entirely (see
-  // isMysteryGroup), since even a masked row would still leak how many
-  // distinct products/quantities make up the bundle.
+  // Used by groupOrderLineItems() to suppress a mystery bundle's
+  // per-component rows entirely (see isMysteryGroup).
   bbMode?: 'fixed' | 'mystery' | null;
   product?: {
     node?: {
@@ -84,11 +82,8 @@ function groupOrderLineItems(items: LineItem[]): { bundleGroups: BundleGroupDisp
     const originalTotal = fixedOriginalTotal != null
       ? toAmount(fixedOriginalTotal)
       : groupItems.reduce((sum, i) => sum + toAmount(i.subtotal ?? i.total), 0);
-    // The bundle's own quantity (e.g. 1 bundle, not the 3 or 5 units its
-    // components add up to) is recorded once per group as _bb_group_set_count
-    // (see checkout.tsx). Orders placed before that meta existed fall back to
-    // summing component quantities, which overcounts for multi-component
-    // bundles but is the best guess available for that older data.
+    // Bundle's own quantity, from _bb_group_set_count; falls back to summed
+    // component quantities for orders placed before that meta existed.
     const setCount = groupItems
       .map((i) => getMeta(i, '_bb_group_set_count'))
       .find((v) => v != null);
@@ -390,10 +385,7 @@ function OrderContent() {
         <tbody>
           {bundleGroups.map((group) => {
             const hasDiscount = group.discountedTotal < group.originalTotal - 0.005;
-            // Mystery bundles never reveal their real contents — not even as
-            // masked per-component rows (that would still leak how many
-            // distinct products/quantities make up the bundle). Just the
-            // header row.
+            // No per-component rows for mystery bundles — just the header row.
             const isMysteryGroup = group.items.some((item) => item.bbMode === 'mystery');
             return (
               <Fragment key={group.key}>

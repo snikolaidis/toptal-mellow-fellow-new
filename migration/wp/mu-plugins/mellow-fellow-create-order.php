@@ -151,16 +151,9 @@ function mf_create_order( WP_REST_Request $request ) {
 
             $item_id = $order->add_product( $product, $quantity, $add_args );
 
-            // Tag this line item as part of a bundle, when the frontend sent
-            // one — see CartContext's bbGroupKey/bbBundleId and
-            // checkout.tsx's items[].bundleGroupKey/bundleName. Items without
-            // a bundle name (i.e. every non-bundle product) are left exactly
-            // as before. 'Bundle' (no underscore) is intentionally a visible
-            // meta key so it also shows on the admin order screen, same as
-            // before; the '_bb_'-prefixed keys are protected/hidden there,
-            // matching the _transaction_id/_payment_method_title convention
-            // above, and exist only for the account order page to reconstruct
-            // bundle groups (see GetAccountOrder's lineItems.metaData).
+            // Tag this line as part of a bundle, when the frontend sent one.
+            // 'Bundle' (no underscore) is a visible meta key, shown on the
+            // admin order screen; the '_bb_'-prefixed keys are hidden there.
             $bundle_name = sanitize_text_field( $item['bundleName'] ?? '' );
             if ( $item_id && ! is_wp_error( $item_id ) && $bundle_name ) {
                 $order_item = $order->get_item( $item_id );
@@ -172,45 +165,33 @@ function mf_create_order( WP_REST_Request $request ) {
                         $order_item->add_meta_data( '_bb_group_key', $bundle_group_key );
                     }
 
-                    // Mirrors the Bundle Builder plugin's own
-                    // save_bundle_meta_to_order_item(), which never fires
-                    // here since this order is built via add_product()
-                    // directly rather than WC's own checkout flow (no
-                    // woocommerce_checkout_create_order_line_item action).
-                    // LineItem.bbMode (class-bb-graphql.php) reads this same
-                    // '_bb_mode' key, so the order-confirmation/detail page
-                    // masks a mystery bundle's contents the same way the
-                    // cart does.
+                    // Lets Bundle Builder's own admin-order-screen "Part of
+                    // bundle" note resolve which bundle to show.
+                    $bundle_id = intval( $item['bundleId'] ?? 0 );
+                    if ( $bundle_id ) {
+                        $order_item->add_meta_data( '_bb_bundle_id', $bundle_id );
+                    }
+
+                    // LineItem.bbMode reads this key to mask a mystery
+                    // bundle's contents on the order-confirmation page.
                     $bundle_mode = sanitize_key( $item['bundleMode'] ?? '' );
                     if ( in_array( $bundle_mode, [ 'fixed', 'mystery' ], true ) ) {
                         $order_item->add_meta_data( '_bb_mode', $bundle_mode );
                     }
 
-                    // Only present for "fixed" bundles — already the fully-
-                    // resolved original (pre-discount) dollar total for this
-                    // whole instance (checkout.tsx multiplies the curated
-                    // per-set price by however many sets this groupKey
-                    // represents before sending it, so nothing here needs to
-                    // reconstruct that). A "byob" bundle has no such curated
-                    // bundle-level price, so this stays absent and the order
-                    // page falls back to summing components' own subtotals
-                    // for those, same original total the cart itself shows.
+                    // Curated original total for one "fixed"/"mystery" bundle
+                    // instance; absent for "byob" (order page sums subtotals instead).
                     if ( isset( $item['bundleGroupOriginalTotal'] ) && is_numeric( $item['bundleGroupOriginalTotal'] ) ) {
                         $order_item->add_meta_data( '_bb_group_original_total', floatval( $item['bundleGroupOriginalTotal'] ) );
                     }
 
-                    // How many bundle sets this line's quantity represents —
-                    // lets the account order page show the bundle's own
-                    // quantity instead of summing every component line's
-                    // quantity, which overcounts for multi-component bundles.
+                    // Bundle's own quantity, not the summed component quantity.
                     if ( isset( $item['bundleGroupSetCount'] ) && is_numeric( $item['bundleGroupSetCount'] ) ) {
                         $order_item->add_meta_data( '_bb_group_set_count', intval( $item['bundleGroupSetCount'] ) );
                     }
 
-                    // The bundle product's own image, stored directly as meta
-                    // (rather than a product reference) since order line
-                    // items are keyed to their component products, which have
-                    // no relation to the bundle product itself.
+                    // Bundle product's own image — component lines have no
+                    // relation to it, so it's stored directly as meta.
                     $bundle_image_url = esc_url_raw( $item['bundleImageUrl'] ?? '' );
                     if ( $bundle_image_url ) {
                         $order_item->add_meta_data( '_bb_group_image_url', $bundle_image_url );

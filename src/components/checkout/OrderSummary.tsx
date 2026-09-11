@@ -192,8 +192,7 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
         {/* Bundle groups */}
         {bundles.map((group) => {
           const allItems = group.instances.flatMap((inst) => inst.items);
-          // Mystery bundles never reveal their real contents — no "Show
-          // items" affordance at all, not even a masked one.
+          // No "Show items" affordance for mystery bundles.
           const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
           const originalTotal = group.fixedOriginalPrice != null
             ? group.fixedOriginalPrice * group.quantity
