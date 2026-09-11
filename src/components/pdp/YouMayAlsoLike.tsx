@@ -17,7 +17,7 @@ interface RecProduct {
   image?: { sourceUrl: string; altText?: string };
   stockStatus?: string;
   typeLabel?: string;
-  bbBundleMode?: 'byob' | 'fixed' | null;
+  bbBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
   bbShowPrice?: boolean | null;
   bbFromPrice?: number | null;
   bbFixedPrice?: number | null;

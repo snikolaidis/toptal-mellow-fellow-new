@@ -163,9 +163,12 @@ export interface Product {
   // "fixed" — admin-picked exact items/quantities, nothing for the shopper
   //   to select. bbFixedItems is that picked set, bbFixedPrice is the flat
   //   total, bbFixedQtyMin/Max bound how many sets can be added.
+  // "mystery" — identical to "fixed" for price/qty/add-to-cart purposes, but
+  //   bbFixedItems is deliberately gated to null for customer requests: the
+  //   contents must never be shown on the storefront, only in wp-admin.
   // The plugin dropped the bundleBuilder root query when it added these, so
   // a bundle's own slug now comes from mf/v1/product rather than GraphQL.
-  bbBundleMode?: 'byob' | 'fixed' | null;
+  bbBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
   bbDescription?: string | null;
   // Whether the "From $X" teaser (bbFromPrice) should render on the card/PDP
   // for a byob bundle — an admin-facing toggle.

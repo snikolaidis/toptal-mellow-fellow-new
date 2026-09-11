@@ -128,9 +128,16 @@ add_action( 'woocommerce_blocks_loaded', function() {
         ] );
     }
 
-    // Expose bundle-builder identity on every Store API cart item
-    // (item.extensions['mellow-fellow']) so the frontend reads bundle
-    // grouping from the server instead of a client-side sessionStorage map.
+    // Expose the bundle-level data the Bundle Builder plugin's own Store API
+    // extension (class-bb-store-api.php, item.extensions.bundle) doesn't
+    // provide, on every Store API cart item (item.extensions['mellow-fellow']).
+    // Bundle identity itself — bundle_id/group_key/locked/unit_price/mode —
+    // already comes from that extension (frozen at add-to-cart time, from
+    // the same raw cart item); duplicating it here would just be a second,
+    // divergence-prone copy of the same values, so this namespace carries
+    // only what's genuinely ours: bb_fixed_original_price (a curated
+    // bundle-level price the plugin doesn't compute) and mf_free_gift (our
+    // own free-gift feature, unrelated to Bundle Builder).
     if ( function_exists( 'woocommerce_store_api_register_endpoint_data' )
         && class_exists( 'Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema' ) ) {
         woocommerce_store_api_register_endpoint_data( [
@@ -139,42 +146,35 @@ add_action( 'woocommerce_blocks_loaded', function() {
             'data_callback'   => function ( $cart_item ) {
                 $bundle_id = isset( $cart_item['bb_bundle_id'] ) ? intval( $cart_item['bb_bundle_id'] ) : 0;
 
-                // A "fixed" bundle's original (pre-discount) price is a
-                // curated bundle-level value, not the sum of its components'
-                // own catalog regular prices — those can add up to more than
-                // the bundle was ever priced at. Look it up from the bundle
-                // product itself so the cart's struck-through price matches
-                // what the PDP and recs widget show (bbFixedOriginalPrice).
-                // Check the post type first (same as mellow-fellow-recs-products.php
-                // / mellow-fellow-collection-products.php's $is_bundle gate) so
-                // BB_Helpers is only ever called for an actual bundle post — not
-                // just whenever the plugin happens to be active — and this data
-                // callback (which runs per cart item, on every Store API response)
-                // doesn't pay for get_bundle_mode()/get_fixed_regular_price() otherwise.
+                // A "fixed"/"mystery" bundle's original (pre-discount) price
+                // is a curated bundle-level value, not the sum of its
+                // components' own catalog regular prices — those can add up
+                // to more than the bundle was ever priced at. Look it up
+                // from the bundle product itself so the cart's struck-
+                // through price matches what the PDP and recs widget show
+                // (bbFixedOriginalPrice). Check the post type first (same as
+                // mellow-fellow-recs-products.php / mellow-fellow-collection-products.php's
+                // $is_bundle gate) so BB_Helpers is only ever called for an
+                // actual bundle post — not just whenever the plugin happens
+                // to be active — and this data callback (which runs per
+                // cart item, on every Store API response) doesn't pay for
+                // get_bundle_mode()/get_fixed_regular_price() otherwise.
                 $fixed_original_price = null;
                 if ( $bundle_id && 'bb_bundle' === get_post_type( $bundle_id ) && class_exists( 'BB_Helpers' )
-                    && 'fixed' === BB_Helpers::get_bundle_mode( $bundle_id ) ) {
+                    && in_array( BB_Helpers::get_bundle_mode( $bundle_id ), [ 'fixed', 'mystery' ], true ) ) {
                     $regular = BB_Helpers::get_fixed_regular_price( $bundle_id );
                     $fixed_original_price = $regular > 0 ? (float) $regular : null;
                 }
 
                 return [
-                    'bb_group_key'  => isset( $cart_item['bb_group_key'] ) ? (string) $cart_item['bb_group_key'] : '',
-                    'bb_bundle_id'  => $bundle_id,
-                    'bb_locked'     => ! empty( $cart_item['bb_locked'] ),
-                    'bb_unit_price' => isset( $cart_item['bb_unit_price'] ) ? floatval( $cart_item['bb_unit_price'] ) : null,
                     'bb_fixed_original_price' => $fixed_original_price,
-                    'mf_free_gift'  => ! empty( $cart_item['mf_free_gift'] ),
+                    'mf_free_gift'            => ! empty( $cart_item['mf_free_gift'] ),
                 ];
             },
             'schema_callback' => function () {
                 return [
-                    'bb_group_key'  => [ 'type' => 'string' ],
-                    'bb_bundle_id'  => [ 'type' => 'integer' ],
-                    'bb_locked'     => [ 'type' => 'boolean' ],
-                    'bb_unit_price' => [ 'type' => [ 'number', 'null' ] ],
                     'bb_fixed_original_price' => [ 'type' => [ 'number', 'null' ] ],
-                    'mf_free_gift'  => [ 'type' => 'boolean' ],
+                    'mf_free_gift'            => [ 'type' => 'boolean' ],
                 ];
             },
             'schema_type'     => ARRAY_A,

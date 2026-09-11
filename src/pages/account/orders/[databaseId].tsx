@@ -14,6 +14,11 @@ interface LineItem {
   total: string;
   subtotal?: string;
   metaData?: LineItemMeta[];
+  // "fixed" | "mystery" | null — used by groupOrderLineItems() below to
+  // suppress a mystery bundle's per-component rows entirely (see
+  // isMysteryGroup), since even a masked row would still leak how many
+  // distinct products/quantities make up the bundle.
+  bbMode?: 'fixed' | 'mystery' | null;
   product?: {
     node?: {
       name?: string;
@@ -258,6 +263,7 @@ const ORDER_QUERY = `
           quantity
           total
           subtotal
+          bbMode
           metaData {
             key
             value
@@ -369,6 +375,11 @@ function OrderContent() {
         <tbody>
           {bundleGroups.map((group) => {
             const hasDiscount = group.discountedTotal < group.originalTotal - 0.005;
+            // Mystery bundles never reveal their real contents — not even as
+            // masked per-component rows (that would still leak how many
+            // distinct products/quantities make up the bundle). Just the
+            // header row.
+            const isMysteryGroup = group.items.some((item) => item.bbMode === 'mystery');
             return (
               <Fragment key={group.key}>
                 <tr className="account__bundle-header">
@@ -387,7 +398,7 @@ function OrderContent() {
                     </span>
                   </td>
                 </tr>
-                {group.items.map((item, i) => (
+                {!isMysteryGroup && group.items.map((item, i) => (
                   <LineItemRow key={`${group.key}-${i}`} item={item} nested />
                 ))}
               </Fragment>

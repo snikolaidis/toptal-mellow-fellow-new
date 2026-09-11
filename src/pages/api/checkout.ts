@@ -106,6 +106,10 @@ interface CheckoutRequest {
     // prices (see checkout.tsx). Absent for "byob" bundles, where the order
     // page derives it from each line's own subtotal instead.
     bundleGroupOriginalTotal?: number;
+    // "fixed" | "mystery" — forwarded so the order line's _bb_mode meta lets
+    // the order-confirmation/detail page mask a mystery bundle's contents,
+    // same as the cart. Absent for "byob"/non-bundle items.
+    bundleMode?: 'fixed' | 'mystery';
   }>;
   sources?: Record<string, string>;
   // Forwarded to mf/v1/create-order so the WP-side guard can independently
@@ -587,6 +591,7 @@ async function createOrderWithPayment(
       regularUnitPrice: item.regularUnitPrice || undefined,
       bundleGroupKey: item.bundleGroupKey || undefined,
       bundleGroupOriginalTotal: item.bundleGroupOriginalTotal || undefined,
+      bundleMode: item.bundleMode || undefined,
     })),
     transactionId,
     paymentMethod: 'authorize_net',

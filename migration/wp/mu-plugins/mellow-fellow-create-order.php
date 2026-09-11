@@ -172,6 +172,20 @@ function mf_create_order( WP_REST_Request $request ) {
                         $order_item->add_meta_data( '_bb_group_key', $bundle_group_key );
                     }
 
+                    // Mirrors the Bundle Builder plugin's own
+                    // save_bundle_meta_to_order_item(), which never fires
+                    // here since this order is built via add_product()
+                    // directly rather than WC's own checkout flow (no
+                    // woocommerce_checkout_create_order_line_item action).
+                    // LineItem.bbMode (class-bb-graphql.php) reads this same
+                    // '_bb_mode' key, so the order-confirmation/detail page
+                    // masks a mystery bundle's contents the same way the
+                    // cart does.
+                    $bundle_mode = sanitize_key( $item['bundleMode'] ?? '' );
+                    if ( in_array( $bundle_mode, [ 'fixed', 'mystery' ], true ) ) {
+                        $order_item->add_meta_data( '_bb_mode', $bundle_mode );
+                    }
+
                     // Only present for "fixed" bundles — already the fully-
                     // resolved original (pre-discount) dollar total for this
                     // whole instance (checkout.tsx multiplies the curated

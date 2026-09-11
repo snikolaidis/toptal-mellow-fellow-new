@@ -792,6 +792,11 @@ export default function CheckoutPage() {
             // Lets the account order page regroup these line items back into
             // their bundle set, same as the cart/checkout already do client-side.
             bundleGroupKey: item.bbGroupKey || undefined,
+            // "fixed" | "mystery" — lets the order line carry LineItem.bbMode
+            // so a mystery bundle's contents stay masked on the order-
+            // confirmation/detail page too, same as the cart. Undefined for
+            // "byob"/non-bundle items.
+            bundleMode: item.bbGroupKey ? item.bbMode : undefined,
             // Only set for "fixed" bundles — a fully-resolved dollar total for
             // this whole instance (bbFixedOriginalPrice is a per-set price;
             // bundleGroupSetCounts[groupKey] is how many sets this particular

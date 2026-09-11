@@ -49,9 +49,11 @@ export default function ProductCard({ product, badge, priority = false, source }
   // Bundle Builder entry-point product. "byob" can't be added to cart
   // directly — it has no fixed price and needs its own bundle-picker page.
   // "fixed" is a normal add-to-cart, just with a flat bundle price and a
-  // pre-picked set of items behind it (see addFixedBundleToCart).
+  // pre-picked set of items behind it (see addFixedBundleToCart). "mystery"
+  // renders identically to "fixed" — same flat price/qty/add-to-cart — it
+  // just never shows its contents to the customer.
   const isByobBundle = product.bbBundleMode === 'byob';
-  const isFixedBundle = product.bbBundleMode === 'fixed';
+  const isFixedBundle = product.bbBundleMode === 'fixed' || product.bbBundleMode === 'mystery';
   const isBundle = isByobBundle || isFixedBundle;
 
   const hasSale = !!product.salePrice;

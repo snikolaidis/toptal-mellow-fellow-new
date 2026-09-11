@@ -231,6 +231,9 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
             {/* Bundle groups */}
             {bundles.map((group) => {
               const allItems = group.instances.flatMap((inst) => inst.items);
+              // Mystery bundles never reveal their real contents — no "Show
+              // items" affordance at all, not even a masked one.
+              const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
               const originalTotal = group.fixedOriginalPrice != null
                 ? group.fixedOriginalPrice * group.quantity
                 : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
@@ -272,6 +275,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                           </span>
                         </div>
                       </div>
+                      {!isMysteryBundle && (
                       <button
                         type="button"
                         className={styles.bundleToggleBtn}
@@ -284,6 +288,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                         </span>
                         {isGroupExpanded ? 'Hide items' : 'Show items'}
                       </button>
+                      )}
                       <div className={styles.itemQtyRow}>
                         <div className={styles.qtyControls}>
                           <button
@@ -318,7 +323,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                       </div>
                     </div>
                   </div>
-                  {isGroupExpanded && (
+                  {isGroupExpanded && !isMysteryBundle && (
                     <div id={panelId} className={styles.bundleItemsPanel}>
                       {allItems
                         .reduce<{ item: typeof allItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
