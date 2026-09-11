@@ -264,6 +264,8 @@ export default function CartDrawer() {
                 {/* Bundle groups */}
                 {bundles.map((group) => {
                   const allItems = group.instances.flatMap((inst) => inst.items);
+                  // No "Show items" affordance for mystery bundles.
+                  const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
                   const originalTotal = group.fixedOriginalPrice != null
                     ? group.fixedOriginalPrice * group.quantity
                     : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
@@ -350,6 +352,7 @@ export default function CartDrawer() {
                               </span>
                             </div>
                           </div>
+                          {!isMysteryBundle && (
                           <button
                             type="button"
                             className={styles.bundleToggleBtn}
@@ -362,9 +365,10 @@ export default function CartDrawer() {
                             </span>
                             {isExpanded ? 'Hide items' : 'Show items'}
                           </button>
+                          )}
                         </div>
                       </div>
-                      {isExpanded && (
+                      {isExpanded && !isMysteryBundle && (
                       <div id={panelId} className={styles.bundleItemsPanel}>
                       {allItems
                         .reduce<{ item: typeof allItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(

@@ -48,10 +48,10 @@ export default function ProductCard({ product, badge, priority = false, source }
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
   // Bundle Builder entry-point product. "byob" can't be added to cart
   // directly — it has no fixed price and needs its own bundle-picker page.
-  // "fixed" is a normal add-to-cart, just with a flat bundle price and a
-  // pre-picked set of items behind it (see addFixedBundleToCart).
+  // "fixed" is a normal add-to-cart with a flat bundle price (see
+  // addFixedBundleToCart). "mystery" renders identically to "fixed".
   const isByobBundle = product.bbBundleMode === 'byob';
-  const isFixedBundle = product.bbBundleMode === 'fixed';
+  const isFixedBundle = product.bbBundleMode === 'fixed' || product.bbBundleMode === 'mystery';
   const isBundle = isByobBundle || isFixedBundle;
 
   const hasSale = !!product.salePrice;

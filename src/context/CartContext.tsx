@@ -584,11 +584,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       hasFetchedRef.current = true;
       startMutation();
       try {
-        // Server-truth grouping: addBundleToStore's response already carries
-        // bb_group_key/bb_bundle_id per item (via the Store API extension in
-        // mellow-fellow-cart-persistence.php), so there's no addedItemKeys
-        // list to correlate into bundleItemMap here the way the old GraphQL
-        // mutation needed — enrichCartItems below is just a no-op safety net.
+        // bb_group_key/bb_bundle_id come back per item (item.extensions.bundle,
+        // see store-api.ts) — enrichCartItems below is just a no-op safety net.
         const storeCart = await enqueueMutation(() => addBundleToStore(productId, productIds));
 
         setBundleNames((prev) => {
@@ -647,12 +644,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       hasFetchedRef.current = true;
       startMutation();
       try {
-        // Same Store API extension as the byob path — server-truth
-        // bb_group_key/bb_bundle_id come back on each item via
-        // mellow-fellow-cart-persistence.php's endpoint-data registration.
-        // (The GraphQL mutation this used to call runs through /api/graphql,
-        // which carries no WooCommerce session identity by design — it would
-        // "succeed" against a throwaway session nobody ever reads back.)
+        // Same as the byob path — bb_group_key/bb_bundle_id come back per
+        // item via item.extensions.bundle (see store-api.ts).
         const prevKeys = new Set((cartRef.current?.items ?? []).map((i) => i.key));
         const storeCart = await enqueueMutation(() => addFixedBundleToStore(productId, quantity));
 
