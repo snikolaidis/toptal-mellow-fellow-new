@@ -665,6 +665,8 @@ export default function CheckoutNewPage() {
       pathname: "/order-confirmation",
       query: {
         orderId: result.orderId,
+        orderDatabaseId: result.orderDatabaseId,
+        orderKey: result.orderKey || "",
         total: result.amountCharged
           ? `$${result.amountCharged}`
           : `$${total.toFixed(2)}`,

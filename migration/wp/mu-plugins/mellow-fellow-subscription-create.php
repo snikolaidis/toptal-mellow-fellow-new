@@ -332,6 +332,7 @@ function mf_create_subscription_order_endpoint($request) {
 
     return new WP_REST_Response(array(
         'orderId' => $order->get_id(),
+        'orderKey' => $order->get_order_key(),
         'orderNumber' => $order->get_order_number(),
         'subscriptionId' => $sub->get_id(),
         'total' => $order->get_total(),

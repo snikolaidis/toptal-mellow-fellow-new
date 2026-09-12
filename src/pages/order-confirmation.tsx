@@ -22,6 +22,15 @@ interface OrderData {
   total?: string;
 }
 
+interface OrderedItem {
+  id: number | string;
+  name: string;
+  quantity: number;
+  price: number;
+  image: string;
+  total: number;
+}
+
 export default function OrderConfirmation() {
   const router = useRouter();
 
@@ -33,6 +42,7 @@ export default function OrderConfirmation() {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [orderedItems, setOrderedItems] = useState<OrderedItem[]>([]);
 console.log("[OrderConfirmation] | order", order)
 console.log("[OrderConfirmation] | products", products)
   /*
@@ -45,6 +55,47 @@ console.log("[OrderConfirmation] | products", products)
       behavior: 'auto',
     });
   }, [router.asPath]);
+
+  /*
+   * Fetch what was actually ordered, authorized by the order's own
+   * key (the same guest-access model WooCommerce itself uses for
+   * its "order received" page) rather than any session/login state -
+   * so this works on first load, on reload, and for a shared/emailed
+   * link, for guest and logged-in checkouts alike.
+   */
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const orderDatabaseId = router.query.orderDatabaseId;
+    const orderKey = router.query.orderKey;
+
+    if (
+      typeof orderDatabaseId !== 'string' ||
+      typeof orderKey !== 'string' ||
+      !orderDatabaseId ||
+      !orderKey
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(
+      `/api/checkout/order-items?orderId=${encodeURIComponent(orderDatabaseId)}&key=${encodeURIComponent(orderKey)}`
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.success && Array.isArray(data.items)) {
+          setOrderedItems(data.items);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router.isReady, router.query.orderDatabaseId, router.query.orderKey]);
 
   /*
    * Load order + recommended products.
@@ -323,7 +374,7 @@ console.log("[OrderConfirmation] | products", products)
               </div>
             </details>
 
-            <details>
+            <details open={orderedItems.length > 0}>
               <summary>
                 <span>What You Ordered</span>
                 <ChevronDownIcon />
@@ -334,8 +385,40 @@ console.log("[OrderConfirmation] | products", products)
                   styles.accordionContent
                 }
               >
-                Your order details are available in your
-                account.
+                {orderedItems.length > 0 ? (
+                  <div className={styles.orderedItems}>
+                    {orderedItems.map((item) => (
+                      <div
+                        className={styles.orderedItem}
+                        key={item.id}
+                      >
+                        <div className={styles.orderedItemImage}>
+                          {item.image && (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                            />
+                          )}
+                        </div>
+
+                        <div className={styles.orderedItemInfo}>
+                          <div className={styles.orderedItemName}>
+                            {item.name}
+                          </div>
+                          <div className={styles.orderedItemQty}>
+                            Qty {item.quantity} × ${item.price.toFixed(2)}
+                          </div>
+                        </div>
+
+                        <div className={styles.orderedItemTotal}>
+                          ${item.total.toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  'Your order details are available in your account.'
+                )}
               </div>
             </details>
 

@@ -306,6 +306,7 @@ function mf_create_order( WP_REST_Request $request ) {
         return new WP_REST_Response( [
             'success'     => true,
             'orderId'     => $order->get_id(),
+            'orderKey'    => $order->get_order_key(),
             'orderNumber' => $order->get_order_number(),
             'total'       => $order->get_total(),
             'status'      => $order->get_status(),

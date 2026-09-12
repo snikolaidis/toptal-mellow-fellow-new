@@ -108,6 +108,7 @@ interface PendingOrder {
   id: string;
   databaseId: number;
   orderNumber: string;
+  orderKey?: string;
   status: string;
   total: string;
 }
@@ -512,6 +513,7 @@ async function createSubscriptionOrder(
     id: String(data.orderId),
     databaseId: Number(data.orderId),
     orderNumber: String(data.orderNumber || data.orderId),
+    orderKey: data.orderKey ? String(data.orderKey) : undefined,
     status: 'processing',
     total: String(data.total || body.amount),
   };
@@ -620,6 +622,7 @@ async function createOrderWithPayment(
     id: String(data.orderId),
     databaseId: Number(data.orderId),
     orderNumber: String(data.orderNumber || data.orderId),
+    orderKey: data.orderKey ? String(data.orderKey) : undefined,
     status: data.status || 'processing',
     total: String(data.total || body.amount),
   };
@@ -1075,6 +1078,7 @@ async function checkoutHandler(
       success: true,
       orderId: orderNumber || orderId,
       orderDatabaseId: order.databaseId,
+      orderKey: order.orderKey,
       transactionId,
       amountCharged: chargeAmount.toFixed(2),
     };
