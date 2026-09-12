@@ -24,6 +24,7 @@ interface OrderData {
 
 interface OrderedItem {
   id: number | string;
+  productId: number;
   name: string;
   quantity: number;
   price: number;
@@ -43,8 +44,7 @@ export default function OrderConfirmation() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [orderedItems, setOrderedItems] = useState<OrderedItem[]>([]);
-console.log("[OrderConfirmation] | order", order)
-console.log("[OrderConfirmation] | products", products)
+
   /*
    * Scroll to top whenever the confirmation page/order URL changes.
    */
@@ -98,71 +98,67 @@ console.log("[OrderConfirmation] | products", products)
   }, [router.isReady, router.query.orderDatabaseId, router.query.orderKey]);
 
   /*
-   * Load order + recommended products.
+   * Recommend complements to what was just ordered - reuses the same
+   * cross-sell engine the cart drawer and PDP "You May Also Like" use
+   * (see api/shop/recommendations.ts), fed with this order's product
+   * IDs so it can both derive product types and exclude items the
+   * customer already just bought.
    */
   useEffect(() => {
-    if (!router.isReady) return;
-
-    const orderId = router.query.orderId;
-
-    if (!orderId) {
+    if (orderedItems.length === 0) {
       setLoading(false);
       return;
     }
 
-    async function loadConfirmationData() {
-      try {
-        /*
-         * Load WooCommerce order information.
-         */
-       /* const orderResponse = await fetch(
-          `/api/checkout/order/${orderId}`,
-          {
-            credentials: 'include',
-          }
-        );*/
+    const productIds = orderedItems
+      .map((item) => item.productId)
+      .filter(Boolean);
 
-       /* if (orderResponse.ok) {
-          const orderData = await orderResponse.json();
-
-          setOrder(
-            orderData?.order || orderData
-          );
-        }*/
-
-        /*
-         * Load recommended products.
-         */
-       /* const productsResponse = await fetch(
-          '/api/checkout/recommendations',
-          {
-            credentials: 'include',
-          }
-        );*/
-
-       /* if (productsResponse.ok) {
-          const productData =
-            await productsResponse.json();
-
-          setProducts(
-            productData?.products || []
-          );
-        }*/
-      } catch (error) {
-        console.error(
-          'Failed to load confirmation page:',
-          error
-        );
-      } finally {
-        setLoading(false);
-      }
+    if (productIds.length === 0) {
+      setLoading(false);
+      return;
     }
 
-  //  loadConfirmationData();
-  }, [
-    router.isReady,
-    router.query.orderId,
-  ]);
+    const totalQuery =
+      typeof router.query.total === 'string'
+        ? router.query.total
+        : '';
+    const cartTotal = totalQuery.replace(/[^0-9.]/g, '') || '0';
+
+    let cancelled = false;
+
+    fetch(
+      `/api/shop/recommendations?${new URLSearchParams({
+        context: 'cart',
+        cartProductIds: productIds.join(','),
+        excludeProductIds: productIds.join(','),
+        cartTotal,
+        limit: '8',
+      })}`
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.success && Array.isArray(data.products)) {
+          setProducts(
+            data.products.map((p: any) => ({
+              id: p.databaseId,
+              name: p.name,
+              price: p.price || '',
+              image: p.image?.sourceUrl || '',
+            }))
+          );
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderedItems, router.query.total]);
 
   /*
    * -----------------------------------------
@@ -581,7 +577,7 @@ function ProductSlider({
             Beverage
           </small>
 
-          <h3>
+          <h3 title={product.name}>
             {product.name}
           </h3>
 

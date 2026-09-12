@@ -82,12 +82,13 @@ function mf_get_order_items( WP_REST_Request $request ) {
 		$quantity = (int) $item->get_quantity();
 
 		$items[] = array(
-			'id'       => $item->get_id(),
-			'name'     => $item->get_name(),
-			'quantity' => $quantity,
-			'price'    => $quantity > 0 ? round( (float) $item->get_total() / $quantity, 2 ) : (float) $item->get_total(),
-			'total'    => (float) $item->get_total(),
-			'image'    => $image,
+			'id'        => $item->get_id(),
+			'productId' => $item->get_product_id(),
+			'name'      => $item->get_name(),
+			'quantity'  => $quantity,
+			'price'     => $quantity > 0 ? round( (float) $item->get_total() / $quantity, 2 ) : (float) $item->get_total(),
+			'total'     => (float) $item->get_total(),
+			'image'     => $image,
 		);
 	}
 
