@@ -46,6 +46,11 @@ export default function OrderConfirmation() {
       ? router.query.firstName
       : '';
 
+  const orderNumber =
+    typeof router.query.orderId === 'string'
+      ? router.query.orderId
+      : '';
+
   const [order, setOrder] = useState<OrderData | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -357,9 +362,9 @@ export default function OrderConfirmation() {
               and we're preparing it now.
             </p>
 
-            {order?.orderNumber && (
+            {orderNumber && (
               <strong>
-                Order #{order.orderNumber}
+                Order #{orderNumber}
               </strong>
             )}
 

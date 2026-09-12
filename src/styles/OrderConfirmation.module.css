@@ -44,7 +44,10 @@
 }
 
 .confirmationCard strong {
-  font-size: 11px;
+  display: block;
+  font-size: 16px;
+  color: #222;
+  margin-top: 4px;
 }
 
 .forgotCard {
