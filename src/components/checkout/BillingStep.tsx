@@ -396,7 +396,7 @@ export default function BillingStep({
               className={styles.continueButton}
               onClick={onContinue}
             >
-              Continue to Payment
+              Continue to Age Verification
             </button>
           </div>
         </main>
