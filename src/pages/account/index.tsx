@@ -149,7 +149,7 @@ function AccountContent() {
   const handleLogout = useCallback(async () => {
   //  await fetch('/api/cart/save-for-user', { method: 'POST' }).catch(() => {});
   //  await fetch('/api/cart/clear-session', { method: 'POST' }).catch(() => {});
-    logout('/');
+    logout('/login');
   }, [logout]);
 
   if (loading) return <AccountSkeleton />;
