@@ -92,10 +92,36 @@ function mf_get_order_items( WP_REST_Request $request ) {
 		);
 	}
 
+	$date_created = $order->get_date_created();
+
+	/*
+	 * Seconds since the order was created, computed entirely here via
+	 * Unix timestamps (getTimestamp() is always UTC-based regardless
+	 * of any timezone the DateTime object displays itself in).
+	 *
+	 * Deliberately NOT exposing an absolute "date created" string for
+	 * the caller to diff against its own clock: this site's WC_DateTime
+	 * ->date('c') formatting does not reliably reflect true UTC (it
+	 * was observed several hours off from a known-correct UTC value
+	 * written directly to date_created_gmt) - a duration computed from
+	 * two timestamps on the *same* clock sidesteps that entirely,
+	 * whatever its root cause.
+	 */
+	$age_seconds = $date_created
+		? ( new DateTime( 'now', new DateTimeZone( 'UTC' ) ) )->getTimestamp() - $date_created->getTimestamp()
+		: null;
+
 	return rest_ensure_response(
 		array(
-			'success' => true,
-			'items'   => $items,
+			'success'      => true,
+			'items'        => $items,
+			// Exposed so /api/checkout (Next.js) and order-confirmation
+			// can validate/display a time-boxed shipping waiver on a
+			// follow-up "forgot something?" order - safe to return
+			// since this whole endpoint is already gated on the
+			// order's own key.
+			'ageSeconds'   => $age_seconds,
+			'billingEmail' => $order->get_billing_email(),
 		)
 	);
 }

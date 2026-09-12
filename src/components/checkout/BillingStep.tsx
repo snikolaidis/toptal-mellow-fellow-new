@@ -32,6 +32,12 @@ interface BillingStepProps {
 
   subtotal: number;
   shippingPrice: number;
+  // "Forgot Something?" order-confirmation add-on within its window -
+  // the live WooCommerce cart session (and therefore cart.shippingTotal/
+  // cart.total) never reflects this, since the waiver is only ever
+  // applied at order-creation time - so the summary below has to
+  // override those two figures itself when it's active.
+  shippingWaiverActive?: boolean;
 
   onBillingChange: (value: Address) => void;
   onSaveBilling: () => Promise<string>;
@@ -45,6 +51,7 @@ export default function BillingStep({
   products,
   subtotal,
   shippingPrice,
+  shippingWaiverActive = false,
   onBillingChange,
   onSaveBilling,
   onBack,
@@ -441,17 +448,27 @@ export default function BillingStep({
             <div className={styles.row}>
               <span>Shipping</span>
 
-              <span>
-                {cart?.shippingTotal === "$0.00"
-                  ? "Free"
-                  : `${cart?.shippingTotal}`}
-              </span>
+              {shippingWaiverActive ? (
+                <span>
+                  <s>{cart?.shippingTotal}</s> $0.00
+                </span>
+              ) : (
+                <span>
+                  {cart?.shippingTotal === "$0.00"
+                    ? "Free"
+                    : `${cart?.shippingTotal}`}
+                </span>
+              )}
             </div>
 
             <div className={styles.total}>
               <span>Total</span>
 
-              <strong>{cart?.total}</strong>
+              <strong>
+                {shippingWaiverActive
+                  ? `$${subtotalAmount.toFixed(2)}`
+                  : cart?.total}
+              </strong>
             </div>
           </section>
         </aside>

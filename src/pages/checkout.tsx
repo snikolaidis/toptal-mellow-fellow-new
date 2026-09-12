@@ -72,6 +72,13 @@ interface RememberedRealIdData {
 
 const REAL_ID_REMEMBER_KEY_PREFIX = "realIdRemember:";
 
+/*
+ * Set by order-confirmation.tsx when a customer adds a "Forgot
+ * Something?" item within its 10-minute window - must match the
+ * same key there.
+ */
+const SHIPPING_WAIVER_KEY = "mf-shipping-waiver";
+
 function getRealIdRememberKey(
   customerId: number | null,
   email: string,
@@ -421,6 +428,39 @@ export default function CheckoutNewPage() {
   const [selectedShipping, setSelectedShipping] = useState<string | null>(null);
 
   /*
+   * A "Forgot Something?" order-confirmation add-on carries a
+   * reference to the original order here so shipping can be waived.
+   * This is only ever a display hint - /api/checkout independently
+   * re-validates order ownership and the time window server-side
+   * before ever actually waiving anything.
+   */
+  const [shippingWaiver, setShippingWaiver] = useState<{
+    orderId: string;
+    orderKey: string;
+    deadline: number;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(SHIPPING_WAIVER_KEY);
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored);
+      if (
+        parsed &&
+        typeof parsed.orderId === "string" &&
+        typeof parsed.orderKey === "string" &&
+        typeof parsed.deadline === "number" &&
+        Date.now() < parsed.deadline
+      ) {
+        setShippingWaiver(parsed);
+      } else {
+        sessionStorage.removeItem(SHIPPING_WAIVER_KEY);
+      }
+    } catch {}
+  }, []);
+
+  /*
    * ---------------------------------------------------------
    * CHECKOUT STEP
    * ---------------------------------------------------------
@@ -527,6 +567,16 @@ export default function CheckoutNewPage() {
     shippingMethods[0] ||
     null;
 
+  const shippingWaiverActive =
+    !!shippingWaiver && Date.now() < shippingWaiver.deadline;
+
+  // The shipping-method picker (MellowCheckout) still shows real
+  // per-method prices - the waiver only discounts the amount actually
+  // billed, the same way a free-shipping coupon would.
+  const effectiveShippingPrice = shippingWaiverActive
+    ? 0
+    : selectedShippingMethod?.price || 0;
+
   /*
    * Keep selected shipping method in sync
    * with WooCommerce.
@@ -625,7 +675,7 @@ export default function CheckoutNewPage() {
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    const total = subtotal + (selectedShippingMethod?.price || 0);
+    const total = subtotal + effectiveShippingPrice;
 
     const response = await fetch("/api/checkout", {
       method: "POST",
@@ -648,6 +698,12 @@ export default function CheckoutNewPage() {
         })),
         coupons: cart?.appliedCoupons?.map((coupon: any) => coupon.code) || [],
         realIdCheckId: realIdVerified ? realIdCheckId || undefined : undefined,
+        ...(shippingWaiverActive && shippingWaiver
+          ? {
+              waiverOrderId: shippingWaiver.orderId,
+              waiverOrderKey: shippingWaiver.orderKey,
+            }
+          : {}),
       }),
     });
 
@@ -657,6 +713,12 @@ export default function CheckoutNewPage() {
       throw new Error(
         result?.message || "Payment could not be completed. Please try again.",
       );
+    }
+
+    if (shippingWaiverActive) {
+      try {
+        sessionStorage.removeItem(SHIPPING_WAIVER_KEY);
+      } catch {}
     }
 
     await clearCart().catch(() => undefined);
@@ -954,6 +1016,7 @@ export default function CheckoutNewPage() {
           shippingMethods={shippingMethods}
           selectedShipping={selectedShipping ?? ''}
           selectedShippingMethod={selectedShippingMethod}
+          shippingWaiverActive={shippingWaiverActive}
           onBillingChange={setBilling}
           onShippingChange={setShipping}
           onShippingChangeMethod={handleShippingMethodChange}
@@ -973,9 +1036,8 @@ export default function CheckoutNewPage() {
           shipping={shipping}
           products={products}
           subtotal={subtotal}
-          shippingPrice={
-            selectedShippingMethod ? selectedShippingMethod.price : 0
-          }
+          shippingPrice={effectiveShippingPrice}
+          shippingWaiverActive={shippingWaiverActive}
           onBillingChange={setBilling}
           onSaveBilling={handleSaveBilling}
           onBack={() => {
@@ -1112,9 +1174,8 @@ export default function CheckoutNewPage() {
         <PaymentStep
           products={products}
           subtotal={subtotal}
-          shippingPrice={
-            selectedShippingMethod ? selectedShippingMethod.price : 0
-          }
+          shippingPrice={effectiveShippingPrice}
+          shippingWaiverActive={shippingWaiverActive}
           onBack={() => {
             setCheckoutStep("real-id");
           }}

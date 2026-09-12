@@ -216,6 +216,12 @@
   font-weight: 700;
 }
 
+.backButton:disabled,
+.placeOrder:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .backButton {
   background: #fff;
   border: 1px solid #d9d3c9;

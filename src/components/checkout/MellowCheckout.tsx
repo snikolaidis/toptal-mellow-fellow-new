@@ -44,6 +44,11 @@ interface MellowCheckoutProps {
   shippingMethods: ShippingMethod[];
   selectedShipping: string;
   selectedShippingMethod: ShippingMethod;
+  // "Forgot Something?" order-confirmation add-on within its window -
+  // the method picker above still shows each method's real price (so
+  // it remains a meaningful comparison), but the summary total here
+  // reflects what will actually be charged.
+  shippingWaiverActive?: boolean;
   onBillingChange: (value: Address) => void;
   onShippingChange: (value: Address) => void;
   onShippingChangeMethod: (value: string) => void;
@@ -60,6 +65,7 @@ export default function MellowCheckout({
   shippingMethods,
   selectedShipping,
   selectedShippingMethod,
+  shippingWaiverActive = false,
   onBillingChange,
   onShippingChange,
   onShippingChangeMethod,
@@ -636,6 +642,10 @@ export default function MellowCheckout({
   const subtotalAmount =
     (cart?.total?.replace("$", "") as any) * 1 - selectedShippingMethod.price;
 
+  const displayedTotal = shippingWaiverActive
+    ? subtotalAmount
+    : (cart?.total?.replace("$", "") as any) * 1;
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.checkoutContainer}>
@@ -960,13 +970,20 @@ export default function MellowCheckout({
             <div className={styles.row}>
               <span>Shipping</span>
 
-              <span>${selectedShippingMethod.price.toFixed(2)}</span>
+              {shippingWaiverActive ? (
+                <span>
+                  <s>${selectedShippingMethod.price.toFixed(2)}</s>{" "}
+                  $0.00
+                </span>
+              ) : (
+                <span>${selectedShippingMethod.price.toFixed(2)}</span>
+              )}
             </div>
 
             <div className={styles.total}>
               <span>Total</span>
 
-              <strong>{cart?.total}</strong>
+              <strong>${displayedTotal?.toFixed(2)}</strong>
             </div>
           </section>
         </aside>

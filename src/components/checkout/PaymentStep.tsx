@@ -17,6 +17,12 @@ interface PaymentStepProps {
   products: Product[];
   subtotal: number;
   shippingPrice: number;
+  // "Forgot Something?" order-confirmation add-on within its window -
+  // the live WooCommerce cart session (and therefore cart.shippingTotal/
+  // cart.total) never reflects this, since the waiver is only ever
+  // applied at order-creation time - so this overrides those two
+  // figures wherever they're displayed below.
+  shippingWaiverActive?: boolean;
   onBack: () => void;
   onPlaceOrder?: (paymentData: {
     opaqueData: {
@@ -30,6 +36,7 @@ export default function PaymentStep({
   products,
   subtotal,
   shippingPrice,
+  shippingWaiverActive = false,
   onBack,
   onPlaceOrder,
 }: PaymentStepProps) {
@@ -87,6 +94,14 @@ export default function PaymentStep({
   const total = hasCartTotal
     ? moneyToNumber(cart.total)
     : subtotal + shippingPrice;
+
+  // cart.total (above) is WooCommerce's live cart session total, which
+  // never reflects a waiver - it's only ever applied at order-creation
+  // time. Override it for display when the waiver is active, using
+  // cart.subtotal (already shipping-free) as the true total instead.
+  const displayedTotal = shippingWaiverActive
+    ? moneyToNumber(cart?.subtotal)
+    : total;
 
   /**
    * WooCommerce discount total.
@@ -448,9 +463,15 @@ export default function PaymentStep({
             <div className={styles.totalRow}>
               <span>Shipping</span>
 
-              <span>
-                {cart?.shippingTotal === "$0.00" ? "Free" : cart?.shippingTotal}
-              </span>
+              {shippingWaiverActive ? (
+                <span>
+                  <s>{cart?.shippingTotal}</s> $0.00
+                </span>
+              ) : (
+                <span>
+                  {cart?.shippingTotal === "$0.00" ? "Free" : cart?.shippingTotal}
+                </span>
+              )}
             </div>
 
             {/* DISCOUNT */}
@@ -474,7 +495,7 @@ export default function PaymentStep({
             <div className={styles.grandTotal}>
               <span>Total</span>
 
-              <strong>{cart?.total}</strong>
+              <strong>${displayedTotal.toFixed(2)}</strong>
             </div>
           </section>
 
@@ -486,6 +507,7 @@ export default function PaymentStep({
               type="button"
               className={styles.backButton}
               onClick={onBack}
+              disabled={isSubmitting}
             >
               Back to Billing
             </button>
@@ -498,7 +520,7 @@ export default function PaymentStep({
             >
               {isSubmitting
                 ? "Processing payment..."
-                : `Place Order - ${cart?.total}`}
+                : `Place Order - $${displayedTotal.toFixed(2)}`}
             </button>
           </div>
 
@@ -544,11 +566,17 @@ export default function PaymentStep({
           <div className={styles.summaryRow}>
             <span>Shipping</span>
 
-            <span>
-              {cart?.shippingTotal === "$0.00"
-                ? "Free"
-                : `${cart?.shippingTotal}`}
-            </span>
+            {shippingWaiverActive ? (
+              <span>
+                <s>{cart?.shippingTotal}</s> $0.00
+              </span>
+            ) : (
+              <span>
+                {cart?.shippingTotal === "$0.00"
+                  ? "Free"
+                  : `${cart?.shippingTotal}`}
+              </span>
+            )}
           </div>
 
           {cart?.discountTotal !== "$0.00" && (
@@ -568,7 +596,7 @@ export default function PaymentStep({
           <div className={styles.summaryTotal}>
             <span>Total</span>
 
-            <strong>{cart?.total}</strong>
+            <strong>${displayedTotal.toFixed(2)}</strong>
           </div>
         </aside>
       </div>

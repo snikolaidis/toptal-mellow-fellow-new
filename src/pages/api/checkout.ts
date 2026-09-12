@@ -102,6 +102,14 @@ interface CheckoutRequest {
   // re-confirm Real ID verification before the order is created — see
   // mellow-fellow-realid-order-guard.php.
   realIdCheckId?: string;
+  // "Forgot Something?" order-confirmation add-on: a claim that this
+  // checkout should get free shipping because it's a follow-up to an
+  // order placed within the last few minutes. Never trusted as-is —
+  // see validateShippingWaiver, which independently re-confirms
+  // ownership (billing email) and the time window against the
+  // referenced order before any shipping is actually waived.
+  waiverOrderId?: string;
+  waiverOrderKey?: string;
 }
 
 interface PendingOrder {
@@ -319,6 +327,58 @@ async function getServerCartTotal(
   }
 }
 
+// Must match the window order-confirmation.tsx shows/enforces client-side -
+// that's only ever a display hint though; this is the actual enforcement.
+const SHIPPING_WAIVER_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * Re-confirm, independently of anything the client claims, that this
+ * checkout is genuinely a "Forgot Something?" follow-up to an order
+ * the same customer placed within the last 10 minutes - both facts
+ * are read straight from the referenced order via the same
+ * order-id + order-key trust boundary order-items.php already uses
+ * for guest order lookups, never from client-supplied values.
+ */
+async function validateShippingWaiver(
+  waiverOrderId: string,
+  waiverOrderKey: string,
+  billingEmail: string
+): Promise<boolean> {
+  const wordpressUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
+  if (!wordpressUrl || !waiverOrderId || !waiverOrderKey) return false;
+
+  try {
+    const res = await fetch(
+      `${wordpressUrl}/wp-json/mellow-fellow/v1/order-items?order_id=${encodeURIComponent(waiverOrderId)}&key=${encodeURIComponent(waiverOrderKey)}`
+    );
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    if (!data?.success || typeof data?.ageSeconds !== 'number' || !data?.billingEmail) {
+      return false;
+    }
+
+    // ageSeconds is computed entirely server-side (PHP) from two
+    // timestamps on the same clock - deliberately not re-derived here
+    // from an absolute "created at" value compared against this
+    // process's own clock/timezone (that combination is what
+    // previously made the waiver appear expired the instant an order
+    // was placed - see mellow-fellow-order-items.php).
+    const ageMs = data.ageSeconds * 1000;
+    if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > SHIPPING_WAIVER_WINDOW_MS) {
+      return false;
+    }
+
+    return (
+      String(data.billingEmail).trim().toLowerCase() ===
+      String(billingEmail || '').trim().toLowerCase()
+    );
+  } catch (err) {
+    console.warn('[Checkout] Shipping waiver validation failed:', err);
+    return false;
+  }
+}
+
 async function voidPayment(transactionId: string): Promise<boolean> {
   const apiLoginId = process.env.NEXT_PUBLIC_AUTHORIZE_API_LOGIN_ID;
   const transactionKey = process.env.AUTHORIZE_TRANSACTION_KEY;
@@ -530,7 +590,8 @@ async function createOrderWithPayment(
   transactionId: string,
   customerId: number,
   authToken?: string,
-  serverCart?: ServerCart | null
+  serverCart?: ServerCart | null,
+  shippingWaiverValid?: boolean
 ): Promise<PendingOrder> {
   const wpBaseUrl = (process.env.NEXT_PUBLIC_WORDPRESS_URL || '').replace(/\/$/, '');
   const faustSecret = process.env.FAUST_SECRET_KEY;
@@ -555,7 +616,13 @@ async function createOrderWithPayment(
           shippingLines.push({
             methodTitle: selected.name || 'Shipping',
             methodId: selected.rate_id || 'flat_rate',
-            total: (parseInt(String(selected.price ?? '0'), 10) || 0) / divisor,
+            // Zeroed when a validated "Forgot Something?" waiver
+            // applies (see validateShippingWaiver in the main
+            // handler) - the method name is kept so the order still
+            // shows what would have been used.
+            total: shippingWaiverValid
+              ? 0
+              : (parseInt(String(selected.price ?? '0'), 10) || 0) / divisor,
           });
         }
       }
@@ -962,6 +1029,24 @@ async function checkoutHandler(
       );
     }
 
+    // "Forgot Something?" shipping waiver - re-validated independently
+    // of anything the client claims (see validateShippingWaiver).
+    // Deducted here, from the same server-derived shipping figure
+    // createOrderWithPayment uses to build the order's shipping
+    // lines, so the amount actually charged always matches what
+    // the order records.
+    let shippingWaiverValid = false;
+    if (body.waiverOrderId && body.waiverOrderKey) {
+      shippingWaiverValid = await validateShippingWaiver(
+        body.waiverOrderId,
+        body.waiverOrderKey,
+        body.billing.email
+      );
+      if (shippingWaiverValid && serverCart) {
+        chargeAmount = Math.max(0, chargeAmount - Math.max(0, serverCart.shipping));
+      }
+    }
+
     let subscriptionScheme: { period: string; interval: number } | null = null;
     let subscriptionLines: SubscriptionLine[] | null = null;
     let subscriptionShipping = 0;
@@ -971,7 +1056,13 @@ async function checkoutHandler(
       if (priced) {
         subscriptionScheme = { period: priced.period, interval: priced.interval };
         subscriptionLines = priced.lines;
-        subscriptionShipping = serverCart ? Math.max(0, serverCart.shipping) : 0;
+        subscriptionShipping =
+          serverCart && !shippingWaiverValid
+            ? Math.max(0, serverCart.shipping)
+            : 0;
+        // (Mirrors the same serverCart-gating used for the non-subscription
+        // path below: shipping is only ever recorded as waived when the
+        // charge itself was actually reduced by that same amount.)
         chargeAmount = Math.max(0, Math.round((chargeAmount - priced.savings) * 100) / 100);
       }
     }
@@ -998,7 +1089,7 @@ async function checkoutHandler(
     if (subscriptionScheme) {
       order = await createSubscriptionOrder(body, transactionId, subscriptionScheme, subscriptionLines, subscriptionShipping, authToken);
     } else {
-      order = await createOrderWithPayment(req, body, transactionId, authCtx?.userId || 0, authToken, serverCart);
+      order = await createOrderWithPayment(req, body, transactionId, authCtx?.userId || 0, authToken, serverCart, shippingWaiverValid && !!serverCart);
     }
     orderId = order.databaseId.toString();
     orderNumber = order.orderNumber;

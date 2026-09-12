@@ -10,6 +10,24 @@ import styles from '@/styles/OrderConfirmation.module.css';
 const AWIN_ADVERTISER_ID =
   process.env.NEXT_PUBLIC_AWIN_ADVERTISER_ID || '';
 
+/*
+ * How long a customer has, after placing an order, to add more
+ * items to a follow-up order without paying shipping again. Must
+ * match the window /api/checkout independently re-validates before
+ * ever waiving shipping on the server side - this constant is only
+ * for the countdown display and for how long the waiver reference
+ * is worth stashing client-side.
+ */
+const SHIPPING_WAIVER_MINUTES = 10;
+const SHIPPING_WAIVER_KEY = 'mf-shipping-waiver';
+
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -45,6 +63,11 @@ export default function OrderConfirmation() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [orderedItems, setOrderedItems] = useState<OrderedItem[]>([]);
+
+  // "Forgot Something?" waiver window - set once the order's real
+  // creation time comes back from order-items, ticks down from there.
+  const [waiverDeadline, setWaiverDeadline] = useState<number | null>(null);
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
 
   /*
    * Scroll to top whenever the confirmation page/order URL changes.
@@ -90,6 +113,20 @@ export default function OrderConfirmation() {
         if (data?.success && Array.isArray(data.items)) {
           setOrderedItems(data.items);
         }
+        if (typeof data?.ageSeconds === 'number') {
+          // Deadline is anchored to this browser's own clock, seeded
+          // by a duration (not an absolute timestamp) computed
+          // server-side - avoids comparing two different clocks/
+          // timezones against each other, which is what made this
+          // section disappear immediately before (the order's age
+          // came back several hours off due to a WooCommerce/WP
+          // timezone quirk when expressed as an absolute timestamp).
+          const remainingNow = Math.max(
+            0,
+            SHIPPING_WAIVER_MINUTES * 60 * 1000 - data.ageSeconds * 1000
+          );
+          setWaiverDeadline(Date.now() + remainingNow);
+        }
       })
       .catch(() => {});
 
@@ -97,6 +134,22 @@ export default function OrderConfirmation() {
       cancelled = true;
     };
   }, [router.isReady, router.query.orderDatabaseId, router.query.orderKey]);
+
+  /*
+   * Tick the "Forgot Something?" countdown once a second from the
+   * order's real creation time - not a client-only timer that would
+   * reset on refresh or drift from what /api/checkout actually
+   * enforces server-side.
+   */
+  useEffect(() => {
+    if (!waiverDeadline) return;
+
+    const tick = () => setRemainingMs(Math.max(0, waiverDeadline - Date.now()));
+    tick();
+    const interval = setInterval(tick, 1000);
+
+    return () => clearInterval(interval);
+  }, [waiverDeadline]);
 
   /*
    * Recommend complements to what was just ordered - reuses the same
@@ -324,6 +377,7 @@ export default function OrderConfirmation() {
           </section>
 
           {/* FORGOT SOMETHING */}
+          {(remainingMs === null || remainingMs > 0) && (
           <section className={styles.forgotCard}>
 
             <div className={styles.timer}>
@@ -331,7 +385,10 @@ export default function OrderConfirmation() {
                 <svg className={styles.timerIcon} width="42" height="41" viewBox="0 0 42 41" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M30.6208 7.31594C30.2664 7.42485 29.8793 7.43126 29.5577 7.25829C29.1771 7.05329 28.7833 6.8611 28.3896 6.68813C27.7071 6.38704 27.4905 5.51579 28.1205 5.11219C29.1049 4.47798 30.2861 4.10641 31.5527 4.10641C35.0046 4.10641 37.8002 6.83548 37.8002 10.2052C37.8002 11.0508 37.623 11.858 37.3014 12.5947C37.0061 13.2674 36.0939 13.2225 35.6674 12.6203C35.418 12.268 35.1555 11.9284 34.8799 11.5953C34.6502 11.3134 34.5846 10.9419 34.6305 10.5831C34.6436 10.4614 34.6568 10.3333 34.6568 10.2052C34.6568 8.53313 33.2655 7.18141 31.5593 7.18141C31.2377 7.18141 30.9227 7.23266 30.6274 7.32235L30.6208 7.31594ZM6.33301 12.6139C5.90645 13.2161 4.9877 13.2609 4.69895 12.5883C4.37738 11.8516 4.2002 11.0444 4.2002 10.1988C4.2002 6.82907 6.99582 4.10001 10.4477 4.10001C11.7143 4.10001 12.8955 4.47157 13.8799 5.10579C14.5099 5.50938 14.2933 6.38063 13.6108 6.68173C13.2105 6.8611 12.8233 7.04688 12.4427 7.25188C12.1211 7.42485 11.7274 7.41844 11.3796 7.30954C11.0843 7.21985 10.7758 7.1686 10.4477 7.1686C8.73488 7.1686 7.3502 8.52673 7.3502 10.1924C7.3502 10.3205 7.35676 10.4486 7.37645 10.5703C7.42238 10.9291 7.35676 11.3006 7.12707 11.5825C6.85145 11.9156 6.58895 12.2552 6.33957 12.6075L6.33301 12.6139ZM32.5502 22.55C32.5502 16.3231 27.3789 11.275 21.0002 11.275C14.6214 11.275 9.4502 16.3231 9.4502 22.55C9.4502 28.7769 14.6214 33.825 21.0002 33.825C27.3789 33.825 32.5502 28.7769 32.5502 22.55ZM30.2205 33.7289C27.7005 35.7085 24.4914 36.9 21.0002 36.9C17.5089 36.9 14.2999 35.7085 11.7799 33.7289L8.99082 36.4516C8.37395 37.0538 7.37645 37.0538 6.76613 36.4516C6.15582 35.8494 6.14926 34.8756 6.76613 34.2799L9.5552 31.5572C7.52082 29.0908 6.3002 25.9581 6.3002 22.55C6.3002 14.6255 12.8824 8.20001 21.0002 8.20001C29.118 8.20001 35.7002 14.6255 35.7002 22.55C35.7002 25.9581 34.4796 29.0908 32.4518 31.5508L35.2408 34.2735C35.8577 34.8756 35.8577 35.8494 35.2408 36.4452C34.6239 37.041 33.6264 37.0474 33.0161 36.4452L30.2271 33.7225L30.2205 33.7289ZM22.5752 15.8875V21.9158L25.2658 24.5424C25.8827 25.1445 25.8827 26.1183 25.2658 26.7141C24.6489 27.3099 23.6514 27.3163 23.0411 26.7141L19.8911 23.6391C19.5958 23.3508 19.4318 22.96 19.4318 22.55V15.8875C19.4318 15.0355 20.1339 14.35 21.0068 14.35C21.8796 14.35 22.5818 15.0355 22.5818 15.8875H22.5752Z" fill="#A92331"/>
                 </svg>
-                {' '}9:52
+                {' '}
+                {remainingMs !== null
+                  ? formatCountdown(remainingMs)
+                  : `${SHIPPING_WAIVER_MINUTES}:00`}
               </span>
               {' '}
               <span>
@@ -345,12 +402,32 @@ export default function OrderConfirmation() {
 
             <p>
               Add more items with no additional shipping
-              fees until 2:20PM
+              fees until{' '}
+              {waiverDeadline
+                ? new Date(waiverDeadline).toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })
+                : '...'}
             </p>
 
-            <ProductSlider products={products} />
+            <ProductSlider
+              products={products}
+              shippingWaiver={
+                waiverDeadline &&
+                typeof router.query.orderDatabaseId === 'string' &&
+                typeof router.query.orderKey === 'string'
+                  ? {
+                      orderId: router.query.orderDatabaseId,
+                      orderKey: router.query.orderKey,
+                      deadline: waiverDeadline,
+                    }
+                  : null
+              }
+            />
 
           </section>
+          )}
 
           {/* ACCORDIONS */}
           <section className={styles.accordions}>
@@ -541,10 +618,18 @@ export default function OrderConfirmation() {
  * -----------------------------------------
  */
 
+interface ShippingWaiver {
+  orderId: string;
+  orderKey: string;
+  deadline: number;
+}
+
 function ProductSlider({
   products,
+  shippingWaiver = null,
 }: {
   products: Product[];
+  shippingWaiver?: ShippingWaiver | null;
 }) {
   const { addToCart } = useCart();
   const [addingId, setAddingId] = useState<number | null>(null);
@@ -566,6 +651,19 @@ function ProductSlider({
         productId: product.id,
         quantity: 1,
       });
+
+      // Checkout re-validates this independently server-side (order
+      // ownership + the same 10-minute window) before ever waiving
+      // shipping - this is just carrying the reference forward to
+      // whenever the customer actually checks out.
+      if (shippingWaiver && Date.now() < shippingWaiver.deadline) {
+        try {
+          sessionStorage.setItem(
+            SHIPPING_WAIVER_KEY,
+            JSON.stringify(shippingWaiver)
+          );
+        } catch {}
+      }
 
       setAddedId(product.id);
 
