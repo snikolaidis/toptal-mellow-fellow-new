@@ -94,6 +94,54 @@ function mf_checkout_customer_permission( WP_REST_Request $request ) {
 }
 
 /**
+ * Recent WooCommerce orders for a customer, most-recent first.
+ *
+ * Shaped to match the fields the Next.js account page expects from
+ * its normal WPGraphQL order query, so callers routed through this
+ * REST fallback (Faust-secret-authenticated requests with no real
+ * WP viewer session, e.g. Google login) see the same order history
+ * as a regular WPGraphQL-authenticated customer.
+ */
+function mf_get_customer_orders_summary( $user_id, $limit = 10 ) {
+
+	if ( ! function_exists( 'wc_get_orders' ) ) {
+		return array();
+	}
+
+	$orders = wc_get_orders(
+		array(
+			'customer_id' => $user_id,
+			'limit'       => $limit,
+			'orderby'     => 'date',
+			'order'       => 'DESC',
+			'type'        => 'shop_order',
+		)
+	);
+
+	$result = array();
+
+	foreach ( $orders as $order ) {
+
+		$date_created = $order->get_date_created();
+
+		$result[] = array(
+			'id'          => (string) $order->get_id(),
+			'databaseId'  => $order->get_id(),
+			'orderNumber' => $order->get_order_number(),
+			'date'        => $date_created ? $date_created->date( 'c' ) : '',
+			// WooGraphQL's OrderStatusEnum is SCREAMING_SNAKE_CASE
+			// (e.g. PROCESSING, ON_HOLD) - match it here so the
+			// frontend's status styling/logic behaves identically
+			// regardless of which auth path served the data.
+			'status'      => strtoupper( str_replace( '-', '_', $order->get_status() ) ),
+			'total'       => html_entity_decode( wp_strip_all_tags( wc_price( $order->get_total() ) ), ENT_QUOTES ),
+		);
+	}
+
+	return $result;
+}
+
+/**
  * Return WooCommerce customer data.
  */
 function mf_get_checkout_customer( WP_REST_Request $request ) {
@@ -217,6 +265,7 @@ function mf_get_checkout_customer( WP_REST_Request $request ) {
 				'contact'  => $contact,
 				'billing'  => $billing,
 				'shipping' => $shipping,
+				'orders'   => mf_get_customer_orders_summary( $user_id ),
 			),
 		)
 	);

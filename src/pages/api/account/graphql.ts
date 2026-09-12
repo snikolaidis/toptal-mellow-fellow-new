@@ -54,7 +54,7 @@ export default async function handler(
             customerResult.customer.contact?.firstName,
             customerResult.customer.contact?.lastName,
           ].filter(Boolean).join(' '),
-          orders: { nodes: [] },
+          orders: { nodes: customerResult.customer.orders || [] },
         },
       },
     });
