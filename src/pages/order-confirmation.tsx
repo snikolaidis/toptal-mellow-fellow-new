@@ -4,6 +4,7 @@ import Head from 'next/head';
 
 import Layout from '@/components/Layout';
 import { ChevronDownIcon } from '@/components/icons';
+import { useCart } from '@/context/CartContext';
 import styles from '@/styles/OrderConfirmation.module.css';
 
 const AWIN_ADVERTISER_ID =
@@ -545,6 +546,10 @@ function ProductSlider({
 }: {
   products: Product[];
 }) {
+  const { addToCart } = useCart();
+  const [addingId, setAddingId] = useState<number | null>(null);
+  const [addedId, setAddedId] = useState<number | null>(null);
+
   if (!products.length) {
     return (
       <div className={styles.noProducts}>
@@ -552,6 +557,29 @@ function ProductSlider({
       </div>
     );
   }
+
+  const handleAddToCart = async (product: Product) => {
+    setAddingId(product.id);
+
+    try {
+      await addToCart({
+        productId: product.id,
+        quantity: 1,
+      });
+
+      setAddedId(product.id);
+
+      setTimeout(() => {
+        setAddedId((current) =>
+          current === product.id ? null : current
+        );
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to add product to cart:', error);
+    } finally {
+      setAddingId(null);
+    }
+  };
 
   return (
     <div className={styles.productSlider}>
@@ -586,12 +614,14 @@ function ProductSlider({
           </div>
 
           <button
-            onClick={() => {
-              window.location.href =
-                `/shop?add-to-cart=${product.id}`;
-            }}
+            onClick={() => handleAddToCart(product)}
+            disabled={addingId === product.id}
           >
-            Add to Cart
+            {addingId === product.id
+              ? 'Adding...'
+              : addedId === product.id
+              ? 'Added ✓'
+              : 'Add to Cart'}
           </button>
 
         </div>
