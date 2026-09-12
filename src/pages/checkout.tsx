@@ -9,6 +9,11 @@ import PaymentStep from "@/components/checkout/PaymentStep";
 
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import {
+  readShippingWaiver,
+  clearShippingWaiver,
+  ShippingWaiver,
+} from "@/lib/shippingWaiver";
 
 export interface CheckoutAddress {
   firstName: string;
@@ -71,13 +76,6 @@ interface RememberedRealIdData {
 }
 
 const REAL_ID_REMEMBER_KEY_PREFIX = "realIdRemember:";
-
-/*
- * Set by order-confirmation.tsx when a customer adds a "Forgot
- * Something?" item within its 10-minute window - must match the
- * same key there.
- */
-const SHIPPING_WAIVER_KEY = "mf-shipping-waiver";
 
 function getRealIdRememberKey(
   customerId: number | null,
@@ -434,30 +432,12 @@ export default function CheckoutNewPage() {
    * re-validates order ownership and the time window server-side
    * before ever actually waiving anything.
    */
-  const [shippingWaiver, setShippingWaiver] = useState<{
-    orderId: string;
-    orderKey: string;
-    deadline: number;
-  } | null>(null);
+  const [shippingWaiver, setShippingWaiver] = useState<ShippingWaiver | null>(
+    null,
+  );
 
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(SHIPPING_WAIVER_KEY);
-      if (!stored) return;
-
-      const parsed = JSON.parse(stored);
-      if (
-        parsed &&
-        typeof parsed.orderId === "string" &&
-        typeof parsed.orderKey === "string" &&
-        typeof parsed.deadline === "number" &&
-        Date.now() < parsed.deadline
-      ) {
-        setShippingWaiver(parsed);
-      } else {
-        sessionStorage.removeItem(SHIPPING_WAIVER_KEY);
-      }
-    } catch {}
+    setShippingWaiver(readShippingWaiver());
   }, []);
 
   /*
@@ -716,9 +696,7 @@ export default function CheckoutNewPage() {
     }
 
     if (shippingWaiverActive) {
-      try {
-        sessionStorage.removeItem(SHIPPING_WAIVER_KEY);
-      } catch {}
+      clearShippingWaiver();
     }
 
     await clearCart().catch(() => undefined);

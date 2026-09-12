@@ -15,6 +15,7 @@ import { CartProvider } from '@/context/CartContext';
 import { YotpoLoyaltyProvider } from '@/context/YotpoLoyaltyContext';
 import AgeVerification from '@/components/AgeVerification/AgeVerification';
 import LiveAgentChat from '@/components/LiveAgentChat';
+import ShippingWaiverBar from '@/components/ShippingWaiverBar';
 import { WordPressBlocksProvider, fromThemeJson } from "@faustwp/blocks";
 import blocks from "@/wp-blocks";
 
@@ -115,6 +116,7 @@ export default function App({ Component, pageProps }: AppProps) {
               <AuthWarmer />
               <AgeVerification />
               <LiveAgentChat />
+              <ShippingWaiverBar />
               <Component {...pageProps} />
             </YotpoLoyaltyProvider>
           </CartProvider>

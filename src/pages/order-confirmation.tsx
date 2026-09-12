@@ -5,28 +5,15 @@ import Head from 'next/head';
 import Layout from '@/components/Layout';
 import { ChevronDownIcon } from '@/components/icons';
 import { useCart } from '@/context/CartContext';
+import {
+  SHIPPING_WAIVER_MINUTES,
+  formatCountdown,
+  writeShippingWaiver,
+} from '@/lib/shippingWaiver';
 import styles from '@/styles/OrderConfirmation.module.css';
 
 const AWIN_ADVERTISER_ID =
   process.env.NEXT_PUBLIC_AWIN_ADVERTISER_ID || '';
-
-/*
- * How long a customer has, after placing an order, to add more
- * items to a follow-up order without paying shipping again. Must
- * match the window /api/checkout independently re-validates before
- * ever waiving shipping on the server side - this constant is only
- * for the countdown display and for how long the waiver reference
- * is worth stashing client-side.
- */
-const SHIPPING_WAIVER_MINUTES = 10;
-const SHIPPING_WAIVER_KEY = 'mf-shipping-waiver';
-
-function formatCountdown(ms: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-}
 
 interface Product {
   id: number;
@@ -125,7 +112,15 @@ export default function OrderConfirmation() {
             0,
             SHIPPING_WAIVER_MINUTES * 60 * 1000 - data.ageSeconds * 1000
           );
-          setWaiverDeadline(Date.now() + remainingNow);
+          const deadline = Date.now() + remainingNow;
+          setWaiverDeadline(deadline);
+
+          // Stashed the moment the customer lands here (not only if
+          // they add something) so the sitewide ShippingWaiverBar has
+          // something to show while they browse afterward.
+          if (remainingNow > 0) {
+            writeShippingWaiver({ orderId: orderDatabaseId, orderKey, deadline });
+          }
         }
       })
       .catch(() => {});
@@ -411,20 +406,7 @@ export default function OrderConfirmation() {
                 : '...'}
             </p>
 
-            <ProductSlider
-              products={products}
-              shippingWaiver={
-                waiverDeadline &&
-                typeof router.query.orderDatabaseId === 'string' &&
-                typeof router.query.orderKey === 'string'
-                  ? {
-                      orderId: router.query.orderDatabaseId,
-                      orderKey: router.query.orderKey,
-                      deadline: waiverDeadline,
-                    }
-                  : null
-              }
-            />
+            <ProductSlider products={products} />
 
           </section>
           )}
@@ -618,18 +600,10 @@ export default function OrderConfirmation() {
  * -----------------------------------------
  */
 
-interface ShippingWaiver {
-  orderId: string;
-  orderKey: string;
-  deadline: number;
-}
-
 function ProductSlider({
   products,
-  shippingWaiver = null,
 }: {
   products: Product[];
-  shippingWaiver?: ShippingWaiver | null;
 }) {
   const { addToCart } = useCart();
   const [addingId, setAddingId] = useState<number | null>(null);
@@ -651,19 +625,6 @@ function ProductSlider({
         productId: product.id,
         quantity: 1,
       });
-
-      // Checkout re-validates this independently server-side (order
-      // ownership + the same 10-minute window) before ever waiving
-      // shipping - this is just carrying the reference forward to
-      // whenever the customer actually checks out.
-      if (shippingWaiver && Date.now() < shippingWaiver.deadline) {
-        try {
-          sessionStorage.setItem(
-            SHIPPING_WAIVER_KEY,
-            JSON.stringify(shippingWaiver)
-          );
-        } catch {}
-      }
 
       setAddedId(product.id);
 
