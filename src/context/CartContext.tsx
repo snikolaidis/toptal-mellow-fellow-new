@@ -543,7 +543,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // Timeout/connection errors mean the outcome is UNKNOWN — WordPress may
       // have completed the add after our proxy gave up. Fetch the truth before
       // rolling back, or we show a scary error for an add that succeeded.
-      if (err instanceof StoreApiError && (err.code === 'store_api_proxy_error' || err.code === 'invalid_response')) {
+      if (err instanceof StoreApiError && (err.code === 'store_api_proxy_error' || err.code === 'store_api_timeout' || err.code === 'invalid_response')) {
         try {
           const fresh = await fetchCartFromStore();
           if (!isStaleSeq(seq) && fresh) {

@@ -43,6 +43,7 @@ export default function ProductCard({ product, badge, priority = false, source }
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
 
   const imageUrl = product.image?.sourceUrl || '/placeholder-product.png';
+  const name = decodeEntities(product.name) || '';
   const productType = product.__typename || product.type;
   const isSimpleProduct = productType === 'SimpleProduct' || product.type === 'SIMPLE';
   const isInStock = !product.stockStatus || product.stockStatus === 'IN_STOCK';
@@ -178,7 +179,7 @@ export default function ProductCard({ product, badge, priority = false, source }
             <div className="image is-square">
               <Image
                 src={imageUrl}
-                alt={product.image?.altText || product.name}
+                alt={product.image?.altText || name}
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
                 className="object-contain object-center transition-transform duration-700 group-hover:scale-105"
@@ -207,11 +208,11 @@ export default function ProductCard({ product, badge, priority = false, source }
               </p>
             )}
 
-            {!lineCollection && !blendType && !strainName && (() => {
+            {!lineCollection && !blendType && !strainName && name && (() => {
               // No taxonomy data available (e.g. lean recommendation feeds) — fall back to
               // splitting the raw title on its last dash, mirroring the blend-type/strain-name
               // split used for regular products so the card reads the same way.
-              const parts = product.name.split(/\s[-–—]\s/);
+              const parts = name.split(/\s[-–—]\s/);
               const main = parts[0];
               const variant = parts.slice(1).join(' - ');
               return (
@@ -287,7 +288,7 @@ export default function ProductCard({ product, badge, priority = false, source }
             <button
               onClick={handleQuickView}
               className="button is-small is-fullwidth"
-              aria-label={`Quick view ${product.name}`}
+              aria-label={`Quick view ${name}`}
             >
               Quick view
             </button>*/}
@@ -300,7 +301,7 @@ export default function ProductCard({ product, badge, priority = false, source }
               <Link
                 href={isByobBundle ? `/bundle/${product.slug}` : `/products/${product.slug}`}
                 className="button is-small add-to-cart is-fullwidth"
-                aria-label={isFixedBundle ? `View ${product.name} bundle` : `Create a bundle from ${product.name}`}
+                aria-label={isFixedBundle ? `View ${name} bundle` : `Create a bundle from ${name}`}
               >
                 {isFixedBundle ? 'View Bundle' : 'Create Bundle'}
               </Link>
@@ -312,7 +313,7 @@ export default function ProductCard({ product, badge, priority = false, source }
                 onClick={handleQuickAdd}
                 disabled={isAdding}
                 className={`button is-small add-to-cart is-fullwidth ${isAdding ? 'is-loading' : ''}`}
-                aria-label={`Add ${product.name} to cart`}
+                aria-label={`Add ${name} to cart`}
               >
                 Add to cart
               </button>

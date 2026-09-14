@@ -30,7 +30,7 @@ interface CartItem {
 // so `product.price` is already the discounted unit price — `regularPrice`
 // (when present) is the only source for the true original price.
 function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
-  return parseFloat((item.product.regularPrice || item.product.price).replace(/[^0-9.]/g, '')) || 0;
+  return parseFloat((item.product.regularPrice || item.product.price || '').replace(/[^0-9.]/g, '')) || 0;
 }
 
 interface AppliedCoupon {
@@ -517,7 +517,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                 : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0));
             }, 0);
             const grossStandalone = standalone.reduce(
-              (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parseFloat(i.product.price.replace(/[^0-9.]/g, '') || '0')),
+              (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parseFloat((i.product.price || '').replace(/[^0-9.]/g, '') || '0')),
               0
             );
             const grossSubtotal = grossStandalone + bundleOriginal;
