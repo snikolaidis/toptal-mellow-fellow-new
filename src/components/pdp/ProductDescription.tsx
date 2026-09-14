@@ -1,13 +1,15 @@
 import ProductCoaLink from '@/components/pdp/ProductCoaLink';
 import ProductMellowMeter from '@/components/pdp/ProductMellowMeter';
 import PdpTrustBadges from '@/components/pdp/PdpTrustBadges';
-import { Product } from '@/types/woocommerce';
+import Nutrition from '@/components/pdp/Nutrition';
+import { Product, ProductNutrition } from '@/types/woocommerce';
 
 interface Props {
   product: Product;
+  nutrition?: ProductNutrition | null;
 }
 
-export default function ProductDescription({ product }: Props) {
+export default function ProductDescription({ product, nutrition }: Props) {
   return (
     <section className="product-description-section">
       <div className="columns is-8-desktop">
@@ -21,6 +23,7 @@ export default function ProductDescription({ product }: Props) {
             </div>
           )}
           <PdpTrustBadges />
+          <Nutrition nutrition={nutrition} />
         </div>
         <div className="column">
           <ProductMellowMeter product={product} />

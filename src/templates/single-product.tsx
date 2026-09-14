@@ -14,7 +14,7 @@ import FreeShippingTracker from '@/components/pdp/FreeShippingTracker';
 import ProductRating from '@/components/pdp/ProductRating';
 import type { KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
-import Nutrition from '@/components/pdp/Nutrition';
+import ProductSnapshot from '@/components/pdp/ProductSnapshot';
 import FlavorsBox from '@/components/pdp/FlavorsBox';
 import AvailableOptions from '@/components/pdp/AvailableOptions';
 import Breadcrumb from '@/components/Breadcrumb';
@@ -917,7 +917,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
             )}
 
 
-            <Nutrition
+            <ProductSnapshot
               nutrition={nutrition}
               mG={product.mG}
               size={product.size}
@@ -959,7 +959,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
           </div>
         </div>
 
-        <ProductDescription product={product} />
+        <ProductDescription product={product} nutrition={nutrition} />
 
         <ProductReviews summary={reviewData?.summary} reviews={reviewData?.reviews || []} />
 
