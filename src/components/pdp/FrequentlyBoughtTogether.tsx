@@ -37,16 +37,8 @@ interface FbtItem {
 interface Props {
   productId: number;
   productSlug: string;
-  productName: string;
   productPrice: string;
-  productRegularPrice?: string;
-  productImage?: { sourceUrl: string; altText?: string };
-  productTypeLabel?: string;
-  productSubtitle?: string;
   typeSlugs: string[];
-  productBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
-  productFixedPrice?: number | null;
-  productFixedOriginalPrice?: number | null;
 }
 
 function parsePrice(price: string | undefined): number {
@@ -61,16 +53,8 @@ function formatPrice(value: number): string {
 export default function FrequentlyBoughtTogether({
   productId,
   productSlug,
-  productName,
   productPrice,
-  productRegularPrice,
-  productImage,
-  productTypeLabel,
-  productSubtitle,
   typeSlugs,
-  productBundleMode,
-  productFixedPrice,
-  productFixedOriginalPrice,
 }: Props) {
   const { addToCart, addFixedBundleToCart } = useCart();
   const [recs, setRecs] = useState<RecProduct[]>([]);
@@ -93,7 +77,7 @@ export default function FrequentlyBoughtTogether({
       excludeProductIds: String(productId),
       cartProductSlugs: productSlug,
       cartTotal: String(parsePrice(productPrice)),
-      limit: '2',
+      limit: '3',
     });
     setLoading(true);
     fetch(`/api/shop/recommendations?${params}`)
@@ -113,58 +97,24 @@ export default function FrequentlyBoughtTogether({
     };
   }, [productId, productSlug, productPrice, typeKey]);
 
-  const items = useMemo<FbtItem[]>(() => {
-    const currentIsFixedBundle = productBundleMode === 'fixed' || productBundleMode === 'mystery';
-    const currentPrice = currentIsFixedBundle
-      ? productFixedPrice ?? 0
-      : parsePrice(productPrice);
-    const currentRegular = currentIsFixedBundle
-      ? productFixedOriginalPrice ?? 0
-      : parsePrice(productRegularPrice);
-    const currentItem: FbtItem = {
-      databaseId: productId,
-      slug: productSlug,
-      name: productName,
-      image: productImage,
-      typeLabel: productTypeLabel,
-      subtitle: productSubtitle,
-      current: currentPrice,
-      original: currentRegular > currentPrice ? currentRegular : null,
-      isFixedBundle: currentIsFixedBundle,
+  const items = useMemo<FbtItem[]>(() => recs.map((r) => {
+    const isFixedBundle = r.bbBundleMode === 'fixed' || r.bbBundleMode === 'mystery';
+    const current = isFixedBundle
+      ? r.bbFixedPrice ?? 0
+      : parsePrice(r.salePrice) || parsePrice(r.price);
+    const regular = isFixedBundle ? r.bbFixedOriginalPrice ?? 0 : parsePrice(r.regularPrice);
+    return {
+      databaseId: r.databaseId,
+      slug: r.slug,
+      name: r.name,
+      image: r.image,
+      typeLabel: r.typeLabel,
+      subtitle: r.subtitle,
+      current,
+      original: regular > current ? regular : null,
+      isFixedBundle,
     };
-    const recItems: FbtItem[] = recs.map((r) => {
-      const isFixedBundle = r.bbBundleMode === 'fixed' || r.bbBundleMode === 'mystery';
-      const current = isFixedBundle
-        ? r.bbFixedPrice ?? 0
-        : parsePrice(r.salePrice) || parsePrice(r.price);
-      const regular = isFixedBundle ? r.bbFixedOriginalPrice ?? 0 : parsePrice(r.regularPrice);
-      return {
-        databaseId: r.databaseId,
-        slug: r.slug,
-        name: r.name,
-        image: r.image,
-        typeLabel: r.typeLabel,
-        subtitle: r.subtitle,
-        current,
-        original: regular > current ? regular : null,
-        isFixedBundle,
-      };
-    });
-    return [currentItem, ...recItems];
-  }, [
-    productId,
-    productSlug,
-    productName,
-    productPrice,
-    productRegularPrice,
-    productImage,
-    productTypeLabel,
-    productSubtitle,
-    productBundleMode,
-    productFixedPrice,
-    productFixedOriginalPrice,
-    recs,
-  ]);
+  }), [recs]);
 
   const itemsKey = items.map((i) => i.databaseId).join(',');
 
@@ -192,11 +142,6 @@ export default function FrequentlyBoughtTogether({
     try {
       for (const item of items) {
         if (!checked.has(item.databaseId)) continue;
-        // The current product is added here too, same as any companion item
-        // — checking it and clicking Add All adds it through this widget on
-        // top of whatever the page's own separate Add to Cart/Add to Bundle
-        // button already added if the shopper also used that, which is
-        // accepted as-is.
         recordWidgetSource(item.databaseId, 'fbt');
         if (item.isFixedBundle) {
           await addFixedBundleToCart(item.databaseId, 1, item.name, item.image ? {
