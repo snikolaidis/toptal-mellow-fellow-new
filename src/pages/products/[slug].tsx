@@ -48,7 +48,6 @@ async function fetchProductExtras(
     collectionSlug: null,
     availableOptions: [],
     availableOptionsBase: '',
-    bundleSlug: null,
     databaseId: null,
   };
 
@@ -61,7 +60,6 @@ async function fetchProductExtras(
       collectionSlug: json.collectionSlug || null,
       availableOptions: json.availableOptions || [],
       availableOptionsBase: json.availableOptionsBase || '',
-      bundleSlug: json.bundleSlug || null,
       // Carried out of the same response purely to key the Klaviyo lookup —
       // stripped off before the props are handed to the template.
       databaseId: json.product?.databaseId ?? null,

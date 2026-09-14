@@ -58,7 +58,6 @@ export interface SingleProductExtras {
   collectionSlug: string | null;
   availableOptions: Product[];
   availableOptionsBase: string;
-  bundleSlug: string | null;
   nutrition: ProductNutrition | null;
   topCannabinoids: string[];
   allergens: string | null;
