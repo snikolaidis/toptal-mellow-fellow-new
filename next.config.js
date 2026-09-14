@@ -45,6 +45,41 @@ const nextConfig = {
         destination: '/collections/:slug',
         statusCode: 301,
       },
+      // The WordPress blog lived under /blogs/learn/; those URLs are still indexed.
+      {
+        source: '/blogs/learn/tag/:slug',
+        destination: '/blogs/tag/:slug',
+        statusCode: 301,
+      },
+      {
+        source: '/blogs/learn',
+        destination: '/blogs',
+        statusCode: 301,
+      },
+      {
+        source: '/blogs/learn/:slug',
+        destination: '/blogs/:slug',
+        statusCode: 301,
+      },
+      // Must stay below the :slug rule, which would otherwise never match. Catches
+      // the leftover author, category and /page/N archives.
+      {
+        source: '/blogs/learn/:path*',
+        destination: '/blogs',
+        statusCode: 301,
+      },
+      // product_cat terms mirror the product-type taxonomy, not the `collection`
+      // one /collections/ reads, so these slugs were checked rather than assumed.
+      {
+        source: '/product-category/:slug',
+        destination: '/collections/:slug',
+        statusCode: 301,
+      },
+      {
+        source: '/product-category/:slug/:rest*',
+        destination: '/collections/:slug',
+        statusCode: 301,
+      },
     ];
   },
   images: {
