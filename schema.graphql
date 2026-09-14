@@ -8899,6 +8899,11 @@ interface CartItem implements Node {
   bbLocked: Boolean
 
   """
+  &quot;fixed&quot; or &quot;mystery&quot; when this cart item belongs to an admin-curated bundle; null otherwise. When &quot;mystery&quot;, the frontend must not render this item&#039;s real product.name/product.image — show a placeholder instead (e.g. the parent bundle&#039;s own name/image via bbParentProduct), since bbFixedItems is deliberately hidden from non-admin requests for this bundle type.
+  """
+  bbMode: String
+
+  """
   The Bundle Builder product itself (for its name/image), resolved as a full Product node. Same ID as bbParentProductId/bbBundleId.
   """
   bbParentProduct: Product
@@ -38372,7 +38377,7 @@ type ExternalProduct implements ContentNode & DatabaseIdentifier & MenuItemLinka
   ): ProductToBadgeConnection
 
   """
-  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  &quot;byob&quot;, &quot;fixed&quot;, or &quot;mystery&quot; for a Bundle Builder product; null otherwise. &quot;mystery&quot; behaves exactly like &quot;fixed&quot; (see bbFixedPrice etc.) except bbFixedItems is hidden from non-admin requests — the contents are a surprise.
   """
   bbBundleMode: String
 
@@ -38392,27 +38397,27 @@ type ExternalProduct implements ContentNode & DatabaseIdentifier & MenuItemLinka
   bbDiscountRules: [BbDiscountRule]
 
   """
-  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  For Fixed Bundle products: the admin-picked items and quantities. For Mystery Bundle products, only resolves for a request authenticated as a manage_woocommerce capable user — null for every other viewer, since revealing this would defeat the point of a mystery bundle. Null if not an admin-curated Bundle Builder product.
   """
   bbFixedItems: [BbFixedItem]
 
   """
-  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the undiscounted total for one bundle set — the sum of each component&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
   """
   bbFixedOriginalPrice: Float
 
   """
-  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the effective price (manual override or live sum); null otherwise.
   """
   bbFixedPrice: Float
 
   """
-  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  For Fixed Bundle and Mystery Bundle products: maximum bundle quantity per order (0/null = unlimited).
   """
   bbFixedQtyMax: Int
 
   """
-  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  For Fixed Bundle and Mystery Bundle products: minimum bundle quantity per order; null otherwise.
   """
   bbFixedQtyMin: Int
 
@@ -46187,7 +46192,7 @@ type GroupProduct implements ContentNode & DatabaseIdentifier & MenuItemLinkable
   ): ProductToBadgeConnection
 
   """
-  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  &quot;byob&quot;, &quot;fixed&quot;, or &quot;mystery&quot; for a Bundle Builder product; null otherwise. &quot;mystery&quot; behaves exactly like &quot;fixed&quot; (see bbFixedPrice etc.) except bbFixedItems is hidden from non-admin requests — the contents are a surprise.
   """
   bbBundleMode: String
 
@@ -46207,27 +46212,27 @@ type GroupProduct implements ContentNode & DatabaseIdentifier & MenuItemLinkable
   bbDiscountRules: [BbDiscountRule]
 
   """
-  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  For Fixed Bundle products: the admin-picked items and quantities. For Mystery Bundle products, only resolves for a request authenticated as a manage_woocommerce capable user — null for every other viewer, since revealing this would defeat the point of a mystery bundle. Null if not an admin-curated Bundle Builder product.
   """
   bbFixedItems: [BbFixedItem]
 
   """
-  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the undiscounted total for one bundle set — the sum of each component&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
   """
   bbFixedOriginalPrice: Float
 
   """
-  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the effective price (manual override or live sum); null otherwise.
   """
   bbFixedPrice: Float
 
   """
-  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  For Fixed Bundle and Mystery Bundle products: maximum bundle quantity per order (0/null = unlimited).
   """
   bbFixedQtyMax: Int
 
   """
-  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  For Fixed Bundle and Mystery Bundle products: minimum bundle quantity per order; null otherwise.
   """
   bbFixedQtyMin: Int
 
@@ -50760,6 +50765,11 @@ input LearnNoidContentToRevisionConnectionWhereArgs {
 
 """a line item object"""
 type LineItem implements Node {
+  """
+  &quot;fixed&quot; or &quot;mystery&quot; when this order line belongs to an admin-curated bundle; null otherwise. When &quot;mystery&quot;, the frontend must not render this line&#039;s real product name/image on any customer-facing view — show a placeholder instead (e.g. the &quot;Bundle&quot; order-item meta, which already carries the parent bundle&#039;s own name).
+  """
+  bbMode: String
+
   """The ID of the order item in the database"""
   databaseId: Int
 
@@ -68905,7 +68915,7 @@ interface Product implements ContentNode & DatabaseIdentifier & MenuItemLinkable
   ): ProductToBadgeConnection
 
   """
-  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  &quot;byob&quot;, &quot;fixed&quot;, or &quot;mystery&quot; for a Bundle Builder product; null otherwise. &quot;mystery&quot; behaves exactly like &quot;fixed&quot; (see bbFixedPrice etc.) except bbFixedItems is hidden from non-admin requests — the contents are a surprise.
   """
   bbBundleMode: String
 
@@ -68925,27 +68935,27 @@ interface Product implements ContentNode & DatabaseIdentifier & MenuItemLinkable
   bbDiscountRules: [BbDiscountRule]
 
   """
-  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  For Fixed Bundle products: the admin-picked items and quantities. For Mystery Bundle products, only resolves for a request authenticated as a manage_woocommerce capable user — null for every other viewer, since revealing this would defeat the point of a mystery bundle. Null if not an admin-curated Bundle Builder product.
   """
   bbFixedItems: [BbFixedItem]
 
   """
-  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the undiscounted total for one bundle set — the sum of each component&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
   """
   bbFixedOriginalPrice: Float
 
   """
-  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the effective price (manual override or live sum); null otherwise.
   """
   bbFixedPrice: Float
 
   """
-  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  For Fixed Bundle and Mystery Bundle products: maximum bundle quantity per order (0/null = unlimited).
   """
   bbFixedQtyMax: Int
 
   """
-  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  For Fixed Bundle and Mystery Bundle products: minimum bundle quantity per order; null otherwise.
   """
   bbFixedQtyMin: Int
 
@@ -103460,6 +103470,11 @@ type SimpleCartItem implements CartItem & Node {
   bbLocked: Boolean
 
   """
+  &quot;fixed&quot; or &quot;mystery&quot; when this cart item belongs to an admin-curated bundle; null otherwise. When &quot;mystery&quot;, the frontend must not render this item&#039;s real product.name/product.image — show a placeholder instead (e.g. the parent bundle&#039;s own name/image via bbParentProduct), since bbFixedItems is deliberately hidden from non-admin requests for this bundle type.
+  """
+  bbMode: String
+
+  """
   The Bundle Builder product itself (for its name/image), resolved as a full Product node. Same ID as bbParentProductId/bbBundleId.
   """
   bbParentProduct: Product
@@ -103584,7 +103599,7 @@ type SimpleProduct implements ContentNode & DatabaseIdentifier & DownloadablePro
   ): ProductToBadgeConnection
 
   """
-  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  &quot;byob&quot;, &quot;fixed&quot;, or &quot;mystery&quot; for a Bundle Builder product; null otherwise. &quot;mystery&quot; behaves exactly like &quot;fixed&quot; (see bbFixedPrice etc.) except bbFixedItems is hidden from non-admin requests — the contents are a surprise.
   """
   bbBundleMode: String
 
@@ -103604,27 +103619,27 @@ type SimpleProduct implements ContentNode & DatabaseIdentifier & DownloadablePro
   bbDiscountRules: [BbDiscountRule]
 
   """
-  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  For Fixed Bundle products: the admin-picked items and quantities. For Mystery Bundle products, only resolves for a request authenticated as a manage_woocommerce capable user — null for every other viewer, since revealing this would defeat the point of a mystery bundle. Null if not an admin-curated Bundle Builder product.
   """
   bbFixedItems: [BbFixedItem]
 
   """
-  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the undiscounted total for one bundle set — the sum of each component&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
   """
   bbFixedOriginalPrice: Float
 
   """
-  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the effective price (manual override or live sum); null otherwise.
   """
   bbFixedPrice: Float
 
   """
-  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  For Fixed Bundle and Mystery Bundle products: maximum bundle quantity per order (0/null = unlimited).
   """
   bbFixedQtyMax: Int
 
   """
-  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  For Fixed Bundle and Mystery Bundle products: minimum bundle quantity per order; null otherwise.
   """
   bbFixedQtyMin: Int
 
@@ -108801,7 +108816,7 @@ type SubscriptionProduct implements ContentNode & DatabaseIdentifier & Downloada
   ): ProductToBadgeConnection
 
   """
-  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  &quot;byob&quot;, &quot;fixed&quot;, or &quot;mystery&quot; for a Bundle Builder product; null otherwise. &quot;mystery&quot; behaves exactly like &quot;fixed&quot; (see bbFixedPrice etc.) except bbFixedItems is hidden from non-admin requests — the contents are a surprise.
   """
   bbBundleMode: String
 
@@ -108821,27 +108836,27 @@ type SubscriptionProduct implements ContentNode & DatabaseIdentifier & Downloada
   bbDiscountRules: [BbDiscountRule]
 
   """
-  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  For Fixed Bundle products: the admin-picked items and quantities. For Mystery Bundle products, only resolves for a request authenticated as a manage_woocommerce capable user — null for every other viewer, since revealing this would defeat the point of a mystery bundle. Null if not an admin-curated Bundle Builder product.
   """
   bbFixedItems: [BbFixedItem]
 
   """
-  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the undiscounted total for one bundle set — the sum of each component&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
   """
   bbFixedOriginalPrice: Float
 
   """
-  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the effective price (manual override or live sum); null otherwise.
   """
   bbFixedPrice: Float
 
   """
-  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  For Fixed Bundle and Mystery Bundle products: maximum bundle quantity per order (0/null = unlimited).
   """
   bbFixedQtyMax: Int
 
   """
-  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  For Fixed Bundle and Mystery Bundle products: minimum bundle quantity per order; null otherwise.
   """
   bbFixedQtyMin: Int
 
@@ -111001,7 +111016,7 @@ type SubscriptionVariableProduct implements ContentNode & DatabaseIdentifier & I
   ): ProductToBadgeConnection
 
   """
-  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  &quot;byob&quot;, &quot;fixed&quot;, or &quot;mystery&quot; for a Bundle Builder product; null otherwise. &quot;mystery&quot; behaves exactly like &quot;fixed&quot; (see bbFixedPrice etc.) except bbFixedItems is hidden from non-admin requests — the contents are a surprise.
   """
   bbBundleMode: String
 
@@ -111021,27 +111036,27 @@ type SubscriptionVariableProduct implements ContentNode & DatabaseIdentifier & I
   bbDiscountRules: [BbDiscountRule]
 
   """
-  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  For Fixed Bundle products: the admin-picked items and quantities. For Mystery Bundle products, only resolves for a request authenticated as a manage_woocommerce capable user — null for every other viewer, since revealing this would defeat the point of a mystery bundle. Null if not an admin-curated Bundle Builder product.
   """
   bbFixedItems: [BbFixedItem]
 
   """
-  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the undiscounted total for one bundle set — the sum of each component&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
   """
   bbFixedOriginalPrice: Float
 
   """
-  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the effective price (manual override or live sum); null otherwise.
   """
   bbFixedPrice: Float
 
   """
-  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  For Fixed Bundle and Mystery Bundle products: maximum bundle quantity per order (0/null = unlimited).
   """
   bbFixedQtyMax: Int
 
   """
-  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  For Fixed Bundle and Mystery Bundle products: minimum bundle quantity per order; null otherwise.
   """
   bbFixedQtyMin: Int
 
@@ -122170,7 +122185,7 @@ type VariableProduct implements ContentNode & DatabaseIdentifier & InventoriedPr
   ): ProductToBadgeConnection
 
   """
-  &quot;byob&quot; or &quot;fixed&quot; for a Bundle Builder product; null otherwise.
+  &quot;byob&quot;, &quot;fixed&quot;, or &quot;mystery&quot; for a Bundle Builder product; null otherwise. &quot;mystery&quot; behaves exactly like &quot;fixed&quot; (see bbFixedPrice etc.) except bbFixedItems is hidden from non-admin requests — the contents are a surprise.
   """
   bbBundleMode: String
 
@@ -122190,27 +122205,27 @@ type VariableProduct implements ContentNode & DatabaseIdentifier & InventoriedPr
   bbDiscountRules: [BbDiscountRule]
 
   """
-  For Fixed Bundle products: the admin-picked items and quantities; null otherwise.
+  For Fixed Bundle products: the admin-picked items and quantities. For Mystery Bundle products, only resolves for a request authenticated as a manage_woocommerce capable user — null for every other viewer, since revealing this would defeat the point of a mystery bundle. Null if not an admin-curated Bundle Builder product.
   """
   bbFixedItems: [BbFixedItem]
 
   """
-  For Fixed Bundle products: the undiscounted total for one bundle set — the sum of each bbFixedItems entry&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the undiscounted total for one bundle set — the sum of each component&#039;s own regular price × its quantity, ignoring any manual price override or discount rule. Pair with bbFixedPrice for a &quot;was $X, now $Y&quot; display. Null otherwise.
   """
   bbFixedOriginalPrice: Float
 
   """
-  For Fixed Bundle products: the effective price (manual override or live sum); null otherwise.
+  For Fixed Bundle and Mystery Bundle products: the effective price (manual override or live sum); null otherwise.
   """
   bbFixedPrice: Float
 
   """
-  For Fixed Bundle products: maximum bundle quantity per order (0/null = unlimited).
+  For Fixed Bundle and Mystery Bundle products: maximum bundle quantity per order (0/null = unlimited).
   """
   bbFixedQtyMax: Int
 
   """
-  For Fixed Bundle products: minimum bundle quantity per order; null otherwise.
+  For Fixed Bundle and Mystery Bundle products: minimum bundle quantity per order; null otherwise.
   """
   bbFixedQtyMin: Int
 
