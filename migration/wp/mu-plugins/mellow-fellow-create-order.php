@@ -101,7 +101,6 @@ function mf_create_order( WP_REST_Request $request ) {
     try {
         $order = wc_create_order( [
             'customer_id' => $customer_id,
-            'status'      => 'processing',
         ] );
 
         if ( is_wp_error( $order ) ) {
