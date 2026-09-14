@@ -101,10 +101,12 @@ export interface ProductTaxonomies {
 
 // The `Nutrition` ACF group, attached directly to products (not nested under
 // productDetails). Fields are ACF "text" (not "number"), so GraphQL returns
-// them as strings, not floats. `carbs` and `sugar` also exist on the group but
-// nothing renders them.
+// them as strings, not floats. Rendered by the PDP's `Nutrition` table;
+// `calories` also feeds the Product Snapshot's Calories tile.
 export interface ProductNutrition {
   calories?: string | null;
+  carbs?: string | null;
+  sugar?: string | null;
 }
 
 export interface ProductACF {

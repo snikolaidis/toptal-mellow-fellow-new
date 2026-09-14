@@ -77,11 +77,11 @@ const GET_PRODUCT_NUTRITION = gql`
   query GetProductNutrition($slug: ID!) {
     product(id: $slug, idType: SLUG) {
       ... on SimpleProduct {
-        nutrition { calories }
+        nutrition { calories carbs sugar }
         productDetails { top3Cannabinoids }
       }
       ... on VariableProduct {
-        nutrition { calories }
+        nutrition { calories carbs sugar }
         productDetails { top3Cannabinoids }
       }
     }
