@@ -315,6 +315,7 @@ async function handleFbt(
   anchorSlug: string,
   excludeIds: number[],
   excludeSlugs: string[],
+  limit: number,
 ): Promise<any[]> {
   const anchorType = anchorTypes[0] || '';
   const rule = FBT_RULES.find((r) => matchesFbtRule(r, anchorType, anchorPrice, anchorSlug));
@@ -351,35 +352,35 @@ async function handleFbt(
     const fetchResults = await Promise.all(fetches);
 
     for (const products of fetchResults) {
-      if (results.length >= 2) break;
+      if (results.length >= limit) break;
       for (const p of products) {
         if (addResult(p)) break;
       }
     }
   }
 
-  // Fill remaining slots with generic cross-sells if rule didn't fill both
-  if (results.length < 2) {
+  // Fill remaining slots with generic cross-sells if the rule (which only
+  // ever defines a couple of companion specs) didn't fill every slot
+  if (results.length < limit) {
     const recCategories: string[] = [];
     for (const t of anchorTypes) {
       for (const rec of CROSS_SELL_MAP[t] || []) {
         if (!recCategories.includes(rec)) recCategories.push(rec);
       }
     }
-    const remaining = 2 - results.length;
     const allExclude = [...excludeIds, ...Array.from(seenIds)];
     for (const cat of recCategories.slice(0, 3)) {
-      if (results.length >= 2) break;
+      if (results.length >= limit) break;
       const typeSlugs = CATEGORY_SLUGS[cat] || [cat];
       const products = await fetchRecsProducts({ types: typeSlugs, limit: 2, exclude: allExclude });
       for (const p of products) {
-        if (results.length >= 2) break;
+        if (results.length >= limit) break;
         addResult(p);
       }
     }
   }
 
-  return results.slice(0, 2);
+  return results.slice(0, limit);
 }
 
 // ---------------------------------------------------------------------------
@@ -597,6 +598,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         cartProductSlugs[0] || '',
         excludeIds,
         cartProductSlugs,
+        limit,
       );
     } else {
       products = await handleCart(

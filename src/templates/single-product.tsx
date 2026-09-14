@@ -931,27 +931,10 @@ const SingleProduct: React.FC<SingleProductProps> & {
               <FrequentlyBoughtTogether
                 productId={product.databaseId}
                 productSlug={product.slug}
-                productName={product.name}
                 productPrice={product.price || ''}
-                productRegularPrice={product.regularPrice}
-                productImage={product.image}
-                productTypeLabel={product.mfproductTypes?.nodes?.[0]?.name}
-                productSubtitle={
-                  product.productLines?.nodes?.[0]?.name ||
-                  (
-                    (product as { cannabinoids?: { nodes: Array<{ name: string }> } }).cannabinoids
-                      ?.nodes || []
-                  )
-                    .map((c) => c.name)
-                    .join(' + ') ||
-                  undefined
-                }
                 typeSlugs={(product.mfproductTypes?.nodes || [])
                   .map((t) => (t as { slug?: string }).slug || '')
                   .filter(Boolean)}
-                productBundleMode={product.bbBundleMode}
-                productFixedPrice={product.bbFixedPrice}
-                productFixedOriginalPrice={product.bbFixedOriginalPrice}
               />
             )}
 
