@@ -28,6 +28,58 @@ function mf_cart_ops_error( $message ) {
     throw new Exception( esc_html( $message ) );
 }
 
+/**
+ * Snapshot and clear one hook's listeners; returns a closure that restores them.
+ */
+function mf_bundle_op_suspend_hook( $hook_name ) {
+    global $wp_filter;
+    $snapshot = isset( $wp_filter[ $hook_name ] ) ? $wp_filter[ $hook_name ] : null;
+    unset( $wp_filter[ $hook_name ] );
+    return function () use ( $hook_name, $snapshot ) {
+        global $wp_filter;
+        if ( null === $snapshot ) {
+            unset( $wp_filter[ $hook_name ] );
+        } else {
+            $wp_filter[ $hook_name ] = $snapshot;
+        }
+    };
+}
+
+/**
+ * WC_Cart wires its own calculate_totals() to 'woocommerce_add_to_cart' (core
+ * class-wc-cart.php:132) — this suspends just that one callback.
+ */
+function mf_bundle_op_suspend_add_to_cart_recalc() {
+    if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+        return function () {};
+    }
+    $callback = array( WC()->cart, 'calculate_totals' );
+    $removed  = remove_action( 'woocommerce_add_to_cart', $callback, 20 );
+    return function () use ( $callback, $removed ) {
+        if ( $removed ) {
+            add_action( 'woocommerce_add_to_cart', $callback, 20, 0 );
+        }
+    };
+}
+
+/**
+ * Suspends both calculate_totals hooks for a bundle cart-op, then restores
+ * them and runs calculate_totals() itself exactly once. Call in a finally.
+ */
+function mf_bundle_op_defer_heavy_recalc() {
+    $restore_add_to_cart = mf_bundle_op_suspend_add_to_cart_recalc();
+    $restore_before      = mf_bundle_op_suspend_hook( 'woocommerce_before_calculate_totals' );
+    $restore_after       = mf_bundle_op_suspend_hook( 'woocommerce_after_calculate_totals' );
+    return function () use ( $restore_add_to_cart, $restore_before, $restore_after ) {
+        $restore_before();
+        $restore_after();
+        $restore_add_to_cart();
+        if ( function_exists( 'WC' ) && WC()->cart ) {
+            WC()->cart->calculate_totals();
+        }
+    };
+}
+
 add_action( 'woocommerce_blocks_loaded', function() {
     if ( function_exists( 'woocommerce_store_api_register_update_callback' ) ) {
         woocommerce_store_api_register_update_callback( [
@@ -46,7 +98,12 @@ add_action( 'woocommerce_blocks_loaded', function() {
                     }
                     $bundle_id   = intval( $data['bundle_id'] ?? 0 );
                     $product_ids = array_values( array_filter( array_map( 'intval', (array) ( $data['product_ids'] ?? [] ) ) ) );
-                    $result      = BB_Cart::get_instance()->add_bundle_to_cart( $bundle_id, $product_ids );
+                    $restore = mf_bundle_op_defer_heavy_recalc();
+                    try {
+                        $result = BB_Cart::get_instance()->add_bundle_to_cart( $bundle_id, $product_ids );
+                    } finally {
+                        $restore();
+                    }
                     if ( empty( $result['success'] ) ) {
                         mf_cart_ops_error( $result['message'] ?? 'Could not add bundle to cart.' );
                     }
@@ -59,7 +116,12 @@ add_action( 'woocommerce_blocks_loaded', function() {
                     }
                     $product_id = intval( $data['product_id'] ?? 0 );
                     $quantity   = intval( $data['quantity'] ?? 1 );
-                    $result     = BB_Cart::get_instance()->add_fixed_bundle_to_cart( $product_id, $quantity );
+                    $restore = mf_bundle_op_defer_heavy_recalc();
+                    try {
+                        $result = BB_Cart::get_instance()->add_fixed_bundle_to_cart( $product_id, $quantity );
+                    } finally {
+                        $restore();
+                    }
                     if ( empty( $result['success'] ) ) {
                         mf_cart_ops_error( $result['message'] ?? 'Could not add bundle to cart.' );
                     }
@@ -113,14 +175,17 @@ add_action( 'woocommerce_blocks_loaded', function() {
                     }
                     $group_keys = array_filter( array_map( 'sanitize_text_field', (array) ( $data['group_keys'] ?? [] ) ) );
                     $removed    = 0;
-                    foreach ( $group_keys as $group_key ) {
-                        $removed += (int) BB_Cart::get_instance()->remove_group( $group_key );
+                    $restore = mf_bundle_op_defer_heavy_recalc();
+                    try {
+                        foreach ( $group_keys as $group_key ) {
+                            $removed += (int) BB_Cart::get_instance()->remove_group( $group_key );
+                        }
+                    } finally {
+                        // $restore() also runs the one real calculate_totals() pass.
+                        $restore();
                     }
                     if ( ! $removed ) {
                         mf_cart_ops_error( 'No bundle with that group key was found in the cart.' );
-                    }
-                    if ( WC()->cart ) {
-                        WC()->cart->calculate_totals();
                     }
                     return;
                 }
@@ -137,21 +202,26 @@ add_action( 'woocommerce_blocks_loaded', function() {
         woocommerce_store_api_register_endpoint_data( [
             'endpoint'        => Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema::IDENTIFIER,
             'namespace'       => 'mellow-fellow',
+            // Memoized per bundle_id — every item in the same bundle group would
+            // otherwise redo the same wc_get_product() loop over all components.
             'data_callback'   => function ( $cart_item ) {
+                static $cache = [];
                 $bundle_id = isset( $cart_item['bb_bundle_id'] ) ? intval( $cart_item['bb_bundle_id'] ) : 0;
 
-                // Curated original price for a "fixed"/"mystery" bundle set,
-                // not the sum of component catalog prices. Post-type-gated
-                // so BB_Helpers only runs for an actual bundle post.
-                $fixed_original_price = null;
-                if ( $bundle_id && 'bb_bundle' === get_post_type( $bundle_id ) && class_exists( 'BB_Helpers' )
-                    && in_array( BB_Helpers::get_bundle_mode( $bundle_id ), [ 'fixed', 'mystery' ], true ) ) {
-                    $regular = BB_Helpers::get_fixed_regular_price( $bundle_id );
-                    $fixed_original_price = $regular > 0 ? (float) $regular : null;
+                if ( ! array_key_exists( $bundle_id, $cache ) ) {
+                    $fixed_original_price = null;
+                    // bb_bundle is a WC product type, not a WP post_type (always "product").
+                    $bundle_product = $bundle_id ? wc_get_product( $bundle_id ) : null;
+                    if ( $bundle_product && 'bb_bundle' === $bundle_product->get_type() && class_exists( 'BB_Helpers' )
+                        && in_array( BB_Helpers::get_bundle_mode( $bundle_id ), [ 'fixed', 'mystery' ], true ) ) {
+                        $regular = BB_Helpers::get_fixed_regular_price( $bundle_id );
+                        $fixed_original_price = $regular > 0 ? (float) $regular : null;
+                    }
+                    $cache[ $bundle_id ] = $fixed_original_price;
                 }
 
                 return [
-                    'bb_fixed_original_price' => $fixed_original_price,
+                    'bb_fixed_original_price' => $cache[ $bundle_id ],
                     'mf_free_gift'            => ! empty( $cart_item['mf_free_gift'] ),
                 ];
             },
