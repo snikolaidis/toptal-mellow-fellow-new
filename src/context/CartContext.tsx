@@ -88,6 +88,11 @@ interface AddToCartInput {
   productId: number;
   quantity: number;
   variationId?: number;
+  // Defaults to true everywhere (matches the existing behavior every
+  // other add-to-cart call relies on) - set false for an add that
+  // happens on a page where popping the drawer open would just be
+  // redundant, e.g. the checkout page's own free-shipping upsell.
+  openDrawerOnSuccess?: boolean;
 }
 
 export interface BundleGroupInstance {
@@ -591,7 +596,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
 
     hasFetchedRef.current = true;
-    setIsDrawerOpen(true);
+    if (input.openDrawerOnSuccess !== false) setIsDrawerOpen(true);
     startMutation();
 
     try {

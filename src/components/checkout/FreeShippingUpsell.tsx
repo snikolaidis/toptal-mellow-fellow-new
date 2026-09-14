@@ -93,6 +93,9 @@ export default function FreeShippingUpsell() {
       await addToCart({
         productId: selectedProduct.databaseId,
         quantity: 1,
+        // Popping the cart drawer open here would just cover the
+        // checkout page we're already on - redundant, not helpful.
+        openDrawerOnSuccess: false,
       });
     } finally {
       setAdding(false);
