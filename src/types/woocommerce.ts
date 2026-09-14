@@ -102,16 +102,10 @@ export interface ProductTaxonomies {
 
 // The `Nutrition` ACF group, attached directly to products (not nested under
 // productDetails). Fields are ACF "text" (not "number"), so GraphQL returns
-// them as strings, not floats. `carbs` also exists on the group but is
-// unused so far.
+// them as strings, not floats. `carbs` and `sugar` also exist on the group but
+// nothing renders them.
 export interface ProductNutrition {
   calories?: string | null;
-  sugar?: string | null;
-}
-
-export interface CannabinoidServing {
-  cannabinoid?: string | null;
-  mg?: number | null;
 }
 
 export interface ProductACF {
