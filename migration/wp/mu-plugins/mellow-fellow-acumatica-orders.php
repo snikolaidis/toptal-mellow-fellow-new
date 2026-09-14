@@ -417,6 +417,26 @@ function mf_acu_coupon_is_document_level( $code ) {
     return true;
 }
 
+/**
+ * Fulfillment warehouse for a product line, from the AUTHORITATIVE ACF
+ * 'warehouse_code' field on the product (MFNC / MFFL / AB). Falls back to the
+ * parent product for variations. Returns '' when unset — in which case we omit
+ * WarehouseID and Acumatica applies the item's own default warehouse (no breakage).
+ * The three codes in use are all valid, active Acumatica WarehouseIDs, so they map
+ * 1:1 with no translation table.
+ */
+function mf_acu_product_warehouse( $product ) {
+    if ( ! $product ) return '';
+    $code = trim( (string) $product->get_meta( 'warehouse_code' ) );
+    if ( '' === $code && $product->is_type( 'variation' ) ) {
+        $parent = wc_get_product( $product->get_parent_id() );
+        if ( $parent ) {
+            $code = trim( (string) $parent->get_meta( 'warehouse_code' ) );
+        }
+    }
+    return $code;
+}
+
 function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
     // Scheme B: sum order-wide (document-level) coupon discounts. These become
     // an Acumatica document discount instead of sitting on the line items.
@@ -443,6 +463,7 @@ function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
             'qty'       => (float) $item->get_quantity(),
             'subtotal'  => $subtotal,
             'line_disc' => round( $subtotal - (float) $item->get_total(), 2 ),
+            'warehouse' => mf_acu_product_warehouse( $product ),
         );
         $total_subtotal += $subtotal;
     }
@@ -473,6 +494,12 @@ function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
             'UnitPrice'     => array( 'value' => (float) ( $row['subtotal'] / max( 1, $row['qty'] ) ) ),
             'ExtendedPrice' => array( 'value' => $row['subtotal'] ),
         );
+        // Authoritative fulfillment warehouse from the product's ACF warehouse_code.
+        // Overrides Acumatica's item-default warehouse. Omitted when unset, so those
+        // lines still fall back to the Acumatica default.
+        if ( ! empty( $row['warehouse'] ) ) {
+            $line['WarehouseID'] = array( 'value' => $row['warehouse'] );
+        }
         if ( $row['line_disc'] > 0 ) {
             $line['DiscountAmount'] = array( 'value' => $row['line_disc'] );
         }
