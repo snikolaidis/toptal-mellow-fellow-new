@@ -215,19 +215,33 @@ add_action('woocommerce_blocks_loaded', function () {
         'endpoint'        => 'cart',
         'namespace'       => 'mellow-fellow-promotions',
         'data_callback'   => function () {
-            // Resolver-engine promotions (when that engine is enabled), minus any
-            // stale gift entry, then the freshly computed gift chip.
-            $promotions = ( isset($GLOBALS['mf_active_promotions']) && is_array($GLOBALS['mf_active_promotions']) )
-                ? array_values(array_filter(
-                    $GLOBALS['mf_active_promotions'],
-                    function ($p) { return !(isset($p['code']) && $p['code'] === 'mf-free-gift'); }
-                ))
-                : array();
-            $chip = mf_free_gift_chip();
-            if ($chip) {
-                $promotions[] = $chip;
+            // Wrapped so a throw here can never null the whole namespace (the Store
+            // API leaves $data unassigned on a thrown callback → the extension
+            // serializes as null, which is exactly the chip regression). On error we
+            // log the exact cause and return an empty (valid) array instead.
+            try {
+                // Resolver-engine promotions (when that engine is enabled), minus any
+                // stale gift entry, then the freshly computed gift chip.
+                $promotions = ( isset($GLOBALS['mf_active_promotions']) && is_array($GLOBALS['mf_active_promotions']) )
+                    ? array_values(array_filter(
+                        $GLOBALS['mf_active_promotions'],
+                        function ($p) { return !(isset($p['code']) && $p['code'] === 'mf-free-gift'); }
+                    ))
+                    : array();
+                $chip = mf_free_gift_chip();
+                if ($chip) {
+                    $promotions[] = $chip;
+                }
+                return array('promotions' => $promotions);
+            } catch (\Throwable $e) {
+                if (function_exists('wc_get_logger')) {
+                    wc_get_logger()->error(
+                        'chip data_callback threw: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine(),
+                        array('source' => 'mf-free-gift-chip')
+                    );
+                }
+                return array('promotions' => array());
             }
-            return array('promotions' => $promotions);
         },
         'schema_callback' => function () {
             return array(
