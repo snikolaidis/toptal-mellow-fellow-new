@@ -14,28 +14,51 @@ const STATE_KEY = '__APOLLO_STATE__';
 let menuCacheState: NormalizedCacheObject | null = null;
 let menuCacheExpiry = 0;
 const MENU_CACHE_TTL = 300_000; // 5 minutes
+// Short, not zero: skipping the memo on failure removes the only thing
+// throttling concurrent pages, and a build burst gets rate limited.
+const MENU_CACHE_TTL_INCOMPLETE = 30_000;
+
+const MENU_QUERIES = [
+  ['GetNav', GET_NAV],
+  ['GetShopMegaMenu', GET_SHOP_MEGA_MENU],
+  ['GetAllMoods', GET_ALL_MOODS],
+  ['GetMegaMenuFeatured', GET_MEGA_MENU_FEATURED],
+  ['GetFooterMenu', GET_FOOTER_MENU],
+  ['GetFooterMenu2', GET_FOOTER_MENU_2],
+  ['GetSocialLinks', GET_SOCIAL_LINKS],
+] as const;
+
+type MenuQueryName = (typeof MENU_QUERIES)[number][0];
 
 export async function prefetchMenus() {
   const client: ApolloClient<NormalizedCacheObject> = getApolloClient();
 
-  const now = Date.now();
-  if (menuCacheState && now < menuCacheExpiry) {
+  if (menuCacheState && Date.now() < menuCacheExpiry) {
     client.cache.restore(menuCacheState);
     return client;
   }
 
-  await Promise.all([
-    client.query({ query: GET_NAV }).catch(() => null),
-    client.query({ query: GET_SHOP_MEGA_MENU }).catch(() => null),
-    client.query({ query: GET_ALL_MOODS }).catch(() => null),
-    client.query({ query: GET_MEGA_MENU_FEATURED }).catch(() => null),
-    client.query({ query: GET_FOOTER_MENU }).catch(() => null),
-    client.query({ query: GET_FOOTER_MENU_2 }).catch(() => null),
-    client.query({ query: GET_SOCIAL_LINKS }).catch(() => null),
-  ]);
+  const settled = await Promise.all(
+    MENU_QUERIES.map(([name, query]) =>
+      client.query({ query }).then(
+        () => null,
+        () => name,
+      ),
+    ),
+  );
+  const failed = settled.filter((name): name is MenuQueryName => name !== null);
 
+  // A partial result held for the full TTL is what leaves later pages with half a
+  // menu, so an incomplete fetch is memoised only briefly and retried after that.
   menuCacheState = client.cache.extract();
-  menuCacheExpiry = now + MENU_CACHE_TTL;
+  menuCacheExpiry =
+    Date.now() + (failed.length === 0 ? MENU_CACHE_TTL : MENU_CACHE_TTL_INCOMPLETE);
+
+  if (failed.length > 0) {
+    console.error(
+      `[prefetchMenus] ${failed.length}/${MENU_QUERIES.length} failed (${failed.join(', ')}), retrying in ${MENU_CACHE_TTL_INCOMPLETE / 1000}s`,
+    );
+  }
 
   return client;
 }

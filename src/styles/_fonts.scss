@@ -1,3 +1,6 @@
+// The 900 Ultra cuts and the 800 italics are in public/fonts but undeclared on
+// purpose: nothing asks for them yet, and an undeclared face is never fetched.
+
 @font-face {
   font-family: MrEavesXLSanNarOT;
   src: url('/fonts/MrEavesXLSanNarOT-Heavy.otf') format('opentype');
@@ -21,8 +24,36 @@
 
 @font-face {
   font-family: MrEavesXLSanNarOT;
+  src: url('/fonts/MrEavesXLSanNarOT-Reg.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: MrEavesXLSanNarOT;
   src: url('/fonts/MrEavesXLSanNarOT-RegItalic.otf') format('opentype');
   font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: MrEavesSanOT;
+  src: url('/fonts/MrEavesSanOT-Heavy.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: MrEavesSanOT;
+  src: url('/fonts/MrEavesSanOT-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: MrEavesSanOT;
+  src: url('/fonts/MrEavesSanOT-BoldItalic.otf') format('opentype');
+  font-weight: 700;
   font-style: italic;
 }
 
@@ -31,4 +62,11 @@
   src: url('/fonts/MrEavesSanOT-Reg.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
+}
+
+@font-face {
+  font-family: MrEavesSanOT;
+  src: url('/fonts/MrEavesSanOT-RegItalic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
 }

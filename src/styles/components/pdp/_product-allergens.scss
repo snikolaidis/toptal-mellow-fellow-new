@@ -1,0 +1,25 @@
+.product-allergens {
+  max-width: 400px;
+  margin-top: 1.5rem;
+  font-size: 0.9375rem;
+
+  &__heading {
+    font-family: var(--font-family-body);
+    font-size: inherit;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.5rem;
+  }
+
+  &__body {
+    color: var(--color-text-secondary);
+
+    p {
+      margin: 0 0 0.5rem;
+    }
+
+    > :last-child {
+      margin-bottom: 0;
+    }
+  }
+}
