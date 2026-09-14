@@ -91,8 +91,7 @@ export interface ProductTaxonomyTerm {
   extraTaxonomyFields?: { propIcon?: AcfImageField | null } | null;
 }
 
-// Deliberately not on `Product`: these four are fetched by the PDP alone, so
-// keeping them off the shared type makes a stale reader a compile error.
+// Not on `Product` — fetched by the PDP alone.
 export interface ProductTaxonomies {
   flavors?: { nodes: ProductTaxonomyTerm[] } | null;
   vibes?: { nodes: ProductTaxonomyTerm[] } | null;
@@ -128,8 +127,7 @@ export interface ProductACF {
   newNoidBlendDescriptionsReference?: { node?: { id?: string; title?: string } | null } | null;
   // Relationship (multi-select posts)
   badges?: { nodes?: Array<{ id?: string; title?: string }> } | null;
-  // Mellow Meter fields — meterType is an ACF checkbox field (GraphQL
-  // returns [String]), meterValue is a plain number field.
+  // Mellow Meter fields — meterType returns [String] (ACF checkbox).
   meterType?: string[] | null;
   meterValue?: number | null;
 }
@@ -149,20 +147,13 @@ export interface Product {
   price?: string;
   regularPrice?: string;
   salePrice?: string;
-  // Bundle Builder plugin fields — the whole config lives directly on the
-  // product. bbBundleMode distinguishes the two flows:
-  // "byob" — shopper picks their own items from bbBundleProducts, within
-  //   bbMinItems/bbMaxItems, priced by tiered bbDiscountRules. bbFromPrice is
-  //   the cheapest-possible total, for a "From $X" teaser.
-  // "fixed" — admin-picked exact items/quantities, nothing for the shopper
-  //   to select. bbFixedItems is that picked set, bbFixedPrice is the flat
-  //   total, bbFixedQtyMin/Max bound how many sets can be added.
-  // The plugin dropped the bundleBuilder root query when it added these, so
-  // a bundle's own slug now comes from mf/v1/product rather than GraphQL.
-  bbBundleMode?: 'byob' | 'fixed' | null;
+  // Bundle Builder plugin fields, config lives on the product itself.
+  // "byob": shopper picks from bbBundleProducts (bbMinItems/Max,
+  // bbDiscountRules, bbFromPrice). "fixed"/"mystery": admin-picked set
+  // (bbFixedItems/Price/QtyMin/Max) — "mystery" hides bbFixedItems from customers.
+  bbBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
   bbDescription?: string | null;
-  // Whether the "From $X" teaser (bbFromPrice) should render on the card/PDP
-  // for a byob bundle — an admin-facing toggle.
+  // Admin toggle for whether the "From $X" teaser (bbFromPrice) renders.
   bbShowPrice?: boolean | null;
   bbFromPrice?: number | null;
   bbMinItems?: number | null;
@@ -171,8 +162,7 @@ export interface Product {
   bbBundleProducts?: Product[] | null;
   bbFixedItems?: Array<{ productId: number; quantity: number }> | null;
   bbFixedPrice?: number | null;
-  // Undiscounted total for one set (sum of each item's regular price × qty)
-  // — shown struck through next to bbFixedPrice when it's a real discount.
+  // Undiscounted total for one set — struck through next to bbFixedPrice.
   bbFixedOriginalPrice?: number | null;
   bbFixedQtyMin?: number | null;
   bbFixedQtyMax?: number | null;

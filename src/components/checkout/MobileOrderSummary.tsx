@@ -30,7 +30,7 @@ interface CartItem {
 // so `product.price` is already the discounted unit price — `regularPrice`
 // (when present) is the only source for the true original price.
 function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
-  return parseFloat((item.product.regularPrice || item.product.price).replace(/[^0-9.]/g, '')) || 0;
+  return parseFloat((item.product.regularPrice || item.product.price || '').replace(/[^0-9.]/g, '')) || 0;
 }
 
 interface AppliedCoupon {
@@ -231,6 +231,8 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
             {/* Bundle groups */}
             {bundles.map((group) => {
               const allItems = group.instances.flatMap((inst) => inst.items);
+              // No "Show items" affordance for mystery bundles.
+              const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
               const originalTotal = group.fixedOriginalPrice != null
                 ? group.fixedOriginalPrice * group.quantity
                 : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
@@ -272,6 +274,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                           </span>
                         </div>
                       </div>
+                      {!isMysteryBundle && (
                       <button
                         type="button"
                         className={styles.bundleToggleBtn}
@@ -284,6 +287,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                         </span>
                         {isGroupExpanded ? 'Hide items' : 'Show items'}
                       </button>
+                      )}
                       <div className={styles.itemQtyRow}>
                         <div className={styles.qtyControls}>
                           <button
@@ -318,7 +322,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                       </div>
                     </div>
                   </div>
-                  {isGroupExpanded && (
+                  {isGroupExpanded && !isMysteryBundle && (
                     <div id={panelId} className={styles.bundleItemsPanel}>
                       {allItems
                         .reduce<{ item: typeof allItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
@@ -513,7 +517,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                 : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0));
             }, 0);
             const grossStandalone = standalone.reduce(
-              (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parseFloat(i.product.price.replace(/[^0-9.]/g, '') || '0')),
+              (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parseFloat((i.product.price || '').replace(/[^0-9.]/g, '') || '0')),
               0
             );
             const grossSubtotal = grossStandalone + bundleOriginal;

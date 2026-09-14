@@ -776,44 +776,29 @@ export default function CheckoutPage() {
             price: item.bbLocked && typeof item.bbUnitPrice === 'number'
               ? `$${item.bbUnitPrice.toFixed(2)}`
               : item.product.price,
-            // Lets the backend tag this line item as part of a bundle on the
-            // order (see mellow-fellow-create-order.php) — undefined for any
-            // item that isn't part of a bundle group, so non-bundle orders
-            // are unaffected.
+            // Bundle fields below are undefined for non-bundle items, so
+            // non-bundle orders are unaffected (see mellow-fellow-create-order.php).
             bundleName: item.bbBundleId != null ? bundleNames[item.bbBundleId] : undefined,
-            // The true pre-discount unit price, so the admin order screen can
-            // show this line as discounted (subtotal vs. total) instead of a
-            // flat, seemingly full-price line — see originalUnitPrice() above.
-            // Free-gift lines are $0 but carry their catalog regular price the
-            // same way, so the gift reaches Acumatica as a line discount via the
-            // create-order regularUnitPrice gap (no coupon involved).
+            // True pre-discount unit price, for a discounted order line
+            // (subtotal vs. total). Free-gift lines carry it too, $0 line.
             regularUnitPrice:
               item.bbGroupKey || item.isFreeGift ? originalUnitPrice(item) : undefined,
-            // Lets the account order page regroup these line items back into
-            // their bundle set, same as the cart/checkout already do client-side.
             bundleGroupKey: item.bbGroupKey || undefined,
-            // Only set for "fixed" bundles — a fully-resolved dollar total for
-            // this whole instance (bbFixedOriginalPrice is a per-set price;
-            // bundleGroupSetCounts[groupKey] is how many sets this particular
-            // groupKey represents, same multiplication CartContext's
-            // groupCartItems does for the cart/checkout display). Sent
-            // pre-resolved so the order page doesn't need to reconstruct
-            // set-count math it has no data for. Absent for "byob" bundles,
-            // where summing components' own regular prices (order line
-            // subtotal) is already correct with no extra data needed.
+            // Resolves the "Part of bundle" note on the admin order screen.
+            bundleId: item.bbGroupKey ? item.bbBundleId : undefined,
+            // Masks a mystery bundle's contents on the order-confirmation page.
+            bundleMode: item.bbGroupKey ? item.bbMode : undefined,
+            // Curated per-set original price × set count — only for "fixed"
+            // bundles; "byob" derives its original total from line subtotals instead.
             bundleGroupOriginalTotal:
               item.bbGroupKey && item.bbFixedOriginalPrice != null
                 ? item.bbFixedOriginalPrice * (bundleGroupSetCounts[item.bbGroupKey] ?? 1)
                 : undefined,
-            // How many bundle sets this line's quantity represents — lets the
-            // order page show the bundle's own quantity instead of summing
-            // every component line's quantity (see checkout/[databaseId].tsx).
+            // Bundle's own quantity, not the summed component quantity.
             bundleGroupSetCount: item.bbGroupKey
               ? bundleGroupSetCounts[item.bbGroupKey] ?? 1
               : undefined,
-            // The bundle product's own image, so the order page can show it
-            // on the bundle's header row (component products have no
-            // relation to the bundle product's own image).
+            // Bundle product's own image, for the order page's header row.
             bundleImageUrl: item.bbBundleId != null ? bundleImages[item.bbBundleId]?.sourceUrl : undefined,
             bundleImageAlt: item.bbBundleId != null ? bundleImages[item.bbBundleId]?.altText : undefined,
           })),

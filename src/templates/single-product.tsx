@@ -223,9 +223,10 @@ const SingleProduct: React.FC<SingleProductProps> & {
     };
   }, [product?.databaseId, product?.bbBundleMode, initialFixedBundleItems]);
 
-  // Reset state when product changes
+  // Reset state when product changes. "mystery" prices/qty-limits like "fixed".
   useEffect(() => {
-    setQuantity(product?.bbBundleMode === 'fixed' ? product?.bbFixedQtyMin || 1 : 1);
+    const isFixedLikeBundle = product?.bbBundleMode === 'fixed' || product?.bbBundleMode === 'mystery';
+    setQuantity(isFixedLikeBundle ? product?.bbFixedQtyMin || 1 : 1);
     setSelectedVariation(null);
     setAddedToCart(false);
   }, [product?.id]);
@@ -333,9 +334,11 @@ const SingleProduct: React.FC<SingleProductProps> & {
   // Bundle Builder entry-point product. "byob" has no fixed price and can't
   // be added to cart directly — "Create Bundle" routes into the picker page.
   // "fixed" is a normal add-to-cart with a flat price and a read-only,
-  // admin-picked set of items (fixedBundleItems, resolved above).
+  // admin-picked set of items (fixedBundleItems, resolved above). "mystery"
+  // renders identically, but fixedBundleItems stays empty (bbFixedItems is
+  // gated to null for customer requests).
   const isByobBundle = product.bbBundleMode === 'byob';
-  const isFixedBundle = product.bbBundleMode === 'fixed';
+  const isFixedBundle = product.bbBundleMode === 'fixed' || product.bbBundleMode === 'mystery';
   const isBundle = isByobBundle || isFixedBundle;
   const categories = product.productCategories?.nodes || [];
 

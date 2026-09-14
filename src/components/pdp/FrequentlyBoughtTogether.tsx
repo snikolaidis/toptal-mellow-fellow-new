@@ -17,7 +17,7 @@ interface RecProduct {
   stockStatus?: string;
   typeLabel?: string;
   subtitle?: string;
-  bbBundleMode?: 'byob' | 'fixed' | null;
+  bbBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
   bbFixedPrice?: number | null;
   bbFixedOriginalPrice?: number | null;
 }
@@ -44,7 +44,7 @@ interface Props {
   productTypeLabel?: string;
   productSubtitle?: string;
   typeSlugs: string[];
-  productBundleMode?: 'byob' | 'fixed' | null;
+  productBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
   productFixedPrice?: number | null;
   productFixedOriginalPrice?: number | null;
 }
@@ -114,7 +114,7 @@ export default function FrequentlyBoughtTogether({
   }, [productId, productSlug, productPrice, typeKey]);
 
   const items = useMemo<FbtItem[]>(() => {
-    const currentIsFixedBundle = productBundleMode === 'fixed';
+    const currentIsFixedBundle = productBundleMode === 'fixed' || productBundleMode === 'mystery';
     const currentPrice = currentIsFixedBundle
       ? productFixedPrice ?? 0
       : parsePrice(productPrice);
@@ -133,7 +133,7 @@ export default function FrequentlyBoughtTogether({
       isFixedBundle: currentIsFixedBundle,
     };
     const recItems: FbtItem[] = recs.map((r) => {
-      const isFixedBundle = r.bbBundleMode === 'fixed';
+      const isFixedBundle = r.bbBundleMode === 'fixed' || r.bbBundleMode === 'mystery';
       const current = isFixedBundle
         ? r.bbFixedPrice ?? 0
         : parsePrice(r.salePrice) || parsePrice(r.price);
