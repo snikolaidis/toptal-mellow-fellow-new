@@ -61,6 +61,7 @@ export interface SingleProductExtras {
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
   topCannabinoids: string[];
+  allergens: string | null;
   taxonomies: ProductTaxonomies;
   reviewData: KlaviyoReviewsResult;
   // Fixed bundles' admin-picked items (bbFixedItems), pre-resolved into full
@@ -86,6 +87,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   availableOptionsBase = '',
   nutrition = null,
   topCannabinoids = [],
+  allergens = null,
   taxonomies = {},
   reviewData = null,
   fixedBundleItems: initialFixedBundleItems = [],
@@ -959,7 +961,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
           </div>
         </div>
 
-        <ProductDescription product={product} nutrition={nutrition} />
+        <ProductDescription product={product} nutrition={nutrition} allergens={allergens} />
 
         <ProductReviews summary={reviewData?.summary} reviews={reviewData?.reviews || []} />
 
