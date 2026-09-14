@@ -244,18 +244,25 @@ add_action('woocommerce_blocks_loaded', function () {
             }
         },
         'schema_callback' => function () {
+            // 'context' => ['view'] is REQUIRED at every level. WooCommerce runs the
+            // Store API response through rest_filter_response_by_context, which strips
+            // any field that doesn't declare the current ('view') context — a field
+            // with no context comes back null. (This is what silently broke the chip
+            // after a WC update; a working reference is woocommerce-services' notices.)
             return array(
                 'promotions' => array(
                     'description' => 'Active cart promotions (locked chips).',
                     'type'        => 'array',
+                    'context'     => array('view'),
                     'readonly'    => true,
                     'items'       => array(
                         'type'       => 'object',
+                        'context'    => array('view'),
                         'properties' => array(
-                            'code'      => array('type' => 'string'),
-                            'label'     => array('type' => 'string'),
-                            'amount'    => array('type' => 'number'),
-                            'removable' => array('type' => 'boolean'),
+                            'code'      => array('type' => 'string', 'context' => array('view')),
+                            'label'     => array('type' => 'string', 'context' => array('view')),
+                            'amount'    => array('type' => 'number', 'context' => array('view')),
+                            'removable' => array('type' => 'boolean', 'context' => array('view')),
                         ),
                     ),
                 ),
