@@ -658,13 +658,23 @@ export default function CheckoutPage() {
     if (billing.lastName) identity.last_name = billing.lastName;
     if (billing.phone) identity.phone_number = billing.phone;
     klaviyoIdentify(identity);
+    // Mystery bundle component lines carry their real product name in cart
+    // data (see store-api.ts CartItem.bbMode) — the UI masks it everywhere
+    // the shopper can see it, so it must be masked here too, or an
+    // abandoned-checkout flow email built from this event's Items/ItemNames
+    // would spoil the mystery.
+    const klaviyoItemName = (i: NonNullable<typeof cart>['items'][number]) =>
+      i.bbMode === 'mystery' && i.bbBundleId != null
+        ? bundleNames[i.bbBundleId] ?? i.product.name
+        : i.product.name;
+
     klaviyoTrack('Started Checkout (MFF-WOO)', {
       $value: parseFloat(String(cart?.total ?? '0').replace(/[^0-9.]/g, '')) || 0,
-      ItemNames: cart?.items.map((i) => i.product.name) ?? [],
+      ItemNames: cart?.items.map(klaviyoItemName) ?? [],
       Items:
         cart?.items.map((i) => ({
           ProductID: i.product.databaseId,
-          ProductName: i.product.name,
+          ProductName: klaviyoItemName(i),
           Quantity: i.quantity,
           ItemPrice: i.product.price,
         })) ?? [],
