@@ -8,9 +8,10 @@ interface BillingFormProps {
   errors: ValidationErrors;
   onUpdate: (field: keyof AddressData, value: string) => void;
   onSubmit: () => void;
+  submitting?: boolean;
 }
 
-export default function BillingForm({ billing, errors, onUpdate, onSubmit }: BillingFormProps) {
+export default function BillingForm({ billing, errors, onUpdate, onSubmit, submitting }: BillingFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit();
@@ -192,8 +193,8 @@ export default function BillingForm({ billing, errors, onUpdate, onSubmit }: Bil
 
       <div className="form-actions" style={{ marginTop: '1.5rem', borderTop: 'none', paddingTop: 0 }}>
         <span>&nbsp;</span>
-        <button type="submit" className="btn-primary continue-btn">
-          Continue to Shipping
+        <button type="submit" className="btn-primary continue-btn" disabled={submitting}>
+          {submitting ? 'Verifying address...' : 'Continue to Shipping'}
         </button>
       </div>
 

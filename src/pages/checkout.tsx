@@ -73,6 +73,7 @@ export default function CheckoutPage() {
   const [step, setStep] = useState<CheckoutStep>('billing');
   const [customerDataLoaded, setCustomerDataLoaded] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [verifyingAddress, setVerifyingAddress] = useState(false);
   const skipFirstSaveRef = useRef(true);
   const submittingRef = useRef(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
@@ -643,8 +644,44 @@ export default function CheckoutPage() {
     }
   };
 
+  // Verify a typed address is deliverable via Google Address Validation.
+  // Returns true (proceed) unless Google gives a clear "not deliverable".
+  const verifyAddressDeliverable = async (
+    which: 'billing' | 'shipping',
+    addr: AddressData
+  ): Promise<boolean> => {
+    setVerifyingAddress(true);
+    try {
+      const result = await fetch('/api/address-validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address1: addr.address1,
+          address2: addr.address2,
+          city: addr.city,
+          state: addr.state,
+          postcode: addr.postcode,
+          country: addr.country,
+        }),
+      }).then((r) => r.json());
+      if (result && result.deliverable === false) {
+        setErrors((prev) => ({
+          ...prev,
+          [`${which}.address1`]:
+            'We could not verify this address. Please check it or pick a suggestion from the list.',
+        }));
+        return false;
+      }
+      return true;
+    } catch {
+      return true;
+    } finally {
+      setVerifyingAddress(false);
+    }
+  };
+
   // Handle billing form submit
-  const handleBillingSubmit = () => {
+  const handleBillingSubmit = async () => {
     const billingErrors = validateBillingAddress(billing);
     if (!isValid(billingErrors)) {
       setErrors(billingErrors);
@@ -653,18 +690,32 @@ export default function CheckoutPage() {
     setErrors({});
     setError(null);
 
+    if (!(await verifyAddressDeliverable('billing', billing))) {
+      return;
+    }
+
     const identity: Record<string, unknown> = { email: billing.email };
     if (billing.firstName) identity.first_name = billing.firstName;
     if (billing.lastName) identity.last_name = billing.lastName;
     if (billing.phone) identity.phone_number = billing.phone;
     klaviyoIdentify(identity);
+    // Mystery bundle component lines carry their real product name in cart
+    // data (see store-api.ts CartItem.bbMode) — the UI masks it everywhere
+    // the shopper can see it, so it must be masked here too, or an
+    // abandoned-checkout flow email built from this event's Items/ItemNames
+    // would spoil the mystery.
+    const klaviyoItemName = (i: NonNullable<typeof cart>['items'][number]) =>
+      i.bbMode === 'mystery' && i.bbBundleId != null
+        ? bundleNames[i.bbBundleId] ?? i.product.name
+        : i.product.name;
+
     klaviyoTrack('Started Checkout (MFF-WOO)', {
       $value: parseFloat(String(cart?.total ?? '0').replace(/[^0-9.]/g, '')) || 0,
-      ItemNames: cart?.items.map((i) => i.product.name) ?? [],
+      ItemNames: cart?.items.map(klaviyoItemName) ?? [],
       Items:
         cart?.items.map((i) => ({
           ProductID: i.product.databaseId,
-          ProductName: i.product.name,
+          ProductName: klaviyoItemName(i),
           Quantity: i.quantity,
           ItemPrice: i.product.price,
         })) ?? [],
@@ -676,11 +727,14 @@ export default function CheckoutPage() {
   };
 
   // Handle shipping form submit
-  const handleShippingSubmit = () => {
+  const handleShippingSubmit = async () => {
     if (!sameAsBilling) {
       const shippingErrors = validateShippingAddress(shipping);
       if (!isValid(shippingErrors)) {
         setErrors(shippingErrors);
+        return;
+      }
+      if (!(await verifyAddressDeliverable('shipping', shipping))) {
         return;
       }
       saveAddressToProfile('shipping', shipping);
@@ -776,44 +830,32 @@ export default function CheckoutPage() {
             price: item.bbLocked && typeof item.bbUnitPrice === 'number'
               ? `$${item.bbUnitPrice.toFixed(2)}`
               : item.product.price,
-            // Lets the backend tag this line item as part of a bundle on the
-            // order (see mellow-fellow-create-order.php) — undefined for any
-            // item that isn't part of a bundle group, so non-bundle orders
-            // are unaffected.
+            // Bundle fields below are undefined for non-bundle items, so
+            // non-bundle orders are unaffected (see mellow-fellow-create-order.php).
             bundleName: item.bbBundleId != null ? bundleNames[item.bbBundleId] : undefined,
-            // The true pre-discount unit price, so the admin order screen can
-            // show this line as discounted (subtotal vs. total) instead of a
-            // flat, seemingly full-price line — see originalUnitPrice() above.
-            // Free-gift lines are $0 but carry their catalog regular price the
-            // same way, so the gift reaches Acumatica as a line discount via the
-            // create-order regularUnitPrice gap (no coupon involved).
+            // True pre-discount unit price, for a discounted order line
+            // (subtotal vs. total). Free-gift lines carry it too, $0 line.
             regularUnitPrice:
               item.bbGroupKey || item.isFreeGift ? originalUnitPrice(item) : undefined,
-            // Lets the account order page regroup these line items back into
-            // their bundle set, same as the cart/checkout already do client-side.
+            // Lets the backend tag this order line as the free gift (_mf_free_gift)
+            // so it's recorded in the Acumatica note — see mellow-fellow-create-order.php.
+            isFreeGift: item.isFreeGift || undefined,
             bundleGroupKey: item.bbGroupKey || undefined,
-            // Only set for "fixed" bundles — a fully-resolved dollar total for
-            // this whole instance (bbFixedOriginalPrice is a per-set price;
-            // bundleGroupSetCounts[groupKey] is how many sets this particular
-            // groupKey represents, same multiplication CartContext's
-            // groupCartItems does for the cart/checkout display). Sent
-            // pre-resolved so the order page doesn't need to reconstruct
-            // set-count math it has no data for. Absent for "byob" bundles,
-            // where summing components' own regular prices (order line
-            // subtotal) is already correct with no extra data needed.
+            // Resolves the "Part of bundle" note on the admin order screen.
+            bundleId: item.bbGroupKey ? item.bbBundleId : undefined,
+            // Masks a mystery bundle's contents on the order-confirmation page.
+            bundleMode: item.bbGroupKey ? item.bbMode : undefined,
+            // Curated per-set original price × set count — only for "fixed"
+            // bundles; "byob" derives its original total from line subtotals instead.
             bundleGroupOriginalTotal:
               item.bbGroupKey && item.bbFixedOriginalPrice != null
                 ? item.bbFixedOriginalPrice * (bundleGroupSetCounts[item.bbGroupKey] ?? 1)
                 : undefined,
-            // How many bundle sets this line's quantity represents — lets the
-            // order page show the bundle's own quantity instead of summing
-            // every component line's quantity (see checkout/[databaseId].tsx).
+            // Bundle's own quantity, not the summed component quantity.
             bundleGroupSetCount: item.bbGroupKey
               ? bundleGroupSetCounts[item.bbGroupKey] ?? 1
               : undefined,
-            // The bundle product's own image, so the order page can show it
-            // on the bundle's header row (component products have no
-            // relation to the bundle product's own image).
+            // Bundle product's own image, for the order page's header row.
             bundleImageUrl: item.bbBundleId != null ? bundleImages[item.bbBundleId]?.sourceUrl : undefined,
             bundleImageAlt: item.bbBundleId != null ? bundleImages[item.bbBundleId]?.altText : undefined,
           })),
@@ -1042,6 +1084,7 @@ export default function CheckoutPage() {
                 errors={errors}
                 onUpdate={updateBilling}
                 onSubmit={handleBillingSubmit}
+                submitting={verifyingAddress}
               />
             )}
 
@@ -1054,6 +1097,7 @@ export default function CheckoutPage() {
                 onUpdateShipping={updateShipping}
                 onSameAsBillingChange={setSameAsBilling}
                 onSubmit={handleShippingSubmit}
+                submitting={verifyingAddress}
                 onBack={() => {
                   setStep('billing')
                   window.scrollTo({ top: 0, behavior: 'smooth' });

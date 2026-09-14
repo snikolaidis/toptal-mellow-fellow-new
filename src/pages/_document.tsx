@@ -17,8 +17,16 @@ export default function Document({ bodyClass }: { bodyClass: string }) {
     <Html lang="en" translate="no">
       <Head>
         <meta name="google" content="notranslate" />
-        <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
-        <link rel="stylesheet" href="https://use.typekit.net/kud0qbd.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap"
+        />
+        <link
+          rel="stylesheet"
+          href="https://cdn-widgetsrepository.yotpo.com/brandkit/custom-fonts/NECygl2mcY0cFEQNcmZCyjQNcNTUSfynQ2wTTcdM/georgiapro/georgiapro_n4.8627e4332da2bd0ce4ceb6f91d3dd90e0888cdbb-400.css"
+        />
         {process.env.NEXT_PUBLIC_AUTHORIZE_ENVIRONMENT === 'production' ? (
           <script
             type="text/javascript"

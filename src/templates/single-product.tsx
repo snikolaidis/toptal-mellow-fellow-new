@@ -14,14 +14,14 @@ import FreeShippingTracker from '@/components/pdp/FreeShippingTracker';
 import ProductRating from '@/components/pdp/ProductRating';
 import type { KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 import ProductTimeline from '@/components/pdp/ProductTimeline';
-import Nutrition from '@/components/pdp/Nutrition';
+import ProductSnapshot from '@/components/pdp/ProductSnapshot';
 import FlavorsBox from '@/components/pdp/FlavorsBox';
 import AvailableOptions from '@/components/pdp/AvailableOptions';
 import Breadcrumb from '@/components/Breadcrumb';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
-import { CannabinoidServing, Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
+import { Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Thumbs, Pagination, FreeMode, Mousewheel } from 'swiper/modules';
 
@@ -60,7 +60,8 @@ export interface SingleProductExtras {
   availableOptionsBase: string;
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
-  cannabinoids: CannabinoidServing[];
+  topCannabinoids: string[];
+  allergens: string | null;
   taxonomies: ProductTaxonomies;
   reviewData: KlaviyoReviewsResult;
   // Fixed bundles' admin-picked items (bbFixedItems), pre-resolved into full
@@ -85,7 +86,8 @@ const SingleProduct: React.FC<SingleProductProps> & {
   availableOptions = [],
   availableOptionsBase = '',
   nutrition = null,
-  cannabinoids = [],
+  topCannabinoids = [],
+  allergens = null,
   taxonomies = {},
   reviewData = null,
   fixedBundleItems: initialFixedBundleItems = [],
@@ -223,9 +225,10 @@ const SingleProduct: React.FC<SingleProductProps> & {
     };
   }, [product?.databaseId, product?.bbBundleMode, initialFixedBundleItems]);
 
-  // Reset state when product changes
+  // Reset state when product changes. "mystery" prices/qty-limits like "fixed".
   useEffect(() => {
-    setQuantity(product?.bbBundleMode === 'fixed' ? product?.bbFixedQtyMin || 1 : 1);
+    const isFixedLikeBundle = product?.bbBundleMode === 'fixed' || product?.bbBundleMode === 'mystery';
+    setQuantity(isFixedLikeBundle ? product?.bbFixedQtyMin || 1 : 1);
     setSelectedVariation(null);
     setAddedToCart(false);
   }, [product?.id]);
@@ -333,9 +336,11 @@ const SingleProduct: React.FC<SingleProductProps> & {
   // Bundle Builder entry-point product. "byob" has no fixed price and can't
   // be added to cart directly — "Create Bundle" routes into the picker page.
   // "fixed" is a normal add-to-cart with a flat price and a read-only,
-  // admin-picked set of items (fixedBundleItems, resolved above).
+  // admin-picked set of items (fixedBundleItems, resolved above). "mystery"
+  // renders identically, but fixedBundleItems stays empty (bbFixedItems is
+  // gated to null for customer requests).
   const isByobBundle = product.bbBundleMode === 'byob';
-  const isFixedBundle = product.bbBundleMode === 'fixed';
+  const isFixedBundle = product.bbBundleMode === 'fixed' || product.bbBundleMode === 'mystery';
   const isBundle = isByobBundle || isFixedBundle;
   const categories = product.productCategories?.nodes || [];
 
@@ -914,11 +919,12 @@ const SingleProduct: React.FC<SingleProductProps> & {
             )}
 
 
-            <Nutrition
+            <ProductSnapshot
               nutrition={nutrition}
               mG={product.mG}
+              size={product.size}
               pieces={product.pieces}
-              cannabinoids={cannabinoids}
+              topCannabinoids={topCannabinoids}
               productTypes={product.mfproductTypes}
             />
 
@@ -955,7 +961,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
           </div>
         </div>
 
-        <ProductDescription product={product} />
+        <ProductDescription product={product} nutrition={nutrition} allergens={allergens} />
 
         <ProductReviews summary={reviewData?.summary} reviews={reviewData?.reviews || []} />
 

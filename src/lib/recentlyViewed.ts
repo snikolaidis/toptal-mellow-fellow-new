@@ -10,7 +10,7 @@ export interface RecentProduct {
   salePrice?: string;
   image?: { sourceUrl: string; altText: string };
   typeLabel?: string;
-  bbBundleMode?: 'byob' | 'fixed' | null;
+  bbBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
   bbFixedPrice?: number | null;
   bbFixedOriginalPrice?: number | null;
   bbFromPrice?: number | null;

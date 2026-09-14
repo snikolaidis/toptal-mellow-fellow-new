@@ -454,27 +454,13 @@ function mf_resolver_version_guard() {
 }
 
 /* ------------------------------------------------------------------ *
- * 6. Expose active promotions in the Store API cart response (chips)
- * ------------------------------------------------------------------ */
-
-add_action( 'woocommerce_blocks_loaded', function () {
-	if ( ! function_exists( 'woocommerce_store_api_register_endpoint_data' ) ) {
-		return;
-	}
-	woocommerce_store_api_register_endpoint_data( array(
-		'endpoint'        => 'cart',
-		'namespace'       => 'mellow-fellow-promotions',
-		'data_callback'   => function () {
-			return array( 'promotions' => isset( $GLOBALS['mf_active_promotions'] ) ? $GLOBALS['mf_active_promotions'] : array() );
-		},
-		'schema_callback' => function () {
-			return array(
-				'promotions' => array(
-					'description' => 'Automatic promotions applied by the resolver (locked cart chips).',
-					'type'        => 'array',
-					'readonly'    => true,
-				),
-			);
-		},
-	) );
-} );
+ * 6. Store API cart "mellow-fellow-promotions" extension (chips)
+ * ------------------------------------------------------------------ *
+ * MOVED to mellow-fellow-free-gift.php, which now owns this namespace.
+ * The resolver is shelved (flag off), and coupling the free-gift chip to a
+ * shelved plugin is what silently broke the chip. The free-gift plugin's
+ * data_callback still merges this resolver's $GLOBALS['mf_active_promotions']
+ * when the engine is enabled, so nothing is lost when the resolver is on.
+ * Do NOT re-register the namespace here — two registrations of the same
+ * namespace collide.
+ */

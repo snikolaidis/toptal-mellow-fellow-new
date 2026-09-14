@@ -124,6 +124,8 @@ export default function CartPage() {
                 {/* Bundle groups */}
                 {bundles.map((group) => {
                   const allItems = group.instances.flatMap((inst) => inst.items);
+                  // No "Show items" affordance for mystery bundles.
+                  const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
                   const originalTotal = group.fixedOriginalPrice != null
                     ? group.fixedOriginalPrice * group.quantity
                     : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
@@ -167,6 +169,7 @@ export default function CartPage() {
                             )}
                             <div className={styles.productInfo}>
                               <span>{group.bundleName}</span>
+                              {!isMysteryBundle && (
                               <button
                                 type="button"
                                 className={styles.bundleToggleBtn}
@@ -179,6 +182,7 @@ export default function CartPage() {
                                 </span>
                                 {isExpanded ? 'Hide items' : 'Show items'}
                               </button>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -222,7 +226,7 @@ export default function CartPage() {
                         </td>
                         <td></td>
                       </tr>
-                      {isExpanded && bundleItemRows.map(({ item, qty, totalAmount }) => (
+                      {isExpanded && !isMysteryBundle && bundleItemRows.map(({ item, qty, totalAmount }) => (
                         <tr key={item.product.databaseId} id={`${panelId}-${item.product.databaseId}`} className={styles.bundleItemRow}>
                           <td>
                             <div className={styles.productCell}>

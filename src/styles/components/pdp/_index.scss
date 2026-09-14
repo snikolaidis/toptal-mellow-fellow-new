@@ -1,11 +1,13 @@
 @use 'available-options';
+@use 'product-allergens';
 @use 'faqs';
 @use 'free-shipping-tracker';
 @use 'flavors-box';
-@use 'nutrition-badge';
+@use 'snapshot-badge';
 @use 'product-coa-link';
 @use 'product-mellow-meter';
 @use 'product-nutrition';
+@use 'product-snapshot';
 @use 'product-rating';
 @use 'product-reviews';
 @use 'product-timeline';
