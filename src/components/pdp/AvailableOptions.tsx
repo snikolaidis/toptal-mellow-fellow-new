@@ -34,7 +34,7 @@ export default function AvailableOptions({ options, currentProductId, baseName }
             key={item.id}
             href={`/products/${item.slug}`}
             scroll={false}
-            prefetch
+            prefetch={false}
             className={`available-options__item ${
               item.id === currentProductId ? 'available-options__item--current' : ''
             }`}
