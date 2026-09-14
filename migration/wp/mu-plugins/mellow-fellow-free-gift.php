@@ -161,52 +161,95 @@ add_action('woocommerce_cart_loaded_from_session', function ($cart) {
 });
 
 /**
- * Surface the gift as a locked cart "chip" so the UI still shows a "Free gift"
- * pill like the old coupon did. We reuse the mellow-fellow-promotions cart
- * extension (registered by the resolver, read from $GLOBALS['mf_active_promotions']),
- * appending the gift entry regardless of whether the resolver itself is enabled.
- * Runs at priority 999 — after the gift line has been priced to $0 (priority 20) —
- * so the chip's "amount saved" is the gift's full regular price. The line item
- * also renders its own struck-through regular price -> Free automatically.
+ * The "Free gift" locked cart chip.
+ *
+ * Computed directly from the current cart (not from a value stashed during
+ * calculate_totals). This matters because the Store API does NOT run
+ * calculate_totals on a plain GET /cart, so anything that relied on a
+ * before_calculate_totals hook was empty on cart reads. Reading the cart here,
+ * inside the Store API data_callback, works on every response — GET included.
+ *
+ * Returns the chip array, or null when there's no qualifying gift.
  */
-add_action('woocommerce_before_calculate_totals', function ($cart) {
-    if (!$cart || !is_a($cart, 'WC_Cart')) {
-        return;
-    }
-    if (!isset($GLOBALS['mf_active_promotions']) || !is_array($GLOBALS['mf_active_promotions'])) {
-        $GLOBALS['mf_active_promotions'] = array();
-    }
-    // Drop any stale gift chip from a prior calculate pass before re-deriving it.
-    $GLOBALS['mf_active_promotions'] = array_values(array_filter(
-        $GLOBALS['mf_active_promotions'],
-        function ($p) {
-            return !(isset($p['code']) && $p['code'] === 'mf-free-gift');
-        }
-    ));
-
-    if (!mf_free_gift_cart_qualifies()) {
-        return;
+function mf_free_gift_chip() {
+    if (!function_exists('mf_free_gift_cart_qualifies') || !mf_free_gift_cart_qualifies()) {
+        return null;
     }
     $key = mf_free_gift_current_key();
-    if (!$key) {
-        return;
+    if (!$key || !function_exists('WC') || !WC()->cart) {
+        return null;
     }
-    $item    = $cart->get_cart()[$key] ?? null;
+    $item    = WC()->cart->get_cart()[$key] ?? null;
     $product = $item && isset($item['data']) ? $item['data'] : null;
     if (!$product) {
-        return;
+        return null;
     }
     $regular = (float) $product->get_regular_price();
     if ($regular <= 0) {
         $regular = (float) $product->get_price();
     }
-    $GLOBALS['mf_active_promotions'][] = array(
+    return array(
         'code'      => 'mf-free-gift',
         'label'     => 'Free gift',
         'amount'    => $regular,
         'removable' => false,
     );
-}, 999, 1);
+}
+
+/**
+ * Register the mellow-fellow-promotions cart extension HERE (was in the resolver,
+ * which is shelved — coupling the gift chip to it is what silently broke the chip).
+ * The free-gift plugin now owns it. Any resolver-engine promotions are merged in
+ * when that engine is on (via $GLOBALS['mf_active_promotions']), so nothing is lost.
+ *
+ * The 'items' schema is REQUIRED: a bare {type:array} lets WooCommerce's Store API
+ * schema sanitizer null the whole value (an array of objects with no item schema),
+ * which is exactly how the chip regressed after a WC update — the namespace was
+ * present but its value came back null.
+ */
+add_action('woocommerce_blocks_loaded', function () {
+    if (!function_exists('woocommerce_store_api_register_endpoint_data')) {
+        return;
+    }
+    woocommerce_store_api_register_endpoint_data(array(
+        'endpoint'        => 'cart',
+        'namespace'       => 'mellow-fellow-promotions',
+        'data_callback'   => function () {
+            // Resolver-engine promotions (when that engine is enabled), minus any
+            // stale gift entry, then the freshly computed gift chip.
+            $promotions = ( isset($GLOBALS['mf_active_promotions']) && is_array($GLOBALS['mf_active_promotions']) )
+                ? array_values(array_filter(
+                    $GLOBALS['mf_active_promotions'],
+                    function ($p) { return !(isset($p['code']) && $p['code'] === 'mf-free-gift'); }
+                ))
+                : array();
+            $chip = mf_free_gift_chip();
+            if ($chip) {
+                $promotions[] = $chip;
+            }
+            return array('promotions' => $promotions);
+        },
+        'schema_callback' => function () {
+            return array(
+                'promotions' => array(
+                    'description' => 'Active cart promotions (locked chips).',
+                    'type'        => 'array',
+                    'readonly'    => true,
+                    'items'       => array(
+                        'type'       => 'object',
+                        'properties' => array(
+                            'code'      => array('type' => 'string'),
+                            'label'     => array('type' => 'string'),
+                            'amount'    => array('type' => 'number'),
+                            'removable' => array('type' => 'boolean'),
+                        ),
+                    ),
+                ),
+            );
+        },
+        'schema_type'     => ARRAY_A,
+    ));
+});
 
 /* -------------------------------------------------------------------------
  * REST: gift product IDs for a set of collections (used by the frontend widget
