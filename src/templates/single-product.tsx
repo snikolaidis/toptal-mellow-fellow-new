@@ -21,7 +21,7 @@ import Breadcrumb from '@/components/Breadcrumb';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/context/CartContext';
 import { klaviyoTrack } from '@/lib/klaviyo';
-import { CannabinoidServing, Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
+import { Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Thumbs, Pagination, FreeMode, Mousewheel } from 'swiper/modules';
 
@@ -60,7 +60,7 @@ export interface SingleProductExtras {
   availableOptionsBase: string;
   bundleSlug: string | null;
   nutrition: ProductNutrition | null;
-  cannabinoids: CannabinoidServing[];
+  topCannabinoids: string[];
   taxonomies: ProductTaxonomies;
   reviewData: KlaviyoReviewsResult;
   // Fixed bundles' admin-picked items (bbFixedItems), pre-resolved into full
@@ -85,7 +85,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
   availableOptions = [],
   availableOptionsBase = '',
   nutrition = null,
-  cannabinoids = [],
+  topCannabinoids = [],
   taxonomies = {},
   reviewData = null,
   fixedBundleItems: initialFixedBundleItems = [],
@@ -920,8 +920,9 @@ const SingleProduct: React.FC<SingleProductProps> & {
             <Nutrition
               nutrition={nutrition}
               mG={product.mG}
+              size={product.size}
               pieces={product.pieces}
-              cannabinoids={cannabinoids}
+              topCannabinoids={topCannabinoids}
               productTypes={product.mfproductTypes}
             />
 

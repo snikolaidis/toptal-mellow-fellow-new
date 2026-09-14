@@ -8,7 +8,7 @@ import { isBuildPhase, warmWordPress } from '@/lib/buildPhase';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import type { SingleProductExtras } from '@/templates/single-product';
-import type { CannabinoidServing, Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
+import type { Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { fetchKlaviyoReviews, type KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 
 /**
@@ -39,7 +39,7 @@ async function fetchProductExtras(
 ): Promise<
   Omit<
     SingleProductExtras,
-    'nutrition' | 'cannabinoids' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
+    'nutrition' | 'topCannabinoids' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
   > & {
     databaseId: number | null;
   }
@@ -77,12 +77,12 @@ const GET_PRODUCT_NUTRITION = gql`
   query GetProductNutrition($slug: ID!) {
     product(id: $slug, idType: SLUG) {
       ... on SimpleProduct {
-        nutrition { calories sugar }
-        productDetails { cannabinoidMgPerServing { cannabinoid mg } }
+        nutrition { calories }
+        productDetails { top3Cannabinoids }
       }
       ... on VariableProduct {
-        nutrition { calories sugar }
-        productDetails { cannabinoidMgPerServing { cannabinoid mg } }
+        nutrition { calories }
+        productDetails { top3Cannabinoids }
       }
     }
   }
@@ -91,14 +91,14 @@ const GET_PRODUCT_NUTRITION = gql`
 type ProductNutritionResult = {
   product?: {
     nutrition?: ProductNutrition | null;
-    productDetails?: { cannabinoidMgPerServing?: CannabinoidServing[] | null } | null;
+    productDetails?: { top3Cannabinoids?: Array<string | null> | null } | null;
   } | null;
 };
 
 async function fetchProductNutrition(
   slug: string
-): Promise<{ nutrition: ProductNutrition | null; cannabinoids: CannabinoidServing[] }> {
-  const empty = { nutrition: null, cannabinoids: [] };
+): Promise<{ nutrition: ProductNutrition | null; topCannabinoids: string[] }> {
+  const empty = { nutrition: null, topCannabinoids: [] };
   try {
     const { data, errors } = await getClient().query<ProductNutritionResult>({
       query: GET_PRODUCT_NUTRITION,
@@ -110,7 +110,9 @@ async function fetchProductNutrition(
     if (errors?.length) return empty;
     return {
       nutrition: data?.product?.nutrition ?? null,
-      cannabinoids: data?.product?.productDetails?.cannabinoidMgPerServing ?? [],
+      topCannabinoids: (data?.product?.productDetails?.top3Cannabinoids ?? []).filter(
+        (key): key is string => !!key
+      ),
     };
   } catch {
     return empty;
@@ -335,7 +337,7 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
 
     Object.assign(result.props, extras, {
       nutrition: nutritionData.nutrition,
-      cannabinoids: nutritionData.cannabinoids,
+      topCannabinoids: nutritionData.topCannabinoids,
       reviewData,
       fixedBundleItems,
       taxonomies,
