@@ -660,8 +660,8 @@ async function updateCustomerAddresses(
   // Determine shipping address (use billing if same as billing)
   const shippingAddress = body.shipping || body.billing;
 
-  const mutation = `
-    mutation UpdateCustomer($input: UpdateCustomerInput!) {
+  const mutation = /* GraphQL */ `
+    mutation UpdateCustomerAtCheckout($input: UpdateCustomerInput!) {
       updateCustomer(input: $input) {
         customer {
           id

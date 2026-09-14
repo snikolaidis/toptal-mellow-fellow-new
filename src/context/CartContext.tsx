@@ -1074,7 +1074,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            query: `query GetBundleImages($ids: [Int]!) {
+            query: /* GraphQL */ `query GetBundleImages($ids: [Int]!) {
               products(first: 100, where: { include: $ids }) {
                 nodes {
                   databaseId
