@@ -160,6 +160,18 @@ function mf_create_order( WP_REST_Request $request ) {
 
             $item_id = $order->add_product( $product, $quantity, $add_args );
 
+            // Tag the free-gift line so downstream systems can identify it — it's
+            // a $0 line with a line discount, not a coupon, so it's otherwise
+            // indistinguishable from a bundle discount. The Acumatica note builder
+            // reads _mf_free_gift to record what was given away.
+            if ( $item_id && ! is_wp_error( $item_id ) && ! empty( $item['isFreeGift'] ) ) {
+                $gift_item = $order->get_item( $item_id );
+                if ( $gift_item ) {
+                    $gift_item->add_meta_data( '_mf_free_gift', 1 );
+                    $gift_item->save();
+                }
+            }
+
             // Tags this line as part of a bundle — 'Bundle' and the '_bb_'
             // keys below are all hidden from the admin order screen (filter above).
             $bundle_name = sanitize_text_field( $item['bundleName'] ?? '' );

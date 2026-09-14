@@ -73,6 +73,7 @@ export default function CheckoutPage() {
   const [step, setStep] = useState<CheckoutStep>('billing');
   const [customerDataLoaded, setCustomerDataLoaded] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [verifyingAddress, setVerifyingAddress] = useState(false);
   const skipFirstSaveRef = useRef(true);
   const submittingRef = useRef(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
@@ -643,8 +644,44 @@ export default function CheckoutPage() {
     }
   };
 
+  // Verify a typed address is deliverable via Google Address Validation.
+  // Returns true (proceed) unless Google gives a clear "not deliverable".
+  const verifyAddressDeliverable = async (
+    which: 'billing' | 'shipping',
+    addr: AddressData
+  ): Promise<boolean> => {
+    setVerifyingAddress(true);
+    try {
+      const result = await fetch('/api/address-validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address1: addr.address1,
+          address2: addr.address2,
+          city: addr.city,
+          state: addr.state,
+          postcode: addr.postcode,
+          country: addr.country,
+        }),
+      }).then((r) => r.json());
+      if (result && result.deliverable === false) {
+        setErrors((prev) => ({
+          ...prev,
+          [`${which}.address1`]:
+            'We could not verify this address. Please check it or pick a suggestion from the list.',
+        }));
+        return false;
+      }
+      return true;
+    } catch {
+      return true;
+    } finally {
+      setVerifyingAddress(false);
+    }
+  };
+
   // Handle billing form submit
-  const handleBillingSubmit = () => {
+  const handleBillingSubmit = async () => {
     const billingErrors = validateBillingAddress(billing);
     if (!isValid(billingErrors)) {
       setErrors(billingErrors);
@@ -652,6 +689,10 @@ export default function CheckoutPage() {
     }
     setErrors({});
     setError(null);
+
+    if (!(await verifyAddressDeliverable('billing', billing))) {
+      return;
+    }
 
     const identity: Record<string, unknown> = { email: billing.email };
     if (billing.firstName) identity.first_name = billing.firstName;
@@ -686,11 +727,14 @@ export default function CheckoutPage() {
   };
 
   // Handle shipping form submit
-  const handleShippingSubmit = () => {
+  const handleShippingSubmit = async () => {
     if (!sameAsBilling) {
       const shippingErrors = validateShippingAddress(shipping);
       if (!isValid(shippingErrors)) {
         setErrors(shippingErrors);
+        return;
+      }
+      if (!(await verifyAddressDeliverable('shipping', shipping))) {
         return;
       }
       saveAddressToProfile('shipping', shipping);
@@ -793,6 +837,9 @@ export default function CheckoutPage() {
             // (subtotal vs. total). Free-gift lines carry it too, $0 line.
             regularUnitPrice:
               item.bbGroupKey || item.isFreeGift ? originalUnitPrice(item) : undefined,
+            // Lets the backend tag this order line as the free gift (_mf_free_gift)
+            // so it's recorded in the Acumatica note — see mellow-fellow-create-order.php.
+            isFreeGift: item.isFreeGift || undefined,
             bundleGroupKey: item.bbGroupKey || undefined,
             // Resolves the "Part of bundle" note on the admin order screen.
             bundleId: item.bbGroupKey ? item.bbBundleId : undefined,
@@ -1037,6 +1084,7 @@ export default function CheckoutPage() {
                 errors={errors}
                 onUpdate={updateBilling}
                 onSubmit={handleBillingSubmit}
+                submitting={verifyingAddress}
               />
             )}
 
@@ -1049,6 +1097,7 @@ export default function CheckoutPage() {
                 onUpdateShipping={updateShipping}
                 onSameAsBillingChange={setSameAsBilling}
                 onSubmit={handleShippingSubmit}
+                submitting={verifyingAddress}
                 onBack={() => {
                   setStep('billing')
                   window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -192,6 +192,20 @@ export function transformStoreApiCart(data: any): Cart | null {
     removable: Boolean(p.removable),
   }));
 
+  // Derive the "Free gift" chip client-side from the gift line itself. The gift
+  // is a $0 cart line flagged isFreeGift (which serializes reliably), so we don't
+  // depend on the server promotions extension for the chip — custom Store API
+  // extension namespaces are brittle to serialize (WooCommerce's context filtering
+  // nulls them), whereas the item flag is always present. Only add it if the
+  // server didn't already surface it, so there's never a duplicate chip.
+  const giftItem = items.find((i) => i.isFreeGift);
+  if (giftItem && !promotions.some((p) => p.code === 'mf-free-gift')) {
+    const regular = parseFloat(
+      (giftItem.product.regularPrice || giftItem.product.price || '').replace(/[^0-9.]/g, '')
+    ) || 0;
+    promotions.push({ code: 'mf-free-gift', label: 'Free gift', amount: regular, removable: false });
+  }
+
   return {
     items,
     subtotal: minorToFormatted(data.totals?.total_items, totalsDecimals),

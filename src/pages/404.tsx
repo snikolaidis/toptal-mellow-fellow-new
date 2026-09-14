@@ -1,5 +1,7 @@
+import { GetStaticProps } from 'next';
 import Layout from '@/components/Layout';
 import Link from 'next/link';
+import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 
 export default function Custom404() {
   return (
@@ -47,3 +49,16 @@ export default function Custom404() {
     </Layout>
   );
 }
+
+// The header fetches its nav client-side, and this is the one page reached cold,
+// so without a warm cache it renders the hardcoded Shop item on its own.
+export const getStaticProps: GetStaticProps = async () => {
+  const props: Record<string, unknown> = {};
+  try {
+    mergeMenuState(props, await prefetchMenus());
+  } catch (error) {
+    // Leaving the cache empty is safe: the header falls back to fetching.
+    console.error('[404] menu prefetch failed, falling back to a client fetch', error);
+  }
+  return { props, revalidate: 300 };
+};

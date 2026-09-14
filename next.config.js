@@ -98,6 +98,9 @@ const nextConfig = {
   },
   experimental: {
     scrollRestoration: true,
+    // One page per worker, defaulting to os.cpus() - 1, which reads the host's
+    // cores in a container. WordPress has 20 PHP workers across all environments.
+    cpus: 4,
   },
   async headers() {
     const securityHeaders = [

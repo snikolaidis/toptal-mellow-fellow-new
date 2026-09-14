@@ -39,7 +39,7 @@ async function fetchProductExtras(
 ): Promise<
   Omit<
     SingleProductExtras,
-    'nutrition' | 'topCannabinoids' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
+    'nutrition' | 'topCannabinoids' | 'allergens' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
   > & {
     databaseId: number | null;
   }
@@ -78,11 +78,11 @@ const GET_PRODUCT_NUTRITION = gql`
     product(id: $slug, idType: SLUG) {
       ... on SimpleProduct {
         nutrition { calories carbs sugar }
-        productDetails { top3Cannabinoids }
+        productDetails { top3Cannabinoids allergens }
       }
       ... on VariableProduct {
         nutrition { calories carbs sugar }
-        productDetails { top3Cannabinoids }
+        productDetails { top3Cannabinoids allergens }
       }
     }
   }
@@ -91,14 +91,21 @@ const GET_PRODUCT_NUTRITION = gql`
 type ProductNutritionResult = {
   product?: {
     nutrition?: ProductNutrition | null;
-    productDetails?: { top3Cannabinoids?: Array<string | null> | null } | null;
+    productDetails?: {
+      top3Cannabinoids?: Array<string | null> | null;
+      allergens?: string | null;
+    } | null;
   } | null;
 };
 
 async function fetchProductNutrition(
   slug: string
-): Promise<{ nutrition: ProductNutrition | null; topCannabinoids: string[] }> {
-  const empty = { nutrition: null, topCannabinoids: [] };
+): Promise<{
+  nutrition: ProductNutrition | null;
+  topCannabinoids: string[];
+  allergens: string | null;
+}> {
+  const empty = { nutrition: null, topCannabinoids: [], allergens: null };
   try {
     const { data, errors } = await getClient().query<ProductNutritionResult>({
       query: GET_PRODUCT_NUTRITION,
@@ -113,6 +120,7 @@ async function fetchProductNutrition(
       topCannabinoids: (data?.product?.productDetails?.top3Cannabinoids ?? []).filter(
         (key): key is string => !!key
       ),
+      allergens: data?.product?.productDetails?.allergens ?? null,
     };
   } catch {
     return empty;
@@ -338,6 +346,7 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
     Object.assign(result.props, extras, {
       nutrition: nutritionData.nutrition,
       topCannabinoids: nutritionData.topCannabinoids,
+      allergens: nutritionData.allergens,
       reviewData,
       fixedBundleItems,
       taxonomies,
