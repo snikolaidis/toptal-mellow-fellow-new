@@ -4,6 +4,7 @@ import { getApolloAuthClient, useAuth } from "@faustwp/core";
 import { useMutation } from "@apollo/client";
 import { UPDATE_CUSTOMER } from "@/graphql/queries/auth";
 import { useCart } from "@/context/CartContext";
+import FreeShippingUpsell from "./FreeShippingUpsell";
 
 interface Address {
   firstName: string;
@@ -886,6 +887,8 @@ export default function MellowCheckout({
           ================================================== */}
           <section className={styles.card}>
             <h3>Shipping Method</h3>
+
+            <FreeShippingUpsell />
 
             <div className={styles.shippingMethods}>
               {shippingMethods.map((method) => (

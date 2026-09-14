@@ -1,0 +1,224 @@
+.wrap {
+  width: 100%;
+  box-sizing: border-box;
+  background: #fffdf7;
+  border: 1px solid #ebe6dc;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.gapText {
+  font-size: 14px;
+  color: #101820;
+}
+
+.gapText strong {
+  color: #101820;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b9741f;
+  white-space: nowrap;
+}
+
+.chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.chevronUp {
+  transform: rotate(180deg);
+}
+
+.track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  margin-top: 10px;
+  background: #ebe6dc;
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    #4dd0a0,
+    #4da3d0,
+    #7a6baa,
+    #d04d9c,
+    #e5bc43
+  );
+  transition: width 0.4s ease;
+}
+
+.options {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.optionSlot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.plus {
+  flex-shrink: 0;
+  color: #b9b1a2;
+  font-weight: 700;
+}
+
+.option {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border: 1px solid #ebe6dc;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.option:hover {
+  border-color: #b9b1a2;
+}
+
+.optionSelected {
+  border-color: #d4b449;
+  background: #fffdf7;
+}
+
+.option input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.radioDot {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #b9b1a2;
+  background: #fff;
+}
+
+.optionSelected .radioDot {
+  border-color: #101820;
+  background: #101820;
+}
+
+.optionSelected .radioDot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 5px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translateY(-1px);
+}
+
+.option img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.optionName {
+  font-size: 11px;
+  line-height: 1.3;
+  color: #101820;
+  min-height: 28px;
+}
+
+.optionPrice {
+  font-size: 12px;
+  font-weight: 700;
+  color: #101820;
+}
+
+.salePrice {
+  color: #c0392b;
+}
+
+.regularPrice {
+  color: #999;
+  text-decoration: line-through;
+  font-weight: 400;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 13px;
+}
+
+.totalLabel {
+  color: #777;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.addButton {
+  width: 100%;
+  height: 48px;
+  margin-top: 10px;
+  border: 1.5px solid #101820;
+  border-radius: 30px;
+  background: #fff;
+  color: #101820;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.addButton:hover:not(:disabled) {
+  background: #101820;
+  color: #fff;
+}
+
+.addButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
