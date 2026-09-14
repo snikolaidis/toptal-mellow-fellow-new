@@ -49,7 +49,7 @@ async function handler(
     }
 
     // WooGraphQL registerCustomer mutation
-    const mutation = `
+    const mutation = /* GraphQL */ `
       mutation RegisterCustomer($input: RegisterCustomerInput!) {
         registerCustomer(input: $input) {
           customer {

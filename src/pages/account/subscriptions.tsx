@@ -35,7 +35,7 @@ function formatDate(value: string): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-const CUSTOMER_SUBSCRIPTIONS_QUERY = `
+const CUSTOMER_SUBSCRIPTIONS_QUERY = /* GraphQL */ `
   query CustomerSubscriptions {
     customer {
       subscriptions(first: 50) {

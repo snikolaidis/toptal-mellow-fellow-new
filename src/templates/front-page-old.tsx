@@ -84,27 +84,27 @@ FrontPage.query = gql`
   ${blockFragments.AcfReviewsCarousel.entry}
   ${blockFragments.AcfPromoSlider.entry}
   ${blockFragments.CoreImage.entry}
-  query FrontPage($id: ID!) {
+  query FrontPageOld($id: ID!) {
     page(id: $id, idType: DATABASE_ID) {
       editorBlocks(flat: false) {
         name
         __typename
         id: clientId
         parentClientId
-        ...${blockFragments.AcfHeroSlider.key}
-        ...${blockFragments.AcfCollectionLinks.key}
-        ...${blockFragments.AcfCollectionSlider.key}
-        ...${blockFragments.AcfImageSlider.key}
-        ...${blockFragments.AcfHighlightsGroup.key}
-        ...${blockFragments.AcfResponsiveImage.key}
-        ...${blockFragments.AcfImageCarousel.key}
-        ...${blockFragments.AcfFeaturedCollection.key}
-        ...${blockFragments.AcfUgcCarousel.key}
-        ...${blockFragments.AcfBlogPosts.key}
-        ...${blockFragments.AcfFaq.key}
-        ...${blockFragments.AcfReviewsCarousel.key}
-        ...${blockFragments.AcfPromoSlider.key}
-        ...${blockFragments.CoreImage.key}
+        ...AcfHeroSliderFragment
+        ...AcfCollectionLinksFragment
+        ...AcfCollectionSliderFragment
+        ...AcfImageSliderFragment
+        ...AcfHighlightsGroupFragment
+        ...AcfResponsiveImageFragment
+        ...AcfImageCarouselFragment
+        ...AcfFeaturedCollectionFragment
+        ...AcfUgcCarouselFragment
+        ...AcfBlogPostsFragment
+        ...AcfFaqFragment
+        ...AcfReviewsCarouselFragment
+        ...AcfPromoSliderFragment
+        ...CoreImageBlockFragment
       }
     }
   }

@@ -197,7 +197,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            query: `query GetFixedBundleItems($ids: [Int]!) {
+            query: /* GraphQL */ `query GetFixedBundleItems($ids: [Int]!) {
               products(first: 100, where: { include: $ids }) {
                 nodes {
                   __typename

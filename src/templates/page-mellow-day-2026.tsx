@@ -69,9 +69,9 @@ MellowDay2026.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blockFragments.AcfHeroSection.key}
-        ...${blockFragments.AcfSaleCountdownHero.key}
-        ...${blockFragments.CoreParagraph.key}
+        ...AcfHeroSectionFragment
+        ...AcfSaleCountdownHeroFragment
+        ...CoreParagraphBlockFragment
       }
     }
     bestSellers: products(first: 16, where: {

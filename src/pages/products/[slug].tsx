@@ -133,7 +133,7 @@ export interface ResolvedFixedBundleItem {
  * see the section immediately instead of watching it pop in.
  */
 async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<ResolvedFixedBundleItem[]> {
-  const modeQuery = `
+  const modeQuery = /* GraphQL */ `
     query GetFixedBundleMode($slug: ID!) {
       product(id: $slug, idType: SLUG) {
         ... on SimpleProduct { bbBundleMode bbFixedItems { productId quantity } }
@@ -155,7 +155,7 @@ async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<Resol
     if (items.length === 0) return [];
 
     const ids = items.map((i) => i.productId);
-    const itemsQuery = `
+    const itemsQuery = /* GraphQL */ `
       query GetFixedBundleItemProducts($ids: [Int]!) {
         products(first: 100, where: { include: $ids }) {
           nodes {
