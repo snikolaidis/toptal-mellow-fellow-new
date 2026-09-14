@@ -22,6 +22,63 @@ function mf_acu_mask_email( $email ) {
 /* ── hook: schedule push when order hits processing ──────────────── */
 
 add_action( 'woocommerce_order_status_processing', 'mf_acu_schedule_order_push', 30, 1 );
+// Some paths take an order straight to "completed" (e.g. all-virtual carts, or a
+// manual status jump) without ever passing through "processing". Cover that too —
+// the per-order duplicate guards make a second schedule a no-op.
+add_action( 'woocommerce_order_status_completed', 'mf_acu_schedule_order_push', 30, 1 );
+
+/* ── fallback sweep: catch orders that never got pushed ──────────────
+ * The push is async (Action Scheduler runs on WP Engine's ~1-minute cron), so a
+ * brand-new order pushes within a minute or two, not instantly — that's expected
+ * and does not block checkout. This recurring sweep is the safety net for the
+ * cases async alone can miss: a status hook that never fired, an Action Scheduler
+ * job dropped on a deploy/restart, or a transient failure. It re-schedules any
+ * recent order that still has no Acumatica SO number. Already-pushed orders (SO
+ * number set) and permanently-failed orders (max attempts) are skipped, so it
+ * never duplicates and never hammers a broken order. */
+add_action( 'init', function () {
+    if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'mf_acu_sweep_unpushed' ) ) {
+        as_schedule_recurring_action( time() + 300, 15 * MINUTE_IN_SECONDS, 'mf_acu_sweep_unpushed', array(), 'mellow-fellow-acumatica' );
+    }
+} );
+
+add_action( 'mf_acu_sweep_unpushed', 'mf_acu_sweep_unpushed_orders' );
+
+function mf_acu_sweep_unpushed_orders() {
+    if ( ! function_exists( 'mf_acu_environment_ok' ) || ! mf_acu_environment_ok() ) {
+        return;
+    }
+    if ( ! function_exists( 'wc_get_orders' ) ) {
+        return;
+    }
+    $order_ids = wc_get_orders( array(
+        'status'       => array( 'wc-processing', 'wc-completed', 'wc-on-hold' ),
+        'limit'        => 20,
+        'date_created' => '>' . ( time() - 7 * DAY_IN_SECONDS ),
+        'return'       => 'ids',
+        'meta_query'   => array(
+            // Never successfully pushed (no SO number recorded).
+            array( 'key' => '_acumatica_order_nbr', 'compare' => 'NOT EXISTS' ),
+        ),
+    ) );
+    foreach ( (array) $order_ids as $oid ) {
+        $order = wc_get_order( $oid );
+        if ( ! $order ) {
+            continue;
+        }
+        // Skip orders that exhausted their retries — those need manual attention,
+        // not an endless re-push loop.
+        if ( 'failed' === $order->get_meta( '_acumatica_push_status' ) ) {
+            continue;
+        }
+        // Skip if a push is already queued for it.
+        if ( function_exists( 'as_next_scheduled_action' ) && as_next_scheduled_action( MF_ACU_ORDER_HOOK, array( $oid ) ) ) {
+            continue;
+        }
+        mf_acu_log( "Sweep: re-scheduling unpushed order $oid", 'orders' );
+        mf_acu_schedule_order_push( $oid );
+    }
+}
 
 function mf_acu_schedule_order_push( $order_id ) {
     $order = wc_get_order( $order_id );
@@ -66,8 +123,30 @@ function mf_acu_push_order( $order_id ) {
         return;
     }
 
+    // Authoritative duplicate guard. A successful push records an Acumatica SO
+    // number; if one exists we NEVER create another — even when the "pushed" flag
+    // was cleared. (The manual retry endpoint clears that flag to allow re-pushing
+    // a FAILED order, but a failed order never received an SO number.) This makes a
+    // double "Push to Acumatica" click — or a manual push racing the async job —
+    // impossible to turn into a duplicate Sales Order.
+    $existing_nbr = $order->get_meta( '_acumatica_order_nbr' );
+    if ( $existing_nbr ) {
+        mf_acu_log( "Order $order_id already has Acumatica SO $existing_nbr — skipping to prevent duplicate", 'orders' );
+        return;
+    }
+
     if ( mf_acu_circuit_is_open() ) {
         mf_acu_order_fail( $order_id, 'Circuit breaker is open' );
+        return;
+    }
+
+    // Atomic cross-process claim: the async job and a manual push must never both
+    // be in flight for the same order (the window before either records the SO
+    // number). wp_cache_add is atomic on the object cache (Memcache is active), so
+    // exactly one process wins the claim; the other backs off. Auto-expires in
+    // 5 min so a crashed push can't wedge the order.
+    if ( ! wp_cache_add( 'lock_' . $order_id, time(), 'mf_acu_push', 300 ) ) {
+        mf_acu_log( "Order $order_id push already in progress (locked) — skipping", 'orders' );
         return;
     }
 
@@ -126,6 +205,8 @@ function mf_acu_push_order( $order_id ) {
 
     mf_acu_record( 'order-push', true, "Order $order_id → $acu_order_nbr" );
     mf_acu_log( "Order $order_id pushed as $acu_order_nbr", 'orders' );
+
+    wp_cache_delete( 'lock_' . $order_id, 'mf_acu_push' );
 }
 
 /* ── prepayment creation ────────────────────────────────────────── */
@@ -198,6 +279,10 @@ function mf_acu_create_prepayment( $order, $customer_id, $acu_order_nbr, $sessio
 /* ── failure handling with retry ─────────────────────────────────── */
 
 function mf_acu_order_fail( $order_id, $error_msg ) {
+    // Release the push claim so a later retry (manual or the fallback sweep) can
+    // proceed. Harmless if the lock was never acquired for this order.
+    wp_cache_delete( 'lock_' . $order_id, 'mf_acu_push' );
+
     $order = wc_get_order( $order_id );
     if ( ! $order ) return;
 
@@ -476,6 +561,21 @@ function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
         }
         $note_parts[] = 'Coupons: ' . implode( ', ', $coupon_details );
     }
+
+    // Free gift line(s). The gift is a $0 line item with a line discount (not a
+    // coupon), so it never shows under "Coupons" above — surface it explicitly so
+    // the Acumatica note records what was given away and its value. Tagged with
+    // _mf_free_gift in mellow-fellow-create-order.php.
+    $gift_notes = array();
+    foreach ( $order->get_items() as $line_item ) {
+        if ( $line_item->get_meta( '_mf_free_gift' ) ) {
+            $gift_notes[] = $line_item->get_name() . ' (-$' . number_format( (float) $line_item->get_subtotal(), 2 ) . ')';
+        }
+    }
+    if ( ! empty( $gift_notes ) ) {
+        $note_parts[] = 'Free gift: ' . implode( ', ', $gift_notes );
+    }
+
     $customer_note = $order->get_customer_note();
     if ( $customer_note ) {
         $note_parts[] = 'Customer note: ' . $customer_note;

@@ -793,6 +793,9 @@ export default function CheckoutPage() {
             // (subtotal vs. total). Free-gift lines carry it too, $0 line.
             regularUnitPrice:
               item.bbGroupKey || item.isFreeGift ? originalUnitPrice(item) : undefined,
+            // Lets the backend tag this order line as the free gift (_mf_free_gift)
+            // so it's recorded in the Acumatica note — see mellow-fellow-create-order.php.
+            isFreeGift: item.isFreeGift || undefined,
             bundleGroupKey: item.bbGroupKey || undefined,
             // Resolves the "Part of bundle" note on the admin order screen.
             bundleId: item.bbGroupKey ? item.bbBundleId : undefined,
