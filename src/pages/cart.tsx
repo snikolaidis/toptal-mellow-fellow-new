@@ -5,18 +5,8 @@ import Layout from '@/components/Layout';
 import { useCart, groupCartItems } from '@/context/CartContext';
 import { ChevronDownIcon } from '@/components/icons';
 import { useCartSubscriptions, everyLabel } from '@/lib/useCartSubscriptions';
+import { parsePrice, originalUnitPrice, bundleItemOriginalPrice } from '@/lib/bundlePricing';
 import styles from '@/styles/pages/cart.module.css';
-
-function parsePrice(price: string): number {
-  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
-}
-
-// Bundle/sale discounts apply via the product's own sale price, not a coupon,
-// so `product.price` is already the discounted unit price — `regularPrice`
-// (when present) is the only source for the true original price.
-function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
-  return parsePrice(item.product.regularPrice || item.product.price);
-}
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, removeBundleGroup, addBundleToCart, addFixedBundleToCart, isLoading, cartReady, bundleNames, bundleImages, bundleModes, bundleGroupSetCounts, refreshCart, applyCoupon, removeCoupon, error: cartError } = useCart();
@@ -67,14 +57,10 @@ export default function CartPage() {
 
   // Shown as its own coupon-style row in the summary, same as an applied
   // coupon — the sum of every bundle group's (original - discounted) total.
-  const totalBundleDiscount = bundles.reduce((sum, group) => {
-    const allItems = group.instances.flatMap((inst) => inst.items);
-    const original = group.fixedOriginalPrice != null
-      ? group.fixedOriginalPrice * group.quantity
-      : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
-    const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
-    return sum + Math.max(0, original - discounted);
-  }, 0);
+  const totalBundleDiscount = bundles.reduce(
+    (sum, group) => sum + Math.max(0, group.originalTotal - group.discountedTotal),
+    0
+  );
 
   if (isLoading || !cartReady) {
     return (
@@ -126,10 +112,7 @@ export default function CartPage() {
                   const allItems = group.instances.flatMap((inst) => inst.items);
                   // No "Show items" affordance for mystery bundles.
                   const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
-                  const originalTotal = group.fixedOriginalPrice != null
-                    ? group.fixedOriginalPrice * group.quantity
-                    : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
-                  const discountedTotal = allItems.reduce((sum, i) => sum + parsePrice(i.total), 0);
+                  const { originalTotal, discountedTotal } = group;
                   const hasDiscount = discountedTotal < originalTotal - 0.005;
                   const bundleTotal = discountedTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
                   const isExpanded = expandedGroups.has(group.mergeKey);
@@ -140,7 +123,7 @@ export default function CartPage() {
                   const bundleItemRows = allItems.reduce<{ item: typeof allItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
                     (acc, item) => {
                       const existing = acc.find((r) => r.item.product.databaseId === item.product.databaseId);
-                      const lineOriginal = item.quantity * originalUnitPrice(item);
+                      const lineOriginal = item.quantity * bundleItemOriginalPrice(item);
                       const lineTotal = parsePrice(item.total);
                       if (existing) {
                         existing.qty += item.quantity;
@@ -247,11 +230,14 @@ export default function CartPage() {
                             </div>
                           </td>
                           <td>
-                            {originalUnitPrice(item) > parsePrice(item.product.price) + 0.005 && (
-                              <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
-                                ${originalUnitPrice(item).toFixed(2)}
-                              </span>
-                            )}
+                            {(() => {
+                              const unitOriginal = bundleItemOriginalPrice(item);
+                              return unitOriginal > parsePrice(item.product.price) + 0.005 && (
+                                <span style={{ textDecoration: 'line-through', color: '#8A8683', marginRight: '0.375rem', fontSize: '0.875rem' }}>
+                                  ${unitOriginal.toFixed(2)}
+                                </span>
+                              );
+                            })()}
                             {item.product.price}
                           </td>
                           <td style={{ color: '#8A8683', fontSize: '0.875rem' }}>×{qty}</td>
@@ -420,12 +406,7 @@ export default function CartPage() {
                 gross Subtotal (bundle lines at regular value, gift at regular),
                 Bundle Discount broken out, everything else in "You saved". */}
             {(() => {
-              const bundleOriginal = bundles.reduce((sum, group) => {
-                const allItems = group.instances.flatMap((inst) => inst.items);
-                return sum + (group.fixedOriginalPrice != null
-                  ? group.fixedOriginalPrice * group.quantity
-                  : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0));
-              }, 0);
+              const bundleOriginal = bundles.reduce((sum, group) => sum + group.originalTotal, 0);
               const grossStandalone = standalone.reduce(
                 (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parsePrice(i.product.price)),
                 0

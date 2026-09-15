@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { useCart, groupCartItems } from '@/context/CartContext';
 import { CloseIcon, ChevronDownIcon } from '@/components/icons';
 import LoyaltyCheckoutRewards from '@/components/LoyaltyCheckoutRewards';
+import { originalUnitPrice, bundleItemOriginalPrice } from '@/lib/bundlePricing';
 import styles from './OrderSummary.module.css';
 
 interface CartItem {
@@ -25,13 +26,6 @@ interface CartItem {
     name: string;
     price: string;
   };
-}
-
-// Bundle/sale discounts apply via the product's own sale price, not a coupon,
-// so `product.price` is already the discounted unit price — `regularPrice`
-// (when present) is the only source for the true original price.
-function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
-  return parseFloat((item.product.regularPrice || item.product.price || '').replace(/[^0-9.]/g, '')) || 0;
 }
 
 interface AppliedCoupon {
@@ -194,12 +188,7 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
           const allItems = group.instances.flatMap((inst) => inst.items);
           // No "Show items" affordance for mystery bundles.
           const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
-          const originalTotal = group.fixedOriginalPrice != null
-            ? group.fixedOriginalPrice * group.quantity
-            : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
-          const discountedTotal = allItems.reduce(
-            (sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
-          );
+          const { originalTotal, discountedTotal } = group;
           const hasDiscount = discountedTotal < originalTotal - 0.005;
           const isExpanded = expandedGroups.has(group.mergeKey);
           const panelId = `bundle-panel-${group.mergeKey}`;
@@ -291,7 +280,7 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
                     const existing = acc.find(
                       (r) => r.item.product.databaseId === item.product.databaseId
                     );
-                    const lineOriginal = item.quantity * originalUnitPrice(item);
+                    const lineOriginal = item.quantity * bundleItemOriginalPrice(item);
                     const lineTotal = parseFloat(item.total.replace(/[^0-9.]/g, '') || '0');
                     if (existing) {
                       existing.qty += item.quantity;
@@ -480,13 +469,8 @@ export default function OrderSummary({ cart, subscription, subscriptionSlot }: O
         let bundleOriginal = 0;
         let bundleDiscounted = 0;
         bundles.forEach((group) => {
-          const allItems = group.instances.flatMap((inst) => inst.items);
-          bundleOriginal += group.fixedOriginalPrice != null
-            ? group.fixedOriginalPrice * group.quantity
-            : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
-          bundleDiscounted += allItems.reduce(
-            (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
-          );
+          bundleOriginal += group.originalTotal;
+          bundleDiscounted += group.discountedTotal;
         });
         const totalBundleDiscount = Math.max(0, bundleOriginal - bundleDiscounted);
 

@@ -17,18 +17,8 @@ import {
 import TieredProgressBar from './TieredProgressBar';
 import FreeGiftWidget from './FreeGiftWidget';
 import { useCartSubscriptions, everyLabel } from '@/lib/useCartSubscriptions';
+import { parsePrice, originalUnitPrice, bundleItemOriginalPrice } from '@/lib/bundlePricing';
 import styles from './CartDrawer.module.css';
-
-function parsePrice(price: string): number {
-  return parseFloat(price.replace(/[^0-9.]/g, '')) || 0;
-}
-
-// Bundle/sale discounts apply via the product's own sale price, not a coupon,
-// so `product.price` is already the discounted unit price — `regularPrice`
-// (when present) is the only source for the true original price.
-function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
-  return parsePrice(item.product.regularPrice || item.product.price);
-}
 
 export default function CartDrawer() {
   const {
@@ -266,12 +256,7 @@ export default function CartDrawer() {
                   const allItems = group.instances.flatMap((inst) => inst.items);
                   // No "Show items" affordance for mystery bundles.
                   const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
-                  const originalTotal = group.fixedOriginalPrice != null
-                    ? group.fixedOriginalPrice * group.quantity
-                    : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
-                  const discountedTotal = allItems.reduce(
-                    (sum, i) => sum + parsePrice(i.total), 0
-                  );
+                  const { originalTotal, discountedTotal } = group;
                   const hasDiscount = discountedTotal < originalTotal - 0.005;
 
                   const isRemoving = removingGroupKey === group.mergeKey;
@@ -376,7 +361,7 @@ export default function CartDrawer() {
                             const existing = acc.find(
                               (r) => r.item.product.databaseId === item.product.databaseId
                             );
-                            const lineOriginal = item.quantity * originalUnitPrice(item);
+                            const lineOriginal = item.quantity * bundleItemOriginalPrice(item);
                             const lineTotal = parsePrice(item.total);
                             if (existing) {
                               existing.qty += item.quantity;
@@ -665,9 +650,8 @@ export default function CartDrawer() {
               // costs after ALL discounts (coupons, BOGO, free gift, bundles).
               // One consolidated "You saved" = gross − net, so the numbers
               // always reconcile and never shift per-coupon.
-              // Bundle groups: regular (pre-discount) value vs discounted total,
-              // computed per group so "fixed" bundles use their curated bundle
-              // price and "byob" bundles sum their components' regular prices.
+              // Bundle groups: pre-bundle-discount value vs discounted total — "fixed"
+              // uses its curated price, "byob" sums components' CURRENT prices.
               // Bundle lines discount via set_price (product.price is already the
               // discounted value), so they MUST use the regular value here — else
               // the bundle discount would be missing from the Subtotal while still
@@ -675,11 +659,8 @@ export default function CartDrawer() {
               let bundleOriginal = 0;
               let bundleDiscounted = 0;
               bundles.forEach((group) => {
-                const allItems = group.instances.flatMap((inst) => inst.items);
-                bundleOriginal += group.fixedOriginalPrice != null
-                  ? group.fixedOriginalPrice * group.quantity
-                  : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
-                bundleDiscounted += allItems.reduce((s, i) => s + parsePrice(i.total), 0);
+                bundleOriginal += group.originalTotal;
+                bundleDiscounted += group.discountedTotal;
               });
               const totalBundleDiscount = Math.max(0, bundleOriginal - bundleDiscounted);
 
