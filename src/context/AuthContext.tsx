@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { useRouter } from "next/router";
+import { clearShippingWaiver } from "@/lib/shippingWaiver";
 
 interface AuthContextValue {
   isAuthenticated: boolean | null;
@@ -108,6 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem('bundleDiscounts');
           sessionStorage.removeItem('bundleItemMap');
         } catch {}
+
+        // A "Forgot Something?" shipping waiver is tied to whoever
+        // just placed that order - it must not carry over to the next
+        // person who uses this browser/tab after logging out.
+        clearShippingWaiver();
 
         // Clear Google session
         await fetch("/api/auth/google-session-clear", {

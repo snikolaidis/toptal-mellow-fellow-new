@@ -11,10 +11,18 @@ function parsePrice(value: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+interface Props {
+  // When a "Forgot Something?" shipping waiver is active, shipping is
+  // already free for this order regardless of amount - prompting
+  // "add $X more to get free shipping" would directly contradict the
+  // order summary right next to it, so this renders nothing instead.
+  shippingWaiverActive?: boolean;
+}
+
 /*
  * "Add items to hit free shipping" widget for the checkout shipping
- * step. Fully self-contained (reads the cart itself) so it can just
- * be dropped into MellowCheckout with no props.
+ * step. Otherwise self-contained (reads the cart itself) so it only
+ * needs the one waiver flag from its parent.
  *
  * Reuses pieces that already exist elsewhere rather than introducing
  * anything new data-wise:
@@ -27,7 +35,9 @@ function parsePrice(value: string | undefined): number {
  * - addToCart() from CartContext, same call every other add-to-cart
  *   button in the app uses.
  */
-export default function FreeShippingUpsell() {
+export default function FreeShippingUpsell({
+  shippingWaiverActive = false,
+}: Props) {
   const { cart, addToCart } = useCart();
   const { freeShippingThreshold } = useCartOffers();
 
@@ -43,7 +53,7 @@ export default function FreeShippingUpsell() {
     cart?.items?.map((i) => i.product.databaseId).join(",") || "";
 
   useEffect(() => {
-    if (gap <= 0 || !cart?.items?.length) {
+    if (shippingWaiverActive || gap <= 0 || !cart?.items?.length) {
       setCandidates([]);
       return;
     }
@@ -72,9 +82,9 @@ export default function FreeShippingUpsell() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gap > 0, productIdsKey, subtotal]);
+  }, [shippingWaiverActive, gap > 0, productIdsKey, subtotal]);
 
-  if (gap <= 0 || candidates.length === 0) {
+  if (shippingWaiverActive || gap <= 0 || candidates.length === 0) {
     return null;
   }
 

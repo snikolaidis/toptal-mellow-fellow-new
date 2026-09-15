@@ -888,35 +888,56 @@ export default function MellowCheckout({
           <section className={styles.card}>
             <h3>Shipping Method</h3>
 
-            <FreeShippingUpsell />
+            <FreeShippingUpsell shippingWaiverActive={shippingWaiverActive} />
 
             <div className={styles.shippingMethods}>
-              {shippingMethods.map((method) => (
-                <label
-                  key={method.id}
-                  className={
-                    selectedShipping === method.id
-                      ? `${styles.shippingMethod} ${styles.shippingMethodActive}`
-                      : styles.shippingMethod
-                  }
+              {shippingWaiverActive ? (
+                // The customer's actual shipping method is still
+                // selected/tracked underneath (server-side, whichever
+                // real method is chosen still has its cost zeroed at
+                // checkout) - this just replaces what's shown so a
+                // real carrier price doesn't contradict the waiver.
+                <div
+                  className={`${styles.shippingMethod} ${styles.shippingMethodActive}`}
                 >
-                  <input
-                    type="radio"
-                    name="shipping-method"
-                    value={method.id}
-                    checked={selectedShipping === method.id}
-                    onChange={() => onShippingChangeMethod(method.id)}
-                  />
+                  <input type="radio" checked readOnly aria-hidden />
 
                   <div className={styles.shippingDetails}>
-                    <strong>{method.name}</strong>
+                    <strong>Free Shipping</strong>
 
-                    {method.description && <small>{method.description}</small>}
+                    <small>No additional shipping fees</small>
                   </div>
 
-                  <strong>${method.price.toFixed(2)}</strong>
-                </label>
-              ))}
+                  <strong>$0.00</strong>
+                </div>
+              ) : (
+                shippingMethods.map((method) => (
+                  <label
+                    key={method.id}
+                    className={
+                      selectedShipping === method.id
+                        ? `${styles.shippingMethod} ${styles.shippingMethodActive}`
+                        : styles.shippingMethod
+                    }
+                  >
+                    <input
+                      type="radio"
+                      name="shipping-method"
+                      value={method.id}
+                      checked={selectedShipping === method.id}
+                      onChange={() => onShippingChangeMethod(method.id)}
+                    />
+
+                    <div className={styles.shippingDetails}>
+                      <strong>{method.name}</strong>
+
+                      {method.description && <small>{method.description}</small>}
+                    </div>
+
+                    <strong>${method.price.toFixed(2)}</strong>
+                  </label>
+                ))
+              )}
             </div>
           </section>
 
