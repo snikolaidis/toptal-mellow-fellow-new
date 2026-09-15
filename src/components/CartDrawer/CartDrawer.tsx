@@ -17,6 +17,10 @@ import {
 } from '@/lib/recsCache';
 import TieredProgressBar from './TieredProgressBar';
 import FreeGiftWidget from './FreeGiftWidget';
+import {
+  useShippingWaiverCountdown,
+  formatCountdown,
+} from '@/lib/shippingWaiver';
 import { useCartSubscriptions, everyLabel } from '@/lib/useCartSubscriptions';
 import styles from './CartDrawer.module.css';
 
@@ -198,6 +202,9 @@ export default function CartDrawer() {
   );
 
   const subtotal = parsePrice(cart?.subtotal || '0');
+  const shippingWaiverRemainingMs = useShippingWaiverCountdown();
+  const waiverActive =
+    shippingWaiverRemainingMs !== null && shippingWaiverRemainingMs > 0;
 
   if (!isDrawerOpen) return null;
 
@@ -227,13 +234,28 @@ export default function CartDrawer() {
           </button>
         </div>
 
-        {/* Free shipping banner */}
-        <div className={styles.shippingBanner}>
-          Free shipping on all orders over $80
-        </div>
+        {/* Free shipping banner - hidden while the shipping-waiver
+            countdown below is showing instead, since restating the
+            $80 policy right above "free shipping, X:XX left" reads
+            as a contradiction rather than a clarification. */}
+        {!waiverActive && (
+          <div className={styles.shippingBanner}>
+            Free shipping on all orders over $80
+          </div>
+        )}
 
-        {/* Tiered offers progress */}
-        <TieredProgressBar subtotal={subtotal} />
+        {/* Tiered offers progress - replaced with the shipping-waiver
+            countdown while one's active, since "$X away from free
+            shipping" would otherwise contradict an order that's
+            already getting free shipping regardless of amount. */}
+        {waiverActive ? (
+          <div className={styles.waiverCountdown}>
+            Free shipping on anything you add —{' '}
+            <strong>{formatCountdown(shippingWaiverRemainingMs)}</strong> left
+          </div>
+        ) : (
+          <TieredProgressBar subtotal={subtotal} />
+        )}
 
        
         {/* Mutating indicator — thin bar that appears during any cart operation */}
