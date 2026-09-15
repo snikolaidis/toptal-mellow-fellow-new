@@ -1,4 +1,4 @@
-// Headless store locator: a searchable store list beside a Leaflet/OpenStreetMap map.
+// Headless store locator: a searchable store list beside a Google Maps map.
 
 .store-locator {
   max-width: 1200px;
@@ -19,9 +19,17 @@
     color: var(--color-text-primary);
   }
 
+  &__search-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    max-width: 620px;
+  }
+
   &__search {
-    width: 100%;
-    max-width: 480px;
+    flex: 1 1 240px;
+    min-width: 200px;
     padding: 0.75rem 1rem;
     font-size: 1rem;
     font-family: var(--font-family-body);
@@ -34,6 +42,49 @@
       outline: none;
       border-color: var(--color-brand-primary);
     }
+  }
+
+  &__search-btn,
+  &__search-clear {
+    flex: 0 0 auto;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9375rem;
+    font-family: var(--font-family-body);
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+
+  &__search-btn {
+    color: var(--color-text-inverse);
+    background-color: var(--color-brand-primary);
+    border: 1px solid var(--color-brand-primary);
+
+    &:hover:not(:disabled) {
+      filter: brightness(0.95);
+    }
+  }
+
+  &__search-clear {
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-primary);
+    border: 1px solid var(--color-border-default);
+
+    &:hover {
+      background-color: var(--color-surface-secondary);
+    }
+  }
+
+  &__geo-note {
+    margin: 0.625rem 0 0;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
   }
 
   &__filter {
@@ -77,30 +128,71 @@
     font-size: 0.9375rem;
   }
 
-  &__item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    width: 100%;
-    text-align: left;
-    padding: 1rem 1.25rem;
-    background: none;
-    border: none;
+  // The "showing N of M" hint at the top of the list. Separate from the header
+  // geo-note (which aligns to the title with no side padding) so it can sit
+  // inside the padded list column.
+  &__list-note {
+    margin: 0;
+    padding: 0.875rem 1.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+    background-color: var(--color-surface-secondary);
     border-bottom: 1px solid var(--color-border-default);
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+  }
+
+  &__item {
+    border-bottom: 1px solid var(--color-border-default);
 
     &:last-child {
       border-bottom: none;
     }
 
-    &:hover {
-      background-color: var(--color-surface-secondary);
-    }
-
     &--active {
       background-color: var(--color-surface-secondary);
       box-shadow: inset 3px 0 0 var(--color-brand-primary);
+    }
+  }
+
+  &__item-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+    text-align: left;
+    padding: 1rem 1.25rem 0.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: var(--color-surface-secondary);
+    }
+  }
+
+  &__item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0 1.25rem 1rem;
+  }
+
+  &__item-action {
+    font-size: 0.8125rem;
+    font-family: var(--font-family-body);
+    font-weight: 600;
+    color: var(--color-brand-primary);
+    background: none;
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    padding: 0.375rem 0.625rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: var(--color-surface-secondary);
     }
   }
 
@@ -132,6 +224,16 @@
     z-index: 0;
   }
 
+  &__map--error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--color-text-secondary);
+    background-color: var(--color-surface-secondary);
+  }
+
   @media (max-width: 768px) {
     &__body {
       grid-template-columns: 1fr;
@@ -145,5 +247,63 @@
     &__list {
       max-height: 420px;
     }
+  }
+}
+
+// Google Maps InfoWindow chrome. The popup renders in a portal on <body>, not
+// inside .store-locator, so these are top-level selectors. Google's default
+// reserves a tall header strip above the text (for the close button) and lets
+// long addresses stretch the bubble wide. These rules collapse that header so
+// the text sits at the top, shrink the close button into the corner, and cap
+// the width so addresses wrap instead of ballooning the bubble.
+.gm-style .gm-style-iw-c {
+  padding: 10px 12px !important;
+  border-radius: 8px;
+}
+
+// The close button lives in a flex header row (.gm-style-iw-chr) that Google
+// gives its own tall band above the text — that band is the empty gap. Float
+// the whole row into the top-right corner and hide its spacer so the text
+// starts at the very top and the X sits over the corner.
+.gm-style .gm-style-iw-chr {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  height: auto !important;
+}
+
+.gm-style .gm-style-iw-ch {
+  display: none !important;
+}
+
+// Google sizes the close icon for a ~48px button (its inner span carries a 12px
+// margin). Shrinking the button clips the X, so center the icon in a smaller
+// button with flex and drop that margin.
+.gm-style button.gm-ui-hover-effect {
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  > span {
+    margin: 0 !important;
+  }
+}
+
+.gm-style .gm-style-iw-d {
+  overflow: auto !important;
+}
+
+.sl-iw {
+  max-width: 240px;
+  padding-right: 20px; // keep text clear of the close button in the corner
+  font-family: var(--font-family-body);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+
+  strong {
+    font-family: var(--font-family-display);
   }
 }
