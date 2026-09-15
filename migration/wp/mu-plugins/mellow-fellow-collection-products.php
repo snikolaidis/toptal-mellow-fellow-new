@@ -21,6 +21,10 @@ add_action( 'rest_api_init', function () {
             'page'     => [ 'required' => false, 'type' => 'integer', 'default' => 1,  'sanitize_callback' => 'absint' ],
             'per_page' => [ 'required' => false, 'type' => 'integer', 'default' => 24, 'sanitize_callback' => 'absint' ],
             'sort'     => [ 'required' => false, 'type' => 'string',  'default' => 'default', 'sanitize_callback' => 'sanitize_text_field' ],
+            // Price range (BugHerd #433). Cast and validated in the handler
+            // (strictly positive), so no sanitize_callback here.
+            'min_price' => [ 'required' => false ],
+            'max_price' => [ 'required' => false ],
         ],
     ] );
 } );
@@ -32,6 +36,17 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     $per_page = max( 1, min( 100, (int) $request->get_param( 'per_page' ) ) );
     $sort     = $request->get_param( 'sort' );
     $offset   = ( $page - 1 ) * $per_page;
+
+    // Price range (BugHerd #433). Strictly positive; a 0 or non-numeric bound is
+    // treated as "no bound" so it never narrows or breaks the query.
+    $min_price_raw = $request->get_param( 'min_price' );
+    $max_price_raw = $request->get_param( 'max_price' );
+    $min_price = is_numeric( $min_price_raw ) && (float) $min_price_raw > 0 ? (float) $min_price_raw : null;
+    $max_price = is_numeric( $max_price_raw ) && (float) $max_price_raw > 0 ? (float) $max_price_raw : null;
+    // A backwards range would return nothing; treat the bounds either way round.
+    if ( $min_price !== null && $max_price !== null && $min_price > $max_price ) {
+        [ $min_price, $max_price ] = [ $max_price, $min_price ];
+    }
 
     // Parse taxonomy filter params (same keys the frontend sends)
     $filter_map = [
@@ -56,8 +71,10 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         }
     }
 
-    // Build cache key from all parameters
-    $cache_parts = [ 'mf_cp', $term_tax, $slug, $page, $per_page, $sort ];
+    // Build cache key from all parameters. Price bounds MUST be included or a
+    // filtered response could be served for a different range (or the unfiltered
+    // list served for a filtered request).
+    $cache_parts = [ 'mf_cp', $term_tax, $slug, $page, $per_page, $sort, 'min:' . ( $min_price ?? '' ), 'max:' . ( $max_price ?? '' ) ];
     ksort( $active_filters );
     foreach ( $active_filters as $tax => $slugs ) {
         sort( $slugs );
@@ -112,6 +129,26 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         foreach ( $slugs as $s ) {
             $prepare_args[] = $s;
         }
+    }
+
+    // Price range (BugHerd #433). EXISTS against the indexed wc_product_meta_lookup
+    // table (product_id is its primary key; min_price/max_price are indexed), so
+    // this is the same fast path WooCommerce's own price filter uses and handles
+    // variable products via their aggregated min/max. Kept as a correlated EXISTS
+    // so it needs no extra FROM join in either the count or the main query.
+    // Appended AFTER the taxonomy filters so its placeholders stay in step with
+    // $prepare_args (positional).
+    if ( $min_price !== null || $max_price !== null ) {
+        $price_conds = [];
+        if ( $min_price !== null ) { $price_conds[] = 'mf_pl.max_price >= %f'; }
+        if ( $max_price !== null ) { $price_conds[] = 'mf_pl.min_price <= %f'; }
+        $where_clauses[] = "EXISTS (
+            SELECT 1 FROM {$wpdb->prefix}wc_product_meta_lookup mf_pl
+            WHERE mf_pl.product_id = p.ID
+              AND " . implode( "\n              AND ", $price_conds ) . "
+        )";
+        if ( $min_price !== null ) { $prepare_args[] = $min_price; }
+        if ( $max_price !== null ) { $prepare_args[] = $max_price; }
     }
 
     $where_sql = implode( "\n  AND ", $where_clauses );
