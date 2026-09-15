@@ -7,13 +7,7 @@ import ShippingForm from '@/components/checkout/ShippingForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import MobileOrderSummary from '@/components/checkout/MobileOrderSummary';
 import RealIdVerification, { STRONGLY_VERIFIED_STEPS } from '@/components/RealIdVerification';
-
-// Bundle/sale discounts apply via the product's own sale price, not a coupon,
-// so `product.price` is already the discounted unit price — `regularPrice`
-// (when present) is the only source for the true original price.
-function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
-  return parseFloat((item.product.regularPrice || item.product.price).replace(/[^0-9.]/g, '')) || 0;
-}
+import { originalUnitPrice, bundleItemOriginalPrice } from '@/lib/bundlePricing';
 
 const REALID_ENABLED = process.env.NEXT_PUBLIC_REALID_ENABLED === 'true';
 const CHECKOUT_PROGRESS_KEY = 'mf-checkout-progress';
@@ -863,7 +857,7 @@ export default function CheckoutPage() {
     // (see mellow-fellow-create-order.php).
     const bundleDiscountTotal = (cart?.items ?? []).reduce((sum, item) => {
       if (!item.bbGroupKey) return sum;
-      const lineOriginal = item.quantity * originalUnitPrice(item);
+      const lineOriginal = item.quantity * bundleItemOriginalPrice(item);
       const lineTotal = parseFloat((item.total || '').replace(/[^0-9.]/g, '')) || 0;
       return sum + Math.max(0, lineOriginal - lineTotal);
     }, 0);
@@ -909,7 +903,7 @@ export default function CheckoutPage() {
             // True pre-discount unit price, for a discounted order line
             // (subtotal vs. total). Free-gift lines carry it too, $0 line.
             regularUnitPrice:
-              item.bbGroupKey || item.isFreeGift ? originalUnitPrice(item) : undefined,
+              item.bbGroupKey || item.isFreeGift ? bundleItemOriginalPrice(item) : undefined,
             // Lets the backend tag this order line as the free gift (_mf_free_gift)
             // so it's recorded in the Acumatica note — see mellow-fellow-create-order.php.
             isFreeGift: item.isFreeGift || undefined,
