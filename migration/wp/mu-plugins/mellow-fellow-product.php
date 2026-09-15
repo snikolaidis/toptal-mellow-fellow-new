@@ -2,7 +2,8 @@
 /**
  * Plugin Name: Mellow Fellow - Product REST Endpoint
  * Description: Returns a single product with all PDP data (ACF, SEO, variations,
- *              available options) using direct SQL + WordPress functions.
+ *              available options, nutrition, icon taxonomies, fixed bundle
+ *              items) using direct SQL + WordPress functions.
  *              Replaces the slow WPGraphQL GET_PRODUCT_BY_SLUG query.
  * Version: 1.0.0
  */
@@ -66,6 +67,37 @@ function mf_resolve_attachment( $attachment_id ) {
         'sourceUrl' => $url,
         'altText'   => $alt ?: '',
     ];
+}
+
+/**
+ * return_format is "url" today, so this gets a plain string, but an array and an
+ * attachment ID are the other two ACF can return and wp-admin leaves no trace.
+ */
+function mf_resolve_acf_icon( $icon_val ) {
+    if ( ! $icon_val ) return null;
+
+    if ( is_array( $icon_val ) && ! empty( $icon_val['url'] ) ) {
+        return [ 'sourceUrl' => $icon_val['url'], 'altText' => $icon_val['alt'] ?? '' ];
+    }
+
+    if ( is_numeric( $icon_val ) ) {
+        $url = wp_get_attachment_url( (int) $icon_val );
+        if ( ! $url ) return null;
+        return [
+            'sourceUrl' => $url,
+            'altText'   => get_post_meta( (int) $icon_val, '_wp_attachment_image_alt', true ) ?: '',
+        ];
+    }
+
+    if ( is_string( $icon_val ) ) {
+        $attachment_id = attachment_url_to_postid( $icon_val );
+        return [
+            'sourceUrl' => $icon_val,
+            'altText'   => $attachment_id ? ( get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ?: '' ) : '',
+        ];
+    }
+
+    return null;
 }
 
 function mf_get_product( WP_REST_Request $request ) {
@@ -193,7 +225,60 @@ function mf_get_product( WP_REST_Request $request ) {
     }
 
     // -----------------------------------------------------------------------
-    // 5. Unique selling props (with ACF icon)
+    // 5. PDP taxonomies carrying a per-term ACF icon
+    // -----------------------------------------------------------------------
+    // Three of the four taxonomy slugs are singular where the GraphQL field is
+    // plural, so deriving one from the other silently returns no terms.
+    $icon_tax_config = [
+        'flavor'  => 'flavors',
+        'vibe'    => 'vibes',
+        'effects' => 'effects',
+        'setting' => 'settings',
+    ];
+    $icon_tax_slugs        = array_keys( $icon_tax_config );
+    $icon_tax_placeholders = implode( ',', array_fill( 0, count( $icon_tax_slugs ), '%s' ) );
+
+    // Its own query, not four more slugs on the batch above: that one is unordered
+    // because Available Options and the breadcrumb read a collection out by position.
+    $icon_tax_rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT t.term_id, t.name, t.slug, tt.taxonomy
+         FROM {$wpdb->term_relationships} tr
+         INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+         INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+         WHERE tr.object_id = %d
+           AND tt.taxonomy IN ({$icon_tax_placeholders})
+         ORDER BY t.name ASC",
+        $pid,
+        ...$icon_tax_slugs
+    ) );
+
+    $taxonomies = [];
+    foreach ( $icon_tax_config as $field_name ) {
+        $taxonomies[ $field_name ] = [ 'nodes' => [] ];
+    }
+    foreach ( $icon_tax_rows as $itr ) {
+        $field_name = $icon_tax_config[ $itr->taxonomy ] ?? null;
+        if ( ! $field_name ) continue;
+
+        $term_acf = function_exists( 'get_fields' )
+            ? ( get_fields( $itr->taxonomy . '_' . $itr->term_id ) ?: [] )
+            : [];
+        // propIcon over GraphQL usually means an ACF field named prop_icon, but an
+        // older copy of the group calls it icon_field. Missing it drops every icon.
+        $icon = mf_resolve_acf_icon(
+            $term_acf['prop_icon'] ?? $term_acf['propIcon'] ?? $term_acf['icon_field'] ?? null
+        );
+
+        $taxonomies[ $field_name ]['nodes'][] = [
+            'id'                  => base64_encode( 'term:' . $itr->term_id ),
+            'name'                => $itr->name,
+            'slug'                => $itr->slug,
+            'extraTaxonomyFields' => [ 'propIcon' => $icon ? [ 'node' => $icon ] : null ],
+        ];
+    }
+
+    // -----------------------------------------------------------------------
+    // 6. Unique selling props (with ACF icon)
     // -----------------------------------------------------------------------
     $usp_terms = wp_get_post_terms( $pid, 'unique-selling-props', [ 'fields' => 'all' ] );
     $usp_nodes = [];
@@ -202,26 +287,7 @@ function mf_get_product( WP_REST_Request $request ) {
             $usp_acf = function_exists( 'get_fields' )
                 ? ( get_fields( 'unique-selling-props_' . $usp->term_id ) ?: [] )
                 : [];
-            $icon_val = $usp_acf['prop_icon'] ?? $usp_acf['propIcon'] ?? null;
-            $icon     = null;
-            if ( $icon_val ) {
-                if ( is_array( $icon_val ) && ! empty( $icon_val['url'] ) ) {
-                    $icon = [ 'sourceUrl' => $icon_val['url'], 'altText' => $icon_val['alt'] ?? '' ];
-                } elseif ( is_numeric( $icon_val ) ) {
-                    $iu = wp_get_attachment_url( (int) $icon_val );
-                    if ( $iu ) {
-                        $icon = [ 'sourceUrl' => $iu, 'altText' => get_post_meta( (int) $icon_val, '_wp_attachment_image_alt', true ) ?: '' ];
-                    }
-                } elseif ( is_string( $icon_val ) ) {
-                    // The "Prop Icon" ACF field's return_format is "url", so get_fields()
-                    // hands back a plain URL string rather than an array or attachment ID.
-                    $attachment_id = attachment_url_to_postid( $icon_val );
-                    $icon = [
-                        'sourceUrl' => $icon_val,
-                        'altText'   => $attachment_id ? ( get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ?: '' ) : '',
-                    ];
-                }
-            }
+            $icon = mf_resolve_acf_icon( $usp_acf['prop_icon'] ?? $usp_acf['propIcon'] ?? null );
             $usp_nodes[] = [
                 'id'                 => base64_encode( 'unique-selling-prop:' . $usp->term_id ),
                 'name'               => $usp->name,
@@ -233,7 +299,7 @@ function mf_get_product( WP_REST_Request $request ) {
     }
 
     // -----------------------------------------------------------------------
-    // 6. ACF productDetails field group
+    // 7. ACF productDetails field group
     // -----------------------------------------------------------------------
     $acf = function_exists( 'get_fields' ) ? ( get_fields( $pid ) ?: [] ) : [];
 
@@ -284,7 +350,31 @@ function mf_get_product( WP_REST_Request $request ) {
     $pd['deviceFaqsReference'] = [ 'nodes' => $faq_nodes ];
 
     // -----------------------------------------------------------------------
-    // 7. Yoast SEO
+    // 8. Nutrition, top cannabinoids and allergens
+    // -----------------------------------------------------------------------
+    // Never empty(): a saved "0" is a real value and empty( "0" ) is true in
+    // PHP. That is the bug mellow-fellow-nutrition-graphql-fix.php exists for.
+    $nutrition = [];
+    foreach ( [ 'calories', 'carbs', 'sugar' ] as $nutrition_key ) {
+        $nutrition_val = $acf[ $nutrition_key ] ?? null;
+        $nutrition[ $nutrition_key ] = ( isset( $nutrition_val ) && $nutrition_val !== false && $nutrition_val !== '' )
+            ? (string) $nutrition_val
+            : null;
+    }
+
+    $top_cannabinoids = [];
+    foreach ( (array) ( $acf['top_3_cannabinoids'] ?? [] ) as $cannabinoid ) {
+        if ( is_string( $cannabinoid ) && $cannabinoid !== '' ) {
+            $top_cannabinoids[] = $cannabinoid;
+        }
+    }
+
+    $allergens = ( isset( $acf['allergens'] ) && is_string( $acf['allergens'] ) && $acf['allergens'] !== '' )
+        ? $acf['allergens']
+        : null;
+
+    // -----------------------------------------------------------------------
+    // 9. Yoast SEO
     // -----------------------------------------------------------------------
     $seo_title    = get_post_meta( $pid, '_yoast_wpseo_title', true );
     $seo_desc     = get_post_meta( $pid, '_yoast_wpseo_metadesc', true );
@@ -306,7 +396,7 @@ function mf_get_product( WP_REST_Request $request ) {
     ];
 
     // -----------------------------------------------------------------------
-    // 8. Variations (variable products only)
+    // 10. Variations (variable products only)
     // -----------------------------------------------------------------------
     $variations = [];
     if ( $wc_type === 'variable' ) {
@@ -369,7 +459,7 @@ function mf_get_product( WP_REST_Request $request ) {
     }
 
     // -----------------------------------------------------------------------
-    // 9. Available Options (sibling products from best-matching collection)
+    // 11. Available Options (sibling products from best-matching collection)
     // -----------------------------------------------------------------------
     $collections_nodes = $tax_fields['collections']['nodes'] ?? [];
 
@@ -470,14 +560,86 @@ function mf_get_product( WP_REST_Request $request ) {
     }
 
     // -----------------------------------------------------------------------
-    // 10. Collection name/slug (first collection for breadcrumb)
+    // 12. Collection name/slug (first collection for breadcrumb)
     // -----------------------------------------------------------------------
     $first_col       = ! empty( $collections_nodes ) ? $collections_nodes[0] : null;
     $collection_name = $first_col ? $first_col['name'] : null;
     $collection_slug = $first_col ? $first_col['slug'] : null;
 
     // -----------------------------------------------------------------------
-    // 11. Assemble product
+    // 13. Fixed bundle items (admin-picked set, resolved to full products)
+    // -----------------------------------------------------------------------
+    // "mystery" is configured exactly like "fixed" but hides its contents from
+    // non-admin viewers, and this response is public and cached. Do not include it.
+    $fixed_bundle_items = [];
+    if ( 'bb_bundle' === $wc_type
+        && class_exists( 'BB_Helpers' )
+        && method_exists( 'BB_Helpers', 'get_fixed_items' )
+        && 'fixed' === BB_Helpers::get_bundle_mode( $pid ) ) {
+
+        // GraphQL renames these to productId/quantity, so the helper's own key
+        // spelling is read rather than assumed from the field names.
+        $fixed_qty = [];
+        foreach ( (array) BB_Helpers::get_fixed_items( $pid ) as $fixed_row ) {
+            $fixed_row = (array) $fixed_row;
+            $item_id   = (int) ( $fixed_row['product_id'] ?? $fixed_row['productId'] ?? 0 );
+            $item_qty  = (int) ( $fixed_row['quantity'] ?? $fixed_row['qty'] ?? 0 );
+            if ( $item_id > 0 ) {
+                $fixed_qty[ $item_id ] = $item_qty > 0 ? $item_qty : 1;
+            }
+        }
+
+        if ( ! empty( $fixed_qty ) ) {
+            $item_ids          = array_keys( $fixed_qty );
+            $item_placeholders = implode( ',', array_fill( 0, count( $item_ids ), '%d' ) );
+
+            $item_rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT ID, post_title, post_name FROM {$wpdb->posts}
+                 WHERE ID IN ({$item_placeholders})
+                   AND post_type = 'product'
+                   AND post_status = 'publish'",
+                ...$item_ids
+            ) );
+
+            $item_meta_rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta}
+                 WHERE post_id IN ({$item_placeholders})
+                   AND meta_key IN ('_price','_regular_price','_thumbnail_id')",
+                ...$item_ids
+            ) );
+            $item_meta = [];
+            foreach ( $item_meta_rows as $imr ) {
+                $item_meta[ (int) $imr->post_id ][ $imr->meta_key ] = $imr->meta_value;
+            }
+
+            $item_products = [];
+            foreach ( $item_rows as $ir ) {
+                $item_pid = (int) $ir->ID;
+                $im       = $item_meta[ $item_pid ] ?? [];
+                $item_products[ $item_pid ] = [
+                    'databaseId'   => $item_pid,
+                    'name'         => $ir->post_title,
+                    'slug'         => $ir->post_name,
+                    'price'        => isset( $im['_price'] )         ? '$' . number_format( (float) $im['_price'], 2 )         : null,
+                    'regularPrice' => isset( $im['_regular_price'] ) ? '$' . number_format( (float) $im['_regular_price'], 2 ) : null,
+                    'image'        => ! empty( $im['_thumbnail_id'] ) ? mf_resolve_attachment( (int) $im['_thumbnail_id'] ) : null,
+                ];
+            }
+
+            // The plugin's own item order, not the SQL's, is what
+            // "What's included" lists top to bottom.
+            foreach ( $fixed_qty as $item_id => $item_qty ) {
+                $fixed_bundle_items[] = [
+                    'productId' => $item_id,
+                    'quantity'  => $item_qty,
+                    'product'   => $item_products[ $item_id ] ?? null,
+                ];
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 14. Assemble product
     // -----------------------------------------------------------------------
     $product = [
         '__typename'         => $type_info[0],
@@ -515,7 +677,7 @@ function mf_get_product( WP_REST_Request $request ) {
     }
 
     // -----------------------------------------------------------------------
-    // 12. Response
+    // 15. Response
     // -----------------------------------------------------------------------
     $result = [
         'success'              => true,
@@ -524,6 +686,11 @@ function mf_get_product( WP_REST_Request $request ) {
         'collectionSlug'       => $collection_slug,
         'availableOptions'     => $available_options,
         'availableOptionsBase' => $available_options_base,
+        'nutrition'            => $nutrition,
+        'topCannabinoids'      => $top_cannabinoids,
+        'allergens'            => $allergens,
+        'taxonomies'           => $taxonomies,
+        'fixedBundleItems'     => $fixed_bundle_items,
     ];
 
     set_transient( $cache_key, $result, 300 );
