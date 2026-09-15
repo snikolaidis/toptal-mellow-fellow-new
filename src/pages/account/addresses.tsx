@@ -183,8 +183,8 @@ function AddressFieldset({
   );
 }
 
-const CUSTOMER_BILLING_QUERY = `
-  query GetCustomerBilling {
+const CUSTOMER_BILLING_QUERY = /* GraphQL */ `
+  query GetAccountAddresses {
     customer {
       email
       firstName

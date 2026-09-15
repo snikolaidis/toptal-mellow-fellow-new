@@ -105,6 +105,36 @@ body.account {
     font-weight: 600;
   }
 
+  &__bundle-header td {
+    font-weight: 600;
+  }
+
+  &__bundle-name {
+    font-weight: 700;
+  }
+
+  &__bundle-original {
+    color: var(--color-text-muted);
+    text-decoration: line-through;
+    margin-right: 8px;
+    font-weight: 400;
+  }
+
+  &__bundle-discounted {
+    font-weight: 700;
+  }
+
+  &__bundle-item td {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+
+  &__bundle-item td:first-child > div {
+    padding-left: 20px;
+  }
+
   &__status {
     display: inline-block;
     padding: 4px 10px;

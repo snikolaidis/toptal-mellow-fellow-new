@@ -17,6 +17,20 @@ add_action( 'rest_api_init', function() {
     ] );
 } );
 
+// Bundle Builder's own class-bb-cart.php already hides its _bb_bundle_id/
+// _bb_group_key/_bb_mode/etc via this same filter — these are the meta keys
+// this file writes on top of those, only ever read programmatically by the
+// order-confirmation page. The "Part of bundle" admin note (also from
+// class-bb-cart.php) already covers what an admin needs to see.
+add_filter( 'woocommerce_hidden_order_itemmeta', function ( $hidden_keys ) {
+    $hidden_keys[] = 'Bundle';
+    $hidden_keys[] = '_bb_group_original_total';
+    $hidden_keys[] = '_bb_group_set_count';
+    $hidden_keys[] = '_bb_group_image_url';
+    $hidden_keys[] = '_bb_group_image_alt';
+    return $hidden_keys;
+} );
+
 function mf_verify_faust_secret( WP_REST_Request $request ) {
     if ( defined( 'FAUSTWP_SECRET_KEY' ) ) {
         $secret = FAUSTWP_SECRET_KEY;
@@ -162,13 +176,9 @@ function mf_build_order_from_payload( $body, $status ) {
                 $add_args['total']    = $unit_total;
             }
 
-            // Bundle Builder discounts by overwriting the product's own price,
-            // not via a coupon, so the Store API's line_subtotal already equals
-            // line_total above — the order line would render as if it were
-            // full price. regularUnitPrice (the product's true pre-discount
-            // price, from the frontend's product.regularPrice) restores the
-            // subtotal/total gap so the admin order screen shows the strike-
-            // through discount and the order's discount total is correct.
+            // Bundle discounts overwrite the product's own price (no coupon),
+            // so subtotal/total above are already equal — regularUnitPrice
+            // restores the gap for a correct strikethrough/discount total.
             $regular_unit_price = isset( $item['regularUnitPrice'] ) ? floatval( $item['regularUnitPrice'] ) : 0;
             if ( $regular_unit_price > 0 && isset( $add_args['total'] ) ) {
                 $regular_line_total = $regular_unit_price * $quantity;
@@ -179,16 +189,64 @@ function mf_build_order_from_payload( $body, $status ) {
 
             $item_id = $order->add_product( $product, $quantity, $add_args );
 
-            // Tag this line item as part of a bundle, when the frontend sent
-            // one — see CartContext's bbGroupKey/bbBundleId and
-            // checkout.tsx's items[].bundleGroupKey/bundleName. Items without
-            // a bundle name (i.e. every non-bundle product) are left exactly
-            // as before.
+            // Tag the free-gift line so downstream systems can identify it — it's
+            // a $0 line with a line discount, not a coupon, so it's otherwise
+            // indistinguishable from a bundle discount. The Acumatica note builder
+            // reads _mf_free_gift to record what was given away.
+            if ( $item_id && ! is_wp_error( $item_id ) && ! empty( $item['isFreeGift'] ) ) {
+                $gift_item = $order->get_item( $item_id );
+                if ( $gift_item ) {
+                    $gift_item->add_meta_data( '_mf_free_gift', 1 );
+                    $gift_item->save();
+                }
+            }
+
+            // Tags this line as part of a bundle — 'Bundle' and the '_bb_'
+            // keys below are all hidden from the admin order screen (filter above).
             $bundle_name = sanitize_text_field( $item['bundleName'] ?? '' );
             if ( $item_id && ! is_wp_error( $item_id ) && $bundle_name ) {
                 $order_item = $order->get_item( $item_id );
                 if ( $order_item ) {
                     $order_item->add_meta_data( 'Bundle', $bundle_name );
+
+                    $bundle_group_key = sanitize_text_field( $item['bundleGroupKey'] ?? '' );
+                    if ( $bundle_group_key ) {
+                        $order_item->add_meta_data( '_bb_group_key', $bundle_group_key );
+                    }
+
+                    // Resolves Bundle Builder's own "Part of bundle" admin note.
+                    $bundle_id = intval( $item['bundleId'] ?? 0 );
+                    if ( $bundle_id ) {
+                        $order_item->add_meta_data( '_bb_bundle_id', $bundle_id );
+                    }
+
+                    // LineItem.bbMode masks a mystery bundle's contents.
+                    $bundle_mode = sanitize_key( $item['bundleMode'] ?? '' );
+                    if ( in_array( $bundle_mode, [ 'fixed', 'mystery' ], true ) ) {
+                        $order_item->add_meta_data( '_bb_mode', $bundle_mode );
+                    }
+
+                    // Curated original total for "fixed"/"mystery"; absent for "byob".
+                    if ( isset( $item['bundleGroupOriginalTotal'] ) && is_numeric( $item['bundleGroupOriginalTotal'] ) ) {
+                        $order_item->add_meta_data( '_bb_group_original_total', floatval( $item['bundleGroupOriginalTotal'] ) );
+                    }
+
+                    // Bundle's own quantity. Also _bb_fixed_bundle_qty, which
+                    // reduce_fixed_bundle_stock()/restore_fixed_bundle_stock()
+                    // (class-bb-cart.php) need to touch the wrapper's stock.
+                    if ( isset( $item['bundleGroupSetCount'] ) && is_numeric( $item['bundleGroupSetCount'] ) ) {
+                        $set_count = intval( $item['bundleGroupSetCount'] );
+                        $order_item->add_meta_data( '_bb_group_set_count', $set_count );
+                        $order_item->add_meta_data( '_bb_fixed_bundle_qty', $set_count );
+                    }
+
+                    // Bundle's own image — component lines have no relation to it.
+                    $bundle_image_url = esc_url_raw( $item['bundleImageUrl'] ?? '' );
+                    if ( $bundle_image_url ) {
+                        $order_item->add_meta_data( '_bb_group_image_url', $bundle_image_url );
+                        $order_item->add_meta_data( '_bb_group_image_alt', sanitize_text_field( $item['bundleImageAlt'] ?? '' ) );
+                    }
+
                     $order_item->save();
                 }
             }
@@ -255,14 +313,9 @@ function mf_build_order_from_payload( $body, $status ) {
             }
         }
 
-        // Bundle discount — already baked into the bundled line items' totals
-        // (see bb_unit_price / cartItemTotals above), so this doesn't touch
-        // $order->set_total()/set_discount_total() below, which are derived
-        // straight from item totals either way. It's purely a visible "Coupon(s)
-        // used" line in the admin order view, the same shape a real coupon gets,
-        // and it also lets the "unattributed" gap-absorption below correctly
-        // attribute the bundle's share instead of misattributing it to a real
-        // zero-discount coupon on the same order.
+        // Already baked into line totals — purely a visible "Coupon(s) used"
+        // line, and lets the unattributed gap-absorption below attribute the
+        // bundle's share instead of a real zero-discount coupon.
         if ( $bundle_discount_total > 0.01 ) {
             $bundle_discount_item = new WC_Order_Item_Coupon();
             $bundle_discount_item->set_code( 'Bundle Discount' );

@@ -13,7 +13,7 @@
   .learn-cannabinoids-page__heading {
     max-width: 296px;
     margin: 0 auto;
-    font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+    font-family: var(--font-family-display);
     font-weight: 700;
     font-size: 23.94px;
     line-height: 1.2;
@@ -29,7 +29,7 @@
 
   .learn-cannabinoids-page__nav-heading {
     margin: 0 0 22px;
-    font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+    font-family: var(--font-family-display);
     font-weight: 700;
     font-size: 23.94px;
     line-height: 1.2;

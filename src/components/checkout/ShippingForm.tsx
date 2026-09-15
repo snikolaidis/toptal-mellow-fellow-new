@@ -14,6 +14,7 @@ interface ShippingFormProps {
   onSameAsBillingChange: (value: boolean) => void;
   onSubmit: () => void;
   onBack: () => void;
+  submitting?: boolean;
 }
 
 export default function ShippingForm({
@@ -25,6 +26,7 @@ export default function ShippingForm({
   onSameAsBillingChange,
   onSubmit,
   onBack,
+  submitting,
 }: ShippingFormProps) {
   const { cart, updateShippingMethod } = useCart();
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<string | null>(null);
@@ -335,8 +337,8 @@ export default function ShippingForm({
         >
           Back
         </button>
-        <button type="submit" className="btn-primary" style={{ flex: 1 }}>
-          Continue to Payment
+        <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={submitting}>
+          {submitting ? 'Verifying address...' : 'Continue to Payment'}
         </button>
       </div>
     </form>

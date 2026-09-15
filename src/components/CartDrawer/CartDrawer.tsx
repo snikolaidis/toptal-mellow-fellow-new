@@ -264,9 +264,11 @@ export default function CartDrawer() {
                 {/* Bundle groups */}
                 {bundles.map((group) => {
                   const allItems = group.instances.flatMap((inst) => inst.items);
-                  const originalTotal = allItems.reduce(
-                    (sum, i) => sum + i.quantity * originalUnitPrice(i), 0
-                  );
+                  // No "Show items" affordance for mystery bundles.
+                  const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
+                  const originalTotal = group.fixedOriginalPrice != null
+                    ? group.fixedOriginalPrice * group.quantity
+                    : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
                   const discountedTotal = allItems.reduce(
                     (sum, i) => sum + parsePrice(i.total), 0
                   );
@@ -350,6 +352,7 @@ export default function CartDrawer() {
                               </span>
                             </div>
                           </div>
+                          {!isMysteryBundle && (
                           <button
                             type="button"
                             className={styles.bundleToggleBtn}
@@ -362,9 +365,10 @@ export default function CartDrawer() {
                             </span>
                             {isExpanded ? 'Hide items' : 'Show items'}
                           </button>
+                          )}
                         </div>
                       </div>
-                      {isExpanded && (
+                      {isExpanded && !isMysteryBundle && (
                       <div id={panelId} className={styles.bundleItemsPanel}>
                       {allItems
                         .reduce<{ item: typeof allItems[0]; qty: number; originalAmount: number; totalAmount: number }[]>(
@@ -651,7 +655,6 @@ export default function CartDrawer() {
                     title="Automatic promotion"
                   >
                     {promo.label}
-                    {promo.amount > 0 && <> &minus;${promo.amount.toFixed(2)}</>}
                   </span>
                 ))}
               </div>
@@ -662,10 +665,35 @@ export default function CartDrawer() {
               // costs after ALL discounts (coupons, BOGO, free gift, bundles).
               // One consolidated "You saved" = gross − net, so the numbers
               // always reconcile and never shift per-coupon.
-              const grossSubtotal = cart.items.reduce(
-                (s, i) => s + i.quantity * parsePrice(i.product.price),
+              // Bundle groups: regular (pre-discount) value vs discounted total,
+              // computed per group so "fixed" bundles use their curated bundle
+              // price and "byob" bundles sum their components' regular prices.
+              // Bundle lines discount via set_price (product.price is already the
+              // discounted value), so they MUST use the regular value here — else
+              // the bundle discount would be missing from the Subtotal while still
+              // being shown on its own line below, i.e. subtracted twice.
+              let bundleOriginal = 0;
+              let bundleDiscounted = 0;
+              bundles.forEach((group) => {
+                const allItems = group.instances.flatMap((inst) => inst.items);
+                bundleOriginal += group.fixedOriginalPrice != null
+                  ? group.fixedOriginalPrice * group.quantity
+                  : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
+                bundleDiscounted += allItems.reduce((s, i) => s + parsePrice(i.total), 0);
+              });
+              const totalBundleDiscount = Math.max(0, bundleOriginal - bundleDiscounted);
+
+              // Gross = full regular price of everything. Standalone lines discount
+              // via coupon/BOGO on the line total (product.price stays regular), so
+              // product.price is the gross for them — except the free gift, which is
+              // server-priced to $0 and counts at its regular price so its value
+              // shows as a saving. Bundle lines contribute their regular value.
+              const grossStandalone = standalone.reduce(
+                (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parsePrice(i.product.price)),
                 0
               );
+              const grossSubtotal = grossStandalone + bundleOriginal;
+
               const netTotal = cart.items.reduce((s, i) => s + parsePrice(i.total), 0);
               const subSavings = standalone.reduce((s, it) => {
                 const c = subChoices[it.product.databaseId];
@@ -675,16 +703,10 @@ export default function CartDrawer() {
               const payTotal = Math.max(0, netTotal - subSavings);
               const saved = Math.max(0, grossSubtotal - payTotal);
 
-              // Bundle discount broken out on its own line — everything else
-              // (coupons, BOGO, free gift, subscriptions) collapses into
-              // "You saved" below it, so the two lines add up to `saved`
-              // instead of double-counting the bundle portion in both.
-              const totalBundleDiscount = bundles.reduce((sum, group) => {
-                const allItems = group.instances.flatMap((inst) => inst.items);
-                const original = allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
-                const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
-                return sum + Math.max(0, original - discounted);
-              }, 0);
+              // Bundle discount is broken out on its own line; everything else
+              // (coupons, BOGO, free gift, subscriptions) collapses into "You
+              // saved". saved already includes the bundle discount (gross now uses
+              // the bundle's regular value), so the two lines add up to `saved`.
               const otherSaved = Math.max(0, saved - totalBundleDiscount);
 
               return (

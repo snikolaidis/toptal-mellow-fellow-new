@@ -22,6 +22,8 @@ import {
   addBundleToStore,
   addFixedBundleToStore,
   removeBundleGroupsFromStore,
+  addFreeGiftToStore,
+  removeFreeGiftFromStore,
   updateItemInStore,
   removeItemFromStore,
   clearStoreCart,
@@ -111,6 +113,10 @@ export interface BundleGroup {
   quantity: number;
   representativeItems: CartItem[];
   instances: BundleGroupInstance[];
+  // Per-set original (pre-discount) price for a "fixed" bundle, as authored
+  // on the bundle product itself — undefined for "byob" groups, where the
+  // original total is genuinely the sum of the chosen items' regular prices.
+  fixedOriginalPrice?: number;
 }
 
 export function groupCartItems(
@@ -158,6 +164,7 @@ export function groupCartItems(
         quantity: 0,
         representativeItems: groupItems,
         instances: [],
+        fixedOriginalPrice: groupItems.find((i) => i.bbFixedOriginalPrice != null)?.bbFixedOriginalPrice,
       };
     }
     byProductSet[mergeKey].instances.push({ groupKey, items: groupItems });
@@ -192,6 +199,8 @@ interface CartContextType {
   updateQuantity: (key: string, quantity: number) => Promise<void>;
   removeFromCart: (key: string) => Promise<void>;
   removeBundleGroup: (groupKeys: string[]) => Promise<void>;
+  addFreeGift: (productId: number) => Promise<void>;
+  removeFreeGift: () => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
   applyCoupon: (code: string) => Promise<boolean>;
@@ -347,31 +356,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // -------------------------------------------------------------------------
   // Fetch cart via WooCommerce Store API (no spinlock)
+  //
+  // In-flight dedup: a full cart load is comparatively expensive server-side
+  // (per-item Store API serialization scales with cart size). Multiple triggers
+  // can ask for a fresh cart at nearly the same moment — the mount effect, an
+  // auth change, and the error-recovery paths in the mutation handlers all call
+  // fetchCart()/fetchCartFromStore(). Left unchecked, a slow response makes those
+  // pile up into a burst of concurrent GET /cart calls that saturates WPE's PHP
+  // workers, which is exactly what produces the "store is taking too long" /
+  // "failed to load your cart" errors. Collapsing concurrent loads into a single
+  // shared request removes that amplification without changing behavior.
   // -------------------------------------------------------------------------
+  const inFlightFetchRef = useRef<Promise<void> | null>(null);
   const fetchCart = useCallback(async () => {
+    if (inFlightFetchRef.current) return inFlightFetchRef.current;
+
     setIsLoading(true);
     setError(null);
     const seq = nextSeq();
 
-    try {
-      const storeCart = await fetchCartFromStore();
-      if (isStaleSeq(seq)) return;
-      hasFetchedRef.current = true;
-      if (storeCart) {
-        const enriched = enrichCartItems(storeCart, bundleItemMapRef.current);
-        setCart(enriched);
-        writeCachedCart(enriched);
+    const run = (async () => {
+      try {
+        const storeCart = await fetchCartFromStore();
+        if (isStaleSeq(seq)) return;
+        hasFetchedRef.current = true;
+        if (storeCart) {
+          const enriched = enrichCartItems(storeCart, bundleItemMapRef.current);
+          setCart(enriched);
+          writeCachedCart(enriched);
+        }
+        setCartReady(true);
+      } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); setCartReady(true); return; }
+        logError('CartContext.fetchCart', err);
+        const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
+        setError(getUserMessage(cartError));
+        setCartReady(true);
+      } finally {
+        setIsLoading(false);
+        inFlightFetchRef.current = null;
       }
-      setCartReady(true);
-    } catch (err) {
-      if (isSessionExpired(err)) { resetToEmptyCart(); setCartReady(true); return; }
-      logError('CartContext.fetchCart', err);
-      const cartError = new CartError('Failed to load cart', ErrorCode.CART_LOAD_FAILED);
-      setError(getUserMessage(cartError));
-      setCartReady(true);
-    } finally {
-      setIsLoading(false);
-    }
+    })();
+
+    inFlightFetchRef.current = run;
+    return run;
   }, []);
 
   const refreshCart = useCallback(async () => {
@@ -515,7 +543,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // Timeout/connection errors mean the outcome is UNKNOWN — WordPress may
       // have completed the add after our proxy gave up. Fetch the truth before
       // rolling back, or we show a scary error for an add that succeeded.
-      if (err instanceof StoreApiError && (err.code === 'store_api_proxy_error' || err.code === 'invalid_response')) {
+      if (err instanceof StoreApiError && (err.code === 'store_api_proxy_error' || err.code === 'store_api_timeout' || err.code === 'invalid_response')) {
         try {
           const fresh = await fetchCartFromStore();
           if (!isStaleSeq(seq) && fresh) {
@@ -556,11 +584,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       hasFetchedRef.current = true;
       startMutation();
       try {
-        // Server-truth grouping: addBundleToStore's response already carries
-        // bb_group_key/bb_bundle_id per item (via the Store API extension in
-        // mellow-fellow-cart-persistence.php), so there's no addedItemKeys
-        // list to correlate into bundleItemMap here the way the old GraphQL
-        // mutation needed — enrichCartItems below is just a no-op safety net.
+        // bb_group_key/bb_bundle_id come back per item (item.extensions.bundle,
+        // see store-api.ts) — enrichCartItems below is just a no-op safety net.
         const storeCart = await enqueueMutation(() => addBundleToStore(productId, productIds));
 
         setBundleNames((prev) => {
@@ -619,12 +644,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       hasFetchedRef.current = true;
       startMutation();
       try {
-        // Same Store API extension as the byob path — server-truth
-        // bb_group_key/bb_bundle_id come back on each item via
-        // mellow-fellow-cart-persistence.php's endpoint-data registration.
-        // (The GraphQL mutation this used to call runs through /api/graphql,
-        // which carries no WooCommerce session identity by design — it would
-        // "succeed" against a throwaway session nobody ever reads back.)
+        // Same as the byob path — bb_group_key/bb_bundle_id come back per
+        // item via item.extensions.bundle (see store-api.ts).
         const prevKeys = new Set((cartRef.current?.items ?? []).map((i) => i.key));
         const storeCart = await enqueueMutation(() => addFixedBundleToStore(productId, quantity));
 
@@ -698,6 +719,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
     },
     [enqueueMutation, startMutation, endMutation]
   );
+
+  // -------------------------------------------------------------------------
+  // Free gift — added as a server-priced $0 cart line (NOT a coupon), so it
+  // can't war with WebToffee auto-apply coupons the way the old mf-free-gift-*
+  // coupon did. The server (mellow-fellow-free-gift.php) enforces eligibility:
+  // it prices the line to $0 while the cart qualifies and removes it otherwise.
+  // -------------------------------------------------------------------------
+  const addFreeGift = useCallback(
+    async (productId: number) => {
+      setError(null);
+      const seq = nextSeq();
+      startMutation();
+      try {
+        const storeCart = await enqueueMutation(() => addFreeGiftToStore(productId));
+        if (isStaleSeq(seq)) return;
+        if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
+      } catch (err) {
+        if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+        logError('CartContext.addFreeGift', err, { productId });
+        const message = extractCartErrorMessage(err, 'Could not add the free gift.');
+        setError(message);
+        throw err;
+      } finally {
+        endMutation();
+      }
+    },
+    [enqueueMutation, startMutation, endMutation]
+  );
+
+  const removeFreeGift = useCallback(async () => {
+    setError(null);
+    const seq = nextSeq();
+    startMutation();
+    try {
+      const storeCart = await enqueueMutation(() => removeFreeGiftFromStore());
+      if (isStaleSeq(seq)) return;
+      if (storeCart) setCart(enrichCartItems(storeCart, bundleItemMapRef.current));
+    } catch (err) {
+      if (isSessionExpired(err)) { resetToEmptyCart(); return; }
+      logError('CartContext.removeFreeGift', err);
+    } finally {
+      endMutation();
+    }
+  }, [enqueueMutation, startMutation, endMutation]);
 
   // -------------------------------------------------------------------------
   // Update quantity via Store API — optimistic
@@ -1009,7 +1074,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            query: `query GetBundleImages($ids: [Int]!) {
+            query: /* GraphQL */ `query GetBundleImages($ids: [Int]!) {
               products(first: 100, where: { include: $ids }) {
                 nodes {
                   databaseId
@@ -1082,6 +1147,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateQuantity,
         removeFromCart,
         removeBundleGroup,
+        addFreeGift,
+        removeFreeGift,
         clearCart,
         refreshCart,
         applyCoupon,

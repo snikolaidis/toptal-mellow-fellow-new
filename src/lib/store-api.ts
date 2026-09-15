@@ -13,6 +13,10 @@ export interface CartItem {
   bbGroupKey?: string;
   bbLocked?: boolean;
   bbUnitPrice?: number;
+  bbFixedOriginalPrice?: number;
+  // "fixed" | "mystery" — when "mystery", mask this line's own product name/image.
+  bbMode?: 'fixed' | 'mystery';
+  isFreeGift?: boolean;
   product: {
     databaseId: number;
     name: string;
@@ -110,11 +114,15 @@ export function transformStoreApiCart(data: any): Cart | null {
     const variationAttrs: Array<{ attribute: string; value: string }> = item.variation || [];
     const hasVariation = variationAttrs.length > 0;
 
-    // Bundle-builder identity exposed server-side via Store API extensions —
-    // the session's cart item data is the source of truth for bundle grouping.
-    const bb = item.extensions?.['mellow-fellow'] || {};
-    const bbGroupKey = typeof bb.bb_group_key === 'string' && bb.bb_group_key ? bb.bb_group_key : undefined;
-    const bbBundleId = bb.bb_bundle_id ? Number(bb.bb_bundle_id) : undefined;
+    // "bundle" = Bundle Builder plugin's own Store API extension
+    // (bundle_id/group_key/locked/unit_price/mode). "mellow-fellow" = ours
+    // (bb_fixed_original_price, mf_free_gift only).
+    const bundleExt = item.extensions?.['bundle'] || {};
+    const mf = item.extensions?.['mellow-fellow'] || {};
+    const bbGroupKey = typeof bundleExt.group_key === 'string' && bundleExt.group_key ? bundleExt.group_key : undefined;
+    const bbBundleId = bundleExt.bundle_id ? Number(bundleExt.bundle_id) : undefined;
+    const bbMode = bundleExt.mode === 'fixed' || bundleExt.mode === 'mystery' ? bundleExt.mode : undefined;
+    const isFreeGift = mf.mf_free_gift === true || undefined;
 
     return {
       key: item.key,
@@ -123,8 +131,11 @@ export function transformStoreApiCart(data: any): Cart | null {
       subtotal: lineSubtotal,
       bbGroupKey,
       bbBundleId,
-      bbLocked: bb.bb_locked === true || undefined,
-      bbUnitPrice: typeof bb.bb_unit_price === 'number' ? bb.bb_unit_price : undefined,
+      bbLocked: bundleExt.locked === true || undefined,
+      bbUnitPrice: typeof bundleExt.unit_price === 'number' ? bundleExt.unit_price : undefined,
+      bbFixedOriginalPrice: typeof mf.bb_fixed_original_price === 'number' ? mf.bb_fixed_original_price : undefined,
+      bbMode,
+      isFreeGift,
       product: {
         databaseId: item.id,
         name: decodeHtmlEntities(item.name || ''),
@@ -180,6 +191,20 @@ export function transformStoreApiCart(data: any): Cart | null {
     amount: Number(p.amount ?? 0),
     removable: Boolean(p.removable),
   }));
+
+  // Derive the "Free gift" chip client-side from the gift line itself. The gift
+  // is a $0 cart line flagged isFreeGift (which serializes reliably), so we don't
+  // depend on the server promotions extension for the chip — custom Store API
+  // extension namespaces are brittle to serialize (WooCommerce's context filtering
+  // nulls them), whereas the item flag is always present. Only add it if the
+  // server didn't already surface it, so there's never a duplicate chip.
+  const giftItem = items.find((i) => i.isFreeGift);
+  if (giftItem && !promotions.some((p) => p.code === 'mf-free-gift')) {
+    const regular = parseFloat(
+      (giftItem.product.regularPrice || giftItem.product.price || '').replace(/[^0-9.]/g, '')
+    ) || 0;
+    promotions.push({ code: 'mf-free-gift', label: 'Free gift', amount: regular, removable: false });
+  }
 
   return {
     items,
@@ -378,6 +403,28 @@ export async function removeBundleGroupsFromStore(groupKeys: string[]): Promise<
     body: {
       namespace: 'mellow-fellow/cart-ops',
       data: { action: 'remove_bundle_group', group_keys: groupKeys },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
+export async function addFreeGiftToStore(productId: number): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'add_free_gift', product_id: productId },
+    },
+  });
+  return transformStoreApiCart(data);
+}
+
+export async function removeFreeGiftFromStore(): Promise<Cart | null> {
+  const data = await storeApiFetch('cart/extensions', {
+    method: 'POST',
+    body: {
+      namespace: 'mellow-fellow/cart-ops',
+      data: { action: 'remove_free_gift' },
     },
   });
   return transformStoreApiCart(data);

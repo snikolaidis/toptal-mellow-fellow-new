@@ -135,8 +135,8 @@ PageLearnAboutCannabinoids.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blockFragments.AcfCannabinoidCallout.key}
-        ...${blockFragments.CoreParagraph.key}
+        ...AcfCannabinoidCalloutFragment
+        ...CoreParagraphBlockFragment
       }
     }
   }

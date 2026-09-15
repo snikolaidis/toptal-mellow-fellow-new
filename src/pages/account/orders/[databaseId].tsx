@@ -1,12 +1,22 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import AccountGuard from '@/components/account/AccountGuard';
 
+interface LineItemMeta {
+  key?: string | null;
+  value?: string | null;
+}
+
 interface LineItem {
   quantity: number;
   total: string;
+  subtotal?: string;
+  metaData?: LineItemMeta[];
+  // Used by groupOrderLineItems() to suppress a mystery bundle's
+  // per-component rows entirely (see isMysteryGroup).
+  bbMode?: 'fixed' | 'mystery' | null;
   product?: {
     node?: {
       name?: string;
@@ -14,6 +24,131 @@ interface LineItem {
       image?: { sourceUrl?: string; altText?: string };
     };
   };
+}
+
+interface BundleGroupDisplay {
+  key: string;
+  name: string;
+  quantity: number;
+  discountedTotal: number;
+  originalTotal: number;
+  items: LineItem[];
+  image?: { sourceUrl?: string; altText?: string };
+}
+
+function getMeta(item: LineItem, key: string): string | undefined {
+  return item.metaData?.find((m) => m.key === key)?.value || undefined;
+}
+
+function toAmount(value?: string): number {
+  return value ? parseFloat(value.replace(/[^0-9.-]/g, '')) || 0 : 0;
+}
+
+/**
+ * Regroups a flat order line-item list back into bundle sets, mirroring the
+ * cart/checkout's bundle display — see mellow-fellow-create-order.php for
+ * where the 'Bundle'/_bb_group_key/_bb_group_original_total meta this reads
+ * gets written. Orders placed before that meta existed only have 'Bundle'
+ * (the display name), so they fall back to grouping by name alone — a
+ * best-effort merge rather than the precise per-purchase grouping a real
+ * group key gives.
+ */
+function groupOrderLineItems(items: LineItem[]): { bundleGroups: BundleGroupDisplay[]; standalone: LineItem[] } {
+  const groupsByKey: Record<string, { name: string; items: LineItem[] }> = {};
+  const standalone: LineItem[] = [];
+
+  items.forEach((item) => {
+    const bundleName = getMeta(item, 'Bundle');
+    if (!bundleName) {
+      standalone.push(item);
+      return;
+    }
+    const groupKey = getMeta(item, '_bb_group_key') || `bundle-name:${bundleName}`;
+    if (!groupsByKey[groupKey]) {
+      groupsByKey[groupKey] = { name: bundleName, items: [] };
+    }
+    groupsByKey[groupKey].items.push(item);
+  });
+
+  const bundleGroups: BundleGroupDisplay[] = Object.entries(groupsByKey).map(([key, { name, items: groupItems }]) => {
+    const discountedTotal = groupItems.reduce((sum, i) => sum + toAmount(i.total), 0);
+    // A "fixed" bundle's curated original price is recorded once per group as
+    // _bb_group_original_total (already the full group total, not per-unit —
+    // see checkout.tsx). A "byob" bundle has no such value; its line items'
+    // own subtotal (pre-discount) already sums to the right original total.
+    const fixedOriginalTotal = groupItems
+      .map((i) => getMeta(i, '_bb_group_original_total'))
+      .find((v) => v != null);
+    const originalTotal = fixedOriginalTotal != null
+      ? toAmount(fixedOriginalTotal)
+      : groupItems.reduce((sum, i) => sum + toAmount(i.subtotal ?? i.total), 0);
+    // Bundle's own quantity, from _bb_group_set_count; falls back to summed
+    // component quantities for orders placed before that meta existed.
+    const setCount = groupItems
+      .map((i) => getMeta(i, '_bb_group_set_count'))
+      .find((v) => v != null);
+    const quantity = setCount != null
+      ? toAmount(setCount)
+      : groupItems.reduce((sum, i) => sum + i.quantity, 0);
+    const imageUrl = groupItems.map((i) => getMeta(i, '_bb_group_image_url')).find((v) => v != null);
+    const imageAlt = groupItems.map((i) => getMeta(i, '_bb_group_image_alt')).find((v) => v != null);
+    return {
+      key,
+      name,
+      quantity,
+      discountedTotal,
+      originalTotal,
+      items: groupItems,
+      image: imageUrl ? { sourceUrl: imageUrl, altText: imageAlt || name } : undefined,
+    };
+  });
+
+  return { bundleGroups, standalone };
+}
+
+/** A single product row — `nested` renders it smaller, indented under a bundle's header row. */
+function LineItemRow({ item, nested = false }: { item: LineItem; nested?: boolean }) {
+  const name = item.product?.node?.name || 'Product';
+  const slug = item.product?.node?.slug;
+  const image = item.product?.node?.image;
+  const size = nested ? 32 : 48;
+
+  return (
+    <tr className={nested ? 'account__bundle-item' : undefined}>
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: nested ? 10 : 12 }}>
+          {image?.sourceUrl ? (
+            <Image
+              src={image.sourceUrl}
+              alt={image.altText || name}
+              width={size}
+              height={size}
+              style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+            />
+          ) : (
+            <div
+              style={{
+                width: size,
+                height: size,
+                borderRadius: 6,
+                backgroundColor: '#f0f0f0',
+                flexShrink: 0,
+              }}
+            />
+          )}
+          {slug ? (
+            <Link href={`/products/${slug}`} className="account__link">
+              {name}
+            </Link>
+          ) : (
+            name
+          )}
+        </div>
+      </td>
+      <td>{item.quantity}</td>
+      <td>{item.total}</td>
+    </tr>
+  );
 }
 
 interface OrderAddress {
@@ -110,8 +245,8 @@ function statusModifier(status: string): string {
   }
 }
 
-const ORDER_QUERY = `
-  query GetAccountOrder($id: ID!) {
+const ORDER_QUERY = /* GraphQL */ `
+  query GetAccountOrderPage($id: ID!) {
     order(id: $id, idType: DATABASE_ID) {
       databaseId
       orderNumber
@@ -137,6 +272,12 @@ const ORDER_QUERY = `
           product { node { name slug image { sourceUrl altText } } }
           quantity
           total
+          subtotal
+          bbMode
+          metaData {
+            key
+            value
+          }
         }
       }
     }
@@ -208,6 +349,7 @@ function OrderContent() {
 
   const items = order.lineItems?.nodes || [];
   const coupons = order.couponLines?.nodes || [];
+  const { bundleGroups, standalone } = groupOrderLineItems(items);
 
   const toNumber = (value?: string) =>
     value ? parseFloat(value.replace(/[^0-9.-]/g, '')) || 0 : 0;
@@ -241,47 +383,58 @@ function OrderContent() {
           </tr>
         </thead>
         <tbody>
-          {items.map((item, i) => {
-            const name = item.product?.node?.name || 'Product';
-            const slug = item.product?.node?.slug;
-            const image = item.product?.node?.image;
+          {bundleGroups.map((group) => {
+            const hasDiscount = group.discountedTotal < group.originalTotal - 0.005;
+            // No per-component rows for mystery bundles — just the header row.
+            const isMysteryGroup = group.items.some((item) => item.bbMode === 'mystery');
             return (
-              <tr key={`${name}-${i}`}>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {image?.sourceUrl ? (
-                      <Image
-                        src={image.sourceUrl}
-                        alt={image.altText || name}
-                        width={48}
-                        height={48}
-                        style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 6,
-                          backgroundColor: '#f0f0f0',
-                          flexShrink: 0,
-                        }}
-                      />
+              <Fragment key={group.key}>
+                <tr className="account__bundle-header">
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {group.image?.sourceUrl ? (
+                        <Image
+                          src={group.image.sourceUrl}
+                          alt={group.image.altText || group.name}
+                          width={48}
+                          height={48}
+                          style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 6,
+                            backgroundColor: '#f0f0f0',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <span className="account__bundle-name">{group.name}</span>
+                    </div>
+                  </td>
+                  <td>{group.quantity}</td>
+                  <td>
+                    {hasDiscount && (
+                      <span className="account__bundle-original">
+                        ${group.originalTotal.toFixed(2)}
+                      </span>
                     )}
-                    {slug ? (
-                      <Link href={`/products/${slug}`} className="account__link">
-                        {name}
-                      </Link>
-                    ) : (
-                      name
-                    )}
-                  </div>
-                </td>
-                <td>{item.quantity}</td>
-                <td>{item.total}</td>
-              </tr>
+                    <span className="account__bundle-discounted">
+                      ${group.discountedTotal.toFixed(2)}
+                    </span>
+                  </td>
+                </tr>
+                {!isMysteryGroup && group.items.map((item, i) => (
+                  <LineItemRow key={`${group.key}-${i}`} item={item} nested />
+                ))}
+              </Fragment>
             );
           })}
+          {standalone.map((item, i) => (
+            <LineItemRow key={`standalone-${i}`} item={item} />
+          ))}
         </tbody>
         <tfoot>
           {hasAmount(order.subtotal) && (

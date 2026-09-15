@@ -17,6 +17,9 @@ interface RecProduct {
   stockStatus?: string;
   typeLabel?: string;
   subtitle?: string;
+  bbBundleMode?: 'byob' | 'fixed' | 'mystery' | null;
+  bbFixedPrice?: number | null;
+  bbFixedOriginalPrice?: number | null;
 }
 
 interface FbtItem {
@@ -28,18 +31,13 @@ interface FbtItem {
   subtitle?: string;
   current: number;
   original: number | null;
-  isCurrent: boolean;
+  isFixedBundle: boolean;
 }
 
 interface Props {
   productId: number;
   productSlug: string;
-  productName: string;
   productPrice: string;
-  productRegularPrice?: string;
-  productImage?: { sourceUrl: string; altText?: string };
-  productTypeLabel?: string;
-  productSubtitle?: string;
   typeSlugs: string[];
 }
 
@@ -55,18 +53,14 @@ function formatPrice(value: number): string {
 export default function FrequentlyBoughtTogether({
   productId,
   productSlug,
-  productName,
   productPrice,
-  productRegularPrice,
-  productImage,
-  productTypeLabel,
-  productSubtitle,
   typeSlugs,
 }: Props) {
-  const { addToCart } = useCart();
+  const { addToCart, addFixedBundleToCart } = useCart();
   const [recs, setRecs] = useState<RecProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingAll, setAddingAll] = useState(false);
+  const [addAllError, setAddAllError] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<number>>(new Set());
 
   const typeKey = typeSlugs.join(',');
@@ -83,7 +77,7 @@ export default function FrequentlyBoughtTogether({
       excludeProductIds: String(productId),
       cartProductSlugs: productSlug,
       cartTotal: String(parsePrice(productPrice)),
-      limit: '2',
+      limit: '3',
     });
     setLoading(true);
     fetch(`/api/shop/recommendations?${params}`)
@@ -103,47 +97,24 @@ export default function FrequentlyBoughtTogether({
     };
   }, [productId, productSlug, productPrice, typeKey]);
 
-  const items = useMemo<FbtItem[]>(() => {
-    const currentPrice = parsePrice(productPrice);
-    const currentRegular = parsePrice(productRegularPrice);
-    const currentItem: FbtItem = {
-      databaseId: productId,
-      slug: productSlug,
-      name: productName,
-      image: productImage,
-      typeLabel: productTypeLabel,
-      subtitle: productSubtitle,
-      current: currentPrice,
-      original: currentRegular > currentPrice ? currentRegular : null,
-      isCurrent: true,
+  const items = useMemo<FbtItem[]>(() => recs.map((r) => {
+    const isFixedBundle = r.bbBundleMode === 'fixed' || r.bbBundleMode === 'mystery';
+    const current = isFixedBundle
+      ? r.bbFixedPrice ?? 0
+      : parsePrice(r.salePrice) || parsePrice(r.price);
+    const regular = isFixedBundle ? r.bbFixedOriginalPrice ?? 0 : parsePrice(r.regularPrice);
+    return {
+      databaseId: r.databaseId,
+      slug: r.slug,
+      name: r.name,
+      image: r.image,
+      typeLabel: r.typeLabel,
+      subtitle: r.subtitle,
+      current,
+      original: regular > current ? regular : null,
+      isFixedBundle,
     };
-    const recItems: FbtItem[] = recs.map((r) => {
-      const current = parsePrice(r.salePrice) || parsePrice(r.price);
-      const regular = parsePrice(r.regularPrice);
-      return {
-        databaseId: r.databaseId,
-        slug: r.slug,
-        name: r.name,
-        image: r.image,
-        typeLabel: r.typeLabel,
-        subtitle: r.subtitle,
-        current,
-        original: regular > current ? regular : null,
-        isCurrent: false,
-      };
-    });
-    return [currentItem, ...recItems];
-  }, [
-    productId,
-    productSlug,
-    productName,
-    productPrice,
-    productRegularPrice,
-    productImage,
-    productTypeLabel,
-    productSubtitle,
-    recs,
-  ]);
+  }), [recs]);
 
   const itemsKey = items.map((i) => i.databaseId).join(',');
 
@@ -167,16 +138,26 @@ export default function FrequentlyBoughtTogether({
 
   const addAll = useCallback(async () => {
     setAddingAll(true);
+    setAddAllError(null);
     try {
       for (const item of items) {
-        if (item.isCurrent || !checked.has(item.databaseId)) continue;
+        if (!checked.has(item.databaseId)) continue;
         recordWidgetSource(item.databaseId, 'fbt');
-        await addToCart({ productId: item.databaseId, quantity: 1 });
+        if (item.isFixedBundle) {
+          await addFixedBundleToCart(item.databaseId, 1, item.name, item.image ? {
+            sourceUrl: item.image.sourceUrl,
+            altText: item.image.altText || item.name,
+          } : null);
+        } else {
+          await addToCart({ productId: item.databaseId, quantity: 1 });
+        }
       }
+    } catch (err) {
+      setAddAllError(err instanceof Error ? err.message : 'Could not add these items to your cart.');
     } finally {
       setAddingAll(false);
     }
-  }, [items, checked, addToCart]);
+  }, [items, checked, addToCart, addFixedBundleToCart]);
 
   if (!loading && recs.length === 0) return null;
 
@@ -214,7 +195,7 @@ export default function FrequentlyBoughtTogether({
                         </svg>
                       )}
                     </button>
-                    <Link href={`/products/${item.slug}`} className={styles.imageLink}>
+                    <Link href={`/products/${item.slug}`} prefetch={false} className={styles.imageLink}>
                       {item.image?.sourceUrl ? (
                         <Image
                           src={item.image.sourceUrl}
@@ -228,7 +209,7 @@ export default function FrequentlyBoughtTogether({
                       )}
                     </Link>
                     {item.typeLabel ? <span className={styles.typeLabel}>{item.typeLabel}</span> : null}
-                    <Link href={`/products/${item.slug}`} className={styles.name}>
+                    <Link href={`/products/${item.slug}`} prefetch={false} className={styles.name}>
                       {item.name}
                     </Link>
                     {item.subtitle ? <span className={styles.subtitle}>{item.subtitle}</span> : null}
@@ -256,6 +237,11 @@ export default function FrequentlyBoughtTogether({
           >
             {addingAll ? 'Adding...' : 'Add All Items'}
           </button>
+          {addAllError && (
+            <p className={styles.error} role="alert">
+              {addAllError}
+            </p>
+          )}
         </>
       )}
     </section>

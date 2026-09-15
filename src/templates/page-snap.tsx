@@ -50,11 +50,11 @@ SnapPage.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blockFragments.AcfValuePropsSet.key}
-        ...${blockFragments.AcfCollectionSlider.key}
-        ...${blockFragments.AcfCollectionCardsSet.key}
-        ...${blockFragments.AcfShoppableHero.key}
-        ...${blockFragments.AcfFeaturedCollection.key}
+        ...AcfValuePropsSetFragment
+        ...AcfCollectionSliderFragment
+        ...AcfCollectionCardsSetFragment
+        ...AcfShoppableHeroFragment
+        ...AcfFeaturedCollectionFragment
       }
     }
   }

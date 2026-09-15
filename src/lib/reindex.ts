@@ -121,42 +121,45 @@ async function postGraphQL<T>(
   throw new Error(`${lastError.message} (after ${RETRY_ATTEMPTS} attempts)`);
 }
 
-const PRODUCT_FIELDS = `
-  id databaseId name slug type date
-  description shortDescription sku
-  price regularPrice salePrice
-  stockStatus
-  image { id sourceUrl altText }
-  collections { nodes { name slug } }
-  strainTypes { nodes { name slug } }
-  strainNames { nodes { name slug } }
-  blendTypes { nodes { name slug } }
-  productLines { nodes { name slug } }
-  size { nodes { name slug } }
-  mfproductTypes { nodes { name slug } }
-  cannabinoids { nodes { name slug } }
-  singleCannabinoid { nodes { name slug } }
-  mG { nodes { name slug } }
-  pieces { nodes { name slug } }
-  bbBundleMode
-  bbFromPrice
-  bbShowPrice
-  bbFixedPrice
-  bbFixedOriginalPrice
-  uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
+// A fragment, not a spliced string: the loader strips interpolations, leaving an
+// empty selection set. The four below are not on Product, so they sit per branch.
+const PRODUCT_FIELDS = /* GraphQL */ `
+  fragment ReindexProductFields on Product {
+    id databaseId name slug type date
+    description shortDescription sku
+    image { id sourceUrl altText }
+    collections { nodes { name slug } }
+    strainTypes { nodes { name slug } }
+    strainNames { nodes { name slug } }
+    blendTypes { nodes { name slug } }
+    productLines { nodes { name slug } }
+    size { nodes { name slug } }
+    mfproductTypes { nodes { name slug } }
+    cannabinoids { nodes { name slug } }
+    singleCannabinoid { nodes { name slug } }
+    mG { nodes { name slug } }
+    pieces { nodes { name slug } }
+    bbBundleMode
+    bbFromPrice
+    bbShowPrice
+    bbFixedPrice
+    bbFixedOriginalPrice
+    uniqueSellingProps { nodes { id name uniqueSellingFields { propIcon { node { sourceUrl altText } } } } }
+  }
 `;
 
-const PRODUCT_QUERY = `
+const PRODUCT_QUERY = /* GraphQL */ `
   query ReindexProducts($first: Int!, $after: String) {
     products(first: $first, after: $after, where: { status: "publish" }) {
       pageInfo { hasNextPage endCursor }
       nodes {
         __typename
-        ... on SimpleProduct { ${PRODUCT_FIELDS} }
-        ... on VariableProduct { ${PRODUCT_FIELDS} }
+        ... on SimpleProduct { ...ReindexProductFields price regularPrice salePrice stockStatus }
+        ... on VariableProduct { ...ReindexProductFields price regularPrice salePrice stockStatus }
       }
     }
   }
+  ${PRODUCT_FIELDS}
 `;
 
 const TAXONOMY_FIELDS: Array<{ source: string; key: string }> = [
@@ -213,7 +216,7 @@ const DISPLAYED_ATTRIBUTES = [
   ...DISPLAY_TAXONOMY_FIELDS.flatMap((t) => [`${t.key}Slugs`, `${t.key}Names`]),
 ];
 
-const COLLECTION_QUERY = `
+const COLLECTION_QUERY = /* GraphQL */ `
   query ReindexCollections($first: Int!, $after: String) {
     collections(first: $first, after: $after) {
       pageInfo { hasNextPage endCursor }
@@ -232,7 +235,7 @@ const COLLECTION_DISPLAYED_ATTRIBUTES = ['databaseId', 'name', 'slug', 'count'];
 
 const COLLECTION_SYNONYMS: Record<string, string[]> = {};
 
-const POST_QUERY = `
+const POST_QUERY = /* GraphQL */ `
   query ReindexPosts($first: Int!, $after: String) {
     posts(first: $first, after: $after, where: { status: PUBLISH }) {
       pageInfo { hasNextPage endCursor }
