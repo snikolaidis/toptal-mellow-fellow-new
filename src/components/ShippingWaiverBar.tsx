@@ -3,8 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { GiftIcon } from '@/components/icons';
 import {
-  readShippingWaiver,
-  clearShippingWaiver,
+  useShippingWaiverCountdown,
   formatCountdown,
 } from '@/lib/shippingWaiver';
 import styles from './ShippingWaiverBar.module.css';
@@ -20,38 +19,14 @@ import styles from './ShippingWaiverBar.module.css';
  */
 export default function ShippingWaiverBar() {
   const router = useRouter();
-  const [deadline, setDeadline] = useState<number | null>(null);
-  const [remainingMs, setRemainingMs] = useState<number | null>(null);
+  const remainingMs = useShippingWaiverCountdown();
   const [dismissed, setDismissed] = useState(false);
 
-  // Re-check on every navigation - covers landing on order-confirmation
-  // (which writes the waiver) and later browsing to any other page.
+  // Reset the dismissal on every navigation - a bar closed on one page
+  // shouldn't stay hidden site-wide for the rest of the session.
   useEffect(() => {
-    const waiver = readShippingWaiver();
-    setDeadline(waiver?.deadline ?? null);
     setDismissed(false);
   }, [router.asPath]);
-
-  useEffect(() => {
-    if (!deadline) {
-      setRemainingMs(null);
-      return;
-    }
-
-    const tick = () => {
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) {
-        setRemainingMs(0);
-        clearShippingWaiver();
-      } else {
-        setRemainingMs(remaining);
-      }
-    };
-
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, [deadline]);
 
   const isOrderConfirmation = router.pathname === '/order-confirmation';
 

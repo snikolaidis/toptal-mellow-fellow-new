@@ -18,6 +18,14 @@ import { useEffect, useState } from 'react';
 export const SHIPPING_WAIVER_KEY = 'mf-shipping-waiver';
 export const SHIPPING_WAIVER_MINUTES = 10;
 
+// sessionStorage writes don't notify the tab that made them (the native
+// `storage` event only fires in OTHER tabs) - so a component that already
+// mounted and checked before order-confirmation's async write lands would
+// otherwise never find out, short of a reload or navigation. This event is
+// how write/clearShippingWaiver announce the change to whoever's listening
+// right now, in the same tab.
+const SHIPPING_WAIVER_EVENT = 'mf-shipping-waiver-change';
+
 export interface ShippingWaiver {
   orderId: string;
   orderKey: string;
@@ -58,12 +66,14 @@ export function readShippingWaiver(): ShippingWaiver | null {
 export function writeShippingWaiver(waiver: ShippingWaiver): void {
   try {
     sessionStorage.setItem(SHIPPING_WAIVER_KEY, JSON.stringify(waiver));
+    window.dispatchEvent(new Event(SHIPPING_WAIVER_EVENT));
   } catch {}
 }
 
 export function clearShippingWaiver(): void {
   try {
     sessionStorage.removeItem(SHIPPING_WAIVER_KEY);
+    window.dispatchEvent(new Event(SHIPPING_WAIVER_EVENT));
   } catch {}
 }
 
@@ -75,8 +85,12 @@ export function formatCountdown(ms: number): string {
 }
 
 /**
- * Live countdown for whatever waiver is currently in sessionStorage,
- * checked once on mount and ticked from there. Returns null when
+ * Live countdown for whatever waiver is currently in sessionStorage -
+ * checked on mount, then kept in sync via the change event
+ * write/clearShippingWaiver fire (so a write from elsewhere in the
+ * same tab, e.g. order-confirmation's async fetch completing after
+ * this component already mounted, is picked up immediately rather
+ * than only on the next reload/navigation). Returns null when
  * there's no active waiver (nothing to show), otherwise the
  * remaining milliseconds (0 once it expires, for one final render
  * before callers stop showing it).
@@ -86,7 +100,10 @@ export function useShippingWaiverCountdown(): number | null {
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
 
   useEffect(() => {
-    setDeadline(readShippingWaiver()?.deadline ?? null);
+    const sync = () => setDeadline(readShippingWaiver()?.deadline ?? null);
+    sync();
+    window.addEventListener(SHIPPING_WAIVER_EVENT, sync);
+    return () => window.removeEventListener(SHIPPING_WAIVER_EVENT, sync);
   }, []);
 
   useEffect(() => {
