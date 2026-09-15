@@ -841,16 +841,9 @@ const SingleProduct: React.FC<SingleProductProps> & {
 
             <div className="divider is-hidden is-block-tablet"></div>
 
-            <AvailableOptions
-              options={availableOptions}
-              currentProductId={product.id}
-              baseName={availableOptionsBase}
-            />
-
-            <div className="divider is-hidden is-block-tablet"></div>
-
             {/* Fixed bundle contents — read-only, the admin already picked
-                these; there's nothing for the shopper to select. */}
+                these; there's nothing for the shopper to select. Shown above
+                Available Options so shoppers see what's in the box first. */}
             {isFixedBundle && fixedBundleItems.length > 0 && (
               <div className="fixed-bundle-items">
                 <span className="fixed-bundle-items-label">What&apos;s included</span>
@@ -874,6 +867,14 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 </ul>
               </div>
             )}
+
+            <div className="divider is-hidden is-block-tablet"></div>
+
+            <AvailableOptions
+              options={availableOptions}
+              currentProductId={product.id}
+              baseName={availableOptionsBase}
+            />
 
             {/* Stock Status */}
             {/* <div className={`stock ${isInStock ? 'in-stock' : 'out-of-stock'}`}>

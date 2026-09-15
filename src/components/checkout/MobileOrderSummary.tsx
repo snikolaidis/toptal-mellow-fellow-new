@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useCart, groupCartItems } from '@/context/CartContext';
 import { ChevronUpIcon, ChevronDownIcon, CloseIcon } from '@/components/icons';
 import LoyaltyCheckoutRewards from '@/components/LoyaltyCheckoutRewards';
+import { originalUnitPrice, bundleItemOriginalPrice } from '@/lib/bundlePricing';
 import styles from './MobileOrderSummary.module.css';
 
 interface CartItem {
@@ -24,13 +25,6 @@ interface CartItem {
     name: string;
     price: string;
   };
-}
-
-// Bundle/sale discounts apply via the product's own sale price, not a coupon,
-// so `product.price` is already the discounted unit price — `regularPrice`
-// (when present) is the only source for the true original price.
-function originalUnitPrice(item: { product: { price: string; regularPrice?: string } }): number {
-  return parseFloat((item.product.regularPrice || item.product.price || '').replace(/[^0-9.]/g, '')) || 0;
 }
 
 interface AppliedCoupon {
@@ -103,16 +97,10 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
 
   // Shown as its own coupon-style row in the totals, same as an applied
   // coupon — the sum of every bundle group's (original - discounted) total.
-  const totalBundleDiscount = bundles.reduce((sum, group) => {
-    const allItems = group.instances.flatMap((inst) => inst.items);
-    const original = group.fixedOriginalPrice != null
-      ? group.fixedOriginalPrice * group.quantity
-      : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
-    const discounted = allItems.reduce(
-      (s, i) => s + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
-    );
-    return sum + Math.max(0, original - discounted);
-  }, 0);
+  const totalBundleDiscount = bundles.reduce(
+    (sum, group) => sum + Math.max(0, group.originalTotal - group.discountedTotal),
+    0
+  );
 
   const handleUpdateQuantity = useCallback(async (key: string, quantity: number) => {
     setMutatingKey(key);
@@ -233,12 +221,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
               const allItems = group.instances.flatMap((inst) => inst.items);
               // No "Show items" affordance for mystery bundles.
               const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
-              const originalTotal = group.fixedOriginalPrice != null
-                ? group.fixedOriginalPrice * group.quantity
-                : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
-              const discountedTotal = allItems.reduce(
-                (sum, i) => sum + parseFloat(i.total.replace(/[^0-9.]/g, '') || '0'), 0
-              );
+              const { originalTotal, discountedTotal } = group;
               const groupHasDiscount = discountedTotal < originalTotal - 0.005;
               const isGroupExpanded = expandedGroups.has(group.mergeKey);
               const panelId = `mobile-bundle-panel-${group.mergeKey}`;
@@ -330,7 +313,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
                             const existing = acc.find(
                               (r) => r.item.product.databaseId === item.product.databaseId
                             );
-                            const lineOriginal = item.quantity * originalUnitPrice(item);
+                            const lineOriginal = item.quantity * bundleItemOriginalPrice(item);
                             const lineTotal = parseFloat(item.total.replace(/[^0-9.]/g, '') || '0');
                             if (existing) {
                               existing.qty += item.quantity;
@@ -510,12 +493,7 @@ export default function MobileOrderSummary({ cart, subscription, subscriptionSlo
             // the gross (else the bundle discount is missing from Subtotal while
             // still shown on its own line). The free gift is $0 but counts at its
             // regular price so its value shows as a saving.
-            const bundleOriginal = bundles.reduce((sum, group) => {
-              const allItems = group.instances.flatMap((inst) => inst.items);
-              return sum + (group.fixedOriginalPrice != null
-                ? group.fixedOriginalPrice * group.quantity
-                : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0));
-            }, 0);
+            const bundleOriginal = bundles.reduce((sum, group) => sum + group.originalTotal, 0);
             const grossStandalone = standalone.reduce(
               (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parseFloat((i.product.price || '').replace(/[^0-9.]/g, '') || '0')),
               0

@@ -13,6 +13,9 @@ export interface CartItem {
   bbGroupKey?: string;
   bbLocked?: boolean;
   bbUnitPrice?: number;
+  // Catalog price BB froze at add-time, before its own discount — the byob
+  // equivalent of bbFixedOriginalPrice (product.price is already discounted).
+  bbBasePrice?: number;
   bbFixedOriginalPrice?: number;
   // "fixed" | "mystery" — when "mystery", mask this line's own product name/image.
   bbMode?: 'fixed' | 'mystery';
@@ -133,6 +136,7 @@ export function transformStoreApiCart(data: any): Cart | null {
       bbBundleId,
       bbLocked: bundleExt.locked === true || undefined,
       bbUnitPrice: typeof bundleExt.unit_price === 'number' ? bundleExt.unit_price : undefined,
+      bbBasePrice: typeof bundleExt.base_price === 'number' ? bundleExt.base_price : undefined,
       bbFixedOriginalPrice: typeof mf.bb_fixed_original_price === 'number' ? mf.bb_fixed_original_price : undefined,
       bbMode,
       isFreeGift,

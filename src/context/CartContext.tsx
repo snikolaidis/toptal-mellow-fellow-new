@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { resetBrowserClient } from '@/lib/apollo-client';
 import { ShippingPackage, AppliedCoupon } from '@/types/checkout';
+import { bundleItemOriginalPrice, parsePrice } from '@/lib/bundlePricing';
 import {
   CartError,
   ErrorCode,
@@ -117,6 +118,11 @@ export interface BundleGroup {
   // on the bundle product itself — undefined for "byob" groups, where the
   // original total is genuinely the sum of the chosen items' regular prices.
   fixedOriginalPrice?: number;
+  // Pre- and post-bundle-discount totals across every instance in this group
+  // — computed once here so every consumer (cart drawer, cart page, checkout
+  // summaries) reads the same numbers instead of re-deriving them.
+  originalTotal: number;
+  discountedTotal: number;
 }
 
 export function groupCartItems(
@@ -165,13 +171,24 @@ export function groupCartItems(
         representativeItems: groupItems,
         instances: [],
         fixedOriginalPrice: groupItems.find((i) => i.bbFixedOriginalPrice != null)?.bbFixedOriginalPrice,
+        originalTotal: 0,
+        discountedTotal: 0,
       };
     }
     byProductSet[mergeKey].instances.push({ groupKey, items: groupItems });
     byProductSet[mergeKey].quantity += bundleGroupSetCounts[groupKey] ?? 1;
   }
 
-  return { bundles: Object.values(byProductSet), standalone };
+  const bundles = Object.values(byProductSet).map((group) => {
+    const allItems = group.instances.flatMap((inst) => inst.items);
+    const originalTotal = group.fixedOriginalPrice != null
+      ? group.fixedOriginalPrice * group.quantity
+      : allItems.reduce((sum, i) => sum + i.quantity * bundleItemOriginalPrice(i), 0);
+    const discountedTotal = allItems.reduce((sum, i) => sum + parsePrice(i.total), 0);
+    return { ...group, originalTotal, discountedTotal };
+  });
+
+  return { bundles, standalone };
 }
 
 interface CartContextType {
