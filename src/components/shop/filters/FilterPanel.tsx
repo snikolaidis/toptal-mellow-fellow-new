@@ -1,9 +1,12 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import {
   ActiveFilters,
+  EMPTY_PRICE_RANGE,
   FilterGroup,
+  PriceRange,
   SORT_OPTIONS,
   getGroupControl,
+  hasPriceRange,
 } from '@/lib/shopFilters';
 import styles from './FilterControls.module.css';
 
@@ -22,6 +25,11 @@ interface FilterPanelProps {
   // Keep the default true: FilterSheet renders this panel, and mobile sort
   // lives in the sheet. Flipping it would remove sort from mobile entirely.
   showSort?: boolean;
+  // Price range is opt-in: only pages whose data layer forwards min/max to the
+  // backend pass onPriceChange, so the control never appears where it would do
+  // nothing.
+  priceRange?: PriceRange;
+  onPriceChange?: (range: PriceRange) => void;
 }
 
 export function clearAllFilters(
@@ -81,11 +89,49 @@ export default function FilterPanel({
   onSortChange,
   showHeader = true,
   showSort = true,
+  priceRange = EMPTY_PRICE_RANGE,
+  onPriceChange,
 }: FilterPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // The panel renders in the sidebar and in the sheet, so the sort radios need
   // a name unique to the instance or the two groups fight over one selection.
   const sortName = useId();
+
+  const priceActive = hasPriceRange(priceRange);
+  // Local, unapplied text so typing does not refetch on every keystroke; applied
+  // on submit. Kept in sync when the range changes elsewhere (chip removal,
+  // Clear All, back/forward).
+  const [minInput, setMinInput] = useState(priceRange.min?.toString() ?? '');
+  const [maxInput, setMaxInput] = useState(priceRange.max?.toString() ?? '');
+  useEffect(() => {
+    setMinInput(priceRange.min?.toString() ?? '');
+    setMaxInput(priceRange.max?.toString() ?? '');
+  }, [priceRange.min, priceRange.max]);
+
+  const applyPrice = () => {
+    if (!onPriceChange) return;
+    // Strictly positive; a 0 bound narrows nothing and is treated as unset.
+    const parse = (s: string) => {
+      const n = parseFloat(s);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    let min = parse(minInput);
+    let max = parse(maxInput);
+    // A backwards range would return nothing, so treat it as the user meaning
+    // the two bounds either way round.
+    if (min !== null && max !== null && min > max) [min, max] = [max, min];
+    // Nothing changed, so skip the refetch and URL churn.
+    if (min === priceRange.min && max === priceRange.max) return;
+    onPriceChange({ min, max });
+  };
+
+  const priceChipLabel = () => {
+    const { min, max } = priceRange;
+    if (min !== null && max !== null) return `$${min} - $${max}`;
+    if (min !== null) return `$${min}+`;
+    if (max !== null) return `Up to $${max}`;
+    return '';
+  };
 
   const isOpen = (key: string, hasSelection: boolean) => open[key] ?? hasSelection;
 
@@ -119,11 +165,14 @@ export default function FilterPanel({
       {showHeader && (
         <div className={styles.header}>
           <h2 className={styles.heading}>Filters</h2>
-          {selected.length > 0 && (
+          {(selected.length > 0 || priceActive) && (
             <button
               type="button"
               className={styles.clearAll}
-              onClick={() => clearAllFilters(filterGroups, activeFilters, onFilterChange)}
+              onClick={() => {
+                clearAllFilters(filterGroups, activeFilters, onFilterChange);
+                if (priceActive) onPriceChange?.(EMPTY_PRICE_RANGE);
+              }}
             >
               Clear All
             </button>
@@ -131,7 +180,7 @@ export default function FilterPanel({
         </div>
       )}
 
-      {selected.length > 0 && (
+      {(selected.length > 0 || priceActive) && (
         <div className={styles.chips}>
           {selected.map(({ key, slug }) => (
             <button
@@ -159,6 +208,31 @@ export default function FilterPanel({
               </svg>
             </button>
           ))}
+          {priceActive && (
+            <button
+              type="button"
+              className={styles.chip}
+              onClick={() => onPriceChange?.(EMPTY_PRICE_RANGE)}
+              aria-label="Remove price filter"
+            >
+              <span className={styles.chipLabel}>{priceChipLabel()}</span>
+              <svg
+                className={styles.chipX}
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M1 1L9 9M9 1L1 9"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          )}
         </div>
       )}
 
@@ -190,6 +264,59 @@ export default function FilterPanel({
                 </label>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {onPriceChange && (
+        <div className={styles.group}>
+          <button
+            type="button"
+            className={styles.groupHeader}
+            onClick={() => toggleGroup('price', priceActive)}
+            aria-expanded={isOpen('price', priceActive)}
+          >
+            <span className={styles.groupLabel}>Price</span>
+            <Chevron open={isOpen('price', priceActive)} />
+          </button>
+
+          {isOpen('price', priceActive) && (
+            <form
+              className={styles.priceRange}
+              onSubmit={(e) => {
+                e.preventDefault();
+                applyPrice();
+              }}
+            >
+              <div className={styles.priceInputs}>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="1"
+                  className={styles.priceInput}
+                  placeholder="Min"
+                  aria-label="Minimum price"
+                  value={minInput}
+                  onChange={(e) => setMinInput(e.target.value)}
+                />
+                <span className={styles.priceSep}>to</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="1"
+                  className={styles.priceInput}
+                  placeholder="Max"
+                  aria-label="Maximum price"
+                  value={maxInput}
+                  onChange={(e) => setMaxInput(e.target.value)}
+                />
+              </div>
+              <button type="submit" className={styles.priceApply}>
+                Apply
+              </button>
+            </form>
           )}
         </div>
       )}

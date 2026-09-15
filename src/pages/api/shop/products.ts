@@ -44,6 +44,19 @@ async function handleCollectionProducts(req: NextApiRequest, res: NextApiRespons
     }
   }
 
+  // Price range forwards to the collection-products endpoint as min_price /
+  // max_price (see the PHP handler). Strictly positive; anything else is dropped
+  // so a bad or zero value cannot skew the query.
+  const priceParam = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const n = parseFloat(value);
+    return Number.isFinite(n) && n > 0 ? String(n) : null;
+  };
+  const minPrice = priceParam(req.query.minPrice);
+  const maxPrice = priceParam(req.query.maxPrice);
+  if (minPrice !== null) params.set('min_price', minPrice);
+  if (maxPrice !== null) params.set('max_price', maxPrice);
+
   const upstream = await fetch(`${wpUrl}/wp-json/mf/v1/collection-products?${params.toString()}`);
   const data = await upstream.json();
 

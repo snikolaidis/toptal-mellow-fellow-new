@@ -4,10 +4,15 @@ import { Product } from '@/types/woocommerce';
 import {
   PAGE_SIZE,
   ActiveFilters,
+  EMPTY_PRICE_RANGE,
   FilterGroup,
+  PriceRange,
   SORT_OPTIONS,
+  hasPriceRange,
   parseFilterParams,
+  parsePriceRange,
   filtersToQueryParams,
+  priceRangeToQueryParams,
 } from '@/lib/shopFilters';
 
 export type ProductTaxonomy = 'collection' | 'mood';
@@ -41,6 +46,7 @@ export function useTaxonomyProducts({
   const [filterGroups, setFilterGroups] = useState<FilterGroup[]>(initialFilterGroups);
   const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
+  const [priceRange, setPriceRange] = useState<PriceRange>(EMPTY_PRICE_RANGE);
   const [selectedSort, setSelectedSort] = useState('default');
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
@@ -53,7 +59,7 @@ export function useTaxonomyProducts({
   const usingInitialData = useRef(true);
 
   const fetchPage = useCallback(
-    async (filters: ActiveFilters, sort: string, targetPage: number) => {
+    async (filters: ActiveFilters, sort: string, targetPage: number, price: PriceRange = EMPTY_PRICE_RANGE) => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
@@ -73,6 +79,9 @@ export function useTaxonomyProducts({
         for (const [key, slugs] of Object.entries(filters)) {
           if (slugs.length > 0) params.set(key, slugs.join(','));
         }
+
+        if (price.min !== null) params.set('minPrice', String(price.min));
+        if (price.max !== null) params.set('maxPrice', String(price.max));
 
         const res = await fetch(`/api/shop/products?${params.toString()}`);
         const data = await res.json();
@@ -105,6 +114,7 @@ export function useTaxonomyProducts({
     setProducts(initialProducts);
     setFilterGroups(initialFilterGroups);
     setActiveFilters({});
+    setPriceRange(EMPTY_PRICE_RANGE);
     setSelectedSort('default');
     setPage(1);
     setHasNextPage(initialHasNextPage);
@@ -116,10 +126,12 @@ export function useTaxonomyProducts({
     if (!router.isReady) return;
     const urlFilters = parseFilterParams(router.query as Record<string, string | string[] | undefined>);
     const urlSort = typeof router.query.sort === 'string' ? router.query.sort : 'default';
-    if (Object.keys(urlFilters).length > 0 || urlSort !== 'default') {
+    const urlPrice = parsePriceRange(router.query as Record<string, string | string[] | undefined>);
+    if (Object.keys(urlFilters).length > 0 || urlSort !== 'default' || hasPriceRange(urlPrice)) {
       setActiveFilters(urlFilters);
       setSelectedSort(urlSort);
-      fetchPage(urlFilters, urlSort, 1);
+      setPriceRange(urlPrice);
+      fetchPage(urlFilters, urlSort, 1, urlPrice);
     }
     // isReady, not just slug: on a cold load this runs once with an empty
     // router.query, and without it here it never runs again.
@@ -132,13 +144,15 @@ export function useTaxonomyProducts({
       const params = Object.fromEntries(new URLSearchParams(window.location.search));
       const urlFilters = parseFilterParams(params);
       const urlSort = typeof params.sort === 'string' && params.sort ? params.sort : 'default';
+      const urlPrice = parsePriceRange(params);
 
       setActiveFilters(urlFilters);
       setSelectedSort(urlSort);
+      setPriceRange(urlPrice);
       setPage(1);
 
-      if (Object.keys(urlFilters).length > 0 || urlSort !== 'default') {
-        fetchPage(urlFilters, urlSort, 1);
+      if (Object.keys(urlFilters).length > 0 || urlSort !== 'default' || hasPriceRange(urlPrice)) {
+        fetchPage(urlFilters, urlSort, 1, urlPrice);
         return;
       }
 
@@ -157,49 +171,15 @@ export function useTaxonomyProducts({
     return () => window.removeEventListener('popstate', onPopState);
   }, [fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages]);
 
-  const handleFilterChange = useCallback(
-    (key: string, slugs: string[]) => {
-      setActiveFilters((prev) => {
-        const next = { ...prev, [key]: slugs };
-        for (const k of Object.keys(next)) {
-          if (next[k].length === 0) delete next[k];
-        }
-
-        const noFilters = Object.keys(next).length === 0 && selectedSort === 'default';
-        if (noFilters && usingInitialData.current === false) {
-          setProducts(initialProducts);
-          setFilterGroups(initialFilterGroups);
-          setHasNextPage(initialHasNextPage);
-          setCurrentTotalPages(initialTotalPages);
-          setFilteredTotal(null);
-          usingInitialData.current = true;
-        } else if (!noFilters) {
-          fetchPage(next, selectedSort, 1);
-        }
-
-        setPage(1);
-
-        const queryParams = filtersToQueryParams(next, selectedSort);
-        router.push(
-          { pathname: router.pathname, query: { slug: router.query.slug, ...queryParams } },
-          undefined,
-          { shallow: true }
-        );
-
-        return next;
-      });
-    },
-    [selectedSort, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
-  );
-
-  const handleSortChange = useCallback(
-    (option: { value: string } | null) => {
-      if (!option) return;
-      const newSort = option.value;
-      setSelectedSort(newSort);
+  // Shared by the filter, sort, and price handlers: reset page 1 to the page's
+  // own initial data when nothing is active, otherwise refetch page 1 with the
+  // combined state, then sync the URL. One place so the three stay in step.
+  const applyState = useCallback(
+    (filters: ActiveFilters, sort: string, price: PriceRange) => {
       setPage(1);
 
-      const noFilters = Object.keys(activeFilters).length === 0 && newSort === 'default';
+      const noFilters =
+        Object.keys(filters).length === 0 && sort === 'default' && !hasPriceRange(price);
       if (noFilters) {
         setProducts(initialProducts);
         setFilterGroups(initialFilterGroups);
@@ -208,17 +188,50 @@ export function useTaxonomyProducts({
         setFilteredTotal(null);
         usingInitialData.current = true;
       } else {
-        fetchPage(activeFilters, newSort, 1);
+        fetchPage(filters, sort, 1, price);
       }
 
-      const queryParams = filtersToQueryParams(activeFilters, newSort);
+      const queryParams = {
+        ...filtersToQueryParams(filters, sort),
+        ...priceRangeToQueryParams(price),
+      };
       router.push(
         { pathname: router.pathname, query: { slug: router.query.slug, ...queryParams } },
         undefined,
         { shallow: true }
       );
     },
-    [activeFilters, fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
+    [fetchPage, initialProducts, initialFilterGroups, initialHasNextPage, initialTotalPages, router]
+  );
+
+  const handleFilterChange = useCallback(
+    (key: string, slugs: string[]) => {
+      const next = { ...activeFilters, [key]: slugs };
+      for (const k of Object.keys(next)) {
+        if (next[k].length === 0) delete next[k];
+      }
+      setActiveFilters(next);
+      applyState(next, selectedSort, priceRange);
+    },
+    [activeFilters, selectedSort, priceRange, applyState]
+  );
+
+  const handleSortChange = useCallback(
+    (option: { value: string } | null) => {
+      if (!option) return;
+      const newSort = option.value;
+      setSelectedSort(newSort);
+      applyState(activeFilters, newSort, priceRange);
+    },
+    [activeFilters, priceRange, applyState]
+  );
+
+  const handlePriceChange = useCallback(
+    (range: PriceRange) => {
+      setPriceRange(range);
+      applyState(activeFilters, selectedSort, range);
+    },
+    [activeFilters, selectedSort, applyState]
   );
 
   // Numbered pagination jumps to arbitrary pages, so this takes the target
@@ -232,7 +245,8 @@ export function useTaxonomyProducts({
       if (
         target === 1 &&
         Object.keys(activeFilters).length === 0 &&
-        selectedSort === 'default'
+        selectedSort === 'default' &&
+        !hasPriceRange(priceRange)
       ) {
         setPage(1);
         setProducts(initialProducts);
@@ -245,7 +259,7 @@ export function useTaxonomyProducts({
       }
 
       setPage(target);
-      fetchPage(activeFilters, selectedSort, target);
+      fetchPage(activeFilters, selectedSort, target, priceRange);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [
@@ -253,6 +267,7 @@ export function useTaxonomyProducts({
       loading,
       activeFilters,
       selectedSort,
+      priceRange,
       fetchPage,
       initialProducts,
       initialHasNextPage,
@@ -260,7 +275,8 @@ export function useTaxonomyProducts({
     ]
   );
 
-  const isFiltered = Object.keys(activeFilters).length > 0 || selectedSort !== 'default';
+  const isFiltered =
+    Object.keys(activeFilters).length > 0 || selectedSort !== 'default' || hasPriceRange(priceRange);
   const currentSort = SORT_OPTIONS.find((o) => o.value === selectedSort) || SORT_OPTIONS[0];
 
   return {
@@ -268,6 +284,7 @@ export function useTaxonomyProducts({
     filterGroups,
     loading,
     activeFilters,
+    priceRange,
     selectedSort,
     currentSort,
     page,
@@ -277,6 +294,7 @@ export function useTaxonomyProducts({
     isFiltered,
     handleFilterChange,
     handleSortChange,
+    handlePriceChange,
     goToPage,
   };
 }
