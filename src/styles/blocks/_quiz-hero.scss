@@ -10,7 +10,7 @@
   // painted at the block's bottom edge and cuts a visible line against the white
   // section below. Ending at 100% lets it reach the page background cleanly.
   background: linear-gradient(180deg, var(--color-hero-gold) 0%, rgba(255, 255, 255, 0) 100%);
-  padding: 21px 17px 46px;
+  padding: 21px 17px 24px;
 
   @include small-up {
     align-items: flex-start;
