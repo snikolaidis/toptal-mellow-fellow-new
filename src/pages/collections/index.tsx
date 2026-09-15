@@ -41,9 +41,9 @@ const GET_COLLECTIONS_CATALOG_PAGE = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blockFragments.AcfCollectionLinks.key}
-        ...${blockFragments.AcfReviewsCarousel.key}
-        ...${blockFragments.CoreParagraph.key}
+        ...AcfCollectionLinksFragment
+        ...AcfReviewsCarouselFragment
+        ...CoreParagraphBlockFragment
       }
       seo {
         title

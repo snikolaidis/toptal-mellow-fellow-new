@@ -245,8 +245,8 @@ function statusModifier(status: string): string {
   }
 }
 
-const ORDER_QUERY = `
-  query GetAccountOrder($id: ID!) {
+const ORDER_QUERY = /* GraphQL */ `
+  query GetAccountOrderPage($id: ID!) {
     order(id: $id, idType: DATABASE_ID) {
       databaseId
       orderNumber

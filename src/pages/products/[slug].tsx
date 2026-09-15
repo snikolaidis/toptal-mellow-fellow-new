@@ -48,7 +48,6 @@ async function fetchProductExtras(
     collectionSlug: null,
     availableOptions: [],
     availableOptionsBase: '',
-    bundleSlug: null,
     databaseId: null,
   };
 
@@ -61,7 +60,6 @@ async function fetchProductExtras(
       collectionSlug: json.collectionSlug || null,
       availableOptions: json.availableOptions || [],
       availableOptionsBase: json.availableOptionsBase || '',
-      bundleSlug: json.bundleSlug || null,
       // Carried out of the same response purely to key the Klaviyo lookup —
       // stripped off before the props are handed to the template.
       databaseId: json.product?.databaseId ?? null,
@@ -141,7 +139,7 @@ export interface ResolvedFixedBundleItem {
  * see the section immediately instead of watching it pop in.
  */
 async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<ResolvedFixedBundleItem[]> {
-  const modeQuery = `
+  const modeQuery = /* GraphQL */ `
     query GetFixedBundleMode($slug: ID!) {
       product(id: $slug, idType: SLUG) {
         ... on SimpleProduct { bbBundleMode bbFixedItems { productId quantity } }
@@ -163,7 +161,7 @@ async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<Resol
     if (items.length === 0) return [];
 
     const ids = items.map((i) => i.productId);
-    const itemsQuery = `
+    const itemsQuery = /* GraphQL */ `
       query GetFixedBundleItemProducts($ids: [Int]!) {
         products(first: 100, where: { include: $ids }) {
           nodes {

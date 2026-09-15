@@ -210,7 +210,7 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     $meta_keys = [
         '_price', '_regular_price', '_sale_price', '_stock_status',
         '_stock', '_manage_stock',
-        '_thumbnail_id', '_bb_linked_bundle_id', '_bb_show_from_price',
+        '_thumbnail_id',
     ];
     $meta_key_placeholders = implode( ',', array_fill( 0, count( $meta_keys ), '%s' ) );
 

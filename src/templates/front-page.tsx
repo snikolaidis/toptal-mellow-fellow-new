@@ -102,26 +102,26 @@ FrontPage.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blockFragments.AcfHeroSlider.key}
-        ...${blockFragments.AcfCollectionLinks.key}
-        ...${blockFragments.AcfCollectionSlider.key}
-        ...${blockFragments.AcfImageSlider.key}
-        ...${blockFragments.AcfHighlightsGroup.key}
-        ...${blockFragments.AcfResponsiveImage.key}
-        ...${blockFragments.AcfImageCarousel.key}
-        ...${blockFragments.AcfFeaturedCollection.key}
-        ...${blockFragments.AcfUgcCarousel.key}
-        ...${blockFragments.AcfBlogPosts.key}
-        ...${blockFragments.AcfFaq.key}
-        ...${blockFragments.AcfReviewsCarousel.key}
-        ...${blockFragments.AcfPromoSlider.key}
-        ...${blockFragments.AcfQuizHero.key}
-        ...${blockFragments.AcfShopByMood.key}
-        ...${blockFragments.AcfSocialProofStrip.key}
-        ...${blockFragments.AcfCategoryTabs.key}
-        ...${blockFragments.AcfWhatSetsUsApart.key}
-        ...${blockFragments.AcfLoyaltyTiers.key}
-        ...${blockFragments.CoreImage.key}
+        ...AcfHeroSliderFragment
+        ...AcfCollectionLinksFragment
+        ...AcfCollectionSliderFragment
+        ...AcfImageSliderFragment
+        ...AcfHighlightsGroupFragment
+        ...AcfResponsiveImageFragment
+        ...AcfImageCarouselFragment
+        ...AcfFeaturedCollectionFragment
+        ...AcfUgcCarouselFragment
+        ...AcfBlogPostsFragment
+        ...AcfFaqFragment
+        ...AcfReviewsCarouselFragment
+        ...AcfPromoSliderFragment
+        ...AcfQuizHeroFragment
+        ...AcfShopByMoodFragment
+        ...AcfSocialProofStripFragment
+        ...AcfCategoryTabsFragment
+        ...AcfWhatSetsUsApartFragment
+        ...AcfLoyaltyTiersFragment
+        ...CoreImageBlockFragment
       }
     }
   }

@@ -287,7 +287,7 @@ function mf_quiz_hydrate_products( array $product_ids ) {
     $meta_keys = [
         '_price', '_regular_price', '_sale_price', '_stock_status',
         '_stock', '_manage_stock',
-        '_thumbnail_id', '_bb_linked_bundle_id', '_bb_show_from_price',
+        '_thumbnail_id',
     ];
     $meta_key_placeholders = implode( ',', array_fill( 0, count( $meta_keys ), '%s' ) );
 
@@ -399,13 +399,29 @@ function mf_quiz_hydrate_products( array $product_ids ) {
         $wc_type   = $taxes['product_type'][0]['slug'] ?? 'simple';
         $type_info = $type_map[ $wc_type ] ?? $type_map['simple'];
 
-        // wc-bundle-builder never persists a "from price"; it is computed live and
-        // only surfaced when the "Show 'From' price" checkbox is on. Mirror that
-        // gate rather than reading a bb_from_price meta key that doesn't exist.
-        $bb_id = ! empty( $meta['_bb_linked_bundle_id'] ) ? (int) $meta['_bb_linked_bundle_id'] : 0;
-        $bb_from_price = ( $bb_id && ( $meta['_bb_show_from_price'] ?? '' ) === 'yes' && class_exists( 'BB_Helpers' ) )
-            ? BB_Helpers::get_bundle_min_price( $bb_id )
-            : 0.0;
+        // Bundle Builder keeps its whole config on the product itself, and its own
+        // WC product type for a bundle is 'bb_bundle'. Same as recs-products.php.
+        $is_bundle = ( 'bb_bundle' === $wc_type ) && class_exists( 'BB_Helpers' );
+        $bb_bundle_mode = null;
+        $bb_show_price = null;
+        $bb_from_price = null;
+        $bb_fixed_price = null;
+        $bb_fixed_original_price = null;
+
+        if ( $is_bundle ) {
+            $bb_bundle_mode = BB_Helpers::get_bundle_mode( $pid );
+
+            if ( 'fixed' === $bb_bundle_mode ) {
+                $fixed_price   = BB_Helpers::get_fixed_effective_price( $pid );
+                $fixed_regular = BB_Helpers::get_fixed_regular_price( $pid );
+                $bb_fixed_price          = $fixed_price > 0 ? (float) $fixed_price : null;
+                $bb_fixed_original_price = $fixed_regular > 0 ? (float) $fixed_regular : null;
+            } else {
+                $bb_show_price = BB_Helpers::is_price_shown( $pid );
+                $bb_from_price = $bb_show_price ? ( BB_Helpers::get_bundle_min_price( $pid ) ?: null ) : null;
+                $bb_from_price = $bb_from_price > 0 ? (float) $bb_from_price : null;
+            }
+        }
 
         $price        = isset( $meta['_price'] )         ? '$' . number_format( (float) $meta['_price'], 2 )         : null;
         $regularPrice = isset( $meta['_regular_price'] ) ? '$' . number_format( (float) $meta['_regular_price'], 2 ) : null;
@@ -437,8 +453,11 @@ function mf_quiz_hydrate_products( array $product_ids ) {
                 'sourceUrl' => $image['sourceUrl'],
                 'altText'   => $image['altText'],
             ] : null,
-            'bbLinkedBundleId' => $bb_id ?: null,
-            'bbFromPrice'      => $bb_from_price > 0 ? (float) $bb_from_price : null,
+            'bbBundleMode'         => $bb_bundle_mode,
+            'bbShowPrice'          => $bb_show_price,
+            'bbFromPrice'          => $bb_from_price,
+            'bbFixedPrice'         => $bb_fixed_price,
+            'bbFixedOriginalPrice' => $bb_fixed_original_price,
         ];
 
         $products[] = array_merge( $product, $tax_fields );

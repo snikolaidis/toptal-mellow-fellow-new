@@ -58,7 +58,6 @@ export interface SingleProductExtras {
   collectionSlug: string | null;
   availableOptions: Product[];
   availableOptionsBase: string;
-  bundleSlug: string | null;
   nutrition: ProductNutrition | null;
   topCannabinoids: string[];
   allergens: string | null;
@@ -199,7 +198,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            query: `query GetFixedBundleItems($ids: [Int]!) {
+            query: /* GraphQL */ `query GetFixedBundleItems($ids: [Int]!) {
               products(first: 100, where: { include: $ids }) {
                 nodes {
                   __typename
@@ -933,27 +932,10 @@ const SingleProduct: React.FC<SingleProductProps> & {
               <FrequentlyBoughtTogether
                 productId={product.databaseId}
                 productSlug={product.slug}
-                productName={product.name}
                 productPrice={product.price || ''}
-                productRegularPrice={product.regularPrice}
-                productImage={product.image}
-                productTypeLabel={product.mfproductTypes?.nodes?.[0]?.name}
-                productSubtitle={
-                  product.productLines?.nodes?.[0]?.name ||
-                  (
-                    (product as { cannabinoids?: { nodes: Array<{ name: string }> } }).cannabinoids
-                      ?.nodes || []
-                  )
-                    .map((c) => c.name)
-                    .join(' + ') ||
-                  undefined
-                }
                 typeSlugs={(product.mfproductTypes?.nodes || [])
                   .map((t) => (t as { slug?: string }).slug || '')
                   .filter(Boolean)}
-                productBundleMode={product.bbBundleMode}
-                productFixedPrice={product.bbFixedPrice}
-                productFixedOriginalPrice={product.bbFixedOriginalPrice}
               />
             )}
 

@@ -35,12 +35,12 @@ Page.query = gql`
       editorBlocks(flat: false) {
         __typename
         renderedHtml
-        ...${blockFragments.AcfFaq.key}
-        ...${blockFragments.AcfUgcCarousel.key}
-        ...${blockFragments.AcfPromoSlider.key}
-        ...${blockFragments.AcfBlogPosts.key}
-        ...${blockFragments.AcfReviewsCarousel.key}
-        ...${blockFragments.AcfQuiz.key}
+        ...AcfFaqFragment
+        ...AcfUgcCarouselFragment
+        ...AcfPromoSliderFragment
+        ...AcfBlogPostsFragment
+        ...AcfReviewsCarouselFragment
+        ...AcfQuizFragment
       }
       seo {
         title
