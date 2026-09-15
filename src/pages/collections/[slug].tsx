@@ -1,10 +1,10 @@
 import { GetStaticProps, GetStaticPaths } from 'next';
-import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { getClient } from '@/lib/apollo-client';
+import { isBuildPhase, warmWordPress } from '@/lib/buildPhase';
 import {
   GET_ALL_COLLECTION_SLUGS,
 } from '@/graphql/queries/collections';
@@ -82,10 +82,6 @@ export default function CollectionsPage({
     initialTotalPages,
   });
 
-  // totalPages comes from the REST payload, but keep Next reachable if a
-  // response ever under-reports it while still flagging another page.
-  const pageCount = Math.max(totalPages, page + (hasNextPage ? 1 : 0));
-
   const [descExpanded, setDescExpanded] = useState(false);
   const [descTruncatable, setDescTruncatable] = useState(false);
   const descRef = useRef<HTMLDivElement>(null);
@@ -158,43 +154,51 @@ export default function CollectionsPage({
         );
       })()}
 
-      <div className={styles.page}>
-        <nav className={styles.breadcrumb}>
-          <Link href="/">Home</Link>
-          <span className={styles.separator}>/</span>
-          <Link href="/collections">Collections</Link>
-          <span className={styles.separator}>/</span>
-          <span className={styles.current}>{collection.name}</span>
-        </nav>
+      <div className="container">
+        <h1 className="collection__title">
+          {collection.name}
+        </h1>
 
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <h1 className={styles.title}>{collection.name}</h1>
-            {collection.description && (
-              <>
-                <div
-                  ref={descRef}
-                  className={`${styles.description} ${!descExpanded ? styles.descriptionClamped : ''}`}
-                  dangerouslySetInnerHTML={{ __html: collection.description }}
-                />
-                {descTruncatable && (
-                  <button
-                    type="button"
-                    className={styles.descriptionToggle}
-                    onClick={() => setDescExpanded((v) => !v)}
-                  >
-                    {descExpanded ? 'Read less' : 'Read more'}
-                  </button>
-                )}
-              </>
+        {collection.description && (
+          <>
+            <div
+              ref={descRef}
+              className={`${styles.description} ${!descExpanded ? styles.descriptionClamped : ''}`}
+              dangerouslySetInnerHTML={{ __html: collection.description }}
+            />
+            {descTruncatable && (
+              <button
+                type="button"
+                className={styles.descriptionToggle}
+                onClick={() => setDescExpanded((v) => !v)}
+              >
+                {descExpanded ? 'Read less' : 'Read more'}
+              </button>
             )}
-            {collection.collectionFields?.warningMessage && (
-              <p className={styles.warningMessage}>
-                <span aria-hidden="true">⚠️</span> {collection.collectionFields.warningMessage}
-              </p>
-            )}
-          </div>
-        </header>
+          </>
+        )}
+
+        {collection.collectionFields?.warningMessage && (
+          <p className={styles.warningMessage}>
+            <span aria-hidden="true">⚠️</span> {collection.collectionFields.warningMessage}
+          </p>
+        )}
+
+        <nav className="breadcrumb" aria-label="breadcrumbs">
+          <ul>
+            <li>
+              <Link href="/">Home</Link>
+            </li>
+            <li>
+              <Link href="/collections">Collections</Link>
+            </li>
+            <li className="is-active">
+              <a href="" aria-current="page">
+                {collection.name}
+              </a>
+            </li>
+          </ul>
+        </nav>
 
         <div className={styles.layout}>
           <div className={`${styles.sidebarWrapper} ${styles.filterCard}`}>
@@ -252,7 +256,7 @@ export default function CollectionsPage({
 
             <Pagination
               page={page}
-              totalPages={pageCount}
+              totalPages={totalPages}
               onPageChange={goToPage}
               disabled={loading}
               label="Collection pagination"
@@ -343,6 +347,9 @@ type CollectionSlugPage = {
 };
 
 export const getStaticPaths: GetStaticPaths = async () => {
+  // Before the slug query, not after: that query has no retry of its own.
+  await warmWordPress();
+
   try {
     const client = getClient();
     const paths: { params: { slug: string } }[] = [];
@@ -387,11 +394,20 @@ type RestResponse = { status: number; body: any };
 
 // A healthy call is well under a second. Three attempts plus backoff stay inside
 // the 25s deadline, which sits inside the 30s Atlas ceiling on a render.
-const REQUEST_TIMEOUT_MS = 8_000;
-const RETRY_ATTEMPTS = 3;
+const RUNTIME_REQUEST_TIMEOUT_MS = 8_000;
+const RUNTIME_RETRY_ATTEMPTS = 3;
+const RUNTIME_FETCH_DEADLINE_MS = 25_000;
+
+// No Atlas request in a build, so that ceiling does not apply: the only limit
+// is Next's staticPageGenerationTimeout, 120s in next.config.js. The
+// per-request timeout must rise with the attempts, since an 8s abort cuts every
+// attempt off before a cold backend answering in 12 to 30s can land one.
+const BUILD_REQUEST_TIMEOUT_MS = 25_000;
+const BUILD_RETRY_ATTEMPTS = 4;
+const BUILD_FETCH_DEADLINE_MS = 70_000;
+
 const RETRY_BASE_MS = 250;
 const RETRY_CAP_MS = 2_000;
-const FETCH_DEADLINE_MS = 25_000;
 
 class NonRetryableError extends Error {}
 
@@ -433,14 +449,20 @@ const isGenuineNotFound = (res: RestResponse) =>
  * its status. A genuine 404 is returned instead: that answer will not change.
  */
 async function fetchRest(label: string, url: string): Promise<RestResponse> {
-  const deadlineAt = Date.now() + FETCH_DEADLINE_MS;
+  const buildPhase = isBuildPhase();
+  const maxAttempts = buildPhase ? BUILD_RETRY_ATTEMPTS : RUNTIME_RETRY_ATTEMPTS;
+  const requestTimeoutMs = buildPhase
+    ? BUILD_REQUEST_TIMEOUT_MS
+    : RUNTIME_REQUEST_TIMEOUT_MS;
+  const deadlineAt =
+    Date.now() + (buildPhase ? BUILD_FETCH_DEADLINE_MS : RUNTIME_FETCH_DEADLINE_MS);
   let lastError: Error = new Error('request never attempted');
 
-  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let retryAfterMs: number | null = null;
 
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(requestTimeoutMs) });
       const body = await res.json().catch(() => null);
       const parsed: RestResponse = { status: res.status, body };
 
@@ -462,7 +484,7 @@ async function fetchRest(label: string, url: string): Promise<RestResponse> {
       lastError = error instanceof Error ? error : new Error(String(error));
     }
 
-    if (attempt === RETRY_ATTEMPTS) break;
+    if (attempt === maxAttempts) break;
 
     const waitMs = retryAfterMs ?? backoffWithFullJitter(attempt);
 
@@ -471,17 +493,13 @@ async function fetchRest(label: string, url: string): Promise<RestResponse> {
     }
 
     console.warn(
-      `  ${label}: attempt ${attempt} of ${RETRY_ATTEMPTS} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
+      `  ${label}: attempt ${attempt} of ${maxAttempts} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
     );
     await sleep(waitMs);
   }
 
-  throw new Error(`${lastError.message} (after ${RETRY_ATTEMPTS} attempts)`);
+  throw new Error(`${lastError.message} (after ${maxAttempts} attempts)`);
 }
-
-// Set before Next forks the workers that prerender pages, and never set in the
-// server runtime. Next branches on the same variable itself.
-const isBuildPhase = () => process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
 
 const BUILD_FALLTHROUGH_REVALIDATE = 10;
 
@@ -604,8 +622,10 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   } catch (err) {
     console.error(`Failed to build collection "${slug}":`, err);
 
-    // A throw here would fail the whole deploy, so at build time the page is
-    // left for `fallback: 'blocking'` to generate on demand instead.
+    // A throw here would fail the whole deploy, so the build phase records a
+    // notFound. That does not defer to `fallback: 'blocking'`: the path is in
+    // the prerender manifest, so the 404 is baked in, served until a
+    // revalidation succeeds, and re-armed by every failed one.
     if (isBuildPhase()) {
       return { notFound: true, revalidate: BUILD_FALLTHROUGH_REVALIDATE };
     }

@@ -44,8 +44,8 @@
         order: 4;
       }
 
-      >.column:last-child>.product-nutrition,
-      >.column:last-child>.product-nutrition~* {
+      > .column:last-child > .product-snapshot,
+      > .column:last-child > .product-snapshot ~ * {
         order: 5;
       }
     }

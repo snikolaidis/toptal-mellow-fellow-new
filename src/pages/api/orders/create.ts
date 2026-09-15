@@ -86,7 +86,7 @@ async function handler(
 
     const authorizeNetPaymentMethod = process.env.AUTHORIZE_NET_PAYMENT_METHOD || 'authorize_net_cim';
 
-    const mutation = `
+    const mutation = /* GraphQL */ `
       mutation Checkout($input: CheckoutInput!) {
         checkout(input: $input) {
           result

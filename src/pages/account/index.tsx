@@ -40,8 +40,8 @@ function statusModifier(status: string): string {
   }
 }
 
-const CUSTOMER_ORDERS_QUERY = `
-  query GetCustomerOrders {
+const CUSTOMER_ORDERS_QUERY = /* GraphQL */ `
+  query GetAccountOrdersList {
     customer {
       email
       firstName

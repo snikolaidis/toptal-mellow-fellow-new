@@ -26,7 +26,6 @@ export const GET_BYOB_BUNDLE_BY_SLUG = gql`
           ... on SimpleProduct {
             price
             regularPrice
-            stockStatus
             image {
               sourceUrl
               altText
@@ -50,7 +49,6 @@ export const GET_BYOB_BUNDLE_BY_SLUG = gql`
           ... on SimpleProduct {
             price
             regularPrice
-            stockStatus
             image {
               sourceUrl
               altText
@@ -74,7 +72,6 @@ export const GET_BYOB_BUNDLE_BY_SLUG = gql`
           ... on SimpleProduct {
             price
             regularPrice
-            stockStatus
             image {
               sourceUrl
               altText
@@ -98,7 +95,6 @@ export const GET_BYOB_BUNDLE_BY_SLUG = gql`
           ... on SimpleProduct {
             price
             regularPrice
-            stockStatus
             image {
               sourceUrl
               altText

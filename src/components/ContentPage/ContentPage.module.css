@@ -124,7 +124,7 @@
 }
 
 .prose :global(.wp-block-heading) {
-  font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-family-display);
   font-weight: 700;
   color: #434345;
   line-height: 1.2;

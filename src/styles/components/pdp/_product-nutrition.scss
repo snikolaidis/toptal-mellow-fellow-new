@@ -1,161 +1,37 @@
-@use "bulma/sass/utilities/mixins";
-
+// The real nutrition facts (ACF `nutrition` group) — a plain two-column table
+// under the trust badges in the description section. Not to be confused with
+// `.product-snapshot`, the badge/tile block beside the gallery.
 .product-nutrition {
-  --border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 1.5rem;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
 
-  background-color: var(--color-gold-cream-20);
-  border-radius: var(--border-radius);
-  // Bottom-only: the heading bar is meant to run edge to edge, and the badge
-  // and tile rows carry their own horizontal insets (`__badges` has
-  // `margin: 0 20px`). A uniform `padding` would inset the heading too and
-  // double up on those rows.
-  padding-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-
-  &__heading {
-    background-color: var(--color-gold-cream);
-    border-radius: var(--border-radius);
-    text-align: center;
-    line-height: 2;
-    font-size: 20px;
-    font-family: var(--font-family-body);
+  &__caption {
+    text-align: left;
     font-weight: 600;
-    margin: 0;
+    color: var(--color-text-primary);
+    padding-bottom: 0.5rem;
   }
 
-  &__badges {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 16px;
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  &__row {
+    border-bottom: 1px solid var(--color-gold-cream);
   }
 
-  &__badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background-color: var(--color-gold-cream-20);
-    border: 2px solid var(--color-gold-cream);
+  &__label,
+  &__value {
+    padding: 0.5rem 0;
   }
 
-  &__badge-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+  &__label {
+    text-align: left;
+    font-weight: 500;
     color: var(--color-text-primary);
   }
 
-  &__badge-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    line-height: 1;
-  }
-
-  &__badge-unit {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: var(--color-text-primary);
-  }
-
-  &__tiles {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-
-    @include mixins.tablet {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    margin: 0 20px;
-    padding: 0;
-  }
-
-  &__tiles {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px 8px;
-    list-style: none;
-    margin: 0 20px;
-    padding: 0;
-  }
-
-  &__tile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 16px;
-    border-radius: 12px;
-    background-color: var(--tile-accent, var(--color-gold-cream-20));
-
-    &--calories {
-      --tile-accent: #F9D3D3;
-    }
-  }
-
-  &__tile-value {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    line-height: 1;
-    align-items: center;
-    gap: 12px;
-    padding: 8px;
-    border-radius: 12px;
-    background-color: var(--tile-accent, var(--color-gold-cream-20));
-
-    &--social {
-      --tile-accent: #D8D8EA;
-    }
-
-    &--cans {
-      --tile-accent: #C4D6D7;
-    }
-
-    &--onset {
-      --tile-accent: #FCECCA;
-    }
-
-    &--calories {
-      --tile-accent: #FDE1DC;
-    }
-  }
-
-  &__tile-icon {
-    flex: none;
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
-    background-color: #fff;
-
-    svg {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-  }
-
-  &__tile-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    line-height: 1.1;
+  &__value {
+    text-align: right;
+    color: var(--color-text-secondary);
   }
 }

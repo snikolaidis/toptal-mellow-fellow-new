@@ -32,8 +32,8 @@ function Field({
   );
 }
 
-const CUSTOMER_QUERY = `
-  query GetCustomerBilling {
+const CUSTOMER_QUERY = /* GraphQL */ `
+  query GetAccountProfile {
     customer {
       email
       firstName

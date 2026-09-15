@@ -13,7 +13,7 @@
     "start": "next start",
     "lint": "next lint",
     "generate:types": "graphql-codegen",
-    "graphql:validate": "graphql-codegen --config codegen.validate.ts",
+    "graphql:validate": "node scripts/check-graphql-coverage.cjs && graphql-codegen --config codegen.validate.ts",
     "graphql:schema": "graphql-codegen --config codegen.schema.ts",
     "migrate:pull": "tsx migration/scripts/pull-from-shopify.ts",
     "migrate:pull-images": "tsx migration/scripts/pull-images.ts",

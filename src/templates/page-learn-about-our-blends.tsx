@@ -49,9 +49,9 @@ PageLearnAboutOurBlends.query = gql`
         __typename
         id: clientId
         parentClientId
-        ...${blockFragments.AcfBlendCallout.key}
-        ...${blockFragments.AcfFeaturedCollection.key}
-        ...${blockFragments.CoreParagraph.key}
+        ...AcfBlendCalloutFragment
+        ...AcfFeaturedCollectionFragment
+        ...CoreParagraphBlockFragment
       }
     }
   }

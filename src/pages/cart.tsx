@@ -69,7 +69,9 @@ export default function CartPage() {
   // coupon — the sum of every bundle group's (original - discounted) total.
   const totalBundleDiscount = bundles.reduce((sum, group) => {
     const allItems = group.instances.flatMap((inst) => inst.items);
-    const original = allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
+    const original = group.fixedOriginalPrice != null
+      ? group.fixedOriginalPrice * group.quantity
+      : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0);
     const discounted = allItems.reduce((s, i) => s + parsePrice(i.total), 0);
     return sum + Math.max(0, original - discounted);
   }, 0);
@@ -122,7 +124,11 @@ export default function CartPage() {
                 {/* Bundle groups */}
                 {bundles.map((group) => {
                   const allItems = group.instances.flatMap((inst) => inst.items);
-                  const originalTotal = allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
+                  // No "Show items" affordance for mystery bundles.
+                  const isMysteryBundle = allItems.some((i) => i.bbMode === 'mystery');
+                  const originalTotal = group.fixedOriginalPrice != null
+                    ? group.fixedOriginalPrice * group.quantity
+                    : allItems.reduce((sum, i) => sum + i.quantity * originalUnitPrice(i), 0);
                   const discountedTotal = allItems.reduce((sum, i) => sum + parsePrice(i.total), 0);
                   const hasDiscount = discountedTotal < originalTotal - 0.005;
                   const bundleTotal = discountedTotal.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -163,6 +169,7 @@ export default function CartPage() {
                             )}
                             <div className={styles.productInfo}>
                               <span>{group.bundleName}</span>
+                              {!isMysteryBundle && (
                               <button
                                 type="button"
                                 className={styles.bundleToggleBtn}
@@ -175,6 +182,7 @@ export default function CartPage() {
                                 </span>
                                 {isExpanded ? 'Hide items' : 'Show items'}
                               </button>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -218,7 +226,7 @@ export default function CartPage() {
                         </td>
                         <td></td>
                       </tr>
-                      {isExpanded && bundleItemRows.map(({ item, qty, totalAmount }) => (
+                      {isExpanded && !isMysteryBundle && bundleItemRows.map(({ item, qty, totalAmount }) => (
                         <tr key={item.product.databaseId} id={`${panelId}-${item.product.databaseId}`} className={styles.bundleItemRow}>
                           <td>
                             <div className={styles.productCell}>
@@ -397,38 +405,66 @@ export default function CartPage() {
               </div>
             )}
 
-            <div className={styles.summaryRow}>
-              <span>Subtotal</span>
-              <span>{cart.subtotal}</span>
-            </div>
-
-            {totalBundleDiscount > 0 && (
-              <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
-                <span>Bundle Discount</span>
-                <span>-${totalBundleDiscount.toFixed(2)}</span>
+            {/* Automatic promotions (e.g. free gift) — locked chips, no remove. */}
+            {cart.promotions && cart.promotions.length > 0 && (
+              <div className={styles.appliedCoupons}>
+                {cart.promotions.map((promo) => (
+                  <span key={promo.code} className={styles.appliedCoupon} title="Automatic promotion">
+                    {promo.label}
+                  </span>
+                ))}
               </div>
             )}
 
-            {cart.appliedCoupons && cart.appliedCoupons.map((coupon) => {
-              const amt = parseFloat(coupon.discountAmount.replace(/[^0-9.]/g, '') || '0');
-              if (amt <= 0) return null;
-              return (
-                <div key={coupon.code} className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
-                  <span>{coupon.code.toUpperCase()}</span>
-                  <span>-{coupon.discountAmount}</span>
-                </div>
+            {/* Totals — consolidated model matching the cart drawer and checkout:
+                gross Subtotal (bundle lines at regular value, gift at regular),
+                Bundle Discount broken out, everything else in "You saved". */}
+            {(() => {
+              const bundleOriginal = bundles.reduce((sum, group) => {
+                const allItems = group.instances.flatMap((inst) => inst.items);
+                return sum + (group.fixedOriginalPrice != null
+                  ? group.fixedOriginalPrice * group.quantity
+                  : allItems.reduce((s, i) => s + i.quantity * originalUnitPrice(i), 0));
+              }, 0);
+              const grossStandalone = standalone.reduce(
+                (s, i) => s + i.quantity * (i.isFreeGift ? originalUnitPrice(i) : parsePrice(i.product.price)),
+                0
               );
-            })}
-            {cart.shippingTotal && (
-              <div className={styles.summaryRow}>
-                <span>Shipping</span>
-                <span>{parseFloat(cart.shippingTotal.replace(/[^0-9.]/g, '') || '0') === 0 ? 'Free' : cart.shippingTotal}</span>
-              </div>
-            )}
-            <div className={`${styles.summaryRow} ${styles.summaryRowTotal}`}>
-              <span>Total</span>
-              <span>{cart.total}</span>
-            </div>
+              const grossSubtotal = grossStandalone + bundleOriginal;
+              const netMerch = cart.items.reduce((s, i) => s + parsePrice(i.total), 0);
+              const saved = Math.max(0, grossSubtotal - netMerch);
+              const otherSaved = Math.max(0, saved - totalBundleDiscount);
+              return (
+                <>
+                  <div className={styles.summaryRow}>
+                    <span>Subtotal</span>
+                    <span>${grossSubtotal.toFixed(2)}</span>
+                  </div>
+                  {totalBundleDiscount > 0 && (
+                    <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
+                      <span>Bundle Discount</span>
+                      <span>-${totalBundleDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {otherSaved > 0 && (
+                    <div className={`${styles.summaryRow} ${styles.summaryRowDiscount}`}>
+                      <span>You saved</span>
+                      <span>-${otherSaved.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {cart.shippingTotal && (
+                    <div className={styles.summaryRow}>
+                      <span>Shipping</span>
+                      <span>{parseFloat(cart.shippingTotal.replace(/[^0-9.]/g, '') || '0') === 0 ? 'Free' : cart.shippingTotal}</span>
+                    </div>
+                  )}
+                  <div className={`${styles.summaryRow} ${styles.summaryRowTotal}`}>
+                    <span>Total</span>
+                    <span>{cart.total}</span>
+                  </div>
+                </>
+              );
+            })()}
 
             <div className={styles.actions}>
               <Link href="/checkout" className={`btn-primary ${styles.checkoutBtn}`}>

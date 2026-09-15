@@ -2,13 +2,13 @@ import '../../../faust.config';
 import { WordPressTemplate, getWordPressProps } from '@faustwp/core';
 import { ApolloError, gql } from '@apollo/client';
 import { GetStaticPaths, GetStaticProps } from 'next';
-import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
+import { isBuildPhase, warmWordPress } from '@/lib/buildPhase';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import type { SingleProductExtras } from '@/templates/single-product';
-import type { CannabinoidServing, Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
+import type { Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { fetchKlaviyoReviews, type KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 
 /**
@@ -39,7 +39,7 @@ async function fetchProductExtras(
 ): Promise<
   Omit<
     SingleProductExtras,
-    'nutrition' | 'cannabinoids' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
+    'nutrition' | 'topCannabinoids' | 'allergens' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
   > & {
     databaseId: number | null;
   }
@@ -48,7 +48,6 @@ async function fetchProductExtras(
     collectionSlug: null,
     availableOptions: [],
     availableOptionsBase: '',
-    bundleSlug: null,
     databaseId: null,
   };
 
@@ -61,7 +60,6 @@ async function fetchProductExtras(
       collectionSlug: json.collectionSlug || null,
       availableOptions: json.availableOptions || [],
       availableOptionsBase: json.availableOptionsBase || '',
-      bundleSlug: json.bundleSlug || null,
       // Carried out of the same response purely to key the Klaviyo lookup —
       // stripped off before the props are handed to the template.
       databaseId: json.product?.databaseId ?? null,
@@ -77,12 +75,12 @@ const GET_PRODUCT_NUTRITION = gql`
   query GetProductNutrition($slug: ID!) {
     product(id: $slug, idType: SLUG) {
       ... on SimpleProduct {
-        nutrition { calories sugar }
-        productDetails { cannabinoidMgPerServing { cannabinoid mg } }
+        nutrition { calories carbs sugar }
+        productDetails { top3Cannabinoids allergens }
       }
       ... on VariableProduct {
-        nutrition { calories sugar }
-        productDetails { cannabinoidMgPerServing { cannabinoid mg } }
+        nutrition { calories carbs sugar }
+        productDetails { top3Cannabinoids allergens }
       }
     }
   }
@@ -91,14 +89,21 @@ const GET_PRODUCT_NUTRITION = gql`
 type ProductNutritionResult = {
   product?: {
     nutrition?: ProductNutrition | null;
-    productDetails?: { cannabinoidMgPerServing?: CannabinoidServing[] | null } | null;
+    productDetails?: {
+      top3Cannabinoids?: Array<string | null> | null;
+      allergens?: string | null;
+    } | null;
   } | null;
 };
 
 async function fetchProductNutrition(
   slug: string
-): Promise<{ nutrition: ProductNutrition | null; cannabinoids: CannabinoidServing[] }> {
-  const empty = { nutrition: null, cannabinoids: [] };
+): Promise<{
+  nutrition: ProductNutrition | null;
+  topCannabinoids: string[];
+  allergens: string | null;
+}> {
+  const empty = { nutrition: null, topCannabinoids: [], allergens: null };
   try {
     const { data, errors } = await getClient().query<ProductNutritionResult>({
       query: GET_PRODUCT_NUTRITION,
@@ -110,7 +115,10 @@ async function fetchProductNutrition(
     if (errors?.length) return empty;
     return {
       nutrition: data?.product?.nutrition ?? null,
-      cannabinoids: data?.product?.productDetails?.cannabinoidMgPerServing ?? [],
+      topCannabinoids: (data?.product?.productDetails?.top3Cannabinoids ?? []).filter(
+        (key): key is string => !!key
+      ),
+      allergens: data?.product?.productDetails?.allergens ?? null,
     };
   } catch {
     return empty;
@@ -131,7 +139,7 @@ export interface ResolvedFixedBundleItem {
  * see the section immediately instead of watching it pop in.
  */
 async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<ResolvedFixedBundleItem[]> {
-  const modeQuery = `
+  const modeQuery = /* GraphQL */ `
     query GetFixedBundleMode($slug: ID!) {
       product(id: $slug, idType: SLUG) {
         ... on SimpleProduct { bbBundleMode bbFixedItems { productId quantity } }
@@ -153,7 +161,7 @@ async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<Resol
     if (items.length === 0) return [];
 
     const ids = items.map((i) => i.productId);
-    const itemsQuery = `
+    const itemsQuery = /* GraphQL */ `
       query GetFixedBundleItemProducts($ids: [Int]!) {
         products(first: 100, where: { include: $ids }) {
           nodes {
@@ -228,17 +236,20 @@ async function fetchExtrasAndReviews(wpUrl: string, slug: string) {
   return { extras, reviewData };
 }
 
-// Not a heuristic: Next assigns this before forking the workers that prerender
-// pages, never assigns it in the server runtime, and branches on it itself.
-const isBuildPhase = () => process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
-
 const BUILD_FALLTHROUGH_REVALIDATE = 10;
 
-// Two attempts rather than collections' three: a PDP render measures 4 to 11s
-// against production, so a third would push a recoverable blip past the 30s
-// Atlas ceiling and turn it into a hard timeout.
-const RENDER_ATTEMPTS = 2;
-const RENDER_DEADLINE_MS = 20_000;
+// Runtime is bounded by the 30s Atlas ceiling: a PDP render measures 4 to 11s
+// against production, so a third attempt would push a recoverable blip past
+// it and turn it into a hard timeout.
+const RUNTIME_RENDER_ATTEMPTS = 2;
+const RUNTIME_RENDER_DEADLINE_MS = 20_000;
+
+// The build issues no Atlas request, so the 30s ceiling does not apply: the
+// only limit is Next's own staticPageGenerationTimeout, 120s in
+// next.config.js. Spending the runtime budget here is what let a cold
+// backend bake a 404 into the build output for the first pages prerendered.
+const BUILD_RENDER_ATTEMPTS = 4;
+const BUILD_RENDER_DEADLINE_MS = 90_000;
 const RETRY_BASE_MS = 250;
 const RETRY_CAP_MS = 2_000;
 
@@ -261,10 +272,13 @@ function isDeterministic(error: unknown): boolean {
 }
 
 async function withRenderRetry<T>(slug: string, run: () => Promise<T>): Promise<T> {
+  const buildPhase = isBuildPhase();
+  const maxAttempts = buildPhase ? BUILD_RENDER_ATTEMPTS : RUNTIME_RENDER_ATTEMPTS;
+  const deadlineMs = buildPhase ? BUILD_RENDER_DEADLINE_MS : RUNTIME_RENDER_DEADLINE_MS;
   const startedAt = Date.now();
   let lastError: Error = new Error('render never attempted');
 
-  for (let attempt = 1; attempt <= RENDER_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const attemptStartedAt = Date.now();
 
     try {
@@ -274,19 +288,19 @@ async function withRenderRetry<T>(slug: string, run: () => Promise<T>): Promise<
       if (isDeterministic(error)) throw lastError;
     }
 
-    if (attempt === RENDER_ATTEMPTS) break;
+    if (attempt === maxAttempts) break;
 
     const waitMs = backoffWithFullJitter(attempt);
     // The next attempt costs roughly what the last one did, which is the only
     // estimate available, so a render that already ran long does not get one.
     const projectedMs = Date.now() - startedAt + waitMs + (Date.now() - attemptStartedAt);
 
-    if (projectedMs >= RENDER_DEADLINE_MS) {
+    if (projectedMs >= deadlineMs) {
       throw new Error(`${lastError.message} (deadline reached after ${attempt} attempt(s))`);
     }
 
     console.warn(
-      `[Product] "${slug}": attempt ${attempt} of ${RENDER_ATTEMPTS} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
+      `[Product] "${slug}": attempt ${attempt} of ${maxAttempts} failed (${lastError.message}), retrying in ${Math.round(waitMs)}ms`
     );
     await sleep(waitMs);
   }
@@ -329,7 +343,8 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
 
     Object.assign(result.props, extras, {
       nutrition: nutritionData.nutrition,
-      cannabinoids: nutritionData.cannabinoids,
+      topCannabinoids: nutritionData.topCannabinoids,
+      allergens: nutritionData.allergens,
       reviewData,
       fixedBundleItems,
       taxonomies,
@@ -338,8 +353,10 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   } catch (error) {
     console.error(`[Product] failed to build "${slug}":`, error);
 
-    // A throw at build time would fail the whole deploy, which is worse than one
-    // product arriving late, so the build path leaves it to `fallback: 'blocking'`.
+    // A throw here would fail the whole deploy, so the build phase records a
+    // notFound. That does not defer to `fallback: 'blocking'`: the path is in
+    // the prerender manifest, so the 404 is baked in, served until a
+    // revalidation succeeds, and re-armed by every failed one.
     if (isBuildPhase()) {
       return { notFound: true, revalidate: BUILD_FALLTHROUGH_REVALIDATE };
     }
@@ -352,6 +369,9 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
 };
 
 export const getStaticPaths: GetStaticPaths = async () => {
+  // Before the slug query, not after: that query has no retry of its own.
+  await warmWordPress();
+
   try {
     const client = getClient();
     const { data } = await client.query({ query: GET_ALL_PRODUCT_SLUGS });

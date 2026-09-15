@@ -84,18 +84,31 @@ interface CheckoutRequest {
   // Sum of every bundled line's (original - discounted) total — recorded on
   // the order as a "Bundle Discount" line, the same way a coupon is.
   bundleDiscountTotal?: number;
+  // Bundle fields below are all forwarded to mf/v1/create-order as order-item
+  // meta (see mellow-fellow-create-order.php) and populated in checkout.tsx
+  // from the corresponding CartItem.bb* fields — undefined for non-bundle
+  // items throughout.
   items: Array<{
     productId: number;
     name: string;
     quantity: number;
     price: string;
-    // Present only when this line item was added as part of a bundle group
-    // (see CartContext bbGroupKey/bbBundleId) — forwarded to mf/v1/create-order
-    // so it can be recorded as order item meta.
     bundleName?: string;
-    // Pre-discount unit price for bundled items — lets the order line show
-    // as discounted (subtotal vs. total) instead of a flat charged price.
+    // Pre-discount unit price, for a discounted subtotal/total on the line.
     regularUnitPrice?: number;
+    // Shared key linking this line to the rest of its bundle set.
+    bundleGroupKey?: string;
+    // Database ID of the Bundle Builder product this line belongs to.
+    bundleId?: number;
+    // Curated original total for one "fixed"/"mystery" instance; absent for "byob".
+    bundleGroupOriginalTotal?: number;
+    // "fixed" | "mystery" — masks this line's contents on the order-confirmation page.
+    bundleMode?: 'fixed' | 'mystery';
+    // How many bundle sets this line's quantity represents.
+    bundleGroupSetCount?: number;
+    // The bundle product's own image, for the order page's bundle header row.
+    bundleImageUrl?: string;
+    bundleImageAlt?: string;
   }>;
   sources?: Record<string, string>;
   // Forwarded to mf/v1/create-order so the WP-side guard can independently
@@ -644,6 +657,13 @@ async function createOrderWithPayment(
       unitPrice: (item as any).unitPrice || undefined,
       bundleName: item.bundleName || undefined,
       regularUnitPrice: item.regularUnitPrice || undefined,
+      bundleGroupKey: item.bundleGroupKey || undefined,
+      bundleId: item.bundleId || undefined,
+      bundleGroupOriginalTotal: item.bundleGroupOriginalTotal || undefined,
+      bundleMode: item.bundleMode || undefined,
+      bundleGroupSetCount: item.bundleGroupSetCount || undefined,
+      bundleImageUrl: item.bundleImageUrl || undefined,
+      bundleImageAlt: item.bundleImageAlt || undefined,
     })),
     transactionId,
     paymentMethod: 'authorize_net',
@@ -710,8 +730,8 @@ async function updateCustomerAddresses(
   // Determine shipping address (use billing if same as billing)
   const shippingAddress = body.shipping || body.billing;
 
-  const mutation = `
-    mutation UpdateCustomer($input: UpdateCustomerInput!) {
+  const mutation = /* GraphQL */ `
+    mutation UpdateCustomerAtCheckout($input: UpdateCustomerInput!) {
       updateCustomer(input: $input) {
         customer {
           id

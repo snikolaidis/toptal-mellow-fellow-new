@@ -95,7 +95,7 @@
   --sh-nav-font-size: 1.05rem;
   --sh-nav-color: var(--color-text-primary);
   --sh-nav-hover-color: var(--color-brand-primary);
-  --sh-dropdown-bg: var(--sh-nav-cream);
+  --sh-dropdown-bg: #fff;
 
   --sh-mega-inset-start: 118px;
   --sh-mega-inset-end: 119px;
@@ -322,7 +322,10 @@
   align-items: center;
   gap: var(--sh-announce-item-gap);
   font-size: var(--sh-announce-font-size);
+  font-weight: 700;
+  letter-spacing: -0.25px;
   line-height: 1.2;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -689,8 +692,10 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--sh-nav-color);
+  color: #191b1b;
   font-size: var(--sh-nav-font-size);
+  font-weight: 700;
+  letter-spacing: 0.35px;
   cursor: pointer;
 
   svg {
@@ -1282,6 +1287,15 @@
       padding-block: var(--sh-nav-item-pad-block);
       padding-inline: var(--sh-nav-item-pad-inline);
     }
+  }
+
+  // The :not() matters: .site-header__nav-item is also on the dropdown wrapper,
+  // and weight and colour inherit, so without it the panel links go bold too.
+  .navbar-link,
+  .site-header__nav-item:not(.has-dropdown) {
+    color: #191b1b;
+    font-weight: 700;
+    letter-spacing: 0.35px;
   }
 
   .navbar-item:not(.has-dropdown),

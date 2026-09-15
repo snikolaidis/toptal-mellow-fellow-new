@@ -8,7 +8,13 @@ const schema = process.env.SCHEMA_SOURCE || "./schema.graphql";
 // names and six are duplicated today, so it fails for unrelated reasons.
 const config: CodegenConfig = {
 	schema,
-	documents: ["src/**/*.{tsx,ts}"],
+	// Named, not globbed: CoreHeading and CoreButton ask for a textAlign our
+	// schema does not have, and the templates spread these two by name.
+	documents: [
+		"src/**/*.{tsx,ts}",
+		"node_modules/@faustwp/blocks/dist/mjs/blocks/CoreParagraph.js",
+		"node_modules/@faustwp/blocks/dist/mjs/blocks/CoreImage.js",
+	],
 	generates: {
 		// Gitignored throwaway. The check is that generation succeeds.
 		"./src/__generated__/validate.ts": {

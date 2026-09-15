@@ -9,6 +9,7 @@
   $button-padding-vertical: 10px,
   $navbar-burger-color: #000000,
   $breadcrumb-item-color: #C1B5A5,
+  $breadcrumb-item-hover-color: #3E484F,
   $breadcrumb-item-separator-color: #C1B5A5,
   $breadcrumb-item-padding-horizontal: 3px,
   $breadcrumb-item-active-color: #3E484F
@@ -24,9 +25,9 @@
 @import 'swiper/css/pagination';
 @import 'swiper/css/navigation';
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap');
-@import url('https://cdn-widgetsrepository.yotpo.com/brandkit/custom-fonts/NECygl2mcY0cFEQNcmZCyjQNcNTUSfynQ2wTTcdM/georgiapro/georgiapro_n4.8627e4332da2bd0ce4ceb6f91d3dd90e0888cdbb-400.css');
+// DM Sans and Georgia Pro load from link tags in _document.
+// A CSS @import here is discarded without error: it only counts before any
+// style rule, and the @use rules above emit tens of thousands first.
 
 img {
   -webkit-user-drag: none;
@@ -109,7 +110,7 @@ img {
       TYPOGRAPHY - Mellow Fellow Fonts
       =================== */
   --font-family-display: MrEavesXLSanNarOT, sans-serif;
-  --font-family-display-wide: "mr-eaves-sans", MrEavesXLSanNarOT, sans-serif;
+  --font-family-display-wide: MrEavesSanOT, MrEavesXLSanNarOT, sans-serif;
   --font-family-body: "DM Sans", sans-serif;
   --font-family-loyalty: "Georgia Pro", Georgia, "Times New Roman", serif;
   --color-loyalty-dark: #2c2c2c;
