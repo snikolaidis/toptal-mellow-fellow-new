@@ -263,11 +263,9 @@ function mf_get_product( WP_REST_Request $request ) {
         $term_acf = function_exists( 'get_fields' )
             ? ( get_fields( $itr->taxonomy . '_' . $itr->term_id ) ?: [] )
             : [];
-        // propIcon over GraphQL usually means an ACF field named prop_icon, but an
-        // older copy of the group calls it icon_field. Missing it drops every icon.
-        $icon = mf_resolve_acf_icon(
-            $term_acf['prop_icon'] ?? $term_acf['propIcon'] ?? $term_acf['icon_field'] ?? null
-        );
+        // propIcon is a graphql_field_name alias, not a storage key: this group
+        // stores under icon_field, unique-selling-props below under prop_icon.
+        $icon = mf_resolve_acf_icon( $term_acf['icon_field'] ?? $term_acf['prop_icon'] ?? null );
 
         $taxonomies[ $field_name ]['nodes'][] = [
             'id'                  => base64_encode( 'term:' . $itr->term_id ),
