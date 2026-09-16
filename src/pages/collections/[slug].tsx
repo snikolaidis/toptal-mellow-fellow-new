@@ -457,9 +457,18 @@ function withCacheBust(url: string): string {
   return `${url}${separator}_cb=${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+type Attempt = RestResponse & { retryAfter: string | null };
+
+async function requestOnce(url: string, timeoutMs: number): Promise<Attempt> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  const body = await res.json().catch(() => null);
+  return { status: res.status, body, retryAfter: res.headers.get('retry-after') };
+}
+
 /**
  * A PHP fatal returns an empty 200, so an unparseable body is retried whatever
- * its status. A genuine 404 is returned instead: that answer will not change.
+ * its status. A genuine 404 is accepted only once a second, cache-busted
+ * request agrees, since the first may be the edge's cached copy.
  */
 async function fetchRest(label: string, url: string): Promise<RestResponse> {
   const buildPhase = isBuildPhase();
@@ -477,22 +486,25 @@ async function fetchRest(label: string, url: string): Promise<RestResponse> {
     try {
       // Attempt 1 stays on the plain URL so the happy path still hits the cache.
       // Busting every attempt would cost every collection render a miss.
-      const res = await fetch(attempt === 1 ? url : withCacheBust(url), {
-        signal: AbortSignal.timeout(requestTimeoutMs),
-      });
-      const body = await res.json().catch(() => null);
-      const parsed: RestResponse = { status: res.status, body };
+      let res = await requestOnce(attempt === 1 ? url : withCacheBust(url), requestTimeoutMs);
 
-      if (res.status === 200 && body?.success === true) return parsed;
-      if (isGenuineNotFound(parsed)) return parsed;
+      if (isGenuineNotFound(res)) {
+        // A 404 can be the edge's 600s pin rather than PHP's answer, so it only
+        // counts once a cache-busted request straight to PHP says the same.
+        const confirm = await requestOnce(withCacheBust(url), requestTimeoutMs);
+        if (isGenuineNotFound(confirm)) return confirm;
+        res = confirm;
+      }
 
-      if (!isRetryableStatus(res.status) && body !== null) {
+      if (res.status === 200 && res.body?.success === true) return res;
+
+      if (!isRetryableStatus(res.status) && res.body !== null) {
         throw new NonRetryableError(`${label} responded ${res.status}`);
       }
 
-      retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
+      retryAfterMs = parseRetryAfter(res.retryAfter);
       lastError = new Error(
-        body === null
+        res.body === null
           ? `${label} returned an unparseable body (status ${res.status})`
           : `${label} responded ${res.status}`
       );
