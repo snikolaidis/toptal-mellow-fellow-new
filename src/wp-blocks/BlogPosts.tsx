@@ -38,7 +38,7 @@ export default function BlogPosts(props: BlogPostsProps) {
   const subheading = data?.subheading || '';
   const count = Math.max(2, Math.floor(data?.postCount || 5));
   const buttonText = data?.buttonText || '';
-  const buttonUrl = data?.buttonLink?.url || '/blogs';
+  const buttonUrl = data?.buttonLink?.url || '/blogs/learn';
 
   const client = typeof window !== 'undefined' ? getBrowserClient() : getClient();
   // Lite, not GET_LATEST_POSTS: that one also selects `content`, which this block
@@ -65,7 +65,7 @@ export default function BlogPosts(props: BlogPostsProps) {
         </div>
 
         <div className="blog-posts__layout">
-          <Link href={`/blogs/${featured.slug}`} className="blog-posts__featured">
+          <Link href={`/blogs/learn/${featured.slug}`} className="blog-posts__featured">
             <div className="blog-posts__featured-image-wrap">
               <Image
                 src={featured.featuredImage?.node?.sourceUrl || '/placeholder-product.png'}
@@ -86,7 +86,7 @@ export default function BlogPosts(props: BlogPostsProps) {
               <ul className="blog-posts__list">
                 {rest.map((post) => (
                   <li key={post.id}>
-                    <Link href={`/blogs/${post.slug}`} className="blog-posts__row">
+                    <Link href={`/blogs/learn/${post.slug}`} className="blog-posts__row">
                       <div className="blog-posts__thumb-wrap">
                         <Image
                           src={post.featuredImage?.node?.sourceUrl || '/placeholder-product.png'}

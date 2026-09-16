@@ -119,7 +119,7 @@ export default function BlogTagPage({ tag, posts, allTags }: BlogTagPageProps) {
         metaDesc: description,
         opengraphTitle: `${tag.name} | Mellow Fellow`,
         opengraphDescription: description,
-        canonical: `${SITE_URL}/blogs/tag/${tag.slug}`,
+        canonical: `${SITE_URL}/blogs/learn/tag/${tag.slug}`,
       }}
     >
       <BlogIndex
@@ -127,7 +127,7 @@ export default function BlogTagPage({ tag, posts, allTags }: BlogTagPageProps) {
         allTags={allTags}
         title={tag.name}
         activeTag={tag.slug}
-        basePath={`/blogs/tag/${tag.slug}`}
+        basePath={`/blogs/learn/tag/${tag.slug}`}
       />
     </Layout>
   );

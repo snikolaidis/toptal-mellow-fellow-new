@@ -473,7 +473,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     {posts.map((p) => (
                       <li key={p.id}>
                         <Link
-                          href={`/blogs/${p.slug}`}
+                          href={`/blogs/learn/${p.slug}`}
                           className={styles.collectionItem}
                           onClick={onClose}
                         >

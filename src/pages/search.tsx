@@ -367,7 +367,7 @@ export default function SearchPage({
             </h2>
             <div className={styles.blogGrid}>
               {blogPosts.map((post) => (
-                <Link key={post.id} href={`/blogs/${post.slug}`} className={styles.blogCard}>
+                <Link key={post.id} href={`/blogs/learn/${post.slug}`} className={styles.blogCard}>
                   {post.featuredImage?.sourceUrl && (
                     <div className={styles.blogImage}>
                       <Image

@@ -30,7 +30,7 @@ function stripHtml(html: string) {
 
 function PostCard({ post }: { post: BlogPostCard }) {
   return (
-    <Link href={`/blogs/${post.slug}`} className={styles.postCard}>
+    <Link href={`/blogs/learn/${post.slug}`} className={styles.postCard}>
       {post.featuredImage?.node && (
         <div className={styles.postCardImage}>
           <Image
@@ -55,7 +55,7 @@ function PostCard({ post }: { post: BlogPostCard }) {
   );
 }
 
-export default function BlogIndex({ posts, allTags, title, description, activeTag: activeTagProp, basePath = '/blogs' }: BlogIndexProps) {
+export default function BlogIndex({ posts, allTags, title, description, activeTag: activeTagProp, basePath = '/blogs/learn' }: BlogIndexProps) {
   const router = useRouter();
   const activeTag = activeTagProp ?? ((router.query.tag as string) || null);
   const page = Math.max(1, parseInt((router.query.page as string) || '1', 10) || 1);
@@ -65,7 +65,7 @@ export default function BlogIndex({ posts, allTags, title, description, activeTa
     : posts;
 
   function handleTagClick(slug: string) {
-    router.push(activeTag === slug ? '/blogs' : `/blogs/tag/${slug}`);
+    router.push(activeTag === slug ? '/blogs/learn' : `/blogs/learn/tag/${slug}`);
   }
 
   function goToPage(p: number) {
@@ -109,7 +109,7 @@ export default function BlogIndex({ posts, allTags, title, description, activeTa
 
       {/* Featured post — always the first matching post */}
       {featured && (
-        <Link href={`/blogs/${featured.slug}`} className={styles.featuredPost}>
+        <Link href={`/blogs/learn/${featured.slug}`} className={styles.featuredPost}>
           {featured.featuredImage?.node && (
             <div className={styles.featuredPostImage}>
               <Image

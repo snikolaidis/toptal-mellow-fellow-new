@@ -20,7 +20,7 @@ const SITEMAP_QUERY = gql`
   }
 `;
 
-const STATIC_PATHS = ['/', '/shop', '/collections', '/store-locator', '/blogs'];
+const STATIC_PATHS = ['/', '/shop', '/collections', '/store-locator', '/blogs/learn'];
 
 function escapeXml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

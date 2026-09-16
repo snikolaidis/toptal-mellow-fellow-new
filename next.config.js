@@ -20,7 +20,7 @@ const nextConfig = {
       {
         source: '/blogs',
         has: [{ type: 'query', key: 'tag', value: '(?<tag>.*)' }],
-        destination: '/blogs/tag/:tag',
+        destination: '/blogs/learn/tag/:tag',
         statusCode: 301,
       },
       // The WP "Collections" page also resolves through the /pages/ Faust
@@ -45,27 +45,40 @@ const nextConfig = {
         destination: '/collections/:slug',
         statusCode: 301,
       },
-      // The WordPress blog lived under /blogs/learn/; those URLs are still indexed.
+      // /blogs/learn/ is the WordPress permalink and holds the indexed inbound links,
+      // so the shorter frontend-only paths redirect into it rather than the reverse.
       {
-        source: '/blogs/learn/tag/:slug',
-        destination: '/blogs/tag/:slug',
+        source: '/blogs/tag/:slug',
+        destination: '/blogs/learn/tag/:slug',
+        statusCode: 301,
+      },
+      // The pattern excludes "learn" itself: :slug matches one segment, so a bare
+      // `/blogs/:slug` would send /blogs/learn to /blogs/learn/learn.
+      {
+        source: '/blogs/:slug((?!learn$)[^/]+)',
+        destination: '/blogs/learn/:slug',
         statusCode: 301,
       },
       {
-        source: '/blogs/learn',
-        destination: '/blogs',
+        source: '/blogs',
+        destination: '/blogs/learn',
+        statusCode: 301,
+      },
+      // Leftover WordPress archives. Named individually rather than as one
+      // /blogs/learn/:path* catch-all, which would now swallow the real routes.
+      {
+        source: '/blogs/learn/category/:path*',
+        destination: '/blogs/learn',
         statusCode: 301,
       },
       {
-        source: '/blogs/learn/:slug',
-        destination: '/blogs/:slug',
+        source: '/blogs/learn/author/:path*',
+        destination: '/blogs/learn',
         statusCode: 301,
       },
-      // Must stay below the :slug rule, which would otherwise never match. Catches
-      // the leftover author, category and /page/N archives.
       {
-        source: '/blogs/learn/:path*',
-        destination: '/blogs',
+        source: '/blogs/learn/page/:path*',
+        destination: '/blogs/learn',
         statusCode: 301,
       },
       // These three product_cat slugs have no `collection` term, so the generic
