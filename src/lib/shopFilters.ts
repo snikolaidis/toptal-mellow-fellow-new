@@ -91,6 +91,42 @@ export interface FilterGroup {
 
 export type ActiveFilters = Record<string, string[]>;
 
+// Price range is a numeric min/max, not a taxonomy facet, so it travels beside
+// ActiveFilters rather than inside it. null means "no bound on this end".
+export interface PriceRange {
+  min: number | null;
+  max: number | null;
+}
+
+export const EMPTY_PRICE_RANGE: PriceRange = { min: null, max: null };
+
+function parsePriceValue(val: string | string[] | undefined): number | null {
+  if (typeof val !== 'string') return null;
+  const n = parseFloat(val);
+  // Strictly positive: a 0 (or negative) bound narrows nothing, so it is treated
+  // as "no bound" rather than a filter that does nothing.
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Parse minPrice/maxPrice URL params into a PriceRange. */
+export function parsePriceRange(
+  query: Record<string, string | string[] | undefined>,
+): PriceRange {
+  return { min: parsePriceValue(query.minPrice), max: parsePriceValue(query.maxPrice) };
+}
+
+export function hasPriceRange(range: PriceRange): boolean {
+  return range.min !== null || range.max !== null;
+}
+
+/** Router query fragment for a price range (omits empty bounds). */
+export function priceRangeToQueryParams(range: PriceRange): Record<string, string> {
+  const query: Record<string, string> = {};
+  if (range.min !== null) query.minPrice = String(range.min);
+  if (range.max !== null) query.maxPrice = String(range.max);
+  return query;
+}
+
 /** Parse URL/query params into active filters keyed by FILTER_PARAM_MAP key. */
 export function parseFilterParams(
   query: Record<string, string | string[] | undefined>,

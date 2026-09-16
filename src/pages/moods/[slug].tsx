@@ -168,6 +168,7 @@ export default function MoodPage({
     filterGroups,
     loading,
     activeFilters,
+    priceRange,
     currentSort,
     page,
     hasNextPage,
@@ -176,6 +177,7 @@ export default function MoodPage({
     isFiltered,
     handleFilterChange,
     handleSortChange,
+    handlePriceChange,
     goToPage,
   } = useTaxonomyProducts({
     slug: moodSlug,
@@ -431,6 +433,8 @@ export default function MoodPage({
                 sortValue={currentSort}
                 onSortChange={handleSortChange}
                 showSort={false}
+                priceRange={priceRange}
+                onPriceChange={handlePriceChange}
               />
             </div>
 
@@ -459,6 +463,8 @@ export default function MoodPage({
                 productCount={displayCount}
                 sortValue={currentSort}
                 onSortChange={handleSortChange}
+                priceRange={priceRange}
+                onPriceChange={handlePriceChange}
               />
 
               <div className={`${gridStyles.productGrid} ${loading ? styles.gridLoading : ''}`}>

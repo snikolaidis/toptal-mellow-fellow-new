@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ActiveFilters, FilterGroup } from '@/lib/shopFilters';
+import {
+  ActiveFilters,
+  EMPTY_PRICE_RANGE,
+  FilterGroup,
+  PriceRange,
+  hasPriceRange,
+} from '@/lib/shopFilters';
 import FilterPanel, { SortValue, clearAllFilters } from './FilterPanel';
 import styles from './FilterControls.module.css';
 
@@ -10,6 +16,8 @@ interface FilterSheetProps {
   productCount: number;
   sortValue: SortValue;
   onSortChange: (option: SortValue) => void;
+  priceRange?: PriceRange;
+  onPriceChange?: (range: PriceRange) => void;
 }
 
 function FilterIcon() {
@@ -32,10 +40,14 @@ export default function FilterSheet({
   productCount,
   sortValue,
   onSortChange,
+  priceRange = EMPTY_PRICE_RANGE,
+  onPriceChange,
 }: FilterSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const totalActive = Object.values(activeFilters).reduce((sum, v) => sum + v.length, 0);
+  const priceActive = hasPriceRange(priceRange);
+  const totalActive =
+    Object.values(activeFilters).reduce((sum, v) => sum + v.length, 0) + (priceActive ? 1 : 0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -84,7 +96,10 @@ export default function FilterSheet({
               <button
                 type="button"
                 className={styles.clearAll}
-                onClick={() => clearAllFilters(filterGroups, activeFilters, onFilterChange)}
+                onClick={() => {
+                  clearAllFilters(filterGroups, activeFilters, onFilterChange);
+                  if (priceActive) onPriceChange?.(EMPTY_PRICE_RANGE);
+                }}
                 disabled={totalActive === 0}
               >
                 Clear All
@@ -100,6 +115,8 @@ export default function FilterSheet({
               sortValue={sortValue}
               onSortChange={onSortChange}
               showHeader={false}
+              priceRange={priceRange}
+              onPriceChange={onPriceChange}
             />
           </div>
 
