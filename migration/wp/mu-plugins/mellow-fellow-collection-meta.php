@@ -62,8 +62,36 @@ function mf_get_collection_meta( WP_REST_Request $request ) {
         return new WP_REST_Response( $cached, 200 );
     }
 
-    $term = get_term_by( 'slug', $slug, $term_tax );
-    if ( ! $term || is_wp_error( $term ) ) {
+    if ( ! taxonomy_exists( $term_tax ) ) {
+        return new WP_REST_Response( [ 'success' => false, 'message' => ucfirst( $term_tax ) . ' taxonomy is not registered' ], 503 );
+    }
+
+    global $wpdb;
+
+    // get_term_by() would cache the empty result of a failed query; on a
+    // persistent object cache that reads as "missing" until any term is saved.
+    $terms = get_terms( [
+        'taxonomy'        => $term_tax,
+        'slug'            => $slug,
+        'number'          => 1,
+        'hide_empty'      => false,
+        'cache_results'   => false,
+        'suppress_filter' => true,
+    ] );
+
+    if ( is_wp_error( $terms ) ) {
+        return new WP_REST_Response( [ 'success' => false, 'message' => $terms->get_error_message() ], 503 );
+    }
+
+    $term = ! empty( $terms ) ? reset( $terms ) : null;
+
+    if ( ! $term ) {
+        // get_terms() returns the same empty array for a failed query as for a
+        // missing term; only $wpdb->last_error tells them apart.
+        if ( $wpdb->last_error ) {
+            return new WP_REST_Response( [ 'success' => false, 'message' => 'Lookup failed' ], 503 );
+        }
+
         return new WP_REST_Response( [ 'success' => false, 'message' => ucfirst( $term_tax ) . ' not found' ], 404 );
     }
 
