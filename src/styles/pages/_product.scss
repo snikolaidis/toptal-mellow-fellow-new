@@ -1,3 +1,4 @@
+@use "bulma/sass/utilities/mixins";
 @use '../mixins' as *;
 @use '../variables' as *;
 
@@ -47,6 +48,20 @@
       > .column:last-child > .product-snapshot,
       > .column:last-child > .product-snapshot ~ * {
         order: 5;
+      }
+    }
+  }
+
+  @include mixins.tablet {
+    .columns.product-layout > .column:first-child {
+      align-self: flex-start;
+      position: sticky;
+      // Clears the condensed header, which is 128px through the tablet range
+      // and 70px from 1024 up, plus breathing room in both cases.
+      top: 144px;
+
+      @include mixins.desktop {
+        top: 86px;
       }
     }
   }
