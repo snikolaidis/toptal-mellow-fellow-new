@@ -85,6 +85,10 @@ async function fetchExtrasAndReviews(wpUrl: string, slug: string) {
 
 const BUILD_FALLTHROUGH_REVALIDATE = 10;
 
+// The cart and checkout price from WooCommerce live whatever the PDP shows, and
+// its GraphQL reads are edge cached for 600s, so a faster pass re-renders the same data.
+const REVALIDATE_SECONDS = 600;
+
 // Runtime is bounded by the 30s Atlas ceiling: a PDP render measures 4 to 11s
 // against production, so a third attempt would push a recoverable blip past
 // it and turn it into a hard timeout.
@@ -167,7 +171,7 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   try {
     const [menuClient, result, { extras, reviewData }] = await Promise.all([
       prefetchMenus(),
-      withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: 60 })),
+      withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: REVALIDATE_SECONDS })),
       fetchExtrasAndReviews(wpUrl, slug),
     ]);
 
