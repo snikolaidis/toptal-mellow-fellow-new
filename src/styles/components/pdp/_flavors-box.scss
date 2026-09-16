@@ -62,13 +62,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 80px;
-    height: 80px;
-
-    @include mixins.desktop {
-      width: auto;
-      height: auto;
-    }
+    width: 100px;
+    height: 100px;
 
     img {
       width: 100%;
@@ -111,14 +106,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
+    width: 100px;
+    height: 100px;
     border-radius: 50%;
-
-    @include mixins.desktop {
-      width: 120px;
-      height: 120px;
-    }
 
     img {
       width: 100%;
