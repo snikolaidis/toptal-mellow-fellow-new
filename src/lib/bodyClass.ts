@@ -29,8 +29,12 @@ export function getBodyClass(asPath: string): string {
       return rest.length
         ? `archive collection collection-${slug}`
         : 'archive collection collection-archive';
-    case 'blogs':
-      return rest.length ? `single single-post post-${slug}` : 'blog archive';
+    case 'blogs': {
+      // Posts sit under /blogs/learn/ to match the WordPress permalink, so the
+      // archive is one segment deeper here than on the other listing routes.
+      const blogRest = rest[0] === 'learn' ? rest.slice(1) : rest;
+      return blogRest.length ? `single single-post post-${slug}` : 'blog archive';
+    }
     case 'account':
       return rest.length ? `account account-${rest.join('-')}` : 'account';
     default:

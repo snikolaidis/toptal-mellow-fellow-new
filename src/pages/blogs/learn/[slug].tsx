@@ -60,7 +60,7 @@ function buildArticleSchema(post: BlogPost) {
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `${SITE_URL}/blogs/${post.slug}`,
+      '@id': `${SITE_URL}/blogs/learn/${post.slug}`,
     },
   });
 }
@@ -81,7 +81,7 @@ export default function BlogPostPage({ post, latestPosts, allTags, relatedProduc
         opengraphDescription: post.seo?.opengraphDescription,
         opengraphImage: post.seo?.opengraphImage?.sourceUrl,
         ogType: 'article',
-        canonical: `${SITE_URL}/blogs/${post.slug}`,
+        canonical: `${SITE_URL}/blogs/learn/${post.slug}`,
         publishedTime: post.date,
         modifiedTime: post.modified || post.date,
       }}

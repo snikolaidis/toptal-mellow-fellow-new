@@ -84,7 +84,7 @@ export default function BlogPostTemplate({ post, latestPosts, allTags, relatedPr
         <nav className={styles.breadcrumb}>
           <Link href="/">Home</Link>
           <span className={styles.breadcrumbSep}>/</span>
-          <Link href="/blogs">Mellow Blog - Learn About Cannabis and Mellow Fellow</Link>
+          <Link href="/blogs/learn">Mellow Blog - Learn About Cannabis and Mellow Fellow</Link>
           <span className={styles.breadcrumbSep}>/</span>
         </nav>
 
@@ -103,7 +103,7 @@ export default function BlogPostTemplate({ post, latestPosts, allTags, relatedPr
         {tags.length > 0 && (
           <div className={styles.postCategories}>
             {tags.map((tag) => (
-              <Link key={tag.id} href={`/blogs/tag/${tag.slug}`} className={styles.categoryPill}>
+              <Link key={tag.id} href={`/blogs/learn/tag/${tag.slug}`} className={styles.categoryPill}>
                 {tag.name}
               </Link>
             ))}
@@ -189,7 +189,7 @@ export default function BlogPostTemplate({ post, latestPosts, allTags, relatedPr
           </div>
 
           <div className={styles.postFooter}>
-            <Link href="/blogs" className={styles.backLink}>← Back to Blog</Link>
+            <Link href="/blogs/learn" className={styles.backLink}>← Back to Blog</Link>
           </div>
         </main>
 
@@ -199,11 +199,11 @@ export default function BlogPostTemplate({ post, latestPosts, allTags, relatedPr
             <section className={styles.sidebarSection}>
               <div className={styles.sidebarSectionHeader}>
                 <h3 className={styles.sidebarTitle}>Latest Posts</h3>
-                <Link href="/blogs" className={styles.viewAllLink}>View all</Link>
+                <Link href="/blogs/learn" className={styles.viewAllLink}>View all</Link>
               </div>
               <div className={styles.latestPosts}>
                 {otherLatest.map((p) => (
-                  <Link key={p.id} href={`/blogs/${p.slug}`} className={styles.latestPostCard}>
+                  <Link key={p.id} href={`/blogs/learn/${p.slug}`} className={styles.latestPostCard}>
                     {p.featuredImage?.node && (
                       <div className={styles.latestPostImage}>
                         <Image
@@ -237,7 +237,7 @@ export default function BlogPostTemplate({ post, latestPosts, allTags, relatedPr
               <h3 className={styles.sidebarTitle}>Explore more</h3>
               <div className={styles.tagCloud}>
                 {allTags.map((tag) => (
-                  <Link key={tag.id} href={`/blogs/tag/${tag.slug}`} className={styles.tagPill}>
+                  <Link key={tag.id} href={`/blogs/learn/tag/${tag.slug}`} className={styles.tagPill}>
                     {tag.name}
                   </Link>
                 ))}

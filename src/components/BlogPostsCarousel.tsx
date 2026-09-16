@@ -46,7 +46,7 @@ export default function BlogPostsCarousel({ title = 'Learn About Our Products', 
       >
         {posts.map((post) => (
           <SwiperSlide key={post.id} className={styles.relatedSlide}>
-            <Link href={`/blogs/${post.slug}`} className={`${styles.postCard} ${styles.carouselPostCard}`}>
+            <Link href={`/blogs/learn/${post.slug}`} className={`${styles.postCard} ${styles.carouselPostCard}`}>
               {post.featuredImage?.node && (
                 <div className={styles.postCardImage}>
                   <Image

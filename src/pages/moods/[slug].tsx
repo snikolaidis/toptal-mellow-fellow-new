@@ -83,7 +83,7 @@ const BLOG_POSTS = {
   subheading: 'Quick reads for first-time buyers.',
   postCount: 5,
   buttonText: 'Browse All Blogs',
-  buttonLink: { url: '/blogs' },
+  buttonLink: { url: '/blogs/learn' },
 };
 
 // LoyaltyTiers.fragments is `on AcfLoyaltyTiers`, so it cannot be reused against
