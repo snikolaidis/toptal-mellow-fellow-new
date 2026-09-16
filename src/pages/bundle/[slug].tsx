@@ -330,7 +330,9 @@ export const getStaticProps: GetStaticProps<BundlePageProps> = async ({ params }
     const props = { bundle: data.product } as any;
     mergeMenuState(props, menuClient);
 
-    return { props, revalidate: 60 };
+    // 600, as on the product page: the cart prices from WooCommerce live, and
+    // the GraphQL read behind this is edge cached for 600s anyway.
+    return { props, revalidate: 600 };
   } catch (error) {
     console.error(`Error fetching bundle "${params?.slug}":`, error);
     return { notFound: true, revalidate: 60 };
