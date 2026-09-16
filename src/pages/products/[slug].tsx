@@ -1,6 +1,6 @@
 import '../../../faust.config';
 import { WordPressTemplate, getWordPressProps } from '@faustwp/core';
-import { ApolloError, gql } from '@apollo/client';
+import { ApolloError } from '@apollo/client';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
 import { getClient } from '@/lib/apollo-client';
@@ -8,7 +8,6 @@ import { isBuildPhase, warmWordPress } from '@/lib/buildPhase';
 import { prefetchMenus, mergeMenuState } from '@/lib/prefetchMenus';
 import { GET_ALL_PRODUCT_SLUGS } from '@/graphql/queries/products';
 import type { SingleProductExtras } from '@/templates/single-product';
-import type { Product, ProductNutrition, ProductTaxonomies } from '@/types/woocommerce';
 import { fetchKlaviyoReviews, type KlaviyoReviewsResult } from '@/lib/klaviyo-reviews';
 
 /**
@@ -28,26 +27,24 @@ export default function ProductRoute(props: Record<string, unknown>) {
 }
 
 /**
- * Sibling options, collection and bundle resolution are all derived in PHP by
- * the `mf/v1/product` endpoint and have no clean WPGraphQL equivalent, so they
- * are fetched here and passed to the template as extra props. A failure is
- * non-fatal: the core product data comes from the template's own GraphQL query.
+ * Everything this route adds to the template props comes from `mf/v1/product`,
+ * which already resolves the product in PHP. A failure is non-fatal: the core
+ * product data comes from the template's own GraphQL query.
  */
 async function fetchProductExtras(
   wpUrl: string,
   slug: string
-): Promise<
-  Omit<
-    SingleProductExtras,
-    'nutrition' | 'topCannabinoids' | 'allergens' | 'reviewData' | 'fixedBundleItems' | 'taxonomies'
-  > & {
-    databaseId: number | null;
-  }
-> {  const empty = {
+): Promise<Omit<SingleProductExtras, 'reviewData'> & { databaseId: number | null }> {
+  const empty = {
     collectionName: null,
     collectionSlug: null,
     availableOptions: [],
     availableOptionsBase: '',
+    nutrition: null,
+    topCannabinoids: [],
+    allergens: null,
+    taxonomies: {},
+    fixedBundleItems: [],
     databaseId: null,
   };
 
@@ -60,168 +57,18 @@ async function fetchProductExtras(
       collectionSlug: json.collectionSlug || null,
       availableOptions: json.availableOptions || [],
       availableOptionsBase: json.availableOptionsBase || '',
-      // Carried out of the same response purely to key the Klaviyo lookup —
-      // stripped off before the props are handed to the template.
+      nutrition: json.nutrition || null,
+      topCannabinoids: json.topCannabinoids || [],
+      allergens: json.allergens || null,
+      taxonomies: json.taxonomies || {},
+      // Empty for "mystery" on purpose: the endpoint withholds those contents.
+      fixedBundleItems: json.fixedBundleItems || [],
+      // Carried out of the same response purely to key the Klaviyo lookup,
+      // then stripped off before the props are handed to the template.
       databaseId: json.product?.databaseId ?? null,
     };
   } catch {
     return empty;
-  }
-}
-
-// Its own document on purpose: `nutrition` exists on SimpleProduct and VariableProduct
-// only, so folding it into the four-type shared fragments 404s every product page.
-const GET_PRODUCT_NUTRITION = gql`
-  query GetProductNutrition($slug: ID!) {
-    product(id: $slug, idType: SLUG) {
-      ... on SimpleProduct {
-        nutrition { calories carbs sugar }
-        productDetails { top3Cannabinoids allergens }
-      }
-      ... on VariableProduct {
-        nutrition { calories carbs sugar }
-        productDetails { top3Cannabinoids allergens }
-      }
-    }
-  }
-`;
-
-type ProductNutritionResult = {
-  product?: {
-    nutrition?: ProductNutrition | null;
-    productDetails?: {
-      top3Cannabinoids?: Array<string | null> | null;
-      allergens?: string | null;
-    } | null;
-  } | null;
-};
-
-async function fetchProductNutrition(
-  slug: string
-): Promise<{
-  nutrition: ProductNutrition | null;
-  topCannabinoids: string[];
-  allergens: string | null;
-}> {
-  const empty = { nutrition: null, topCannabinoids: [], allergens: null };
-  try {
-    const { data, errors } = await getClient().query<ProductNutritionResult>({
-      query: GET_PRODUCT_NUTRITION,
-      variables: { slug },
-      // Required, not an optimisation: the cache sets keyFields ['databaseId'] on
-      // these types, this query omits it, and normalising throws into the catch below.
-      fetchPolicy: 'no-cache',
-    });
-    if (errors?.length) return empty;
-    return {
-      nutrition: data?.product?.nutrition ?? null,
-      topCannabinoids: (data?.product?.productDetails?.top3Cannabinoids ?? []).filter(
-        (key): key is string => !!key
-      ),
-      allergens: data?.product?.productDetails?.allergens ?? null,
-    };
-  } catch {
-    return empty;
-  }
-}
-
-export interface ResolvedFixedBundleItem {
-  productId: number;
-  quantity: number;
-  product?: Product;
-}
-
-/**
- * Fixed bundles have no picker — the admin-picked line items (bbFixedItems:
- * just productId + quantity) need resolving into full product records for
- * the "What's included" list. Doing that here at build/ISR time (instead of
- * a client-side fetch after hydration, as this used to work) means visitors
- * see the section immediately instead of watching it pop in.
- */
-async function fetchFixedBundleItems(wpUrl: string, slug: string): Promise<ResolvedFixedBundleItem[]> {
-  const modeQuery = /* GraphQL */ `
-    query GetFixedBundleMode($slug: ID!) {
-      product(id: $slug, idType: SLUG) {
-        ... on SimpleProduct { bbBundleMode bbFixedItems { productId quantity } }
-        ... on VariableProduct { bbBundleMode bbFixedItems { productId quantity } }
-      }
-    }
-  `;
-
-  try {
-    const res = await fetch(`${wpUrl}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: modeQuery, variables: { slug } }),
-    });
-    const json = await res.json();
-    const p = json?.data?.product;
-    const items: Array<{ productId: number; quantity: number }> =
-      p?.bbBundleMode === 'fixed' ? p.bbFixedItems || [] : [];
-    if (items.length === 0) return [];
-
-    const ids = items.map((i) => i.productId);
-    const itemsQuery = /* GraphQL */ `
-      query GetFixedBundleItemProducts($ids: [Int]!) {
-        products(first: 100, where: { include: $ids }) {
-          nodes {
-            __typename
-            ... on SimpleProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
-            ... on VariableProduct { databaseId name slug price regularPrice image { sourceUrl altText } }
-          }
-        }
-      }
-    `;
-    const res2 = await fetch(`${wpUrl}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: itemsQuery, variables: { ids } }),
-    });
-    const json2 = await res2.json();
-    const nodes: Product[] = json2?.data?.products?.nodes || [];
-    const byId = new Map(nodes.map((n) => [n.databaseId, n]));
-    return items.map((item) => ({ ...item, product: byId.get(item.productId) }));
-  } catch {
-    return [];
-  }
-}
-
-// Its own document like nutrition above, against a different risk: these four are
-// the only taxonomies whose term type carries an ACF group, so a rename breaks them.
-const GET_PRODUCT_TAXONOMIES = gql`
-  query GetProductTaxonomies($slug: ID!) {
-    product(id: $slug, idType: SLUG) {
-      flavors {
-        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
-      }
-      vibes {
-        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
-      }
-      effects {
-        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
-      }
-      settings {
-        nodes { id name slug extraTaxonomyFields { propIcon { node { sourceUrl altText } } } }
-      }
-    }
-  }
-`;
-
-const EMPTY_TAXONOMIES: ProductTaxonomies = {};
-
-async function fetchProductTaxonomies(slug: string): Promise<ProductTaxonomies> {
-  try {
-    const { data, errors } = await getClient().query<{ product?: ProductTaxonomies | null }>({
-      query: GET_PRODUCT_TAXONOMIES,
-      variables: { slug },
-      // Same reason as nutrition above: the cache keys these types on databaseId,
-      // which this query omits, and normalising throws into the catch below.
-      fetchPolicy: 'no-cache',
-    });
-    if (errors?.length) return EMPTY_TAXONOMIES;
-    return data?.product ?? EMPTY_TAXONOMIES;
-  } catch {
-    return EMPTY_TAXONOMIES;
   }
 }
 
@@ -318,20 +165,10 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
   const seedCtx = { ...ctx, params: { wordpressNode: ['products', slug] } };
 
   try {
-    const [
-      menuClient,
-      result,
-      { extras, reviewData },
-      nutritionData,
-      fixedBundleItems,
-      taxonomies,
-    ] = await Promise.all([
+    const [menuClient, result, { extras, reviewData }] = await Promise.all([
       prefetchMenus(),
       withRenderRetry(slug, () => getWordPressProps({ ctx: seedCtx, revalidate: 60 })),
       fetchExtrasAndReviews(wpUrl, slug),
-      fetchProductNutrition(slug),
-      fetchFixedBundleItems(wpUrl, slug),
-      fetchProductTaxonomies(slug),
     ]);
 
     // The only evidence this route gets that WordPress genuinely has no such
@@ -341,14 +178,8 @@ export const getStaticProps: GetStaticProps = async (ctx) => {
       return result;
     }
 
-    Object.assign(result.props, extras, {
-      nutrition: nutritionData.nutrition,
-      topCannabinoids: nutritionData.topCannabinoids,
-      allergens: nutritionData.allergens,
-      reviewData,
-      fixedBundleItems,
-      taxonomies,
-    });    mergeMenuState(result.props, menuClient);
+    Object.assign(result.props, extras, { reviewData });
+    mergeMenuState(result.props, menuClient);
     return result;
   } catch (error) {
     console.error(`[Product] failed to build "${slug}":`, error);

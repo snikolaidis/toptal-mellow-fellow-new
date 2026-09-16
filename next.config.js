@@ -68,6 +68,23 @@ const nextConfig = {
         destination: '/blogs',
         statusCode: 301,
       },
+      // These three product_cat slugs have no `collection` term, so the generic
+      // rules below 301 them into a 404. `:rest*` also matches zero segments.
+      {
+        source: '/product-category/beverages/:rest*',
+        destination: '/collections/drinks',
+        statusCode: 301,
+      },
+      {
+        source: '/product-category/others/:rest*',
+        destination: '/collections/all',
+        statusCode: 301,
+      },
+      {
+        source: '/product-category/flower-and-pre-rolls/:rest*',
+        destination: '/collections/flower',
+        statusCode: 301,
+      },
       // product_cat terms mirror the product-type taxonomy, not the `collection`
       // one /collections/ reads, so these slugs were checked rather than assumed.
       {
