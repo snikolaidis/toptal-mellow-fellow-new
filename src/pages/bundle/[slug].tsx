@@ -14,6 +14,7 @@ interface BundleProduct {
   sku: string;
   price?: string;
   regularPrice?: string;
+  stockStatus?: string;
   image?: {
     sourceUrl: string;
     altText: string;
@@ -146,6 +147,7 @@ export default function BundlePage({ bundle }: BundlePageProps) {
           {/* Product Grid */}
           <div className={styles.productGrid}>
             {products.map((product) => {
+              const isOutOfStock = product.stockStatus === 'OUT_OF_STOCK';
               const isAtMax = hasMax && selected.length >= maxItems;
               const cardPrice = parsePrice(product.price);
               const cardDiscountedPrice = activeDiscount
@@ -153,7 +155,10 @@ export default function BundlePage({ bundle }: BundlePageProps) {
                 : cardPrice;
 
               return (
-                <div key={product.databaseId} className={styles.productCard}>
+                <div
+                  key={product.databaseId}
+                  className={`${styles.productCard} ${isOutOfStock ? styles.productCardOutOfStock : ''}`}
+                >
                   <div className={styles.productImageWrap}>
                     {product.image?.sourceUrl ? (
                       <Image
@@ -166,13 +171,18 @@ export default function BundlePage({ bundle }: BundlePageProps) {
                     ) : (
                       <div className={styles.productImagePlaceholder} />
                     )}
+                    {isOutOfStock && (
+                      <span className={styles.outOfStockBadge}>Out of Stock</span>
+                    )}
                   </div>
 
                   <div className={styles.productInfo}>
                     <p className={styles.productName}>{product.name}</p>
                     <div className={styles.productFooter}>
                       <span className={styles.productPrice}>
-                        {activeDiscount ? (
+                        {isOutOfStock ? (
+                          'Out of Stock'
+                        ) : activeDiscount ? (
                           <>
                             <span className={styles.originalPrice}>{formatPrice(cardPrice)}</span>
                             {formatPrice(cardDiscountedPrice)}
@@ -183,9 +193,9 @@ export default function BundlePage({ bundle }: BundlePageProps) {
                       </span>
                       <button
                         onClick={() => addProduct(product)}
-                        disabled={isAtMax}
+                        disabled={isAtMax || isOutOfStock}
                         className={styles.addBtn}
-                        aria-label={`Add ${product.name} to bundle`}
+                        aria-label={isOutOfStock ? `${product.name} is out of stock` : `Add ${product.name} to bundle`}
                       >
                         +
                       </button>
