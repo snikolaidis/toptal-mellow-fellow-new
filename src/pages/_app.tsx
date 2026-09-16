@@ -4,7 +4,6 @@ import '@/styles/globals.scss';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/autoplay';
-import 'leaflet/dist/leaflet.css';
 import { FaustProvider, getApolloAuthClient } from '@faustwp/core';
 import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';
