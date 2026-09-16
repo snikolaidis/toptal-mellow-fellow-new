@@ -395,7 +395,11 @@ function mf_create_order( WP_REST_Request $request ) {
     }
 
     try {
-        $order = mf_build_order_from_payload( $body, 'processing' );
+        // 'pending', not 'processing' — creating it already-processing (before
+        // items/totals exist) fires the processing email on an empty $0 order,
+        // and payment_complete() below only transitions pending/on-hold/failed,
+        // so it would silently no-op (no paid date, no payment note).
+        $order = mf_build_order_from_payload( $body, 'pending' );
 
         $transaction_id = sanitize_text_field( $body['transactionId'] ?? '' );
         $order->payment_complete( $transaction_id );

@@ -66,7 +66,10 @@ function signWcRequestUrl(method: string, url: string, consumerKey: string, cons
 export async function fetchWcPaymentGateways(): Promise<WcPaymentGateway[]> {
   const consumerKey = process.env.WC_CONSUMER_KEY;
   const consumerSecret = process.env.WC_CONSUMER_SECRET;
-  if (!consumerKey || !consumerSecret) return [];
+  if (!consumerKey || !consumerSecret) {
+    console.error('[WooCommerce] WC_CONSUMER_KEY/WC_CONSUMER_SECRET not set — gateway list unavailable, Sezzle and any other gateway-driven config will silently not appear.');
+    return [];
+  }
 
   try {
     const baseUrl = `${getWcApiUrl()}/payment_gateways`;

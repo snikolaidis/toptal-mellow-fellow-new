@@ -93,7 +93,10 @@ function mf_create_sezzle_order( WP_REST_Request $request ) {
  * of WordPress's own theme.
  */
 add_filter( 'woocommerce_get_return_url', function( $return_url, $order ) {
-    if ( ! $order instanceof WC_Order ) return $return_url;
+    // Scoped to Sezzle orders only, else this also rewrites card orders' return URL.
+    if ( ! $order instanceof WC_Order || 'sezzlepay' !== $order->get_payment_method() ) {
+        return $return_url;
+    }
     $frontend = function_exists( 'mellow_fellow_frontend_url' ) ? mellow_fellow_frontend_url() : '';
     if ( ! $frontend ) return $return_url;
 

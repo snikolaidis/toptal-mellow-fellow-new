@@ -1,13 +1,25 @@
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
 import Layout from '@/components/Layout';
+import { useCart } from '@/context/CartContext';
 
 const AWIN_ADVERTISER_ID = process.env.NEXT_PUBLIC_AWIN_ADVERTISER_ID || '';
 
 export default function OrderConfirmationPage() {
   const router = useRouter();
   const { orderId, total } = router.query;
+  const { clearCart } = useCart();
+
+  // Sezzle lands here via a plain WP redirect, never through checkout.tsx's
+  // own clearCart() — safe to call again here, a no-op if already empty.
+  useEffect(() => {
+    if (orderId) {
+      clearCart().catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
 
   // Parse total for Awin (strip currency symbols)
   const awinTotal = typeof total === 'string' ? total.replace(/[^0-9.]/g, '') : '';
