@@ -450,6 +450,13 @@ function sleep(ms: number): Promise<void> {
 const isGenuineNotFound = (res: RestResponse) =>
   res.status === 404 && res.body?.success === false;
 
+// The edge caches failures for 600s and ignores request Cache-Control, so a
+// unique query string is the only way a retry reaches PHP rather than the pin.
+function withCacheBust(url: string): string {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}_cb=${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
 /**
  * A PHP fatal returns an empty 200, so an unparseable body is retried whatever
  * its status. A genuine 404 is returned instead: that answer will not change.
@@ -468,7 +475,11 @@ async function fetchRest(label: string, url: string): Promise<RestResponse> {
     let retryAfterMs: number | null = null;
 
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(requestTimeoutMs) });
+      // Attempt 1 stays on the plain URL so the happy path still hits the cache.
+      // Busting every attempt would cost every collection render a miss.
+      const res = await fetch(attempt === 1 ? url : withCacheBust(url), {
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      });
       const body = await res.json().catch(() => null);
       const parsed: RestResponse = { status: res.status, body };
 
