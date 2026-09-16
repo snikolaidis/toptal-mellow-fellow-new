@@ -1,7 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
-import { getApolloAuthClient } from '@faustwp/core';
-import { useMutation } from '@apollo/client';
 import AccountGuard from '@/components/account/AccountGuard';
 import { UPDATE_CUSTOMER } from '@/graphql/queries/auth';
 import { COUNTRIES, getStatesForCountry } from '@/constants/geography';
@@ -231,8 +229,7 @@ function AddressesSkeleton() {
 }
 
 function AddressesContent() {
-  const client = getApolloAuthClient();
-  const [updateCustomer, { loading: saving }] = useMutation(UPDATE_CUSTOMER, { client });
+  const [saving, setSaving] = useState(false);
 
   const [billing, setBilling] = useState<AddressState>(EMPTY);
   const [shipping, setShipping] = useState<AddressState>(EMPTY);
@@ -261,13 +258,24 @@ function AddressesContent() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setStatus('idle');
+    setSaving(true);
     try {
-      await updateCustomer({
-        variables: { input: { billing: toInput(billing, true), shipping: toInput(shipping, false) } },
+      const res = await fetch('/api/account/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: UPDATE_CUSTOMER.loc?.source?.body,
+          variables: { input: { billing: toInput(billing, true), shipping: toInput(shipping, false) } },
+        }),
+        credentials: 'same-origin',
       });
+      const result = await res.json();
+      if (!res.ok || result?.errors) throw new Error('Save failed');
       setStatus('saved');
     } catch {
       setStatus('error');
+    } finally {
+      setSaving(false);
     }
   };
 

@@ -836,7 +836,7 @@ const SingleProduct: React.FC<SingleProductProps> & {
                 )}
               </div>
             )}
-            
+
             <FreeShippingTracker />
 
             <div className="divider is-hidden is-block-tablet"></div>
