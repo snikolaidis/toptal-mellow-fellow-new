@@ -95,12 +95,16 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [collections, setCollections] = useState<CollectionResult[]>([]);
   const [posts, setPosts] = useState<BlogResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [navigating, setNavigating] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const reclaimedRef = useRef(false);
+  // Mirrors `navigating` for the route-events handler, which is subscribed once
+  // on mount and would otherwise read a stale value.
+  const navigatingRef = useRef(false);
 
   const suggestions = buildSuggestions(
     results.map((r) => r.name),
@@ -110,12 +114,39 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
   const visibleResults = results;
 
-  const goToSearchPage = () => {
-    if (query.trim().length >= 2) {
-      onClose();
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-    }
+  // Navigate to the full results page. The results page is server-rendered, so
+  // there is a gap between submit and paint. Keep the modal open in a
+  // "Searching..." state until the route settles (see the router-events effect)
+  // instead of closing instantly, which read as the search being ignored.
+  const navigateToSearch = (term: string) => {
+    const trimmed = term.trim();
+    if (trimmed.length < 2) return;
+    navigatingRef.current = true;
+    setNavigating(true);
+    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   };
+
+  const goToSearchPage = () => navigateToSearch(query);
+
+  // Close the modal once the results page has loaded (or if navigation fails).
+  // Subscribed once on mount (not gated on `navigating`) so the listeners are
+  // already attached before router.push fires, otherwise a fast/cached route
+  // change could complete before the handler existed and leave the modal stuck
+  // in the Searching... state. navigatingRef gates whether we act.
+  useEffect(() => {
+    const done = () => {
+      if (!navigatingRef.current) return;
+      navigatingRef.current = false;
+      setNavigating(false);
+      onClose();
+    };
+    router.events.on('routeChangeComplete', done);
+    router.events.on('routeChangeError', done);
+    return () => {
+      router.events.off('routeChangeComplete', done);
+      router.events.off('routeChangeError', done);
+    };
+  }, [onClose, router.events]);
 
   // Focus input when modal opens, restore focus to the trigger when it closes
   useEffect(() => {
@@ -141,6 +172,8 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     setPosts([]);
     setHasSearched(false);
     setLoading(false);
+    setNavigating(false);
+    navigatingRef.current = false;
   }, [isOpen]);
 
   // The All in One Accessibility widget (loaded in _document) rebuilds its reading
@@ -338,27 +371,27 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
         <div className={styles.results}>
           <div className={styles.bodyInner}>
-          {loading && (
+          {(loading || navigating) && (
             <div className={styles.loading}>
               <div className="spinner h-6 w-6"></div>
               <span>Searching...</span>
             </div>
           )}
 
-          {!loading && hasSearched && !hasAny && (
+          {!loading && !navigating && hasSearched && !hasAny && (
             <div className={styles.empty}>
               <p className={styles.emptyTitle}>No results found for &ldquo;{query}&rdquo;</p>
               <span className={styles.emptySubtitle}>Try a different search term</span>
             </div>
           )}
 
-          {!loading && !hasSearched && (
+          {!loading && !navigating && !hasSearched && (
             <div className={styles.hint}>
               <p>Start typing to search products</p>
             </div>
           )}
 
-          {!loading && hasAny && (
+          {!loading && !navigating && hasAny && (
             <div className={styles.panel}>
               {suggestions.length > 0 && (
                 <div className={`${styles.section} ${styles.sectionSuggestions}`}>
@@ -454,11 +487,11 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             </div>
           )}
 
-          {!loading && hasAny && (
+          {!loading && !navigating && hasAny && (
             <Link
               href={`/search?q=${encodeURIComponent(query)}`}
               className={styles.viewAll}
-              onClick={onClose}
+              onClick={(e) => { e.preventDefault(); navigateToSearch(query); }}
             >
               Show all results for &ldquo;{query}&rdquo;
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
