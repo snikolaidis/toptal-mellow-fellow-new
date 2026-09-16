@@ -28,6 +28,11 @@ add_filter( 'woocommerce_email_order_items_args', function ( $args ) {
     // mellow-fellow-create-order.php — so this covers all three, not just
     // mystery ones.
     foreach ( $items as $item_id => $item ) {
+        // Forces a fresh meta read — these item objects can carry a stale,
+        // pre-meta in-memory snapshot from earlier in the same request
+        // (confirmed: get_meta() returns '' here without this, even though
+        // the Bundle meta is already correctly saved to the DB by that point).
+        $item->read_meta_data( true );
         $bundle_name = $item->get_meta( 'Bundle' );
         if ( ! $bundle_name ) continue;
         $group_key = $item->get_meta( '_bb_group_key' ) ?: ( 'bundle-name:' . $bundle_name );
@@ -86,6 +91,19 @@ add_filter( 'woocommerce_email_order_items_args', function ( $args ) {
     $args['items'] = $items;
     return $args;
 } );
+
+// Bundle Builder's own "Part of bundle: {name}" note (class-bb-cart.php's
+// woocommerce_order_item_name filter) is redundant once the row it'd attach
+// to already reads "{name}" — unhook it for customer emails only.
+add_action( 'woocommerce_email_before_order_table', function ( $order, $sent_to_admin ) {
+    if ( $sent_to_admin || ! class_exists( 'BB_Cart' ) ) return;
+    remove_filter( 'woocommerce_order_item_name', [ BB_Cart::get_instance(), 'append_bundle_parent_note_to_order_item' ], 10 );
+}, 10, 2 );
+
+add_action( 'woocommerce_email_after_order_table', function ( $order, $sent_to_admin ) {
+    if ( $sent_to_admin || ! class_exists( 'BB_Cart' ) ) return;
+    add_filter( 'woocommerce_order_item_name', [ BB_Cart::get_instance(), 'append_bundle_parent_note_to_order_item' ], 10, 2 );
+}, 10, 2 );
 
 // Strips every visible meta line (e.g. a component's own flavor/size
 // variation) from the synthetic bundle row above — none of it belongs to
