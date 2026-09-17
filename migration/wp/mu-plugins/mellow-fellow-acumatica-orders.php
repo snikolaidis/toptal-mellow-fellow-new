@@ -206,6 +206,23 @@ function mf_acu_push_order( $order_id ) {
     mf_acu_record( 'order-push', true, "Order $order_id → $acu_order_nbr" );
     mf_acu_log( "Order $order_id pushed as $acu_order_nbr", 'orders' );
 
+    // Immediate inventory re-sync of just this order's SKUs. Acumatica allocates on SO
+    // creation (Available drops), so we mirror the new Available back within a minute
+    // instead of waiting up to 15 for the delta sweep. Scheduled (not inline) so it never
+    // slows the push; a 60s delay lets allocation settle. The 15-min delta remains the
+    // backstop if this job is dropped.
+    $order_skus = array();
+    foreach ( $order->get_items() as $line_item ) {
+        $p = $line_item->get_product();
+        if ( $p && $p->get_sku() ) {
+            $order_skus[ $p->get_sku() ] = true;
+        }
+    }
+    $order_skus = array_keys( $order_skus );
+    if ( ! empty( $order_skus ) && function_exists( 'as_schedule_single_action' ) && defined( 'MF_ACU_RESYNC_HOOK' ) ) {
+        as_schedule_single_action( time() + 60, MF_ACU_RESYNC_HOOK, array( $order_skus ), 'mellow-fellow-acumatica' );
+    }
+
     wp_cache_delete( 'lock_' . $order_id, 'mf_acu_push' );
 }
 
@@ -437,6 +454,81 @@ function mf_acu_product_warehouse( $product ) {
     return $code;
 }
 
+/**
+ * Dynamic fulfillment-warehouse routing for an order line.
+ *
+ * WooCommerce shows a single, cross-warehouse stock number (sum of Available across the
+ * sellable warehouses), so an item can be "in stock" on the site while its ACF-preferred
+ * warehouse has zero. Forcing the SO line to that empty warehouse makes Acumatica throw a
+ * "quantity available will go negative" / over-allocation hold. So we route to a warehouse
+ * that actually has the item:
+ *   1. the product's ACF warehouse_code, if it is sellable and has Available > 0;
+ *   2. otherwise the sellable warehouse with the most Available (> 0);
+ *   3. otherwise the ACF code as-is (or '' → Acumatica item default) so the SO still
+ *      creates and ops can resolve the shortage in Acumatica.
+ *
+ * Falls back to the ACF code whenever the inventory plugin / availability read is
+ * unavailable, so the order push never depends on the inventory feed being up.
+ *
+ * @param string                    $sku
+ * @param string                    $preferred_code ACF warehouse_code (may be '').
+ * @param array<string,float>|null  $avail          Pre-fetched warehouse=>qty map for this
+ *                                                   SKU (from one batched OData read for the
+ *                                                   whole order). When null, falls back to a
+ *                                                   single-SKU read.
+ * @return string
+ */
+function mf_acu_route_warehouse( $sku, $preferred_code, $avail = null ) {
+    $preferred_code = trim( (string) $preferred_code );
+
+    if ( ! function_exists( 'mf_acu_sellable_warehouses' ) ) {
+        return $preferred_code;
+    }
+
+    if ( null === $avail ) {
+        if ( ! function_exists( 'mf_acu_sku_warehouse_availability' ) ) {
+            return $preferred_code;
+        }
+        $avail = mf_acu_sku_warehouse_availability( $sku );
+    }
+    if ( is_wp_error( $avail ) || ! is_array( $avail ) ) {
+        return $preferred_code;
+    }
+
+    $sellable = mf_acu_sellable_warehouses();
+
+    // 1. Honor the preferred warehouse when it can actually fill the line.
+    if ( '' !== $preferred_code
+        && in_array( $preferred_code, $sellable, true )
+        && isset( $avail[ $preferred_code ] )
+        && (float) $avail[ $preferred_code ] > 0 ) {
+        return $preferred_code;
+    }
+
+    // 2. Otherwise pick the sellable warehouse with the most Available.
+    $best_wh  = '';
+    $best_qty = 0.0;
+    foreach ( $sellable as $wh ) {
+        $qty = isset( $avail[ $wh ] ) ? (float) $avail[ $wh ] : 0.0;
+        if ( $qty > $best_qty ) {
+            $best_qty = $qty;
+            $best_wh  = $wh;
+        }
+    }
+
+    if ( '' !== $best_wh && $best_wh !== $preferred_code ) {
+        mf_acu_log( sprintf(
+            'Routing %s to %s (ACF preferred %s had no Available)',
+            $sku, $best_wh, $preferred_code !== '' ? $preferred_code : '(none)'
+        ), 'orders' );
+        return $best_wh;
+    }
+
+    // 3. Nothing sellable has stock — keep the preferred code (or item default) and let
+    //    Acumatica flag the shortage.
+    return $preferred_code;
+}
+
 function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
     // Scheme B: sum order-wide (document-level) coupon discounts. These become
     // an Acumatica document discount instead of sitting on the line items.
@@ -447,6 +539,25 @@ function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
         }
     }
     $document_discount = round( $document_discount, 2 );
+
+    // Pre-fetch per-warehouse availability for every SKU in the order in ONE batched
+    // OData call (not one per line), so dynamic routing below adds a single request to
+    // Acumatica regardless of line count. Empty map when the inventory plugin isn't
+    // loaded or the read fails → routing falls back to the ACF warehouse_code per line.
+    $order_skus = array();
+    foreach ( $order->get_items() as $scan_item ) {
+        $scan_product = $scan_item->get_product();
+        if ( $scan_product && $scan_product->get_sku() ) {
+            $order_skus[ $scan_product->get_sku() ] = true;
+        }
+    }
+    $avail_all = array();
+    if ( ! empty( $order_skus ) && function_exists( 'mf_acu_skus_warehouse_availability' ) ) {
+        $fetched = mf_acu_skus_warehouse_availability( array_keys( $order_skus ) );
+        if ( ! is_wp_error( $fetched ) && is_array( $fetched ) ) {
+            $avail_all = $fetched;
+        }
+    }
 
     // Collect sellable lines first — need the subtotal sum to spread the
     // document discount proportionally, matching how WooCommerce distributes it.
@@ -463,7 +574,14 @@ function mf_acu_build_sales_order_payload( $order, $customer_id = '' ) {
             'qty'       => (float) $item->get_quantity(),
             'subtotal'  => $subtotal,
             'line_disc' => round( $subtotal - (float) $item->get_total(), 2 ),
-            'warehouse' => mf_acu_product_warehouse( $product ),
+            // Dynamic routing: prefer the product's ACF warehouse_code, but fall back to
+            // whichever sellable warehouse actually has the item, so Acumatica never gets a
+            // line forced onto an empty warehouse. Uses the batched availability map.
+            'warehouse' => mf_acu_route_warehouse(
+                $sku,
+                mf_acu_product_warehouse( $product ),
+                isset( $avail_all[ $sku ] ) ? $avail_all[ $sku ] : array()
+            ),
         );
         $total_subtotal += $subtotal;
     }

@@ -775,6 +775,14 @@ function mf_acu_render_admin_page() {
             <button type="submit" class="button">Run Full Diagnostics</button>
         </form>
         <button type="button" id="mf-acu-stress-btn" class="button" style="margin-left:12px">Stress Test Session Pool</button>
+        <?php
+        /**
+         * Extension point for other mellow-fellow-acumatica-* plugins to add their own
+         * admin action buttons (e.g. the inventory sync's "Sync inventory now"). Keeps
+         * feature-specific UI in the feature's own plugin instead of this core file.
+         */
+        do_action( 'mf_acu_admin_extra_actions' );
+        ?>
         <div id="mf-acu-stress-result" style="margin-top:12px;max-width:900px;display:none"></div>
         <script>
         (function(){
