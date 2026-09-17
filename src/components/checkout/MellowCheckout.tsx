@@ -101,6 +101,14 @@ export default function MellowCheckout({
   const [editingShipping, setEditingShipping] = useState(!isAuthenticated);
 
   /*
+   * Required-field validation errors for the Contact/Shipping forms -
+   * cleared on every save attempt, set (and the section kept in edit
+   * mode) when a required field is missing.
+   */
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [shippingError, setShippingError] = useState<string | null>(null);
+
+  /*
    * Prevent customer API from being loaded repeatedly.
    */
   const [customerLoaded, setCustomerLoaded] = useState(false);
@@ -359,6 +367,18 @@ export default function MellowCheckout({
   // };
 
   const saveContact = async () => {
+    if (
+      !billing.firstName.trim() ||
+      !billing.lastName.trim() ||
+      !billing.email.trim() ||
+      !billing.phone.trim()
+    ) {
+      setContactError("Please fill in your first name, last name, email, and phone number.");
+      return;
+    }
+
+    setContactError(null);
+
     /*
      * MELLOW FELLOW
      */
@@ -546,6 +566,19 @@ export default function MellowCheckout({
   // };
 
   const saveShipping = async () => {
+    if (
+      !shipping.address1.trim() ||
+      !shipping.city.trim() ||
+      !shipping.state.trim() ||
+      !shipping.postcode.trim() ||
+      !shipping.country.trim()
+    ) {
+      setShippingError("Please fill in your complete shipping address.");
+      return;
+    }
+
+    setShippingError(null);
+
     /*
      * MELLOW FELLOW
      */
@@ -736,6 +769,10 @@ export default function MellowCheckout({
                   />
                 </div>
 
+                {contactError && (
+                  <p className={styles.fieldError}>{contactError}</p>
+                )}
+
                 <button
                   type="button"
                   className={styles.continueBtn}
@@ -848,6 +885,10 @@ export default function MellowCheckout({
                   </div>
                 </div>
 
+                {shippingError && (
+                  <p className={styles.fieldError}>{shippingError}</p>
+                )}
+
                 <button
                   type="button"
                   className={styles.continueBtn}
@@ -948,6 +989,7 @@ export default function MellowCheckout({
             type="button"
             className={styles.continueBtn}
             onClick={onContinueToBilling}
+            disabled={editingContact || editingShipping}
           >
             Continue to Billing
           </button>
