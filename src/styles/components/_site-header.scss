@@ -89,17 +89,25 @@
   --sh-cart-subtotal-weight: 600;
 
   --sh-nav-cream: #f0e6d0;
-  --sh-nav-bg: var(--color-surface-primary);
-  --sh-nav-gap: 10px;
+  --sh-nav-bg: #ffffff;
+  --sh-nav-gap: 37px;
   --sh-nav-row-h: auto;
   --sh-nav-pad-block: 0.5rem;
   --sh-nav-item-h: 40px;
   --sh-nav-item-pad-block: 8px;
   --sh-nav-item-pad-inline: 0.75rem;
+  --sh-nav-item-weight: 500;
   --sh-nav-caret-w: 18.02px;
   --sh-nav-caret-h: 20px;
-  --sh-nav-caret-pad-left: 4px;
-  --sh-nav-font-size: 1.05rem;
+  --sh-nav-caret-pad-left: 6px;
+  --sh-nav-font-size: 16px;
+  --sh-nav-shop-gap: 8px;
+  --sh-nav-shop-icon: 18px;
+  --sh-nav-divider-w: 1px;
+  --sh-nav-divider-h: 24px;
+  --sh-nav-divider-color: #e7dcc6;
+  --sh-nav-shop-divider-gap: 36px;
+  --sh-nav-divider-deals-gap: 56px;
   --sh-nav-color: var(--color-text-primary);
   --sh-nav-hover-color: var(--color-brand-primary);
   --sh-dropdown-bg: #fff;
@@ -261,9 +269,11 @@
     --sh-bar-row-h: 66px;
     --sh-action-gap: 32px;
     --sh-announce-h: 35px;
-    --sh-nav-bg: var(--sh-cream-gradient);
     --sh-nav-row-h: 48px;
     --sh-nav-pad-block: 4px;
+    // Widest gap that still fits one line. Over 5 because the Shop margin is
+    // calc(56 - gap) and grows back; 1030px is the row measured with no gaps.
+    --sh-nav-gap: clamp(13px, calc((100vw - 1030px) / 5), 37px);
   }
 }
 
@@ -664,7 +674,7 @@
 .site-header__nav {
   display: flex;
   align-items: center;
-  min-height: var(--sh-nav-row-h);
+  height: var(--sh-nav-row-h);
   background: var(--sh-nav-bg);
   padding-block: var(--sh-nav-pad-block);
 }
@@ -691,16 +701,25 @@
 
   @include mixins.desktop {
     justify-content: center;
-    flex-wrap: wrap;
-    overflow: visible;
+    // safe, not plain center: an overflowing centred row leaves its leading
+    // items in scroll space that cannot be reached.
+    justify-content: safe center;
+
+    // The row is a fixed height, so a second line overlaps the bar above and
+    // the page below instead of growing it. Base overflow-x is the floor.
+    flex-wrap: nowrap;
   }
 }
 
 .site-header__shop {
   display: none;
   align-items: center;
-  gap: var(--sh-nav-gap);
+  gap: var(--sh-nav-shop-divider-gap);
   flex: 0 0 auto;
+  // The row gap already follows this group, so only the remainder goes here.
+  margin-inline-end: calc(
+    var(--sh-nav-divider-deals-gap) - var(--sh-nav-gap)
+  );
 
   @include mixins.desktop {
     display: flex;
@@ -710,7 +729,7 @@
 .site-header__shop-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--sh-nav-shop-gap);
   color: #191b1b;
   font-size: var(--sh-nav-font-size);
   font-weight: 700;
@@ -718,8 +737,8 @@
   cursor: pointer;
 
   svg {
-    width: 1.1rem;
-    height: 1.1rem;
+    width: var(--sh-nav-shop-icon);
+    height: var(--sh-nav-shop-icon);
   }
 
   &:hover {
@@ -728,9 +747,9 @@
 }
 
 .site-header__shop-divider {
-  width: 1px;
-  height: 1.25rem;
-  background-color: var(--color-border-default);
+  width: var(--sh-nav-divider-w);
+  height: var(--sh-nav-divider-h);
+  background-color: var(--sh-nav-divider-color);
 }
 
 .site-header__mega {
@@ -1324,7 +1343,7 @@
   .navbar-link,
   .site-header__nav-item:not(.has-dropdown) {
     color: #191b1b;
-    font-weight: 700;
+    font-weight: var(--sh-nav-item-weight);
     letter-spacing: 0.35px;
   }
 
@@ -1360,6 +1379,12 @@
     @include mixins.touch {
       display: none;
     }
+  }
+
+  // Must sit after the rule above, which it ties with on specificity. The
+  // trigger gap already spaces this chevron, so it adds no leading pad.
+  .site-header__shop-trigger .site-header__nav-caret {
+    padding-inline-start: 0;
   }
 
   .navbar-dropdown {

@@ -50,6 +50,9 @@ export default function PrimaryNav({
           >
             <GridIcon />
             <span>Shop</span>
+            <span className="site-header__nav-caret" aria-hidden="true">
+              <ChevronDownIcon />
+            </span>
           </button>
 
           {/* Directly after the trigger so document order matches what the panel
