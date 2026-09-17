@@ -36,52 +36,57 @@
   --sh-ticker-fade: 24px;
 
   --sh-bar-bg: var(--color-surface-primary);
-  --sh-logo-width: 140px;
-  --sh-logo-height: 40px;
+  --sh-logo-width: 47px;
+  --sh-logo-height: 46px;
 
-  --sh-search-width: 629px;
-  --sh-search-height: 42px;
-  --sh-search-radius: 20px;
+  --sh-search-width: 630px;
+  --sh-search-height: 48px;
+  --sh-search-radius: 28px;
   --sh-search-bg: #f4f4f4;
   --sh-search-border: var(--color-border-default);
   --sh-search-placeholder: var(--color-text-secondary);
   --sh-search-pad-inline: 1rem;
   --sh-search-font-size: 0.875rem;
-  --sh-search-button-w: 63px;
-  --sh-search-button-h: 42px;
-  --sh-search-button-radius: 999px;
-  --sh-search-button-bg: var(--color-gold-cream);
+  --sh-search-button-w: 64px;
+  --sh-search-button-h: 48px;
+  // Tracks the field radius. A literal here would silently drift from it.
+  --sh-search-button-radius: var(--sh-search-radius);
+  --sh-search-button-bg: #e7dcc6;
   --sh-search-button-color: var(--color-text-primary);
   --sh-search-icon-w: 24.02px;
   --sh-search-icon-h: 28px;
 
-  --sh-actions-w: 205.46px;
   --sh-actions-h: 40px;
   --sh-action-gap: 1rem;
   --sh-action-icon-size: 24px;
-  --sh-account-w: 116.46px;
-  --sh-account-h: 34px;
-  --sh-account-pad-left: 24px;
+  --sh-account-h: 44px;
   --sh-account-gap: 8px;
-  --sh-account-icon-color: var(--color-text-primary);
-  --sh-account-icon-w: 21.46px;
+  --sh-account-color: #000000;
+  --sh-account-line1-size: 13px;
+  --sh-account-line1-weight: 300;
+  --sh-account-line2-size: 14px;
+  --sh-account-line2-weight: 500;
+  --sh-account-icon-color: #191b1b;
+  --sh-account-icon-w: 22px;
   --sh-account-icon-h: 34px;
   --sh-account-icon-pad-block: 6px;
-  --sh-action-font-size: 0.75rem;
-  --sh-badge-size: 1.125rem;
-  --sh-badge-bg: #207685;
-  --sh-badge-color: var(--color-text-inverse);
+  --sh-badge-size: 16px;
+  --sh-badge-bg: #ffcc4f;
+  --sh-badge-color: #191b1b;
   --sh-badge-font-size: 10px;
-  --sh-cart-button-w: 63px;
+  --sh-badge-font-weight: 700;
   --sh-cart-button-h: 40px;
-  --sh-cart-icon-w: 24.02px;
-  --sh-cart-icon-h: 28px;
-  --sh-cart-icon-color: var(--color-text-primary);
-  --sh-badge-offset-top: 2px;
+  --sh-cart-pad-inline: 8px;
+  --sh-cart-gap: 10px;
+  --sh-cart-icon-w: 24px;
+  --sh-cart-icon-h: 24px;
+  --sh-cart-icon-color: #191b1b;
+  --sh-badge-offset-top: -4px;
   --sh-badge-offset-end: -7px;
-  --sh-cart-subtotal-w: 63px;
   --sh-cart-subtotal-h: 16px;
-  --sh-cart-subtotal-color: #207685;
+  --sh-cart-subtotal-color: #191b1b;
+  --sh-cart-subtotal-size: 14px;
+  --sh-cart-subtotal-weight: 600;
 
   --sh-nav-cream: #f0e6d0;
   --sh-nav-bg: var(--color-surface-primary);
@@ -251,11 +256,10 @@
 
   @include mixins.desktop {
     --sh-inline-pad: 2rem;
-    --sh-logo-width: 146px;
     --sh-announce-gap: 3rem;
     --sh-bar-pad-block: 12px;
     --sh-bar-row-h: 66px;
-    --sh-action-gap: 26px;
+    --sh-action-gap: 32px;
     --sh-announce-h: 35px;
     --sh-nav-bg: var(--sh-cream-gradient);
     --sh-nav-row-h: 48px;
@@ -509,7 +513,10 @@
   flex: 0 0 auto;
   width: var(--sh-search-button-w);
   height: var(--sh-search-button-h);
-  border-radius: var(--sh-search-button-radius);
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: var(--sh-search-button-radius);
+  border-end-end-radius: var(--sh-search-button-radius);
   background-color: var(--sh-search-button-bg);
   color: var(--sh-search-button-color);
 
@@ -527,7 +534,6 @@
   gap: var(--sh-action-gap);
 
   @include mixins.desktop {
-    width: var(--sh-actions-w);
     min-height: var(--sh-actions-h);
   }
 }
@@ -545,10 +551,10 @@
 }
 
 .site-header__account {
+  color: var(--sh-account-color);
+
   @include mixins.desktop {
-    width: var(--sh-account-w);
-    height: var(--sh-account-h);
-    padding-inline-start: var(--sh-account-pad-left);
+    min-height: var(--sh-account-h);
     gap: var(--sh-account-gap);
   }
 
@@ -578,10 +584,7 @@
 .site-header__account-text {
   display: none;
   flex-direction: column;
-  font-size: var(--sh-action-font-size);
   line-height: 1.15;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 
   @include mixins.desktop {
     display: flex;
@@ -592,16 +595,21 @@
   white-space: nowrap;
 
   &:first-child {
-    font-weight: 600;
+    font-size: var(--sh-account-line1-size);
+    font-weight: var(--sh-account-line1-weight);
+  }
+
+  &:last-child {
+    font-size: var(--sh-account-line2-size);
+    font-weight: var(--sh-account-line2-weight);
   }
 }
 
 .site-header__cart {
-  flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
-  width: var(--sh-cart-button-w);
-  min-height: var(--sh-cart-button-h);
+  gap: var(--sh-cart-gap);
+  height: var(--sh-cart-button-h);
+  padding: 0 var(--sh-cart-pad-inline);
 }
 
 .site-header__cart-icon {
@@ -631,16 +639,15 @@
   background-color: var(--sh-badge-bg);
   color: var(--sh-badge-color);
   font-size: var(--sh-badge-font-size);
-  font-weight: 600;
+  font-weight: var(--sh-badge-font-weight);
   line-height: 1;
 }
 
 .site-header__cart-subtotal {
-  width: var(--sh-cart-subtotal-w);
   height: var(--sh-cart-subtotal-h);
   color: var(--sh-cart-subtotal-color);
-  font-size: var(--sh-action-font-size);
-  font-weight: 600;
+  font-size: var(--sh-cart-subtotal-size);
+  font-weight: var(--sh-cart-subtotal-weight);
   line-height: 1;
   text-align: center;
 }

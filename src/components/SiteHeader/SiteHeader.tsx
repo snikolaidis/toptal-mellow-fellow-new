@@ -240,7 +240,9 @@ export default function SiteHeader() {
                 <CartIcon />
                 <span className="site-header__cart-badge">{itemsCount}</span>
               </span>
-              <span className="site-header__cart-subtotal">{cartSubtotal}</span>
+              {cartSubtotal && (
+                <span className="site-header__cart-subtotal">{cartSubtotal}</span>
+              )}
             </button>
 
             <button
