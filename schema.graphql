@@ -9661,6 +9661,64 @@ enum CategoryIdType {
 }
 
 """
+The &quot;CategoryProductOrder&quot; Field Group. Added to the Schema by &quot;WPGraphQL for ACF&quot;.
+"""
+type CategoryProductOrder implements AcfFieldGroup & AcfFieldGroupFields & CategoryProductOrder_Fields {
+  """The name of the field group"""
+  fieldGroupName: String @deprecated(reason: "Use __typename instead")
+
+  """
+  Search for products and drag them into the order you want. These appear first on this category page, before all other products. Leave empty to use the normal sorting.
+  """
+  mfPinnedProducts(
+    """
+    Cursor used along with the "first" argument to reference where in the dataset to get data
+    """
+    after: String
+
+    """
+    Cursor used along with the "last" argument to reference where in the dataset to get data
+    """
+    before: String
+
+    """The number of items to return after the referenced "after" cursor"""
+    first: Int
+
+    """The number of items to return before the referenced "before" cursor"""
+    last: Int
+  ): AcfContentNodeConnection
+}
+
+"""
+Interface representing fields of the ACF &quot;CategoryProductOrder&quot; Field Group
+"""
+interface CategoryProductOrder_Fields implements AcfFieldGroup & AcfFieldGroupFields {
+  """The name of the field group"""
+  fieldGroupName: String @deprecated(reason: "Use __typename instead")
+
+  """
+  Search for products and drag them into the order you want. These appear first on this category page, before all other products. Leave empty to use the normal sorting.
+  """
+  mfPinnedProducts(
+    """
+    Cursor used along with the "first" argument to reference where in the dataset to get data
+    """
+    after: String
+
+    """
+    Cursor used along with the "last" argument to reference where in the dataset to get data
+    """
+    before: String
+
+    """The number of items to return after the referenced "after" cursor"""
+    first: Int
+
+    """The number of items to return before the referenced "before" cursor"""
+    last: Int
+  ): AcfContentNodeConnection
+}
+
+"""
 The &quot;CategoryTabs&quot; Field Group. Added to the Schema by &quot;WPGraphQL for ACF&quot;.
 """
 type CategoryTabs implements AcfFieldGroup & AcfFieldGroupFields & CategoryTabs_Fields {
@@ -48908,6 +48966,32 @@ input HolidaySaleToRevisionConnectionWhereArgs {
   title: String
 }
 
+"""
+The &quot;HomepageShopByMoodCard&quot; Field Group. Added to the Schema by &quot;WPGraphQL for ACF&quot;.
+"""
+type HomepageShopByMoodCard implements AcfFieldGroup & AcfFieldGroupFields & HomepageShopByMoodCard_Fields {
+  """The name of the field group"""
+  fieldGroupName: String @deprecated(reason: "Use __typename instead")
+
+  """
+  Shown on the Shop by Mood cards on the homepage, nowhere else. The banner across the top of this mood page is Mood Hero Desktop / Mood Hero Mobile, not this field. Roughly 3:2 landscape, 658 x 440 or larger. Leave it empty and the card falls back to Mood Hero Desktop, which is a wide banner and crops badly at card shape.
+  """
+  moodHomepageCardImage: AcfMediaItemConnectionEdge
+}
+
+"""
+Interface representing fields of the ACF &quot;HomepageShopByMoodCard&quot; Field Group
+"""
+interface HomepageShopByMoodCard_Fields implements AcfFieldGroup & AcfFieldGroupFields {
+  """The name of the field group"""
+  fieldGroupName: String @deprecated(reason: "Use __typename instead")
+
+  """
+  Shown on the Shop by Mood cards on the homepage, nowhere else. The banner across the top of this mood page is Mood Hero Desktop / Mood Hero Mobile, not this field. Roughly 3:2 landscape, 658 x 440 or larger. Leave it empty and the card falls back to Mood Hero Desktop, which is a wide banner and crops badly at card shape.
+  """
+  moodHomepageCardImage: AcfMediaItemConnectionEdge
+}
+
 """A Gravity Forms honeypot field."""
 type HoneypotField implements FormField & GfFieldWithPersonalData & Node {
   """Field database ID."""
@@ -55771,7 +55855,7 @@ enum MimeTypeEnum {
 }
 
 """The mood type"""
-type Mood implements DatabaseIdentifier & HierarchicalNode & HierarchicalTermNode & MenuItemLinkable & Node & TermNode & UniformResourceIdentifiable & WithAcfMoodFields {
+type Mood implements DatabaseIdentifier & HierarchicalNode & HierarchicalTermNode & MenuItemLinkable & Node & TermNode & UniformResourceIdentifiable & WithAcfHomepageShopByMoodCard & WithAcfMoodFields {
   """
   The ancestors of the node. Default ordered as lowest (closest to the child) to highest (closest to the root).
   """
@@ -55892,6 +55976,9 @@ type Mood implements DatabaseIdentifier & HierarchicalNode & HierarchicalTermNod
     """Arguments for filtering the connection"""
     where: TermNodeToEnqueuedStylesheetConnectionWhereArgs
   ): TermNodeToEnqueuedStylesheetConnection
+
+  """Fields of the HomepageShopByMoodCard ACF Field Group"""
+  homepageShopByMoodCard: HomepageShopByMoodCard
 
   """The globally unique ID for the object"""
   id: ID!
@@ -71333,7 +71420,7 @@ type ProductCalculationField implements FormField & GfFieldWithAdminLabelSetting
 }
 
 """The productCategory type"""
-type ProductCategory implements DatabaseIdentifier & HierarchicalNode & HierarchicalTermNode & MenuItemLinkable & Node & TermNode & UniformResourceIdentifiable {
+type ProductCategory implements DatabaseIdentifier & HierarchicalNode & HierarchicalTermNode & MenuItemLinkable & Node & TermNode & UniformResourceIdentifiable & WithAcfCategoryProductOrder {
   """
   The ancestors of the node. Default ordered as lowest (closest to the child) to highest (closest to the root).
   """
@@ -71354,6 +71441,9 @@ type ProductCategory implements DatabaseIdentifier & HierarchicalNode & Hierarch
     """The number of items to return before the referenced "before" cursor"""
     last: Int
   ): ProductCategoryToAncestorsProductCategoryConnection
+
+  """Fields of the CategoryProductOrder ACF Field Group"""
+  categoryProductOrder: CategoryProductOrder
 
   """
   Connection between the productCategory type and its children productCategories.
@@ -125557,6 +125647,14 @@ interface WithAcfCannabinoidCallout {
 }
 
 """
+Provides access to fields of the &quot;CategoryProductOrder&quot; ACF Field Group via the &quot;categoryProductOrder&quot; field
+"""
+interface WithAcfCategoryProductOrder {
+  """Fields of the CategoryProductOrder ACF Field Group"""
+  categoryProductOrder: CategoryProductOrder
+}
+
+"""
 Provides access to fields of the &quot;CategoryTabs&quot; ACF Field Group via the &quot;categoryTabs&quot; field
 """
 interface WithAcfCategoryTabs {
@@ -125666,6 +125764,14 @@ Provides access to fields of the &quot;HighlightsGroup&quot; ACF Field Group via
 interface WithAcfHighlightsGroup {
   """Fields of the HighlightsGroup ACF Field Group"""
   highlightsGroup: HighlightsGroup
+}
+
+"""
+Provides access to fields of the &quot;HomepageShopByMoodCard&quot; ACF Field Group via the &quot;homepageShopByMoodCard&quot; field
+"""
+interface WithAcfHomepageShopByMoodCard {
+  """Fields of the HomepageShopByMoodCard ACF Field Group"""
+  homepageShopByMoodCard: HomepageShopByMoodCard
 }
 
 """
