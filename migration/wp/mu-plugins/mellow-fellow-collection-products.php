@@ -48,6 +48,18 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         [ $min_price, $max_price ] = [ $max_price, $min_price ];
     }
 
+    // Pinned products (mellow-fellow-category-product-order.php). Only honoured on
+    // the default sort, mirroring the classic store: a shopper-chosen sort (price,
+    // newest, name...) takes precedence over the pinned order. Looked up by term so
+    // it applies to whichever taxonomy this request resolved to.
+    $pinned_ids = [];
+    if ( 'default' === $sort && function_exists( 'mf_cpo_pinned_ids_for_term' ) ) {
+        $pinned_term = get_term_by( 'slug', $slug, $term_tax );
+        if ( $pinned_term && ! is_wp_error( $pinned_term ) ) {
+            $pinned_ids = mf_cpo_pinned_ids_for_term( $term_tax, (int) $pinned_term->term_id );
+        }
+    }
+
     // Parse taxonomy filter params (same keys the frontend sends)
     $filter_map = [
         'productType'       => 'product-type',
@@ -74,7 +86,8 @@ function mf_get_collection_products( WP_REST_Request $request ) {
     // Build cache key from all parameters. Price bounds MUST be included or a
     // filtered response could be served for a different range (or the unfiltered
     // list served for a filtered request).
-    $cache_parts = [ 'mf_cp', $term_tax, $slug, $page, $per_page, $sort, 'min:' . ( $min_price ?? '' ), 'max:' . ( $max_price ?? '' ) ];
+    // pinned included so editing the pinned list invalidates the cached order.
+    $cache_parts = [ 'mf_cp', $term_tax, $slug, $page, $per_page, $sort, 'min:' . ( $min_price ?? '' ), 'max:' . ( $max_price ?? '' ), 'pin:' . implode( '|', $pinned_ids ) ];
     ksort( $active_filters );
     foreach ( $active_filters as $tax => $slugs ) {
         sort( $slugs );
@@ -180,6 +193,16 @@ function mf_get_collection_products( WP_REST_Request $request ) {
         default:
             $order_sql = 'p.menu_order ASC, p.post_title ASC';
             break;
+    }
+
+    // Force pinned products to the top, in the backend order, ahead of the sort
+    // above. $pinned_ids is only populated on the default sort (see lookup above)
+    // and each ID is intval'd, so inlining is safe.
+    if ( $pinned_ids && function_exists( 'mf_cpo_order_by_fragment' ) ) {
+        $pinned_order = mf_cpo_order_by_fragment( $pinned_ids, 'p.ID' );
+        if ( '' !== $pinned_order ) {
+            $order_sql = $pinned_order . ', ' . $order_sql;
+        }
     }
 
     // Count query (same filters, no pagination)
