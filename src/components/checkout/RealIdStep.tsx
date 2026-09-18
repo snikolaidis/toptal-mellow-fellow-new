@@ -235,50 +235,46 @@ export default function RealIdStep({
             </section>
 
             <section className={styles.faq}>
+              <h3>Frequently Asked Questions</h3>
 
-              <h3>
-                Frequently Asked Questions
-              </h3>
+              <details className={styles.faqItem}>
+                <summary>Why do I need to verify my age?</summary>
+                <div className={styles.faqAnswer}>
+                  <p>State and federal regulations require us to verify the age of customers purchasing restricted products to ensure compliance with legal age limits (21+).</p>
+                </div>
+              </details>
 
-              <div className={styles.faqRow}>
-                <span>
-                  Why do I need to verify my age?
-                </span>
-                <span>+</span>
-              </div>
+              <details className={styles.faqItem}>
+                <summary>Is my personal information safe?</summary>
+                <div className={styles.faqAnswer}>
+                  <p>Yes, your information is encrypted and securely processed by Real ID. We do not store your government ID photos or sensitive document details.</p>
+                </div>
+              </details>
 
-              <div className={styles.faqRow}>
-                <span>
-                  Is my personal information safe?
-                </span>
-                <span>+</span>
-              </div>
+              <details className={styles.faqItem}>
+                <summary>How long does verification take?</summary>
+                <div className={styles.faqAnswer}>
+                  <p>Verification usually takes less than 60 seconds. Once verified, you can complete your checkout immediately.</p>
+                </div>
+              </details>
 
-              <div className={styles.faqRow}>
-                <span>
-                  How long does verification take?
-                </span>
-                <span>+</span>
-              </div>
+              <details className={styles.faqItem}>
+                <summary>What ID types are accepted?</summary>
+                <div className={styles.faqAnswer}>
+                  <p>We accept driver's licenses, state IDs, passports, and other official government-issued photo IDs.</p>
+                </div>
+              </details>
 
-              <div className={styles.faqRow}>
-                <span>
-                  What ID types are accepted?
-                </span>
-                <span>+</span>
-              </div>
-
-              <div className={styles.faqRow}>
-                <span>
-                  Will this affect my ability to check out?
-                </span>
-                <span>+</span>
-              </div>
+              <details className={styles.faqItem}>
+                <summary>Will this affect my ability to check out?</summary>
+                <div className={styles.faqAnswer}>
+                  <p>No, once your age is verified, you will proceed directly to the payment step without any delay.</p>
+                </div>
+              </details>
 
               <p className={styles.support}>
                 Still have questions? <strong><a href="#">Contact Support</a></strong>
               </p>
-
             </section>
 
             <button

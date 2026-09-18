@@ -1,6 +1,7 @@
 import { useState } from "react";
 import styles from "./BillingStep.module.css";
 import { useCart } from "@/context/CartContext";
+import { CartIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
 
 interface Address {
   firstName: string;
@@ -67,6 +68,12 @@ export default function BillingStep({
   const [sameAsShipping, setSameAsShipping] = useState(true);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  /*
+   * Controls whether mobile Order Summary is expanded or collapsed.
+   * Default is collapsed (false).
+   */
+  const [isMobileSummaryOpen, setIsMobileSummaryOpen] = useState(false);
 
   /*
    * Keep the user's manually entered billing address
@@ -384,6 +391,91 @@ export default function BillingStep({
               </div>
             )}
           </section>
+          
+          {/* =================================================
+              MOBILE ORDER SUMMARY (Collapsible, Mobile Only)
+          ================================================== */}
+          <div className={styles.mobileSummaryCard}>
+            <button
+              type="button"
+              className={styles.mobileSummaryHeader}
+              onClick={() => setIsMobileSummaryOpen((prev) => !prev)}
+              aria-expanded={isMobileSummaryOpen}
+            >
+              <div className={styles.mobileSummaryHeaderLeft}>
+                <CartIcon />
+                <strong>Order Summary</strong>
+                <span className={styles.mobileSummaryHeaderTotal}>
+                 {shippingWaiverActive
+                  ? `$${subtotalAmount.toFixed(2)}`
+                  : cart?.total}
+                </span>
+              </div>
+
+              <div className={styles.mobileSummaryChevron}>
+                {isMobileSummaryOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+              </div>
+            </button>
+
+            {isMobileSummaryOpen && (
+              <div className={styles.mobileSummaryContent}>
+                {cart?.items.map((product) => (
+                  <div key={product.key} className={styles.product}>
+                    <div className={styles.productImage}>
+                      {product.product.image ? (
+                        <img
+                          src={product.product.image.sourceUrl}
+                          alt={
+                            product.product.image.altText ?? product.product.name
+                          }
+                        />
+                      ) : (
+                        <div className={styles.imagePlaceholder} />
+                      )}
+                    </div>
+
+                    <div className={styles.productInfo}>
+                      <strong>{product.product.name}</strong>
+
+                      <p>Qty: {product.quantity}</p>
+                    </div>
+
+                    <strong>{product.total}</strong>
+                  </div>
+                ))}
+
+                <div className={styles.row}>
+                  <span>Subtotal</span>
+
+                  <span>${subtotalAmount?.toFixed(2)}</span>
+                </div>
+
+                <div className={styles.row}>
+                  <span>Shipping</span>
+
+                  {shippingWaiverActive ? (
+                    <span>
+                      <s>{cart?.shippingTotal}</s> $0.00
+                    </span>
+                  ) : (
+                    <span>
+                      {cart?.shippingTotal === "$0.00"
+                        ? "Free"
+                        : `${cart?.shippingTotal}`}
+                    </span>
+                  )}
+                </div>
+
+                <div className={styles.total}>
+                  <span>Total</span>
+
+                  <strong>{shippingWaiverActive
+                    ? `$${subtotalAmount.toFixed(2)}`
+                    : cart?.total}</strong>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* =====================================
               NAVIGATION
@@ -409,7 +501,7 @@ export default function BillingStep({
         </main>
 
         {/* =========================================
-            RIGHT - ORDER SUMMARY
+            RIGHT - ORDER SUMMARY (Desktop)
         ========================================== */}
 
         <aside className={styles.right}>

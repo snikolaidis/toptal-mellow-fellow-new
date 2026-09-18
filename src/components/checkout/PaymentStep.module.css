@@ -341,6 +341,11 @@
     position: static;
   }
 }
+@media (max-width: 768px) {
+  .summary {
+    display: none;
+  }
+}
 
 @media (max-width: 600px) {
   .page {
