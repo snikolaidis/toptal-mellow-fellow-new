@@ -130,6 +130,28 @@
   flex-direction: column;
   align-items: center;
   padding: 4.7px 16px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chip:focus-visible {
+  outline: 2px solid #000000;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.chip .chipImage {
+  transition: transform 0.2s ease;
+}
+
+@media (hover: hover) {
+  .chip:hover .chipImage {
+    transform: translateY(-3px);
+  }
 }
 
 .chipIcon {
@@ -173,6 +195,14 @@
   line-height: normal;
   color: #000000;
   white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+
+.chipActive .chipLabel {
+  /* Not font-weight: a heavier nowrap label is wider and nudges every chip
+     after it. The shadow thickens the glyphs without reflowing the row. */
+  text-shadow: 0.4px 0 0 currentColor, -0.4px 0 0 currentColor;
+  border-bottom-color: currentColor;
 }
 
 .pillsRow {
