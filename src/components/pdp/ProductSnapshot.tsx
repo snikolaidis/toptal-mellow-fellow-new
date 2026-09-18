@@ -13,11 +13,14 @@ interface Props {
 
 // Badge label for each `top3Cannabinoids` choice key. Keys are lower-cased
 // because the stored values aren't consistently cased ("THCp", "CBDv").
+// Doubles as the alt text for the artwork below.
 const CANNABINOID_LABELS: Record<string, string> = {
   d8: 'DELTA-8 THC',
   d9: 'DELTA-9 THC',
   d10: 'DELTA-10 THC',
+  d11: 'DELTA-11 THC',
   cbd: 'CANNABIDIOL',
+  cbda: 'CBDA',
   cbg: 'CANNABIGEROL',
   cbn: 'CANNABINOL',
   cbc: 'CANNABICHROMENE',
@@ -31,16 +34,55 @@ const CANNABINOID_LABELS: Record<string, string> = {
   thcv: 'THCV',
 };
 
-// A few products hold several keys crammed into one value ("D8, THCp, THCb",
-// "CBGTHCv"). Those don't match a label and are dropped rather than guessed
-// at — they're a content fix in WP.
-function resolveCannabinoidLabels(keys: string[] | undefined): string[] {
-  const labels: string[] = [];
-  for (const key of keys || []) {
-    const label = CANNABINOID_LABELS[key.trim().toLowerCase()];
-    if (label && !labels.includes(label)) labels.push(label);
+// Full chemical names, used for the hover tooltip.
+const CANNABINOID_NAMES: Record<string, string> = {
+  d8: 'DELTA-8 THC',
+  d9: 'DELTA-9 THC',
+  d10: 'DELTA-10 THC',
+  d11: 'DELTA-11 THC',
+  cbd: 'CANNABIDIOL',
+  cbda: 'CANNABIDIOLIC ACID',
+  cbg: 'CANNABIGEROL',
+  cbga: 'CANNABIGEROLIC ACID',
+  cbn: 'CANNABINOL',
+  cbc: 'CANNABICHROMENE',
+  cbdv: 'CANNABIDIVARIN',
+  h4cbd: 'HEXAHYDROCANNABIDIOL',
+  thca: 'TETRAHYDROCANNABINOLIC ACID',
+  thcb: 'TETRAHYDROCANNABUTOL',
+  thch: 'TETRAHYDROCANNABIHEXOL',
+  thcp: 'TETRAHYDROCANNABIPHOROL',
+  thcv: 'TETRAHYDROCANNABIVARIN',
+};
+
+const CANNABINOID_BADGES = new Set([
+  'cbc', 'cbd', 'cbda', 'cbdv', 'cbg', 'cbn', 'd8', 'd9', 'd10', 'd11',
+  'h4cbd', 'thca', 'thcb', 'thch', 'thcp', 'thcv',
+]);
+
+interface CannabinoidBadge {
+  key: string;
+  label: string;
+  name: string; // Full chemical name, for the hover tooltip.
+  src: string | null; // Artwork path, or null when this cannabinoid still needs the drawn badge.
+}
+
+// Keys with no label at all are dropped rather than guessed at — those would
+// be a content fix in WP.
+function resolveCannabinoids(keys: string[] | undefined): CannabinoidBadge[] {
+  const badges: CannabinoidBadge[] = [];
+  for (const raw of keys || []) {
+    const key = raw.trim().toLowerCase();
+    const label = CANNABINOID_LABELS[key];
+    if (!label || badges.some((b) => b.key === key)) continue;
+    badges.push({
+      key,
+      label,
+      name: CANNABINOID_NAMES[key] || label,
+      src: CANNABINOID_BADGES.has(key) ? `/noid-badges/${key}.svg` : null,
+    });
   }
-  return labels.slice(0, 3);
+  return badges.slice(0, 3);
 }
 
 // `calories` is an ACF text field, not a number field, so an unset value can
@@ -115,12 +157,12 @@ export default function ProductSnapshot({
   const { calories } = nutrition || {};
   const hasCalories = hasValue(calories);
   const amount = computeAmount(mG, size);
-  const cannabinoidLabels = resolveCannabinoidLabels(topCannabinoids);
+  const cannabinoids = resolveCannabinoids(topCannabinoids);
 
   const isBeverage = isBeverageProduct(productTypes);
   const hasFeatureTiles = hasCalories || isBeverage;
 
-  if (!hasCalories && !amount && cannabinoidLabels.length === 0 && !isBeverage) {
+  if (!hasCalories && !amount && cannabinoids.length === 0 && !isBeverage) {
     return null;
   }
 
@@ -130,11 +172,22 @@ export default function ProductSnapshot({
         Product Snapshot
       </h3>
 
-      {(cannabinoidLabels.length > 0 || amount) && (
+      {(cannabinoids.length > 0 || amount) && (
         <ul className="product-snapshot__badges">
-          {cannabinoidLabels.map((label) => (
-            <li key={label}>
-              <SnapshotBadge label={label} />
+          {cannabinoids.map(({ key, label, name, src }) => (
+            <li key={key}>
+              {src ? (
+                <img
+                  className="snapshot-badge snapshot-badge--noid"
+                  src={src}
+                  alt={label}
+                  title={name}
+                  width={100}
+                  height={100}
+                />
+              ) : (
+                <SnapshotBadge label={label} title={name} />
+              )}
             </li>
           ))}
           {amount && (
