@@ -111,6 +111,8 @@
   --sh-nav-color: var(--color-text-primary);
   --sh-nav-hover-color: var(--color-brand-primary);
   --sh-dropdown-bg: #fff;
+  --sh-dropdown-line-height: 1.35;
+  --sh-dropdown-item-pad-block: 8px 14px;
 
   --sh-mega-inset-start: 118px;
   --sh-mega-inset-end: 119px;
@@ -701,13 +703,17 @@
 
   @include mixins.desktop {
     justify-content: center;
-    // safe, not plain center: an overflowing centred row leaves its leading
-    // items in scroll space that cannot be reached.
+    // safe, not plain center: an overflowing centred row would push its
+    // leading items off the left edge, where nothing can scroll them back.
     justify-content: safe center;
 
     // The row is a fixed height, so a second line overlaps the bar above and
-    // the page below instead of growing it. Base overflow-x is the floor.
+    // the page below instead of growing it.
     flex-wrap: nowrap;
+
+    // Not a scroll container here: the base overflow-x drags overflow-y to
+    // auto with it, which clips the dropdowns hanging below this box.
+    overflow: visible;
   }
 }
 
@@ -1392,15 +1398,31 @@
     border-top: 0;
     background-color: var(--sh-dropdown-bg);
 
+    // Sized by its content, but never wider than its own item plus the gap
+    // to the next one, or the panel reads as the neighbour's.
+    width: max-content;
+    max-width: calc(100% + var(--sh-nav-gap));
+
     .navbar-item {
       background-color: var(--sh-dropdown-bg);
       border-bottom: none;
-      padding-bottom: 10px;
+      // The row's fixed item height is for the nav strip itself. Here a
+      // capped label needs a second line rather than spilling over the next.
+      height: auto;
+      align-items: flex-start;
+      white-space: normal;
+      line-height: var(--sh-dropdown-line-height);
+      padding-block: var(--sh-dropdown-item-pad-block);
 
       &:hover {
         text-decoration: underline;
       }
     }
+  }
+
+  // Bulma reserves 3rem here for an indicator these panels do not have.
+  .navbar-dropdown a.navbar-item {
+    padding-inline-end: var(--sh-nav-item-pad-inline);
   }
 }
 
