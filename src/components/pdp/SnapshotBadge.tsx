@@ -32,10 +32,11 @@ interface SnapshotBadgeProps {
   label: string;
   value?: string;
   unit?: string;
+  title?: string;
   className?: string;
 }
 
-export default function SnapshotBadge({ label, value, unit, className }: SnapshotBadgeProps) {
+export default function SnapshotBadge({ label, value, unit, title, className }: SnapshotBadgeProps) {
   // Several badges share the page, so each needs its own arc ids.
   const id = useId();
   const topArcId = `${id}-top`;
@@ -44,14 +45,18 @@ export default function SnapshotBadge({ label, value, unit, className }: Snapsho
     label.length > LABEL_MAX_CHARS
       ? { textLength: LABEL_MAX_ARC, lengthAdjust: 'spacingAndGlyphs' as const }
       : {};
+  const name = value ? `${label}: ${value} ${unit || ''}`.trim() : label;
+  const tooltip = title || name;
 
   return (
     <svg
       className={`snapshot-badge snapshot-badge--text-label${className ? ` ${className}` : ''}`}
       viewBox="0 0 74.22 74.22"
       role="img"
-      aria-label={value ? `${label}: ${value} ${unit || ''}`.trim() : label}
+      aria-label={name}
     >
+      <title>{tooltip}</title>
+
       <defs>
         <path id={topArcId} d={TOP_ARC} />
         <path id={bottomArcId} d={BOTTOM_ARC} />

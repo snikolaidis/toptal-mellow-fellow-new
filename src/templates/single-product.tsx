@@ -839,33 +839,35 @@ const SingleProduct: React.FC<SingleProductProps> & {
 
             <FreeShippingTracker />
 
-            <div className="divider is-hidden is-block-tablet"></div>
-
             {/* Fixed bundle contents — read-only, the admin already picked
                 these; there's nothing for the shopper to select. Shown above
                 Available Options so shoppers see what's in the box first. */}
             {isFixedBundle && fixedBundleItems.length > 0 && (
-              <div className="fixed-bundle-items">
-                <span className="fixed-bundle-items-label">What&apos;s included</span>
-                <ul className="fixed-bundle-items-list">
-                  {fixedBundleItems.map(({ productId, quantity: itemQty, product: itemProduct }) => (
-                    <li key={productId} className="fixed-bundle-item">
-                      <div className="fixed-bundle-item-image">
-                        {itemProduct?.image?.sourceUrl && (
-                          <img
-                            src={itemProduct.image.sourceUrl}
-                            alt={itemProduct.image.altText || itemProduct.name}
-                          />
-                        )}
-                      </div>
-                      <span className="fixed-bundle-item-name">
-                        {itemProduct?.name || `Product #${productId}`}
-                      </span>
-                      <span className="fixed-bundle-item-qty">×{itemQty}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <>
+                <div className="divider is-hidden is-block-tablet"></div>
+
+                <div className="fixed-bundle-items">
+                  <span className="fixed-bundle-items-label">What&apos;s included</span>
+                  <ul className="fixed-bundle-items-list">
+                    {fixedBundleItems.map(({ productId, quantity: itemQty, product: itemProduct }) => (
+                      <li key={productId} className="fixed-bundle-item">
+                        <div className="fixed-bundle-item-image">
+                          {itemProduct?.image?.sourceUrl && (
+                            <img
+                              src={itemProduct.image.sourceUrl}
+                              alt={itemProduct.image.altText || itemProduct.name}
+                            />
+                          )}
+                        </div>
+                        <span className="fixed-bundle-item-name">
+                          {itemProduct?.name || `Product #${productId}`}
+                        </span>
+                        <span className="fixed-bundle-item-qty">×{itemQty}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
             )}
 
             <div className="divider is-hidden is-block-tablet"></div>
