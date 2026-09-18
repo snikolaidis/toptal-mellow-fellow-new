@@ -5,6 +5,7 @@ import { useMutation } from "@apollo/client";
 import { UPDATE_CUSTOMER } from "@/graphql/queries/auth";
 import { useCart } from "@/context/CartContext";
 import FreeShippingUpsell from "./FreeShippingUpsell";
+import { CartIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
 
 interface Address {
   firstName: string;
@@ -107,6 +108,12 @@ export default function MellowCheckout({
    */
   const [contactError, setContactError] = useState<string | null>(null);
   const [shippingError, setShippingError] = useState<string | null>(null);
+
+  /*
+   * Controls whether mobile Order Summary is expanded or collapsed.
+   * Default is collapsed (false).
+   */
+  const [isMobileSummaryOpen, setIsMobileSummaryOpen] = useState(false);
 
   /*
    * Prevent customer API from being loaded repeatedly.
@@ -983,6 +990,84 @@ export default function MellowCheckout({
           </section>
 
           {/* =================================================
+              MOBILE ORDER SUMMARY (Collapsible, Mobile Only)
+          ================================================== */}
+          <div className={styles.mobileSummaryCard}>
+            <button
+              type="button"
+              className={styles.mobileSummaryHeader}
+              onClick={() => setIsMobileSummaryOpen((prev) => !prev)}
+              aria-expanded={isMobileSummaryOpen}
+            >
+              <div className={styles.mobileSummaryHeaderLeft}>
+                <CartIcon />
+                <strong>Order Summary</strong>
+                <span className={styles.mobileSummaryHeaderTotal}>
+                  ${displayedTotal?.toFixed(2)}
+                </span>
+              </div>
+
+              <div className={styles.mobileSummaryChevron}>
+                {isMobileSummaryOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+              </div>
+            </button>
+
+            {isMobileSummaryOpen && (
+              <div className={styles.mobileSummaryContent}>
+                {cart?.items.map((product) => (
+                  <div key={product.key} className={styles.product}>
+                    <div className={styles.productImage}>
+                      {product.product.image ? (
+                        <img
+                          src={product.product.image.sourceUrl}
+                          alt={
+                            product.product.image.altText ?? product.product.name
+                          }
+                        />
+                      ) : (
+                        <div className={styles.imagePlaceholder} />
+                      )}
+                    </div>
+
+                    <div className={styles.productInfo}>
+                      <strong>{product.product.name}</strong>
+
+                      <p>Qty: {product.quantity}</p>
+                    </div>
+
+                    <strong>{product.total}</strong>
+                  </div>
+                ))}
+
+                <div className={styles.row}>
+                  <span>Subtotal</span>
+
+                  <span>${subtotalAmount?.toFixed(2)}</span>
+                </div>
+
+                <div className={styles.row}>
+                  <span>Shipping</span>
+
+                  {shippingWaiverActive ? (
+                    <span>
+                      <s>${selectedShippingMethod.price.toFixed(2)}</s>{" "}
+                      $0.00
+                    </span>
+                  ) : (
+                    <span>${selectedShippingMethod.price.toFixed(2)}</span>
+                  )}
+                </div>
+
+                <div className={styles.total}>
+                  <span>Total</span>
+
+                  <strong>${displayedTotal?.toFixed(2)}</strong>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* =================================================
               CONTINUE
           ================================================== */}
           <button
@@ -996,7 +1081,7 @@ export default function MellowCheckout({
         </main>
 
         {/* =====================================================
-            RIGHT - ORDER SUMMARY
+            RIGHT - ORDER SUMMARY (Desktop Only)
         ====================================================== */}
         <aside className={styles.right}>
           <section className={styles.summary}>

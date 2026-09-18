@@ -349,6 +349,10 @@
   color: #c0392b;
 }
 
+.mobileSummaryCard {
+  display: none;
+}
+
 /* =========================================================
    RIGHT COLUMN
    ========================================================= */
@@ -691,13 +695,81 @@
     font-size: 13px;
   }
 
-  /* Order summary moves below checkout */
+  /* Order summary sidebar is hidden on mobile in favor of collapsible card above continue button */
   .right {
+    display: none;
+  }
+
+  .mobileSummaryCard {
+    display: block;
     width: 100%;
-
-    position: static;
-
     margin-top: 14px;
+    margin-bottom: 14px;
+    background: #ffffff;
+    border: 1px solid #ebe6dc;
+    border-radius: 12px;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .mobileSummaryHeader {
+    width: 100%;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-sizing: border-box;
+    text-align: left;
+  }
+
+  .mobileSummaryHeaderLeft {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobileSummaryHeaderLeft svg {
+    width: 20px;
+    height: 20px;
+    color: #101820;
+    flex-shrink: 0;
+  }
+
+  .mobileSummaryHeaderLeft strong {
+    font-size: 14px;
+    font-weight: 700;
+    color: #101820;
+    white-space: nowrap;
+  }
+
+  .mobileSummaryHeaderTotal {
+    font-size: 14px;
+    font-weight: 600;
+    color: #637181;
+    margin-left: 4px;
+    white-space: nowrap;
+  }
+
+  .mobileSummaryChevron {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobileSummaryChevron svg {
+    width: 18px;
+    height: 18px;
+    color: #566575;
+  }
+
+  .mobileSummaryContent {
+    padding: 16px 14px;
+    border-top: 1px solid #ece9e3;
+    background: #ffffff;
   }
 
   .summary {
