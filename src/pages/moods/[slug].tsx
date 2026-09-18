@@ -39,6 +39,7 @@ const sortOptions: SelectOption[] = SORT_OPTIONS;
 
 interface CategoryChip {
   slug: string;
+  productType: string;
   label: string;
   glowColor: string;
   glowSize: number;
@@ -47,12 +48,12 @@ interface CategoryChip {
 }
 
 const CATEGORY_CHIPS: CategoryChip[] = [
-  { slug: 'flower', label: 'Flower', glowColor: '#DD6E7A', glowSize: 63.156, glowBlur: 13.85, glowOpacity: 0.8 },
-  { slug: 'disposable-vapes', label: 'Vapes', glowColor: '#207685', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.46 },
-  { slug: 'edibles', label: 'Edibles', glowColor: '#A1B28F', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 1 },
-  { slug: 'drinks', label: 'Drinks', glowColor: '#FFCC4F', glowSize: 56, glowBlur: 13.5, glowOpacity: 0.92 },
-  { slug: 'vape-cartridges', label: 'Carts', glowColor: '#A997BB', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.79 },
-  { slug: 'concentrates', label: 'Concentrates', glowColor: '#E08A45', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.8 },
+  { slug: 'flower', productType: 'flower', label: 'Flower', glowColor: '#DD6E7A', glowSize: 63.156, glowBlur: 13.85, glowOpacity: 0.8 },
+  { slug: 'disposable-vapes', productType: 'disposable-vape', label: 'Vapes', glowColor: '#207685', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.46 },
+  { slug: 'edibles', productType: 'edible', label: 'Edibles', glowColor: '#A1B28F', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 1 },
+  { slug: 'drinks', productType: 'beverage', label: 'Drinks', glowColor: '#FFCC4F', glowSize: 56, glowBlur: 13.5, glowOpacity: 0.92 },
+  { slug: 'vape-cartridges', productType: 'vape-cartridge', label: 'Carts', glowColor: '#A997BB', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.79 },
+  { slug: 'concentrates', productType: 'concentrates', label: 'Concentrates', glowColor: '#E08A45', glowSize: 63.156, glowBlur: 13.5, glowOpacity: 0.8 },
 ];
 
 const MOOD_ORDER = [
@@ -235,6 +236,15 @@ export default function MoodPage({
   }
 
   const isEmpty = totalProducts === 0;
+
+  // Single-select over the shared productType filter: a chip reads as active
+  // only when its type is the sole one selected, so ticking two types in the
+  // sidebar lights none, and clicking a chip replaces that selection.
+  const activeTypes = activeFilters.productType ?? [];
+  const activeChip = activeTypes.length === 1 ? activeTypes[0] : null;
+  const handleChipClick = (type: string) =>
+    handleFilterChange('productType', activeChip === type ? [] : [type]);
+
   const displayCount = isFiltered && filteredTotal !== null ? filteredTotal : totalProducts;
 
   const heroDesktop = mood.moodFields?.moodHeroDesktop?.node;
@@ -321,35 +331,44 @@ export default function MoodPage({
           <span className={moodStyles.current}>{mood.name}</span>
         </nav>
 
-        <div className={moodStyles.chipsRow}>
-          {CATEGORY_CHIPS.map((chip) => {
-            const icon = getProductIcon(chip.slug);
-            if (!icon) return null;
-            return (
-              <div key={chip.slug} className={moodStyles.chip}>
-                <span
-                  className={moodStyles.chipIcon}
-                  style={{
-                    '--glow-color': chip.glowColor,
-                    '--glow-size': `${chip.glowSize}px`,
-                    '--glow-blur': `${chip.glowBlur}px`,
-                    '--glow-opacity': String(chip.glowOpacity),
-                  } as CSSProperties}
+        {!isEmpty && (
+          <div className={moodStyles.chipsRow} role="group" aria-label="Filter by category">
+            {CATEGORY_CHIPS.map((chip) => {
+              const icon = getProductIcon(chip.slug);
+              if (!icon) return null;
+              const isActive = activeChip === chip.productType;
+              return (
+                <button
+                  key={chip.slug}
+                  type="button"
+                  className={`${moodStyles.chip} ${isActive ? moodStyles.chipActive : ''}`}
+                  aria-pressed={isActive}
+                  onClick={() => handleChipClick(chip.productType)}
                 >
-                  <span className={moodStyles.chipGlow} aria-hidden="true" />
-                  <Image
-                    className={moodStyles.chipImage}
-                    src={icon.src}
-                    alt=""
-                    width={icon.width}
-                    height={icon.height}
-                  />
-                </span>
-                <span className={moodStyles.chipLabel}>{chip.label}</span>
-              </div>
-            );
-          })}
-        </div>
+                  <span
+                    className={moodStyles.chipIcon}
+                    style={{
+                      '--glow-color': chip.glowColor,
+                      '--glow-size': `${chip.glowSize}px`,
+                      '--glow-blur': `${chip.glowBlur}px`,
+                      '--glow-opacity': String(chip.glowOpacity),
+                    } as CSSProperties}
+                  >
+                    <span className={moodStyles.chipGlow} aria-hidden="true" />
+                    <Image
+                      className={moodStyles.chipImage}
+                      src={icon.src}
+                      alt=""
+                      width={icon.width}
+                      height={icon.height}
+                    />
+                  </span>
+                  <span className={moodStyles.chipLabel}>{chip.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {moodPills.length > 0 && (
           <nav className={moodStyles.pillsRow} aria-label="Moods" ref={pillsRowRef}>
